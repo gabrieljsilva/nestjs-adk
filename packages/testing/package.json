@@ -46,5 +46,14 @@
 		"*": {
 			"matchers": ["./dist/matchers.d.ts"]
 		}
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/gabrieljsilva/nestjs-adk.git",
+		"directory": "packages/testing"
+	},
+	"homepage": "https://github.com/gabrieljsilva/nestjs-adk#readme",
+	"bugs": {
+		"url": "https://github.com/gabrieljsilva/nestjs-adk/issues"
 	}
 }
