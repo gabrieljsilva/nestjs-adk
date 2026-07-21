@@ -6,11 +6,14 @@ import { ArtifactStore } from "../abstracts/artifact-store";
 import { SessionStore } from "../abstracts/session-store";
 import { ADK_OPTIONS } from "../constants";
 import {
+	type AdkError,
+	AgentMaxIterationsError,
 	AiEmptyResponseError,
 	ApprovalNotFoundError,
 	OutputValidationError,
 	SessionNotFoundError,
 	ToolExecutionError,
+	ToolRepeatedFailureError,
 } from "../errors";
 import { type ContextPolicy, DEFAULT_OFFLOAD_THRESHOLD } from "../models/context-policy";
 import type { AdkModuleOptions } from "../module/adk-options";
@@ -36,11 +39,23 @@ const EMPTY_USAGE: TokenUsage = { promptTokens: 0, outputTokens: 0, totalTokens:
 /** State key for pending approvals (HITL). */
 const HITL_STATE_KEY = "__adk_hitl";
 
+interface RunLimits {
+	maxIterations?: number;
+	maxConsecutiveToolFailures?: number;
+}
+
 interface RunRuntime {
 	/** Artifact scope (sessionId, or ephemeral id per run). */
 	scope: string;
 	/** Pending approvals created during this run. */
 	pendings: PendingApproval[];
+	/** Consecutive failure count per tool (circuit breaker) — a success resets that tool's count. */
+	failures: Map<string, number>;
+	limits: RunLimits;
+	log?: RunLogger;
+	/** Aborts the engine loop and stores the fatal error for run() to rethrow. */
+	abort(error: AdkError): void;
+	fatal?: AdkError;
 }
 
 /**
@@ -65,24 +80,57 @@ export class AgentRunner {
 		log?.start(input);
 
 		const session = await this.openSession(input);
-		const state = new DeltaStateBag({ ...(session?.state ?? {}), ...(input.state ?? {}) });
-		const runtime: RunRuntime = { scope: input.sessionId ?? randomUUID(), pendings: [] };
-		const ctx = this.createToolContext(definition, input, state);
+		const state = this.stateBagFor(definition, { ...(session?.state ?? {}), ...(input.state ?? {}) });
+		const controller = new AbortController();
+		// AbortSignal.any (Node >= 20): no listener is left behind on a consumer signal shared across runs.
+		const signal = input.signal ? AbortSignal.any([input.signal, controller.signal]) : controller.signal;
+		const runtime = this.createRuntime(definition, input, controller, log);
+		const ctx = this.createToolContext(definition, input, state, signal);
 		const resolved = await this.resolveAgent(definition, ctx, runtime);
 
 		// History captured BEFORE persisting the current message — engines hydrate the context with it.
-		const engineInput: RunInput = { ...input, history: session?.events };
+		const engineInput: RunInput = { ...input, signal, history: session?.events };
 
 		if (session) await this.persist(session.id, "user", "message", { text: input.message });
 
-		for await (const event of this.engine.run(resolved, engineInput)) {
-			log?.event(event);
-			if (session) await this.persistAgentEvent(session.id, event);
-			if (event.type === "final" && definition.output && definition.outputKey) {
-				const parsed = definition.output.safeParse(tryParseJson(event.text));
-				if (parsed.success) state.set(definition.outputKey, parsed.data);
+		// Iteration = one batch of tool calls (consecutive tool_call events count once — parallel calls).
+		let iterations = 0;
+		let usage = EMPTY_USAGE;
+		let lastEventType: AgentEvent["type"] | undefined;
+
+		try {
+			for await (const event of this.engine.run(resolved, engineInput)) {
+				// Defense against engines that swallow the breaker's error and ignore the abort signal.
+				if (runtime.fatal) break;
+				if (event.type === "llm_response" && event.usage) usage = addUsage(usage, event.usage);
+				if (event.type === "tool_call" && lastEventType !== "tool_call") {
+					iterations += 1;
+					const limit = runtime.limits.maxIterations;
+					if (limit !== undefined && iterations > limit) {
+						runtime.abort(new AgentMaxIterationsError(definition.name, limit, usage, event.tool));
+						break;
+					}
+				}
+				lastEventType = event.type;
+
+				log?.event(event);
+				if (session) await this.persistAgentEvent(session.id, event);
+				if (event.type === "final" && definition.output && definition.outputKey) {
+					const parsed = definition.output.safeParse(tryParseJson(event.text));
+					if (parsed.success) state.set(definition.outputKey, parsed.data);
+				}
+				yield event;
 			}
-			yield event;
+		} catch (error) {
+			if (runtime.fatal) {
+				log?.abort(runtime.fatal, usage);
+				throw runtime.fatal;
+			}
+			throw error;
+		}
+		if (runtime.fatal) {
+			log?.abort(runtime.fatal, usage);
+			throw runtime.fatal;
 		}
 
 		for (const pending of runtime.pendings) {
@@ -151,7 +199,7 @@ export class AgentRunner {
 		const binding = definition.tools.find((candidate) => candidate.options.name === entry.tool);
 		if (!binding) throw new ApprovalNotFoundError(params.callId, params.sessionId);
 
-		const state = new DeltaStateBag(session.state);
+		const state = this.stateBagFor(definition, session.state);
 		const ctx = this.createToolContext(definition, { message: "", sessionId: session.id, userId: session.userId }, state);
 		const result = await this.executeBinding(definition, binding, entry.args, ctx);
 
@@ -180,11 +228,9 @@ export class AgentRunner {
 	/** Public resolution (used by createAdkEntry and engine tools): ResolvedAgent with an ephemeral ToolContext. */
 	public resolve(agentType: Type | string, input: RunInput = { message: "" }): Promise<ResolvedAgent> {
 		const definition = this.definitionOf(agentType);
-		const state = new DeltaStateBag({ ...(input.state ?? {}) });
-		return this.resolveAgent(definition, this.createToolContext(definition, input, state), {
-			scope: input.sessionId ?? randomUUID(),
-			pendings: [],
-		});
+		const state = this.stateBagFor(definition, { ...(input.state ?? {}) });
+		const runtime = this.createRuntime(definition, input);
+		return this.resolveAgent(definition, this.createToolContext(definition, input, state), runtime);
 	}
 
 	// ---------- internals ----------
@@ -209,15 +255,55 @@ export class AgentRunner {
 		return { session, entry, rest: pendings.filter((candidate) => candidate.callId !== callId) };
 	}
 
-	private createToolContext(definition: AgentDefinition, input: RunInput, state: DeltaStateBag): ToolContext {
+	private createToolContext(
+		definition: AgentDefinition,
+		input: RunInput,
+		state: DeltaStateBag,
+		signal?: AbortSignal,
+	): ToolContext {
 		return {
 			agentName: definition.name,
 			sessionId: input.sessionId,
 			userId: input.userId,
 			state,
 			attributes: input.attributes ?? {},
-			signal: input.signal ?? new AbortController().signal,
+			signal: signal ?? input.signal ?? new AbortController().signal,
 			actions: { endRun: () => undefined },
+		};
+	}
+
+	private stateBagFor(definition: AgentDefinition, initial: Record<string, unknown>): DeltaStateBag {
+		return new DeltaStateBag(initial, { schema: definition.options?.state, agent: definition.name });
+	}
+
+	private createRuntime(
+		definition: AgentDefinition,
+		input: RunInput,
+		controller?: AbortController,
+		log?: RunLogger,
+	): RunRuntime {
+		const runtime: RunRuntime = {
+			scope: input.sessionId ?? randomUUID(),
+			pendings: [],
+			failures: new Map(),
+			limits: this.limitsFor(definition, input),
+			log,
+			abort: (error) => {
+				runtime.fatal ??= error;
+				controller?.abort();
+			},
+		};
+		return runtime;
+	}
+
+	/** Resolution: ask() override > @Agent > forRoot defaults; unset at every level = unlimited. */
+	private limitsFor(definition: AgentDefinition, input: RunInput): RunLimits {
+		return {
+			maxIterations: input.maxIterations ?? definition.options?.maxIterations ?? this.options.defaults?.maxIterations,
+			maxConsecutiveToolFailures:
+				input.maxConsecutiveToolFailures ??
+				definition.options?.maxConsecutiveToolFailures ??
+				this.options.defaults?.maxConsecutiveToolFailures,
 		};
 	}
 
@@ -256,7 +342,7 @@ export class AgentRunner {
 					};
 				}
 
-				const raw = await this.executeBinding(definition, binding, input, ctx);
+				const raw = await this.executeGuarded(definition, binding, input, ctx, runtime);
 				if (!offloadEnabled || binding.options.offload === false) return raw;
 				return this.maybeOffload(raw, binding.options.name ?? "", threshold, runtime.scope);
 			},
@@ -322,6 +408,33 @@ export class AgentRunner {
 		if (requirement === true) return true;
 		const self = binding.kind === "class" ? binding.instance : definition.instance;
 		return requirement.call(self, input, ctx);
+	}
+
+	/** Circuit breaker: N consecutive failures of the same tool abort the run (a success resets). */
+	private async executeGuarded(
+		definition: AgentDefinition,
+		binding: ToolBinding,
+		input: unknown,
+		ctx: ToolContext,
+		runtime: RunRuntime,
+	): Promise<unknown> {
+		const tool = binding.options.name ?? "";
+		try {
+			const raw = await this.executeBinding(definition, binding, input, ctx);
+			runtime.failures.delete(tool);
+			return raw;
+		} catch (error) {
+			const count = (runtime.failures.get(tool) ?? 0) + 1;
+			runtime.failures.set(tool, count);
+			const limit = runtime.limits.maxConsecutiveToolFailures;
+			runtime.log?.toolFailure(tool, count, limit);
+			if (limit !== undefined && count >= limit) {
+				const fatal = new ToolRepeatedFailureError(definition.name, tool, count, error);
+				runtime.abort(fatal);
+				throw fatal;
+			}
+			throw error;
+		}
 	}
 
 	private async executeBinding(
@@ -426,6 +539,14 @@ export class AgentRunner {
 	): Promise<void> {
 		await this.store.appendEvent(sessionId, { v: 1, id: randomUUID(), at: Date.now(), author, type, data });
 	}
+}
+
+function addUsage(total: TokenUsage, delta: TokenUsage): TokenUsage {
+	return {
+		promptTokens: total.promptTokens + delta.promptTokens,
+		outputTokens: total.outputTokens + delta.outputTokens,
+		totalTokens: total.totalTokens + delta.totalTokens,
+	};
 }
 
 /** Direct JSON or the first {...} block (models sometimes wrap it with text/fences). */

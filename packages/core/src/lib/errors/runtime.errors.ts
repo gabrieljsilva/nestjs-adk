@@ -1,3 +1,4 @@
+import type { TokenUsage } from "../types/events";
 import { AdkError } from "./adk.error";
 
 /** Runtime errors: thrown from ask()/iterators — they never become events. */
@@ -70,6 +71,65 @@ export class OutputValidationError extends AdkError {
 		public readonly issues: unknown,
 	) {
 		super(`Agent "${agent}" returned output that does not match its declared schema.`);
+	}
+}
+
+export class AgentStateInvalidError extends AdkError {
+	public readonly code = "AGENT_STATE_INVALID";
+
+	public constructor(
+		agent: string,
+		public readonly issues: unknown,
+		public readonly key?: string,
+	) {
+		super(
+			key
+				? `Agent "${agent}" received a value for state key "${key}" that does not match its declared state schema.`
+				: `Agent "${agent}" received state that does not match its declared state schema.`,
+		);
+	}
+}
+
+export class AgentStateMissingError extends AdkError {
+	public readonly code = "AGENT_STATE_MISSING";
+
+	public constructor(
+		agent: string,
+		public readonly key: string,
+	) {
+		super(`Agent "${agent}" requires state key "${key}" but it is absent.`);
+	}
+}
+
+export class AgentMaxIterationsError extends AdkError {
+	public readonly code = "AGENT_MAX_ITERATIONS";
+
+	public constructor(
+		agent: string,
+		public readonly limit: number,
+		public readonly usage: TokenUsage,
+		public readonly lastTool?: string,
+	) {
+		super(
+			`Agent "${agent}" exceeded maxIterations (${limit}) — the run was aborted.${
+				lastTool ? ` Last requested tool: "${lastTool}".` : ""
+			}`,
+		);
+	}
+}
+
+export class ToolRepeatedFailureError extends AdkError {
+	public readonly code = "TOOL_REPEATED_FAILURE";
+
+	public constructor(
+		agent: string,
+		public readonly tool: string,
+		public readonly failures: number,
+		cause: unknown,
+	) {
+		super(`Tool "${tool}" failed ${failures} consecutive times on agent "${agent}" — the run was aborted.`, {
+			cause,
+		});
 	}
 }
 

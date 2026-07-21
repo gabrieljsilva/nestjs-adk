@@ -42,6 +42,8 @@ export class ScriptedLlm extends BaseLlm {
 						},
 					],
 				},
+				// Real models report usage on every response, including tool-call turns.
+				usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 5, totalTokenCount: 15 },
 			};
 			return;
 		}

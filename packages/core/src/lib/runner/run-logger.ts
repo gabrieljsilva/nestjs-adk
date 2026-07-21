@@ -75,6 +75,16 @@ export class RunLogger {
 		}
 	}
 
+	/** Run aborted by a limit (maxIterations / tool breaker) — always visible, like other anomalies. */
+	public abort(error: Error, usage: TokenUsage): void {
+		this.logger.warn(`run aborted after ${Date.now() - this.startedAt}ms: ${error.message}${usageSuffix(usage)}`);
+	}
+
+	/** Circuit-breaker escalation: one line per counted failure. */
+	public toolFailure(tool: string, count: number, limit: number | undefined): void {
+		if (this.enabled("debug")) this.logger.debug(`tool "${tool}" failed (${count}/${limit ?? "∞"} consecutive)`);
+	}
+
 	private enabled(level: LogLevel): boolean {
 		return LEVEL_WEIGHT[level] <= LEVEL_WEIGHT[this.level];
 	}

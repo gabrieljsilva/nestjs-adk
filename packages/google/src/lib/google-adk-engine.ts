@@ -125,11 +125,12 @@ export class GoogleAdkEngine extends AdkEngine {
 			}
 
 			const text = (event.content?.parts ?? []).map((part) => part.text ?? "").join("");
-			if (text) {
+			// Tool-call-only turns still emit llm_response (no text) so consumers can aggregate usage.
+			if (text || (event.usageMetadata && getFunctionCalls(event).length > 0)) {
 				yield {
 					type: "llm_response",
 					agent: author,
-					text,
+					text: text || undefined,
 					usage: event.usageMetadata ? mapUsage(event.usageMetadata) : undefined,
 					raw: { event },
 				};

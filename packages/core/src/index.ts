@@ -40,6 +40,7 @@ export { AgentRunner } from "./lib/runner/agent-runner";
 export { RunLogger } from "./lib/runner/run-logger";
 export type { LoggingOption } from "./lib/runner/run-logger";
 export { DeltaStateBag } from "./lib/runner/state-bag";
+export type { StateGuard } from "./lib/runner/state-bag";
 export { buildInstruction, skillContent } from "./lib/runner/instruction-builder";
 
 // model specs
@@ -80,7 +81,10 @@ export {
 	UnresolvedToolsetError,
 } from "./lib/errors";
 export {
+	AgentMaxIterationsError,
 	AgentNotFoundError,
+	AgentStateInvalidError,
+	AgentStateMissingError,
 	AiEmptyResponseError,
 	ApprovalNotFoundError,
 	EmbedderNotConfiguredError,
@@ -90,6 +94,7 @@ export {
 	SessionNotFoundError,
 	SkillNotFoundError,
 	ToolExecutionError,
+	ToolRepeatedFailureError,
 } from "./lib/errors/runtime.errors";
 
 // events & run types

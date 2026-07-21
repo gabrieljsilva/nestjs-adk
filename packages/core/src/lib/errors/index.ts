@@ -13,7 +13,10 @@ export {
 	UnresolvedToolsetError,
 } from "./boot.errors";
 export {
+	AgentMaxIterationsError,
 	AgentNotFoundError,
+	AgentStateInvalidError,
+	AgentStateMissingError,
 	ApprovalNotFoundError,
 	EmbedderNotConfiguredError,
 	AiEmptyResponseError,
@@ -23,4 +26,5 @@ export {
 	SessionNotFoundError,
 	SkillNotFoundError,
 	ToolExecutionError,
+	ToolRepeatedFailureError,
 } from "./runtime.errors";

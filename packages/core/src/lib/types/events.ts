@@ -36,6 +36,10 @@ export interface RunInput {
 	/** Billing/cost tracking per run (Vertex). */
 	labels?: Record<string, string>;
 	signal?: AbortSignal;
+	/** Per-call override of the agent/module maxIterations. */
+	maxIterations?: number;
+	/** Per-call override of the agent/module maxConsecutiveToolFailures. */
+	maxConsecutiveToolFailures?: number;
 	/** Filled in by the AgentRunner for persistent sessions: history BEFORE the current message. Engines use it to hydrate the context. */
 	history?: SessionEvent[];
 }

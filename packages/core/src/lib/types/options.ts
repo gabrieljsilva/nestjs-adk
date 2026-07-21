@@ -37,6 +37,21 @@ export interface AgentOptions {
 	outputKey?: string;
 	/** Continuity: this agent's compaction/offload. Overrides the module default. */
 	context?: import("../models/context-policy").ContextPolicy;
+	/**
+	 * Session-state schema: validated at run entry (ask() + store hydration, before any model call)
+	 * and on every write to a declared key (ctx.state.set / outputKey). Undeclared keys pass through.
+	 */
+	state?: AnyZodObject;
+	/**
+	 * Cap of model↔tools round-trips (tool-call batches) per run. Exceeding it aborts with
+	 * AgentMaxIterationsError. Resolution: ask() > agent > forRoot defaults; unset = unlimited.
+	 */
+	maxIterations?: number;
+	/**
+	 * Consecutive failures of the SAME tool that abort the run with ToolRepeatedFailureError
+	 * (a success resets that tool's count). Same resolution as maxIterations; unset = unlimited.
+	 */
+	maxConsecutiveToolFailures?: number;
 }
 
 export interface ToolOptions<S extends AnyZodObject = AnyZodObject> {

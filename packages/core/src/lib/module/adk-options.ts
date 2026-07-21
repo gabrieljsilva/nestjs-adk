@@ -27,6 +27,11 @@ export interface AdkModuleOptions {
 	logging?: import("../runner/run-logger").LoggingOption;
 	/** Global default for Continuity, overridable per agent. */
 	context?: import("../models/context-policy").ContextPolicy;
+	/** Global defaults for run limits, overridable per agent (@Agent) and per call (ask()). Unset = unlimited. */
+	defaults?: {
+		maxIterations?: number;
+		maxConsecutiveToolFailures?: number;
+	};
 }
 
 export interface AdkModuleAsyncOptions extends Pick<ModuleMetadata, "imports"> {

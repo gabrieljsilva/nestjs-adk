@@ -13,7 +13,8 @@
 		"uuid": "^14.0.1",
 		"adm-zip": "^0.6.0",
 		"@tootallnate/once": "^3.0.1",
-		"@opentelemetry/core": "^2.9.0"
+		"@opentelemetry/core": "^2.9.0",
+		"@hono/node-server": "^2.0.5"
 	},
 	"scripts": {
 		"build": "turbo run build",

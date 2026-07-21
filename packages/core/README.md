@@ -183,6 +183,45 @@ Pass a `sessionId` to `ask()` and the conversation becomes persistent. The agent
 
 Storage goes through the `SessionStore` contract. The default implementation keeps everything in memory, which is perfect for development. For production you implement the contract with your own database and pass the class to `forRoot({ session })`. The store is the single source of truth: engines read from it and write to it, and never keep a private copy of the history.
 
+## Validating the session state
+
+The session state is a shared bag. Your code writes to it, tools write to it, and it can arrive from outside through a stored session. By default nothing checks those values, so a malformed value can travel all the way into your database layer. If you want a guarantee, declare a schema on the agent:
+
+```ts
+const reportState = z.object({ tenantId: z.string().min(1), count: z.number() });
+
+@Agent({ name: "reporter", description: "Builds reports.", state: reportState, ... })
+class ReporterAgent extends AdkAgent {}
+```
+
+From that moment the framework validates the declared keys at every border. When a run starts, the state coming from `ask()` and from the stored session is checked before any call to the model, so an invalid value fails fast with an `AgentStateInvalidError` and costs zero tokens. When a tool writes with `ctx.state.set`, the write is checked at that moment. Keys that the schema does not declare keep flowing freely, which matters for pipelines where one agent writes its output for the next one.
+
+Inside a tool you can also demand a value instead of hoping it is there:
+
+```ts
+execute(input, ctx: ToolContext<z.infer<typeof reportState>>) {
+	const tenantId = ctx.state.require("tenantId"); // typed as string, throws AgentStateMissingError if absent
+}
+```
+
+The generic on `ToolContext` is an annotation you choose, because the same tool can serve many agents. Typing it gives you autocomplete and typed reads. If a tool serves two agents, annotate it with the union of the two state types and TypeScript will only let you touch the keys both agents share.
+
+One note about errors: `AgentStateInvalidError` exposes the raw Zod issues in `error.issues`. Decide what your application logs, because in Zod v4 the issues can include the rejected value.
+
+## Capping the loop
+
+A lost model can call tools forever, and a broken tool can fail forever while the model retries. Both burn tokens. The framework ships two optional caps:
+
+```ts
+@Agent({ name: "reporter", maxIterations: 16, maxConsecutiveToolFailures: 2, ... })
+```
+
+`maxIterations` limits the model and tool round trips in a single run. Passing the cap aborts the run with an `AgentMaxIterationsError` that carries the aggregated token usage and the last requested tool, so you know what the loop cost before it died. `maxConsecutiveToolFailures` is a circuit breaker per tool: when the same tool fails that many times in a row the run aborts with a `ToolRepeatedFailureError`, without waiting for the bigger cap. A success resets the count.
+
+Both are off unless you set them. You can define module wide defaults with `forRoot({ defaults: { maxIterations: 16 } })`, override them per agent in the decorator, and override both per call in `ask()`. The call wins over the agent, and the agent wins over the module. Because the per call override wins, build your `RunInput` in your own code and never from a raw external payload.
+
+These caps protect runs that go through `ask()`, `stream()` and the runner. The `adk web` playground resolves agents through a different path and does not count iterations, which is fine because it is a development tool.
+
 ## Keeping the context small
 
 Long conversations and big tool results eat your context window. The framework handles both cases for you.
@@ -247,7 +286,7 @@ Modes are `sequential`, `parallel` and `loop`. A workflow is also an agent: you 
 
 `stream()` yields a normalized event loop: `run_start`, `tool_call`, `tool_result`, `llm_response`, `model_rerouted`, `approval_required` and `final`. Every event carries a `raw` field with the original payload from the provider, so no information is lost. `ask()` consumes the same loop and aggregates it into a `RunResult` with `text`, `usage`, `events`, `status` and, when declared, `output`.
 
-Errors are not events. They throw as typed classes that extend `AdkError` and carry a `code`. Configuration problems throw at startup and point at the class that caused them. Runtime problems throw classes like `AiEmptyResponseError`, `OutputValidationError`, `ToolExecutionError` and `ModelsExhaustedError`, so you can catch exactly what you care about.
+Errors are not events. They throw as typed classes that extend `AdkError` and carry a `code`. Configuration problems throw at startup and point at the class that caused them. Runtime problems throw classes like `AiEmptyResponseError`, `OutputValidationError`, `ToolExecutionError`, `ModelsExhaustedError`, `AgentStateInvalidError` and `AgentMaxIterationsError`, so you can catch exactly what you care about.
 
 ## Logs
 
