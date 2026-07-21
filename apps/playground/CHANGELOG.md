@@ -1,5 +1,14 @@
 # @workspace/playground
 
+## 0.0.4
+
+### Patch Changes
+
+- Updated dependencies [84cd3b8]
+  - @nestjs-adk/core@1.0.0
+  - @nestjs-adk/google@1.0.0
+  - @nestjs-adk/testing@1.0.0
+
 ## 0.0.3
 
 ### Patch Changes
