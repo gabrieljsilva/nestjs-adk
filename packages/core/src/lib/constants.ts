@@ -1,0 +1,9 @@
+export const AGENT_METADATA = Symbol("adk:agent");
+export const TOOL_METADATA = Symbol("adk:tool");
+export const SKILL_METADATA = Symbol("adk:skill");
+export const WORKFLOW_METADATA = Symbol("adk:workflow");
+export const INLINE_TOOLS_METADATA = Symbol("adk:inline-tools");
+export const INLINE_SKILLS_METADATA = Symbol("adk:inline-skills");
+
+export const ADK_OPTIONS = Symbol("adk:options");
+export const ADK_RUNNER = Symbol("adk:runner");

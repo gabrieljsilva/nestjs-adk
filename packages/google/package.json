@@ -1,0 +1,43 @@
+{
+	"name": "@nestjs-adk/google",
+	"version": "0.0.1",
+	"description": "Google ADK engine adapter for @nestjs-adk/core — translates decorators into native LlmAgent/FunctionTool at runtime.",
+	"license": "MIT",
+	"sideEffects": false,
+	"main": "dist/index.cjs",
+	"module": "dist/index.mjs",
+	"types": "dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.mjs",
+			"require": "./dist/index.cjs"
+		},
+		"./package.json": "./package.json"
+	},
+	"files": ["dist"],
+	"engines": {
+		"node": ">=20"
+	},
+	"scripts": {
+		"prebuild": "rimraf -g dist",
+		"build": "rollup -c"
+	},
+	"dependencies": {
+		"@google/adk": "^1.3.0",
+		"adk-llm-bridge": "^0.5.3"
+	},
+	"peerDependencies": {
+		"@nestjs-adk/core": "^0.0.1",
+		"@nestjs/common": "^10.0.0 || ^11.0.0",
+		"@nestjs/core": "^10.0.0 || ^11.0.0",
+		"reflect-metadata": "^0.1.13 || ^0.2.0",
+		"zod": "^3.23.0 || ^4.0.0"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"devDependencies": {
+		"@nestjs-adk/core": "^0.0.1"
+	}
+}

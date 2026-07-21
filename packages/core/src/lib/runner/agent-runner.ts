@@ -1,0 +1,444 @@
+import { randomUUID } from "node:crypto";
+import { Inject, Injectable, Optional, type Type } from "@nestjs/common";
+import { z } from "zod";
+import { AdkEngine } from "../abstracts/adk-engine";
+import { ArtifactStore } from "../abstracts/artifact-store";
+import { SessionStore } from "../abstracts/session-store";
+import { ADK_OPTIONS } from "../constants";
+import {
+	AiEmptyResponseError,
+	ApprovalNotFoundError,
+	OutputValidationError,
+	SessionNotFoundError,
+	ToolExecutionError,
+} from "../errors";
+import { type ContextPolicy, DEFAULT_OFFLOAD_THRESHOLD } from "../models/context-policy";
+import type { AdkModuleOptions } from "../module/adk-options";
+import type { AgentDefinition, ToolBinding } from "../registry/agent-definition";
+import { AgentRegistry } from "../registry/agent-registry";
+import type {
+	AgentEvent,
+	PendingApproval,
+	RunInput,
+	RunResult,
+	Session,
+	SessionEvent,
+	TokenUsage,
+} from "../types/events";
+import type { ResolvedAgent, ResolvedTool } from "../types/resolved-agent";
+import type { ToolContext } from "../types/tool-context";
+import { ToolsetResolver } from "../types/toolset";
+import { buildInstruction, skillContent } from "./instruction-builder";
+import { RunLogger } from "./run-logger";
+import { DeltaStateBag } from "./state-bag";
+
+const EMPTY_USAGE: TokenUsage = { promptTokens: 0, outputTokens: 0, totalTokens: 0 };
+/** State key for pending approvals (HITL). */
+const HITL_STATE_KEY = "__adk_hitl";
+
+interface RunRuntime {
+	/** Artifact scope (sessionId, or ephemeral id per run). */
+	scope: string;
+	/** Pending approvals created during this run. */
+	pendings: PendingApproval[];
+}
+
+/**
+ * Execution layer 1: the normalized event loop.
+ * Resolves the agent via DI, manages the session (ephemeral or persistent), builds the instruction,
+ * applies Continuity (offload/HITL) and delegates the loop to the engine.
+ */
+@Injectable()
+export class AgentRunner {
+	public constructor(
+		private readonly engine: AdkEngine,
+		private readonly registry: AgentRegistry,
+		private readonly store: SessionStore,
+		private readonly artifacts: ArtifactStore,
+		@Inject(ADK_OPTIONS) private readonly options: AdkModuleOptions,
+		@Optional() private readonly toolsets?: ToolsetResolver,
+	) {}
+
+	public async *run(agentType: Type | string, input: RunInput): AsyncGenerator<AgentEvent> {
+		const definition = this.definitionOf(agentType);
+		const log = RunLogger.create(this.options.logging, definition.name);
+		log?.start(input);
+
+		const session = await this.openSession(input);
+		const state = new DeltaStateBag({ ...(session?.state ?? {}), ...(input.state ?? {}) });
+		const runtime: RunRuntime = { scope: input.sessionId ?? randomUUID(), pendings: [] };
+		const ctx = this.createToolContext(definition, input, state);
+		const resolved = await this.resolveAgent(definition, ctx, runtime);
+
+		// History captured BEFORE persisting the current message — engines hydrate the context with it.
+		const engineInput: RunInput = { ...input, history: session?.events };
+
+		if (session) await this.persist(session.id, "user", "message", { text: input.message });
+
+		for await (const event of this.engine.run(resolved, engineInput)) {
+			log?.event(event);
+			if (session) await this.persistAgentEvent(session.id, event);
+			if (event.type === "final" && definition.output && definition.outputKey) {
+				const parsed = definition.output.safeParse(tryParseJson(event.text));
+				if (parsed.success) state.set(definition.outputKey, parsed.data);
+			}
+			yield event;
+		}
+
+		for (const pending of runtime.pendings) {
+			const approval: AgentEvent = {
+				type: "approval_required",
+				agent: pending.agent,
+				callId: pending.callId,
+				tool: pending.tool,
+				args: pending.args,
+			};
+			log?.event(approval);
+			yield approval;
+		}
+
+		if (session) {
+			const delta = state.delta();
+			if (Object.keys(delta).length > 0) await this.store.updateState(session.id, delta);
+		}
+	}
+
+	/** Layer 2 (sugar): aggregates the loop — final text + usage + trace (what every consumer would do by hand). */
+	public async ask<TOutput = unknown>(agentType: Type | string, input: RunInput): Promise<RunResult<TOutput>> {
+		const events: AgentEvent[] = [];
+		let text = "";
+		let usage: TokenUsage = EMPTY_USAGE;
+		let agentName = typeof agentType === "string" ? agentType : agentType.name;
+
+		for await (const event of this.run(agentType, input)) {
+			events.push(event);
+			if (event.type === "run_start") agentName = event.agent;
+			if (event.type === "final") {
+				text = event.text;
+				usage = event.usage;
+			}
+		}
+
+		const pending: PendingApproval[] = [];
+		for (const event of events) {
+			if (event.type === "approval_required") {
+				pending.push({ callId: event.callId, tool: event.tool, args: event.args, agent: event.agent });
+			}
+		}
+		if (pending.length > 0) return { text, usage, events, status: "pending_approval", pending };
+
+		if (!text.trim()) throw new AiEmptyResponseError(agentName);
+
+		const definition = this.definitionOf(agentType);
+		let output: TOutput | undefined;
+		if (definition.output) {
+			const result = definition.output.safeParse(tryParseJson(text));
+			if (!result.success) throw new OutputValidationError(agentName, text, result.error.issues);
+			output = result.data as TOutput;
+		}
+
+		return { text, usage, events, status: "completed", output };
+	}
+
+	/** Approves a pending action (HITL): executes the tool and resumes the agent with the result. */
+	public async approve(
+		agentType: Type | string,
+		params: { sessionId: string; callId: string; message?: string },
+	): Promise<RunResult> {
+		const definition = this.definitionOf(agentType);
+		const { session, entry, rest } = await this.takePending(params.sessionId, params.callId);
+
+		const binding = definition.tools.find((candidate) => candidate.options.name === entry.tool);
+		if (!binding) throw new ApprovalNotFoundError(params.callId, params.sessionId);
+
+		const state = new DeltaStateBag(session.state);
+		const ctx = this.createToolContext(definition, { message: "", sessionId: session.id, userId: session.userId }, state);
+		const result = await this.executeBinding(definition, binding, entry.args, ctx);
+
+		await this.persist(session.id, "tool", "tool_result", { callId: entry.callId, tool: entry.tool, result });
+		await this.store.updateState(session.id, { [HITL_STATE_KEY]: rest });
+
+		const message =
+			params.message ??
+			`[system] Action "${entry.tool}" was approved by the user and executed. Result: ${JSON.stringify(result)}. Continue the conversation.`;
+		return this.ask(agentType, { sessionId: session.id, userId: session.userId, message });
+	}
+
+	/** Rejects a pending action (HITL): does NOT execute it and informs the agent. */
+	public async reject(
+		agentType: Type | string,
+		params: { sessionId: string; callId: string; reason?: string },
+	): Promise<RunResult> {
+		const { session, entry, rest } = await this.takePending(params.sessionId, params.callId);
+		await this.store.updateState(session.id, { [HITL_STATE_KEY]: rest });
+
+		const reason = params.reason ? ` (reason: ${params.reason})` : "";
+		const message = `[system] The user rejected action "${entry.tool}"${reason}. The action was NOT executed. Continue the conversation.`;
+		return this.ask(agentType, { sessionId: session.id, userId: session.userId, message });
+	}
+
+	/** Public resolution (used by createAdkEntry and engine tools): ResolvedAgent with an ephemeral ToolContext. */
+	public resolve(agentType: Type | string, input: RunInput = { message: "" }): Promise<ResolvedAgent> {
+		const definition = this.definitionOf(agentType);
+		const state = new DeltaStateBag({ ...(input.state ?? {}) });
+		return this.resolveAgent(definition, this.createToolContext(definition, input, state), {
+			scope: input.sessionId ?? randomUUID(),
+			pendings: [],
+		});
+	}
+
+	// ---------- internals ----------
+
+	private definitionOf(agentType: Type | string): AgentDefinition {
+		return typeof agentType === "string" ? this.registry.get(agentType) : this.registry.getByType(agentType);
+	}
+
+	private async openSession(input: RunInput): Promise<Session | null> {
+		if (!input.sessionId) return null;
+		const existing = await this.store.get(input.sessionId);
+		if (existing) return existing;
+		return this.store.create({ id: input.sessionId, userId: input.userId });
+	}
+
+	private async takePending(sessionId: string, callId: string) {
+		const session = await this.store.get(sessionId);
+		if (!session) throw new SessionNotFoundError(sessionId);
+		const pendings = (session.state[HITL_STATE_KEY] as PendingApproval[] | undefined) ?? [];
+		const entry = pendings.find((candidate) => candidate.callId === callId);
+		if (!entry) throw new ApprovalNotFoundError(callId, sessionId);
+		return { session, entry, rest: pendings.filter((candidate) => candidate.callId !== callId) };
+	}
+
+	private createToolContext(definition: AgentDefinition, input: RunInput, state: DeltaStateBag): ToolContext {
+		return {
+			agentName: definition.name,
+			sessionId: input.sessionId,
+			userId: input.userId,
+			state,
+			attributes: input.attributes ?? {},
+			signal: input.signal ?? new AbortController().signal,
+			actions: { endRun: () => undefined },
+		};
+	}
+
+	private policyOf(definition: AgentDefinition): ContextPolicy | undefined {
+		return definition.options?.context ?? this.options.context;
+	}
+
+	private async resolveAgent(
+		definition: AgentDefinition,
+		ctx: ToolContext,
+		runtime: RunRuntime,
+	): Promise<ResolvedAgent> {
+		const policy = this.policyOf(definition);
+		const offloadEnabled = policy?.offload !== false;
+		const threshold = (policy?.offload || undefined)?.threshold ?? DEFAULT_OFFLOAD_THRESHOLD;
+
+		const tools: ResolvedTool[] = definition.tools.map((binding) => ({
+			name: binding.options.name ?? "",
+			description: binding.options.description,
+			schema: binding.options.schema,
+			execute: async (input: unknown) => {
+				if (await this.needsApproval(definition, binding, input, ctx)) {
+					const pending: PendingApproval = {
+						callId: randomUUID(),
+						tool: binding.options.name ?? "",
+						args: input,
+						agent: definition.name,
+					};
+					runtime.pendings.push(pending);
+					const existing = ctx.state.get<PendingApproval[]>(HITL_STATE_KEY) ?? [];
+					ctx.state.set(HITL_STATE_KEY, [...existing, pending]);
+					return {
+						pending_approval: true,
+						callId: pending.callId,
+						note: `Action "${pending.tool}" requires user approval and was NOT executed. Let the user know it is awaiting approval.`,
+					};
+				}
+
+				const raw = await this.executeBinding(definition, binding, input, ctx);
+				if (!offloadEnabled || binding.options.offload === false) return raw;
+				return this.maybeOffload(raw, binding.options.name ?? "", threshold, runtime.scope);
+			},
+		}));
+
+		for (const ref of definition.toolsets) {
+			const external = (await this.toolsets?.resolve(ref)) ?? [];
+			for (const tool of external) {
+				tools.push({
+					...tool,
+					execute: async (input: unknown) => {
+						const raw = await tool.execute(input);
+						return offloadEnabled ? this.maybeOffload(raw, tool.name, threshold, runtime.scope) : raw;
+					},
+				});
+			}
+		}
+
+		// With no tools there's nothing to offload — and adding read_artifact would change the engine's
+		// structured output mode (responseSchema → set_model_response). Only added when real tools exist.
+		if (offloadEnabled && tools.length > 0) tools.push(this.createReadArtifactTool(runtime.scope));
+		if (definition.skills.some((skill) => skill.options.mode === "on-demand")) {
+			tools.push(this.createLoadSkillTool(definition));
+		}
+
+		const subAgents: ResolvedAgent[] = [];
+		for (const subType of definition.subAgents) {
+			const subDefinition = this.registry.getByType(subType);
+			subAgents.push(await this.resolveAgent(subDefinition, { ...ctx, agentName: subDefinition.name }, runtime));
+		}
+
+		let workflow: ResolvedAgent["workflow"];
+		if (definition.workflow) {
+			const agents: ResolvedAgent[] = [];
+			for (const agentType of definition.workflow.agents) {
+				const agentDefinition = this.registry.getByType(agentType as Type);
+				agents.push(await this.resolveAgent(agentDefinition, { ...ctx, agentName: agentDefinition.name }, runtime));
+			}
+			workflow = { mode: definition.workflow.mode, agents, maxIterations: definition.workflow.maxIterations };
+		}
+
+		return {
+			name: definition.name,
+			description: definition.description,
+			instruction: await buildInstruction(definition, { promptsDir: this.options.prompts?.dir }, ctx),
+			model: this.registry.modelFor(definition),
+			tools,
+			subAgents,
+			workflow,
+			outputSchema: definition.output,
+			context: policy,
+		};
+	}
+
+	private async needsApproval(
+		definition: AgentDefinition,
+		binding: ToolBinding,
+		input: unknown,
+		ctx: ToolContext,
+	): Promise<boolean> {
+		const requirement = binding.options.requiresApproval;
+		if (!requirement) return false;
+		if (requirement === true) return true;
+		const self = binding.kind === "class" ? binding.instance : definition.instance;
+		return requirement.call(self, input, ctx);
+	}
+
+	private async executeBinding(
+		definition: AgentDefinition,
+		binding: ToolBinding,
+		input: unknown,
+		ctx: ToolContext,
+	): Promise<unknown> {
+		try {
+			if (binding.kind === "class") return await binding.instance.execute(input as Record<string, unknown>, ctx);
+			const method = (definition.instance as Record<string, (i: unknown, c: ToolContext) => unknown>)[binding.method];
+			return await method?.call(definition.instance, input, ctx);
+		} catch (error) {
+			throw new ToolExecutionError(binding.options.name ?? "unknown", error);
+		}
+	}
+
+	/** Offload: large result → ArtifactStore; the context receives a digest + reference. */
+	private async maybeOffload(raw: unknown, tool: string, threshold: number, scope: string): Promise<unknown> {
+		if (raw === undefined || raw === null) return raw;
+		const serialized = typeof raw === "string" ? raw : JSON.stringify(raw);
+		if (serialized.length <= threshold) return raw;
+
+		const name = `tool-results/${tool}-${randomUUID()}`;
+		const version = await this.artifacts.save(
+			{ sessionId: scope, name },
+			{ mimeType: "application/json", data: serialized },
+		);
+		return {
+			__artifact: {
+				name,
+				version,
+				bytes: serialized.length,
+				preview: serialized.slice(0, 300),
+				note: "Result externalized due to size. Use read_artifact(name) to read the full content.",
+			},
+		};
+	}
+
+	/** Built-in offload tool: the LLM drills into the artifact on demand (progressive disclosure). */
+	private createReadArtifactTool(scope: string): ResolvedTool {
+		return {
+			name: "read_artifact",
+			description: "Reads the full content of an externalized result (__artifact reference).",
+			schema: z.object({
+				name: z.string().describe("Artifact name (the __artifact.name field)."),
+				version: z.number().optional(),
+			}),
+			execute: async (input: unknown) => {
+				const { name, version } = input as { name: string; version?: number };
+				const part = await this.artifacts.load({ sessionId: scope, name }, version);
+				if (!part) return { error: `Artifact "${name}" not found.` };
+				return { name, content: part.data };
+			},
+		};
+	}
+
+	/** Built-in skill progressive-disclosure tool. Errors go back to the LLM, not as an exception. */
+	private createLoadSkillTool(definition: AgentDefinition): ResolvedTool {
+		return {
+			name: "load_skill",
+			description: "Loads the full content of a catalog skill by name.",
+			schema: z.object({ name: z.string().describe("Skill name in the catalog.") }),
+			execute: async (input: unknown) => {
+				const name = (input as { name?: string }).name ?? "";
+				const binding = definition.skills.find((skill) => skill.options.name === name);
+				if (!binding) {
+					const available = definition.skills.map((skill) => skill.options.name).join(", ");
+					return { error: `Skill "${name}" does not exist. Available: ${available}` };
+				}
+				return { name, content: await skillContent(definition, binding) };
+			},
+		};
+	}
+
+	private async persistAgentEvent(sessionId: string, event: AgentEvent): Promise<void> {
+		switch (event.type) {
+			case "tool_call":
+				return this.persist(sessionId, "agent", "tool_call", {
+					callId: event.callId,
+					tool: event.tool,
+					args: event.args,
+				});
+			case "tool_result":
+				return this.persist(sessionId, "tool", "tool_result", {
+					callId: event.callId,
+					tool: event.tool,
+					result: event.result,
+				});
+			case "final":
+				return this.persist(sessionId, "agent", "message", { text: event.text });
+			default:
+				return;
+		}
+	}
+
+	private async persist(
+		sessionId: string,
+		author: SessionEvent["author"],
+		type: string,
+		data: Record<string, unknown>,
+	): Promise<void> {
+		await this.store.appendEvent(sessionId, { v: 1, id: randomUUID(), at: Date.now(), author, type, data });
+	}
+}
+
+/** Direct JSON or the first {...} block (models sometimes wrap it with text/fences). */
+function tryParseJson(text: string): unknown {
+	try {
+		return JSON.parse(text);
+	} catch {
+		const match = text.match(/\{[\s\S]*\}/);
+		if (!match) return text;
+		try {
+			return JSON.parse(match[0]);
+		} catch {
+			return text;
+		}
+	}
+}

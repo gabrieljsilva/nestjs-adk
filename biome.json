@@ -1,0 +1,19 @@
+{
+	"$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+	"organizeImports": { "enabled": true },
+	"files": { "ignore": ["dist", "node_modules", "coverage", ".turbo"] },
+	"javascript": {
+		"formatter": { "lineWidth": 120, "indentWidth": 1 },
+		"parser": { "unsafeParameterDecoratorsEnabled": true }
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"recommended": true,
+			"suspicious": { "noExplicitAny": "off" },
+			"complexity": { "noBannedTypes": "off", "noStaticOnlyClass": "off" },
+			"style": { "useImportType": "off" },
+			"performance": { "noDelete": "off" }
+		}
+	}
+}

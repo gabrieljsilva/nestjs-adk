@@ -1,0 +1,33 @@
+{
+	"compilerOptions": {
+		"module": "ESNext",
+		"target": "ES2022",
+		"lib": ["ES2022"],
+		"declaration": true,
+		"removeComments": true,
+		"experimentalDecorators": true,
+		"emitDecoratorMetadata": true,
+		"allowSyntheticDefaultImports": true,
+		"esModuleInterop": true,
+		"sourceMap": false,
+		"outDir": "./dist",
+		"incremental": false,
+		"skipLibCheck": true,
+		"strict": true,
+		"noUncheckedIndexedAccess": true,
+		"forceConsistentCasingInFileNames": true,
+		"noFallthroughCasesInSwitch": true,
+		"useDefineForClassFields": false,
+		"types": ["node", "vitest/globals", "reflect-metadata"],
+		"moduleResolution": "node",
+		"paths": {
+			"@nestjs-adk/core": ["./packages/core/src/index.ts"],
+			"@nestjs-adk/google": ["./packages/google/src/index.ts"],
+			"@nestjs-adk/mcp": ["./packages/mcp/src/index.ts"],
+			"@nestjs-adk/testing": ["./packages/testing/src/index.ts"],
+			"@nestjs-adk/testing/matchers": ["./packages/testing/src/matchers.ts"]
+		}
+	},
+	"exclude": ["**/*.spec.ts", "node_modules", "dist"],
+	"include": ["packages", "apps"]
+}

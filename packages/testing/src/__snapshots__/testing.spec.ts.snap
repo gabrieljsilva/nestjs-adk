@@ -1,0 +1,8 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`TestAgent > lastInstruction() exposes the composed prompt (prompt + skills) — snapshotable 1`] = `
+"Weather assistant.
+
+## Skill: tone
+Answer briefly."
+`;
