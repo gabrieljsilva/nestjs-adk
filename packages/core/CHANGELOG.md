@@ -1,5 +1,11 @@
 # @nestjs-adk/core
 
+## 0.0.2
+
+### Patch Changes
+
+- English package READMEs, dependency security upgrades (npm audit clean) and vitest 4 compatibility for caller-relative prompt paths.
+
 ## 0.0.1
 
 ### Patch Changes

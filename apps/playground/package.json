@@ -1,12 +1,12 @@
 {
 	"name": "@workspace/playground",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"private": true,
 	"description": "NestJS app consuming the lib for real — e2e of the complete happy path.",
 	"dependencies": {
-		"@nestjs-adk/core": "^0.0.1",
-		"@nestjs-adk/google": "^0.0.1",
-		"@nestjs-adk/testing": "^0.0.1",
+		"@nestjs-adk/core": "^0.0.2",
+		"@nestjs-adk/google": "^0.0.2",
+		"@nestjs-adk/testing": "^0.0.2",
 		"@google/genai": "^1.52.0"
 	}
 }

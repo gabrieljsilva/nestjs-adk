@@ -1,6 +1,6 @@
 {
 	"name": "@nestjs-adk/core",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"description": "NestJS-native agent framework: decorators, DI and abstract contracts over pluggable AI agent engines (Google ADK first).",
 	"license": "MIT",
 	"sideEffects": false,
