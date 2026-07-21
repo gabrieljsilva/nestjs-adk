@@ -1,5 +1,13 @@
 # @nestjs-adk/testing
 
+## 0.0.3
+
+### Patch Changes
+
+- 3928827: Rewritten documentation: each package now ships a complete, linear README in simple English, with the main guide living in @nestjs-adk/core.
+- Updated dependencies [3928827]
+  - @nestjs-adk/core@0.0.3
+
 ## 0.0.2
 
 ### Patch Changes
