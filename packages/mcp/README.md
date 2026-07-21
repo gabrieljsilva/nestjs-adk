@@ -1,11 +1,13 @@
 # @nestjs-adk/mcp
 
-Consumo de MCP servers externos como tools de agentes do [nestjs-adk](../../README.md), via `@modelcontextprotocol/sdk` oficial (stdio, HTTP streamable, SSE).
+Consume external MCP servers as agent tools for [`@nestjs-adk/core`](https://www.npmjs.com/package/@nestjs-adk/core), via the official `@modelcontextprotocol/sdk` (stdio, streamable HTTP, SSE).
 
 ```ts
 McpModule.forRoot({ servers: [{ name: "github", transport: { type: "stdio", command: "npx", args: [...] } }] })
 
-@Agent({ ..., tools: [mcpTools("github", ["create_issue"])] })
+@Agent({ ..., tools: [toolset("github", ["create_issue"])] }) // the server's catalog becomes tools (JSON Schema → Zod)
 ```
 
-Catálogo cacheado no boot (fail-fast; `optional: true` para servers não-críticos). Falhas de tool em runtime voltam como `{ error }` para o LLM.
+The catalog is cached at boot (fail-fast; `optional: true` for non-critical servers). Runtime tool failures return as `{ error }` to the LLM; connection errors become typed `McpConnectionError`s.
+
+Full documentation: [github.com/gabrieljsilva/nestjs-adk](https://github.com/gabrieljsilva/nestjs-adk)

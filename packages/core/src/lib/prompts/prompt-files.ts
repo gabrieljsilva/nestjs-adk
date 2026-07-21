@@ -51,7 +51,8 @@ export class PromptFiles {
 		for (const frame of frames) {
 			const match = frame.match(/\(?([^() ]+?):\d+:\d+\)?$/);
 			const file = match?.[1];
-			if (!file || file.startsWith("node:") || file.includes("node_modules")) continue;
+			// "\0"-prefixed paths are bundler virtual modules (e.g. injected decorator helpers) — never the caller.
+			if (!file || file.startsWith("node:") || file.includes("node_modules") || file.includes("\0")) continue;
 			if (LIB_FRAMES.some((name) => file.includes(name))) continue;
 			return dirname(file);
 		}

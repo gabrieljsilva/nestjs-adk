@@ -1,7 +1,7 @@
 {
 	"name": "@nestjs-adk/testing",
 	"version": "0.0.1",
-	"description": "Testing utilities for nestjs-adk: testAgent, scripted models, Vitest matchers and LLM-as-judge.",
+	"description": "Testing utilities for nestjs-adk: TestAgent, scripted engine/models, Vitest matchers and LLM-as-judge.",
 	"license": "MIT",
 	"sideEffects": ["./dist/matchers.mjs", "./dist/matchers.cjs"],
 	"main": "dist/index.cjs",

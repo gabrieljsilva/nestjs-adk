@@ -2,7 +2,7 @@
 	"name": "@workspace/playground",
 	"version": "0.0.1",
 	"private": true,
-	"description": "App NestJS de consumo real da lib — e2e do caminho feliz completo.",
+	"description": "NestJS app consuming the lib for real — e2e of the complete happy path.",
 	"dependencies": {
 		"@nestjs-adk/core": "^0.0.1",
 		"@nestjs-adk/google": "^0.0.1",

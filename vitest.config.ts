@@ -13,11 +13,36 @@ export default defineConfig({
 		},
 	},
 	test: {
-		// include comes from each project in vitest.workspace.ts (unit | integration | agents)
 		globals: true,
 		root: "./",
 		exclude: ["**/node_modules/**", "**/dist/**"],
 		hookTimeout: 30000,
+		projects: [
+			{
+				extends: true,
+				test: {
+					name: "unit",
+					include: ["**/*.spec.ts"],
+					exclude: ["**/node_modules/**", "**/dist/**", "**/*.e2e.spec.ts", "**/*.agent.spec.ts"],
+				},
+			},
+			{
+				extends: true,
+				test: {
+					name: "integration",
+					include: ["**/*.e2e.spec.ts"],
+					exclude: ["**/node_modules/**", "**/dist/**"],
+				},
+			},
+			{
+				extends: true,
+				test: {
+					name: "agents",
+					include: ["**/*.agent.spec.ts"],
+					exclude: ["**/node_modules/**", "**/dist/**"],
+				},
+			},
+		],
 		coverage: {
 			reporter: ["text", "html"],
 			provider: "v8",

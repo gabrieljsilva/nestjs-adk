@@ -5,8 +5,16 @@
 	"engines": {
 		"node": ">=20"
 	},
+	"packageManager": "npm@11.9.0",
 	"workspaces": ["packages/*", "apps/*"],
 	"license": "MIT",
+	"overrides": {
+		"tar": "^7.5.20",
+		"uuid": "^14.0.1",
+		"adm-zip": "^0.6.0",
+		"@tootallnate/once": "^3.0.1",
+		"@opentelemetry/core": "^2.9.0"
+	},
 	"scripts": {
 		"build": "turbo run build",
 		"dev": "turbo run dev",
@@ -39,16 +47,16 @@
 		"@rollup/plugin-typescript": "^12.1.1",
 		"@swc/core": "^1.7.26",
 		"@types/node": "^22.0.0",
-		"@vitest/coverage-v8": "^2.1.8",
+		"@vitest/coverage-v8": "^4.1.10",
 		"reflect-metadata": "^0.2.2",
 		"rimraf": "^6.0.1",
 		"rollup": "^4.24.0",
 		"rxjs": "^7.8.2",
 		"tslib": "^2.7.0",
-		"turbo": "^1.13.4",
+		"turbo": "^2.10.5",
 		"typescript": "^5.5.3",
 		"unplugin-swc": "^1.5.1",
-		"vitest": "^2.1.8",
+		"vitest": "^4.1.10",
 		"zod": "^4.4.3"
 	}
 }

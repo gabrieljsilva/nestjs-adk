@@ -1,53 +1,53 @@
 # nestjs-adk
 
-Framework de agentes de IA **NestJS-native**: decorators, DI e contratos abstratos sobre engines plugáveis — Google ADK como motor principal.
+**NestJS-native** AI agent framework: decorators, DI and abstract contracts over pluggable engines — Google ADK as the primary engine.
 
 ```ts
 @Agent({
 	name: "support_agent",
-	description: "Atendimento.",
+	description: "Customer support.",
 	model: "gemini-2.5-flash",
-	prompt: "Você é o atendente da loja.",
+	prompt: "You are the store's support agent.",
 	tools: [LookupOrderTool],
 })
 export class SupportAgent extends AdkAgent {}
 
-// consumo — a instância do agente É o handle (DI comum do Nest)
+// consumption — the agent instance IS the handle (plain Nest DI)
 constructor(private readonly support: SupportAgent) {}
-const { text } = await this.support.ask({ sessionId, message: "cadê meu pedido?" });
+const { text } = await this.support.ask({ sessionId, message: "where is my order?" });
 ```
 
-O modelo mental inteiro em 3 regras:
+The whole mental model in 3 rules:
 
-1. **`AdkModule.forRoot(...)`** — 1x por app, configura o motor (engine, `defaultModel`, stores, logging, embedder).
-2. **`providers: []`** — agente, tool, skill e prompt class são Injectables comuns; registro é Nest puro. Esqueceu uma classe? O boot falha apontando ela (`UnregisteredToolError` etc.).
-3. **Consumo** — injete a classe do agente e chame `ask()` / `stream()` / `approve()` / `reject()`.
+1. **`AdkModule.forRoot(...)`** — once per app, configures the engine (`engine`, `defaultModel`, stores, logging, embedder).
+2. **`providers: []`** — agents, tools, skills and prompt classes are ordinary Injectables; registration is plain Nest. Forgot a class? Boot fails pointing at it (`UnregisteredToolError` etc.).
+3. **Consumption** — inject the agent class and call `ask()` / `stream()` / `approve()` / `reject()`.
 
-## Pacotes
+## Packages
 
-| Pacote | Papel |
+| Package | Role |
 |---|---|
-| [`@nestjs-adk/core`](packages/core) | Decorators, contratos, `AdkModule`, runner, Continuity |
-| [`@nestjs-adk/google`](packages/google) | Engine adapter do `@google/adk` (LlmAgent/FunctionTool nativos) |
-| [`@nestjs-adk/mcp`](packages/mcp) | Consumo de MCP servers externos como tools |
-| [`@nestjs-adk/testing`](packages/testing) | `TestAgent` (mocks empilháveis), `ScriptedEngine`/`ScriptedModel`, matchers Vitest, LLM-as-judge |
+| [`@nestjs-adk/core`](packages/core) | Decorators, contracts, `AdkModule`, runner, Continuity |
+| [`@nestjs-adk/google`](packages/google) | `@google/adk` engine adapter (native LlmAgent/FunctionTool) |
+| [`@nestjs-adk/mcp`](packages/mcp) | Consume external MCP servers as tools |
+| [`@nestjs-adk/testing`](packages/testing) | `TestAgent` (stackable mocks), `ScriptedEngine`/`ScriptedModel`, Vitest matchers, LLM-as-judge |
 
-Exemplo de consumo real: [apps/playground](apps/playground).
+Real consumption example: [apps/playground](apps/playground).
 
-## Módulo
+## Module
 
 ```ts
 @Module({
 	imports: [
 		AdkModule.forRoot({
-			engine: GoogleAdkEngine,          // contrato AdkEngine — trocável (ScriptedEngine em testes)
-			defaultModel: "gemini-2.5-flash", // string ou classe de model spec; agente pode sobrescrever
-			session: PrismaSessionStore,      // contrato SessionStore (default: in-memory)
-			artifacts: InMemoryArtifactStore, // contrato ArtifactStore
-			prompts: { dir: "./prompts" },    // raiz dos .md
-			logging: "debug",                 // ver seção Logs
-			embedder: GeminiEmbedder,         // contrato Embedder (sem default — traga o seu)
-			context: contextPolicy({ ... }),  // default global de Continuity, overridable por agente
+			engine: GoogleAdkEngine,          // AdkEngine contract — swappable (ScriptedEngine in tests)
+			defaultModel: "gemini-2.5-flash", // string or model spec class; agents can override
+			session: PrismaSessionStore,      // SessionStore contract (default: in-memory)
+			artifacts: InMemoryArtifactStore, // ArtifactStore contract
+			prompts: { dir: "./prompts" },    // root of the .md files
+			logging: "debug",                 // see the Logs section
+			embedder: GeminiEmbedder,         // Embedder contract (no default — bring your own)
+			context: contextPolicy({ ... }),  // global Continuity default, overridable per agent
 		}),
 	],
 	providers: [SupportAgent, LookupOrderTool, SupportPrompt, OrdersService, ChatService],
@@ -55,41 +55,41 @@ Exemplo de consumo real: [apps/playground](apps/playground).
 export class AppModule {}
 ```
 
-`forRootAsync({ engine, useFactory, inject })` disponível; a engine é sempre estática (classe). O módulo raiz é global (runner/stores injetáveis em qualquer lugar); os agentes seguem o escopo normal de módulos. O boot valida tudo **fail-fast**: nome duplicado, tool/skill/subAgent/prompt não registrado, agente sem modelo — erro de config explode na subida apontando a classe, nunca em runtime.
+`forRootAsync({ engine, useFactory, inject })` is available; the engine is always static (a class). The root module is global (runner/stores injectable anywhere); agents follow normal module scoping. Boot validates everything **fail-fast**: duplicate names, unregistered tool/skill/subAgent/prompt, agent without a model — config errors blow up at startup pointing at the class, never at runtime.
 
 ## Tools & Skills
 
-**Tool compartilhada → classe** (contrato `AdkTool`, schema Zod = declaração pro modelo + tipagem do input):
+**Shared tool → class** (`AdkTool` contract, Zod schema = declaration for the model + input typing):
 
 ```ts
-const schema = z.object({ city: z.string().describe("Nome da cidade") });
+const schema = z.object({ city: z.string().describe("City name") });
 
-@Tool({ name: "get_weather", description: "Clima atual.", schema })
+@Tool({ name: "get_weather", description: "Current weather.", schema })
 export class GetWeatherTool extends AdkTool<typeof schema> {
 	constructor(private readonly weather: WeatherService) { super(); }
 
 	execute(input: z.infer<typeof schema>, ctx: ToolContext) {
-		// input ← decidido pelo modelo | ctx ← dados da aplicação (userId, attributes, state)
-		return this.weather.fetch(input.city); // retorno serializável volta pro LLM
+		// input ← decided by the model | ctx ← application data (userId, attributes, state)
+		return this.weather.fetch(input.city); // serializable return goes back to the LLM
 	}
 }
 ```
 
-**Tool exclusiva do agente → método inline** com `@Tool({ description, schema })`. Dados sensíveis (tenantId, userId) **nunca** entram no schema — chegam por `ctx` (`ask({ attributes, state })`), fora do alcance do modelo.
+**Agent-exclusive tool → inline method** with `@Tool({ description, schema })`. Sensitive data (tenantId, userId) **never** enters the schema — it arrives via `ctx` (`ask({ attributes, state })`), out of the model's reach.
 
-**Skills** são instruções de domínio: `@Skill({ name, description })` em classe (`AdkSkill`) ou método do agente. `mode: "always"` entra sempre na instruction; o default é on-demand (catálogo + tool `load_skill`).
+**Skills** are domain instructions: `@Skill({ name, description })` on a class (`AdkSkill`) or an agent method. `mode: "always"` always enters the instruction; the default is on-demand (catalog + `load_skill` tool).
 
 ## Prompts
 
-Duas superfícies, cada uma com um significado:
+Two surfaces, each with one meaning:
 
 ```ts
-// A) Direto no @Agent — texto literal OU arquivo .md (campos distintos)
-@Agent({ name: "support", prompt: "Você é o atendente da loja." })
-@Agent({ name: "support", promptFile: "agents/support/main.prompt.md" }) // via prompts.dir do forRoot
-@Agent({ name: "support", promptFile: "./prompts/main.prompt.md" })      // relativo ao arquivo do agente
+// A) Directly on @Agent — literal text OR .md file (distinct fields)
+@Agent({ name: "support", prompt: "You are the store's support agent." })
+@Agent({ name: "support", promptFile: "agents/support/main.prompt.md" }) // via forRoot's prompts.dir
+@Agent({ name: "support", promptFile: "./prompts/main.prompt.md" })      // relative to the agent's file
 
-// B) Builder — classe AdkPrompt (DI plena + dados do run via ask({ attributes, state }))
+// B) Builder — AdkPrompt class (full DI + run data via ask({ attributes, state }))
 @Injectable()
 class SupportPrompt extends AdkPrompt {
 	constructor(private readonly config: SupportConfig) { super(); }
@@ -97,14 +97,14 @@ class SupportPrompt extends AdkPrompt {
 		return this.fromFile("agents/support/main.prompt.md", { tone: this.config.tone, plan: ctx.state.get("plan") });
 	}
 }
-@Agent({ name: "support", prompt: SupportPrompt }) // registrado como provider
+@Agent({ name: "support", prompt: SupportPrompt }) // registered as a provider
 ```
 
-Templates `.md` usam `{{var}}`, são cacheados em memória (1 leitura por arquivo); `prompt` + `promptFile` juntos falham no boot. A instruction final é composta em ordem determinística (prompt → skills `always` → catálogo on-demand) — prefixo estável para caching implícito do provider. Atenção de build: `.md` precisa ser copiado pro `dist` (assets); em produção prefira `prompts.dir` a caminhos `./` relativos.
+`.md` templates use `{{var}}` and are cached in memory (one read per file); `prompt` + `promptFile` together fail at boot. The final instruction is composed in deterministic order (prompt → `always` skills → on-demand catalog) — a stable prefix for the provider's implicit caching. Build caveat: `.md` files must be copied to `dist` (assets); in production prefer `prompts.dir` over `./`-relative paths.
 
-## Modelos
+## Models
 
-`model` (no `@Agent`) e `defaultModel` (no `forRoot`) aceitam `string` ou uma **classe de model spec** — value objects de dado puro; a engine ativa materializa:
+`model` (on `@Agent`) and `defaultModel` (on `forRoot`) accept a `string` or a **model spec class** — pure-data value objects; the active engine materializes them:
 
 ```ts
 model: "gemini-2.5-flash"
@@ -113,17 +113,17 @@ model: new OpenAiLike("gpt-4o-mini", { baseUrl, apiKeyEnv })  // OpenAI, OpenRou
 model: new ModelRouter({ targets: { primary: new Gemini("..."), fallback: new OpenAiLike("...") } })
 ```
 
-- `Gemini` (import canônico: `@nestjs-adk/google`): `labels` para billing (Vertex), `cache` para cachedContent explícito, `config` é passthrough livre de `GenerateContentConfig`.
-- `ModelRouter`: failover na ordem declarada quando o alvo falha antes do 1º chunk (ex.: 429); cada reroute vira evento `model_rerouted`. Como `defaultModel`, é failover global em 1 linha.
-- Labels por run: `ask({ labels })`.
+- `Gemini` (canonical import: `@nestjs-adk/google`): `labels` for billing (Vertex), `cache` for explicit cachedContent, `config` is a free passthrough of `GenerateContentConfig`.
+- `ModelRouter`: failover in declared order when the target fails before the 1st chunk (e.g. 429); each reroute becomes a `model_rerouted` event. As `defaultModel`, it's global failover in 1 line.
+- Per-run labels: `ask({ labels })`.
 
-## Sessões & Continuity
+## Sessions & Continuity
 
-- `sessionId` presente → sessão **persistente** via `SessionStore` (contrato com `get/create/append/updateState` — implemente com Prisma/Postgres etc.; default in-memory). `sessionId` omitido → efêmera.
-- O `SessionStore` é o **system of record**: a engine re-hidrata o contexto a partir do histórico a cada run.
-- **Offload automático**: resultado de tool acima de 20k chars vira artifact (`ArtifactStore`) e o modelo recebe um resumo + tool `read_artifact` para consultar sob demanda (opt-out por tool: `offload: false`).
-- **Compaction**: `context: contextPolicy({ compaction: { maxTokens, keepRecent, summarizer } })` — usa os compactors nativos do ADK com sumarização por LLM.
-- **HITL**: `@Tool({ requiresApproval: true | (input, ctx) => boolean })`. A tool NÃO executa; o run retorna `status: "pending_approval"` com `pending[].callId`. Depois: `agent.approve({ sessionId, callId })` executa e retoma; `reject()` informa o modelo sem executar.
+- `sessionId` present → **persistent** session via `SessionStore` (contract with `get/create/append/updateState` — implement it with Prisma/Postgres etc.; default in-memory). `sessionId` omitted → ephemeral.
+- The `SessionStore` is the **system of record**: the engine re-hydrates the context from the history on every run.
+- **Automatic offload**: a tool result above 20k chars becomes an artifact (`ArtifactStore`) and the model receives a summary + a `read_artifact` tool to query it on demand (opt-out per tool: `offload: false`).
+- **Compaction**: `context: contextPolicy({ compaction: { maxTokens, keepRecent, summarizer } })` — uses the ADK's native compactors with LLM summarization.
+- **HITL**: `@Tool({ requiresApproval: true | (input, ctx) => boolean })`. The tool does NOT execute; the run returns `status: "pending_approval"` with `pending[].callId`. Then: `agent.approve({ sessionId, callId })` executes and resumes; `reject()` informs the model without executing.
 
 ## Structured output
 
@@ -132,43 +132,43 @@ model: new ModelRouter({ targets: { primary: new Gemini("..."), fallback: new Op
 class ReporterAgent extends AdkAgent<typeof reportSchema> {}
 
 const run = await reporter.ask({ message });
-run.output; // tipado e VALIDADO (safeParse) — OutputValidationError se o modelo fugir do schema
+run.output; // typed and VALIDATED (safeParse) — OutputValidationError if the model strays from the schema
 ```
 
-`outputKey` grava o output validado no state da sessão (cola de pipelines/sub-agents).
+`outputKey` writes the validated output to the session state (the glue for pipelines/sub-agents).
 
 ## Sub-agents & Workflows
 
-`subAgents: [OtherAgent]` no `@Agent` (transferência decidida pelo LLM) ou `@WorkflowAgent({ mode: "sequential" | "parallel" | "loop", agents: [...] })` para orquestração determinística. Workflows também são agentes (instância = handle).
+`subAgents: [OtherAgent]` on `@Agent` (transfer decided by the LLM) or `@WorkflowAgent({ mode: "sequential" | "parallel" | "loop", agents: [...] })` for deterministic orchestration. Workflows are agents too (instance = handle).
 
 ## MCP
 
 ```ts
 imports: [McpModule.forRoot({ servers: [{ name: "fs", transport: { type: "stdio", command: "..." } }] })]
 
-@Agent({ tools: [toolset("fs")] }) // catálogo do server vira tools (JSON Schema → Zod)
+@Agent({ tools: [toolset("fs")] }) // the server's catalog becomes tools (JSON Schema → Zod)
 ```
 
-Transportes: stdio, HTTP, SSE. Catálogo cacheado no boot; erros de conexão viram `McpConnectionError`.
+Transports: stdio, HTTP, SSE. Catalog cached at boot; connection errors become `McpConnectionError`.
 
 ## Logs
 
-Logs estruturados por execução de agente, via `Logger` do Nest (contexto `Adk:<nome_do_agente>`):
+Structured logs per agent run, via Nest's `Logger` (context `Adk:<agent_name>`):
 
 ```ts
 AdkModule.forRoot({ engine: GoogleAdkEngine, logging: "debug" }) // false | true | "info" | "debug" | "verbose"
 ```
 
-Níveis **cumulativos**; cada linha sai no método correspondente do `Logger` (o filtro de níveis do seu app também se aplica):
+Levels are **cumulative**; each line goes out through the matching `Logger` method (your app's level filter also applies):
 
-| Nível | Inclui | Método Nest |
+| Level | Includes | Nest method |
 |---|---|---|
-| `false` / omitido | nada (default) | — |
-| `true` = `"info"` | `run start` (session, user, input) e `run done` (duração, texto final, tokens) | `logger.log` |
-| `"debug"` | info + `tool call` / `tool result` (nome + payload) | `logger.debug` |
-| `"verbose"` | debug + `llm response` intermediárias + payloads **inteiros** (sem truncar) | `logger.verbose` |
+| `false` / omitted | nothing (default) | — |
+| `true` = `"info"` | `run start` (session, user, input) and `run done` (duration, final text, tokens) | `logger.log` |
+| `"debug"` | info + `tool call` / `tool result` (name + payload) | `logger.debug` |
+| `"verbose"` | debug + intermediate `llm response` + **full** payloads (no truncation) | `logger.verbose` |
 
-Anomalias sempre saem como `warn`: `model rerouted` e `approval required`. Abaixo de `"verbose"`, payloads truncam em 160 chars.
+Anomalies always go out as `warn`: `model rerouted` and `approval required`. Below `"verbose"`, payloads truncate at 160 chars.
 
 ```
 run start session=smoke-1 user=u1 message=What's the status of my order 123?
@@ -177,102 +177,102 @@ tool result lookup_order result={"id":"123","status":"shipped","total":250}
 run done in 1389ms text=The status of your order 123 is shipped. | tokens in=772 out=41 total=813
 ```
 
-`tokens in/out/total` vêm do provider; `cached=N` aparece quando ele reporta tokens de cache de contexto (ex.: `new Gemini(model, { cache })`). Programaticamente: `run.usage` (`promptTokens`, `outputTokens`, `cachedTokens?`, `totalTokens`).
+`tokens in/out/total` come from the provider; `cached=N` shows up when it reports context-cache tokens (e.g. `new Gemini(model, { cache })`). Programmatically: `run.usage` (`promptTokens`, `outputTokens`, `cachedTokens?`, `totalTokens`).
 
-> Em testes com `@nestjs/testing`, o logger é silenciado por padrão — reative com `app.useLogger(console)`.
+> In tests with `@nestjs/testing`, the logger is silenced by default — re-enable it with `app.useLogger(console)`.
 
-## Observabilidade
+## Observability
 
-O ADK emite spans OTel `gen_ai.*` nativamente — configure o SDK OTel do seu app e exporte via OTLP para Langfuse, Opik, ou qualquer backend. A lib não impõe contrato próprio de observabilidade.
+The ADK natively emits `gen_ai.*` OTel spans — configure your app's OTel SDK and export via OTLP to Langfuse, Opik, or any backend. The lib imposes no observability contract of its own.
 
 ## Embeddings
 
-Contrato `Embedder` no core (sem implementação default — exemplo `GeminiEmbedder` sobre `@google/genai` no playground): `embed(texts) → { embeddings, usage: { promptTokens } }`. Configure em `forRoot({ embedder })`, injete `Embedder` em produção (busca semântica, dedup) — e o matcher `toBeSemanticallySimilarTo` usa o mesmo embedder do módulo. `Similarity` (cosseno) é provider exportado.
+`Embedder` contract in the core (no default implementation — see the `GeminiEmbedder` example over `@google/genai` in the playground): `embed(texts) → { embeddings, usage: { promptTokens } }`. Configure it in `forRoot({ embedder })`, inject `Embedder` in production (semantic search, dedup) — and the `toBeSemanticallySimilarTo` matcher uses the module's embedder. `Similarity` (cosine) is an exported provider.
 
-## Eventos & erros
+## Events & errors
 
-`stream()` entrega o loop normalizado: `run_start | tool_call | tool_result | llm_response | model_rerouted | approval_required | final` — todo evento carrega `raw` com o payload original do provider (nada é descartado). `ask()` agrega em `RunResult { text, usage, events, status, output?, pending? }`.
+`stream()` delivers the normalized loop: `run_start | tool_call | tool_result | llm_response | model_rerouted | approval_required | final` — every event carries `raw` with the provider's original payload (nothing is discarded). `ask()` aggregates into `RunResult { text, usage, events, status, output?, pending? }`.
 
-Erros **não são eventos**: estouram tipados (`AdkError` com `code`). Config inválida → `AdkBootError` no boot apontando a classe (`UnregisteredToolError`, `ConflictingPromptError`, `ReservedMethodError`...); runtime → `AiEmptyResponseError`, `OutputValidationError`, `ToolExecutionError`, `ModelsExhaustedError`, `ApprovalNotFoundError`...
+Errors are **not events**: they throw typed (`AdkError` with `code`). Invalid config → `AdkBootError` at boot pointing at the class (`UnregisteredToolError`, `ConflictingPromptError`, `ReservedMethodError`...); runtime → `AiEmptyResponseError`, `OutputValidationError`, `ToolExecutionError`, `ModelsExhaustedError`, `ApprovalNotFoundError`...
 
-## Testes
+## Testing
 
-Setup é `@nestjs/testing` puro; a lib só adiciona o que é exclusiva dela:
+Setup is plain `@nestjs/testing`; the lib only adds what is exclusive to it:
 
 ```ts
 const module = await Test.createTestingModule({
 	imports: [AdkModule.forRoot({ engine: ScriptedEngine, defaultModel: "test-model" })],
 	providers: [WeatherAgent, GetWeatherTool, WeatherService, ForecastService],
 })
-	.overrideProvider(WeatherService).useValue(fakeWeather) // override NATIVO do Nest
+	.overrideProvider(WeatherService).useValue(fakeWeather) // Nest's NATIVE override
 	.compile();
 
-const weatherAgent = new TestAgent(module, WeatherAgent); // handle de teste sobre a instância REAL
+const weatherAgent = new TestAgent(module, WeatherAgent); // test handle over the REAL instance
 weatherAgent
-	.mockCallTool("get_weather", { city: "SP" }) // empilha — nada executa
-	.mockText("Faz 25°C em São Paulo.");         // próximo run consome a pilha (tools reais via DI)
+	.mockCallTool("get_weather", { city: "SP" }) // stacks — nothing executes
+	.mockText("It's 25°C in São Paulo.");        // next run consumes the stack (real tools via DI)
 
-const run = await module.get(ForecastService).forecast("SP"); // testa o SEU serviço
+const run = await module.get(ForecastService).forecast("SP"); // test YOUR service
 
 expect(run).toHaveCalledTool("get_weather", { city: "SP" });
 expect(run).toHaveCalledToolsInOrder(["get_weather"]);
-expect(run).toHavePausedForApproval("refund");   // HITL num matcher
-expect(run).toHaveUsedAtMostTokens(1500);        // orçamento de tokens como regressão
+expect(run).toHavePausedForApproval("refund");   // HITL in a matcher
+expect(run).toHaveUsedAtMostTokens(1500);        // token budget as a regression
 expect(run).toMatchOutput(reportSchema);         // structured output
-await expect(run).toBeSemanticallySimilarTo("Seu pedido foi enviado.", { threshold: 0.85 });
-expect(weatherAgent.lastInstruction()).toMatchSnapshot(); // regressão de prompt
+await expect(run).toBeSemanticallySimilarTo("Your order has shipped.", { threshold: 0.85 });
+expect(weatherAgent.lastInstruction()).toMatchSnapshot(); // prompt regression
 ```
 
-As camadas (todas convivem num projeto real):
+The layers (they all coexist in a real project):
 
-| Pergunta do teste | Ferramenta |
+| Test question | Tool |
 |---|---|
-| Minha tool funciona? | Unitário puro / Nest (`new Tool(dep)`, `overrideProvider`) — sem lib. Exemplos: [support.tools.spec.ts](apps/playground/src/support/support.tools.spec.ts) |
-| Meu agente/serviço se comporta certo? | `ScriptedEngine` + `TestAgent.mock*` (default do dia a dia) |
-| A integração com o ADK se comporta certo? | `GoogleAdkEngine` + `new TestAgent(...)` (registra um `ScriptedModel` como override do agente) — loop real, LLM roteirizado |
-| O modelo real decide bem? | Suíte `*.agent.spec.ts` com Gemini + `expectJudged(text).toSatisfy(rubrica, { judge })` |
+| Does my tool work? | Pure unit / Nest (`new Tool(dep)`, `overrideProvider`) — no lib. Examples: [support.tools.spec.ts](apps/playground/src/support/support.tools.spec.ts) |
+| Does my agent/service behave correctly? | `ScriptedEngine` + `TestAgent.mock*` (the everyday default) |
+| Does the ADK integration behave correctly? | `GoogleAdkEngine` + `new TestAgent(...)` (registers a `ScriptedModel` as the agent's model override) — real loop, scripted LLM |
+| Does the real model decide well? | `*.agent.spec.ts` suite with Gemini + `expectJudged(text).toSatisfy(rubric, { judge })` |
 
-Matchers via `import "@nestjs-adk/testing/matchers"` (setupFile). Mocks empilháveis funcionam sobre `ScriptedEngine` **e** sobre `ScriptedModel` (engine real).
+Matchers via `import "@nestjs-adk/testing/matchers"` (setupFile). Stackable mocks work over `ScriptedEngine` **and** over `ScriptedModel` (real engine).
 
-## Desenvolvimento
+## Development
 
 ```bash
 npm install
-npm run test             # unit + integração (sem IA real)
-npm run test:unit        # só specs in-process (*.spec.ts)
-npm run test:integration # app completo / processos externos (*.e2e.spec.ts)
-npm run test:agents      # IA REAL — smoke com Gemini (*.agent.spec.ts)
-npm run typecheck        # tsc strict
+npm run test             # unit + integration (no real AI)
+npm run test:unit        # in-process specs only (*.spec.ts)
+npm run test:integration # full app / external processes (*.e2e.spec.ts)
+npm run test:agents      # REAL AI — smoke with Gemini (*.agent.spec.ts)
+npm run typecheck        # strict tsc
 npm run lint             # biome
 npm run build            # turbo → rollup (CJS+ESM)
 ```
 
-## Playground com IA real
+## Playground with real AI
 
-Requer `GEMINI_API_KEY` no `.env` da raiz (modelo default: `gemini-3.1-flash-lite`, troque com `PLAYGROUND_MODEL`).
+Requires `GEMINI_API_KEY` in the root `.env` (default model: `gemini-3.1-flash-lite`, switch with `PLAYGROUND_MODEL`).
 
-### Smoke tests (Gemini real)
+### Smoke tests (real Gemini)
 
 ```bash
 npm run test:agents
 ```
 
-Roda [apps/playground/src/smoke.agent.spec.ts](apps/playground/src/smoke.agent.spec.ts): tool calling real, memória multi-turn, HITL (pausa + `approve()`) e similaridade semântica com embeddings reais. Sem key no ambiente, os testes são **pulados** — CI nunca quebra.
+Runs [apps/playground/src/smoke.agent.spec.ts](apps/playground/src/smoke.agent.spec.ts): real tool calling, multi-turn memory, HITL (pause + `approve()`) and semantic similarity with real embeddings. Without a key in the environment, the tests are **skipped** — CI never breaks.
 
 ### ADK Dev UI (`adk web`)
 
 ```bash
 npm run playground:web
-# abra http://localhost:4111
+# open http://localhost:4111
 ```
 
-Sobe o Dev UI oficial do Google com os agentes NestJS do playground — chat, inspeção de eventos e trace de tool calls. Para derrubar: `lsof -ti:4111 | xargs -r kill -9`.
+Starts Google's official Dev UI with the playground's NestJS agents — chat, event inspection and tool-call tracing. To stop it: `lsof -ti:4111 | xargs -r kill -9`.
 
-Como funciona (e por que existe um passo de compilação):
+How it works (and why there is a compile step):
 
-1. `tsc -p apps/playground/tsconfig.web.json` pré-compila o playground para CJS — o `adk web` compila entries com **esbuild**, que não emite `emitDecoratorMetadata` (a DI do Nest quebraria); o `tsc` emite.
-2. O entry [apps/playground/adk-agents/support/agent.mjs](apps/playground/adk-agents/support/agent.mjs) usa `createAdkEntry(AppModule, SupportAgent)` (`@nestjs-adk/google`): bootstrapa o contexto Nest (DI resolve tools/prompts/config) e devolve o `LlmAgent` **nativo** que o Dev UI consome.
-3. O entry importa tudo via `createRequire` (build CJS) — evita o *dual-package hazard* (a classe `AgentRunner` do build ESM ≠ CJS quebraria a resolução na DI).
-4. `adk web` roda com `--bundle false --compile false` (o entry já é JS puro).
+1. `tsc -p apps/playground/tsconfig.web.json` pre-compiles the playground to CJS — `adk web` compiles entries with **esbuild**, which doesn't emit `emitDecoratorMetadata` (Nest's DI would break); `tsc` does.
+2. The entry [apps/playground/adk-agents/support/agent.mjs](apps/playground/adk-agents/support/agent.mjs) uses `createAdkEntry(AppModule, SupportAgent)` (`@nestjs-adk/google`): it bootstraps the Nest context (DI resolves tools/prompts/config) and returns the **native** `LlmAgent` the Dev UI consumes.
+3. The entry imports everything via `createRequire` (CJS build) — avoiding the *dual-package hazard* (the ESM build's `AgentRunner` class ≠ CJS would break DI resolution).
+4. `adk web` runs with `--bundle false --compile false` (the entry is already plain JS).
 
-Versionamento via [changesets](https://github.com/changesets/changesets): `npm run changeset` → PR → `npm run version` → `npm run release`.
+Versioning via [changesets](https://github.com/changesets/changesets): `npm run changeset` → PR → `npm run version` → `npm run release`.

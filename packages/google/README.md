@@ -1,9 +1,14 @@
 # @nestjs-adk/google
 
-Engine adapter do Google ADK para o [nestjs-adk](../../README.md): traduz os decorators em `LlmAgent`/`FunctionTool` **nativos** do `@google/adk` em runtime — todo o ecossistema ADK continua funcionando (incluindo `adk web` via `createAdkEntry`).
+Google ADK engine adapter for [`@nestjs-adk/core`](https://www.npmjs.com/package/@nestjs-adk/core) — translates your decorated NestJS agents into **native** `@google/adk` objects (`LlmAgent`/`FunctionTool`) at runtime, so the whole ADK ecosystem keeps working (including `adk web` via `createAdkEntry`).
 
 ```ts
-AdkModule.forRoot({ engine: GoogleAdkEngine, defaultModel: "gemini-2.5-flash" })
+AdkModule.forRoot({
+	engine: GoogleAdkEngine,
+	defaultModel: new Gemini("gemini-2.5-flash", { labels, cache, config }),
+})
 ```
 
-Suporta `gemini()` (Vertex/AI Studio, labels, cachedContent), `openaiLike()` (via adk-llm-bridge), `modelRouter()` (failover → RoutedLlm nativo) e compaction nativa.
+Includes: the canonical `Gemini` model spec (Vertex/AI Studio, billing labels, explicit cachedContent), `OpenAiLike` via adk-llm-bridge, `ModelRouter` failover via the ADK's native `RoutedLlm` (with `model_rerouted` events), native context compaction and cached-token usage reporting.
+
+Full documentation: [github.com/gabrieljsilva/nestjs-adk](https://github.com/gabrieljsilva/nestjs-adk)
