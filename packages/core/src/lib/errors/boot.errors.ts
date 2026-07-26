@@ -89,6 +89,35 @@ export class UnregisteredPromptError extends AdkBootError {
 	}
 }
 
+export class UnregisteredModelError extends AdkBootError {
+	public readonly code = "UNREGISTERED_MODEL";
+
+	public constructor(agentClass: string, modelClass: string) {
+		super(
+			`Agent ${agentClass} references model ${modelClass}, but it is not registered as a provider in any module. ` +
+				`Add ${modelClass} to a module's providers.`,
+		);
+	}
+}
+
+export class InvalidModelError extends AdkBootError {
+	public readonly code = "INVALID_MODEL";
+
+	public constructor(agentClass: string, modelClass: string) {
+		super(`Agent ${agentClass} references model ${modelClass}, but it does not extend AdkModel.`);
+	}
+}
+
+export class UnsupportedModelScopeError extends AdkBootError {
+	public readonly code = "UNSUPPORTED_MODEL_SCOPE";
+
+	public constructor(agentClass: string, modelClass: string) {
+		super(
+			`Agent ${agentClass} references model ${modelClass}, which is a REQUEST/TRANSIENT-scoped provider. Models are resolved once at boot and shared across all runs — keep ${modelClass} a stateless singleton and resolve per-request data inside generate().`,
+		);
+	}
+}
+
 export class UnresolvedToolsetError extends AdkBootError {
 	public readonly code = "UNRESOLVED_TOOLSET";
 

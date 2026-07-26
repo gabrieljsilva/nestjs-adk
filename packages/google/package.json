@@ -38,7 +38,8 @@
 		"access": "public"
 	},
 	"devDependencies": {
-		"@nestjs-adk/core": "^1.0.0"
+		"@nestjs-adk/core": "^1.0.0",
+		"@nestjs-adk/testing": "^1.0.0"
 	},
 	"repository": {
 		"type": "git",

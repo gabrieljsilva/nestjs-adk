@@ -1,11 +1,13 @@
 import "./matchers";
 import {
 	AdkAgent,
+	AdkEmbedder,
 	AdkModule,
 	AdkTool,
 	Agent,
 	Embedder,
-	type EmbeddingResult,
+	type EmbeddingOutput,
+	type RunResult,
 	ScriptedEngine,
 	Skill,
 	Tool,
@@ -228,9 +230,9 @@ describe("matchers", () => {
 });
 
 /** Deterministic bag-of-words embedder — word overlap drives similarity, no API involved. */
-@Injectable()
-class FakeEmbedder extends Embedder {
-	public async embed(texts: string[]): Promise<EmbeddingResult> {
+@Embedder({ model: "fake-embedding" })
+class FakeEmbedder extends AdkEmbedder {
+	protected async generate(texts: string[]): Promise<EmbeddingOutput> {
 		const embeddings = texts.map((input) => {
 			const vector = new Array<number>(128).fill(0);
 			for (const word of input.toLowerCase().match(/\w+/g) ?? []) {
@@ -301,5 +303,65 @@ describe("LLM as judge", () => {
 
 		const judge = engineJudge(engine, "judge-model");
 		await expectJudged("It's 25°C.").toSatisfy("mentions the temperature", { judge });
+	});
+});
+
+describe("toHaveCacheHitRatioAbove", () => {
+	const run = (promptTokens: number, cachedTokens?: number): RunResult => ({
+		text: "ok",
+		usage: {
+			promptTokens,
+			outputTokens: 10,
+			totalTokens: promptTokens + 10,
+			...(cachedTokens != null && { cachedTokens }),
+		},
+		events: [],
+		status: "completed",
+	});
+
+	it("passes when the runs after the warm-up hit the cache above the floor", () => {
+		expect([run(1000, 0), run(1000, 900), run(1000, 900)]).toHaveCacheHitRatioAbove(0.8);
+	});
+
+	it("fails below the floor, reporting the ratio and the totals behind it", () => {
+		expect(() => expect([run(1000, 0), run(1000, 200)]).toHaveCacheHitRatioAbove(0.6)).toThrow(
+			/20\.0%.*200 cached of 1000 prompt tokens across 1 run/s,
+		);
+	});
+
+	it("a provider that does not report cached tokens is UNKNOWN, never 0%", () => {
+		expect(() => expect([run(1000), run(1000)]).toHaveCacheHitRatioAbove(0.6)).toThrow(/UNKNOWN/);
+	});
+
+	it("the warm-up run is excluded from the calculation", () => {
+		// warm-up alone would drag the average below the floor if it were counted
+		expect([run(1000, 0), run(1000, 900)]).toHaveCacheHitRatioAbove(0.85);
+	});
+
+	it("requires a warm-up plus at least one measured run", () => {
+		expect(() => expect([run(1000, 900)]).toHaveCacheHitRatioAbove(0.5)).toThrow(/first one warms the cache/);
+	});
+});
+
+describe("matcher misuse is an error, not a failed assertion", () => {
+	const run = (): RunResult => ({
+		text: "ok",
+		usage: { promptTokens: 100, outputTokens: 10, totalTokens: 110, cachedTokens: 50 },
+		events: [],
+		status: "completed",
+	});
+
+	it("a threshold outside 0..1 is rejected instead of silently comparing against 8500%", () => {
+		expect(() => expect([run(), run()]).toHaveCacheHitRatioAbove(85)).toThrow(/ratio between 0 and 1/);
+	});
+
+	// `pass: false` would make `.not` succeed without ever measuring anything
+	it("misuse still throws under .not", () => {
+		expect(() => expect([run()]).not.toHaveCacheHitRatioAbove(0.5)).toThrow(/first one warms the cache/);
+	});
+
+	it("an unavailable metric throws under .not instead of passing", () => {
+		const silent: RunResult = { ...run(), usage: { promptTokens: 100, outputTokens: 10, totalTokens: 110 } };
+		expect(() => expect([silent, silent]).not.toHaveCacheHitRatioAbove(0.5)).toThrow(/UNKNOWN/);
 	});
 });

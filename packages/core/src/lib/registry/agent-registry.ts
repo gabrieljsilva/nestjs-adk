@@ -1,5 +1,6 @@
 import { Inject, Injectable, type OnApplicationBootstrap, type Type } from "@nestjs/common";
 import { DiscoveryService, ModuleRef } from "@nestjs/core";
+import { type AdkModel, isAdkModel } from "../abstracts/adk-model";
 import type { AdkSkill } from "../abstracts/adk-skill";
 import type { AdkTool } from "../abstracts/adk-tool";
 import {
@@ -18,15 +19,19 @@ import {
 	AgentNotFoundError,
 	ConflictingPromptError,
 	DuplicateAgentNameError,
+	InvalidModelError,
 	InvalidWorkflowError,
 	MissingModelError,
 	ReservedMethodError,
+	UnregisteredModelError,
 	UnregisteredPromptError,
 	UnregisteredSkillError,
 	UnregisteredSubAgentError,
 	UnregisteredToolError,
 	UnresolvedToolsetError,
+	UnsupportedModelScopeError,
 } from "../errors";
+import { ModelRouter, type RouterTarget, isModelSpec } from "../models/model-specs";
 import type { AdkModuleOptions } from "../module/adk-options";
 import type { AdkPrompt } from "../prompts/adk-prompt";
 import type { AgentOptions, ModelInput, SkillOptions, ToolOptions, WorkflowOptions } from "../types/options";
@@ -178,8 +183,9 @@ export class AgentRegistry implements OnApplicationBootstrap {
 		// biome-ignore lint/style/noNonNullAssertion: agentWrappers only enters with one of the two metadata
 		const options = agentOptions!;
 
-		const model = options.model ?? this.options.defaultModel;
-		if (model === undefined) throw new MissingModelError(type.name);
+		const rawModel = options.model ?? this.options.defaultModel;
+		if (rawModel === undefined) throw new MissingModelError(type.name);
+		const model = this.resolveModelInput(rawModel, type.name);
 
 		const tools: ToolBinding[] = [];
 		const toolsets: ToolsetRef[] = [];
@@ -244,6 +250,46 @@ export class AgentRegistry implements OnApplicationBootstrap {
 			options.outputKey,
 			toolsets,
 		);
+	}
+
+	/** AdkModel classes → DI instances at boot (agent model and router targets), fail-fast like prompts. */
+	private resolveModelInput(model: ModelInput, agentClass: string): ModelInput {
+		if (typeof model === "function") return this.getModelInstance(model as Type, agentClass);
+
+		if (isModelSpec(model) && model.__adkModelSpec === "router") {
+			let changed = false;
+			const targets: Record<string, RouterTarget> = {};
+			for (const [key, target] of Object.entries(model.targets)) {
+				if (typeof target === "function") {
+					targets[key] = this.getModelInstance(target as Type, agentClass);
+					changed = true;
+				} else {
+					targets[key] = target;
+				}
+			}
+			// spread preserves any future router options beyond targets/strategy in the resolved copy
+			return changed ? new ModelRouter({ ...model, targets }) : model;
+		}
+
+		return model;
+	}
+
+	private getModelInstance(type: Type, agentClass: string): AdkModel {
+		let instance: unknown;
+		try {
+			instance = this.moduleRef.get(type, { strict: false });
+		} catch (error) {
+			// Scoped providers get a dedicated message — the generic one would suggest the wrong fix.
+			// Nest exceptions keep name="Error", so the constructor name is the reliable discriminator.
+			const boot =
+				(error as Error)?.constructor?.name === "InvalidClassScopeException"
+					? new UnsupportedModelScopeError(agentClass, type.name)
+					: new UnregisteredModelError(agentClass, type.name);
+			boot.cause = error;
+			throw boot;
+		}
+		if (!isAdkModel(instance)) throw new InvalidModelError(agentClass, type.name);
+		return instance;
 	}
 
 	private hasToolsetResolver(): boolean {

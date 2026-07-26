@@ -1,5 +1,7 @@
 /** Public execution and session types. Runtime arrives in F3. */
 
+import type { CallCost, RunCost } from "../pricing/pricing-types";
+
 export interface TokenUsage {
 	promptTokens: number;
 	outputTokens: number;
@@ -16,13 +18,22 @@ export interface RawRef {
 
 export type AgentEvent =
 	| { type: "run_start"; agent: string; sessionId?: string; raw?: RawRef }
-	| { type: "llm_response"; agent: string; text?: string; usage?: TokenUsage; raw?: RawRef }
+	/** `model` is the id the call was billed under — optional so third-party engines that cannot report it still compile. */
+	| {
+			type: "llm_response";
+			agent: string;
+			model?: string;
+			text?: string;
+			usage?: TokenUsage;
+			cost?: CallCost;
+			raw?: RawRef;
+	  }
 	| { type: "tool_call"; agent: string; callId: string; tool: string; args: unknown; raw?: RawRef }
 	| { type: "tool_result"; agent: string; callId: string; tool: string; result: unknown; raw?: RawRef }
 	| { type: "agent_transfer"; from: string; to: string; raw?: RawRef }
 	| { type: "model_rerouted"; from: string; to: string; reason: string; raw?: RawRef }
 	| { type: "approval_required"; agent: string; callId: string; tool: string; args: unknown; raw?: RawRef }
-	| { type: "final"; agent: string; text: string; usage: TokenUsage; raw?: RawRef };
+	| { type: "final"; agent: string; text: string; usage: TokenUsage; cost?: RunCost; raw?: RawRef };
 
 export interface RunInput {
 	message: string;
@@ -42,6 +53,8 @@ export interface RunInput {
 	maxConsecutiveToolFailures?: number;
 	/** Filled in by the AgentRunner for persistent sessions: history BEFORE the current message. Engines use it to hydrate the context. */
 	history?: SessionEvent[];
+	/** Filled in by the AgentRunner when diagnostics are on: engines push one snapshot per model call. */
+	capture?: import("../diagnostics/context-types").ContextSnapshot[];
 }
 
 export interface PendingApproval {
@@ -56,6 +69,8 @@ export interface RunResult<TOutput = unknown> {
 	/** Validated structured output (F6) — present when the agent declares `output`. */
 	output?: TOutput;
 	usage: TokenUsage;
+	/** Absent when pricing is not configured or no model used in the run had a price. */
+	cost?: RunCost;
 	/** Complete run trace — the basis for test assertions. */
 	events: AgentEvent[];
 	status: "completed" | "pending_approval";

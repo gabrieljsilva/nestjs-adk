@@ -1,4 +1,5 @@
 import { Logger } from "@nestjs/common";
+import type { CallCost, RunCost } from "../pricing/pricing-types";
 import type { AgentEvent, RunInput, TokenUsage } from "../types/events";
 
 /** Max payload preview length below the "verbose" level (verbose logs full payloads). */
@@ -53,9 +54,17 @@ export class RunLogger {
 				}
 				return;
 			case "llm_response":
-				if (this.enabled("verbose") && event.text) {
-					this.logger.verbose(`llm response text=${this.preview(event.text)}${usageSuffix(event.usage)}`);
+				// no text still means a real call — the compaction summary arrives exactly like this
+				if (this.enabled("verbose")) {
+					this.logger.verbose(
+						`llm response${event.model ? ` model=${event.model}` : ""}` +
+							`${event.text ? ` text=${this.preview(event.text)}` : ""}` +
+							`${usageSuffix(event.usage)}${callCostSuffix(event.cost)}`,
+					);
 				}
+				return;
+			case "agent_transfer":
+				if (this.enabled("debug")) this.logger.debug(`agent transfer from=${event.from} to=${event.to}`);
 				return;
 			case "model_rerouted":
 				this.logger.warn(`model rerouted from=${event.from} to=${event.to} reason=${event.reason}`);
@@ -67,7 +76,8 @@ export class RunLogger {
 				return;
 			case "final":
 				this.logger.log(
-					`run done in ${Date.now() - this.startedAt}ms text=${this.preview(event.text)}${usageSuffix(event.usage)}`,
+					`run done in ${Date.now() - this.startedAt}ms text=${this.preview(event.text)}` +
+						`${usageSuffix(event.usage)}${runCostSuffix(event.cost)}`,
 				);
 				return;
 			default:
@@ -99,6 +109,22 @@ function usageSuffix(usage: TokenUsage | undefined): string {
 	if (!usage) return "";
 	const cached = usage.cachedTokens != null ? ` cached=${usage.cachedTokens}` : "";
 	return ` | tokens in=${usage.promptTokens} out=${usage.outputTokens}${cached} total=${usage.totalTokens}`;
+}
+
+function formatAmount(value: number, currency: string): string {
+	// fixed notation: a fraction of a cent would otherwise print as 5.1e-5
+	return `${value.toFixed(6)} ${currency}`;
+}
+
+function callCostSuffix(cost: CallCost | undefined): string {
+	return cost ? ` | cost=${formatAmount(cost.amount, cost.currency)}` : "";
+}
+
+/** Models without a price are named, so a total that excludes them is never read as the whole bill. */
+function runCostSuffix(cost: RunCost | undefined): string {
+	if (!cost) return "";
+	const unpriced = cost.unpriced.length > 0 ? ` unpriced=${cost.unpriced.join(",")}` : "";
+	return ` | cost=${formatAmount(cost.total, cost.currency)}${unpriced}`;
 }
 
 function json(value: unknown): string {

@@ -1,12 +1,18 @@
 // abstracts (contratos)
 export { AdkAgent } from "./lib/abstracts/adk-agent";
 export { AdkEngine } from "./lib/abstracts/adk-engine";
+export { AdkModel, isAdkModel } from "./lib/abstracts/adk-model";
 export { AdkSkill } from "./lib/abstracts/adk-skill";
 export { AdkTool } from "./lib/abstracts/adk-tool";
 export { AdkWorkflow } from "./lib/abstracts/adk-workflow";
+export { AdkEmbedder } from "./lib/abstracts/adk-embedder";
+export type {
+	EmbedderOptions,
+	EmbeddingOutput,
+	EmbeddingResult,
+	EmbeddingUsage,
+} from "./lib/abstracts/adk-embedder";
 export { ArtifactStore } from "./lib/abstracts/artifact-store";
-export { Embedder } from "./lib/abstracts/embedder";
-export type { EmbeddingResult, EmbeddingUsage } from "./lib/abstracts/embedder";
 export { Similarity } from "./lib/embeddings/similarity";
 export { MemoryStore } from "./lib/abstracts/memory-store";
 export { SessionStore } from "./lib/abstracts/session-store";
@@ -15,12 +21,55 @@ export { SessionStore } from "./lib/abstracts/session-store";
 export { InMemoryArtifactStore } from "./lib/stores/in-memory-artifact-store";
 export { InMemorySessionStore } from "./lib/stores/in-memory-session-store";
 
+// pricing
+export { PricingSource } from "./lib/abstracts/pricing-source";
+export { PricingStorage } from "./lib/abstracts/pricing-storage";
+export { LiteLLMPricingSource } from "./lib/pricing/litellm-pricing-source";
+export type { LiteLLMPricingSourceOptions } from "./lib/pricing/litellm-pricing-source";
+export { projectLiteLlmCatalog } from "./lib/pricing/litellm-projection";
+export {
+	PRICING_CURRENCY,
+	applyOverride,
+	embeddingCost,
+	llmCost,
+	resolveModelPrice,
+} from "./lib/pricing/cost-calculator";
+export type {
+	CallCost,
+	ModelCost,
+	ModelPrice,
+	PriceBand,
+	PriceOverride,
+	PriceRates,
+	PricingCatalog,
+	RunCost,
+} from "./lib/pricing/pricing-types";
+export { InMemoryPricingStorage } from "./lib/stores/in-memory-pricing-storage";
+export { FileSystemPricingStorage } from "./lib/stores/file-system-pricing-storage";
+export type { FileSystemPricingStorageOptions } from "./lib/stores/file-system-pricing-storage";
+export { RedisPricingStorage } from "./lib/stores/redis-pricing-storage";
+export type { RedisLikeClient, RedisPricingStorageOptions } from "./lib/stores/redis-pricing-storage";
+
+// context diagnostics
+export { ContextCollector } from "./lib/diagnostics/context-collector";
+export { comparePrefix } from "./lib/diagnostics/prefix-compare";
+export { cacheHitRatio } from "./lib/diagnostics/cache-ratio";
+export type {
+	CacheReport,
+	ContextSegment,
+	ContextSegmentKind,
+	ContextSnapshot,
+	PrefixDivergence,
+	PrefixReport,
+} from "./lib/diagnostics/context-types";
+
 // sessions
 export { AgentSessions } from "./lib/sessions/agent-sessions";
 export type { AppendSliceInput } from "./lib/sessions/agent-sessions";
 
 // decorators
 export { Agent } from "./lib/decorators/agent.decorator";
+export { Embedder } from "./lib/decorators/embedder.decorator";
 export { Skill } from "./lib/decorators/skill.decorator";
 export { Tool } from "./lib/decorators/tool.decorator";
 export { WorkflowAgent } from "./lib/decorators/workflow-agent.decorator";
@@ -44,15 +93,32 @@ export type { StateGuard } from "./lib/runner/state-bag";
 export { buildInstruction, skillContent } from "./lib/runner/instruction-builder";
 
 // model specs
-export { Gemini, ModelRouter, OpenAiLike, isModelSpec } from "./lib/models/model-specs";
+export { Gemini, ModelRouter, OpenAiLike, isModelSpec, modelIdOf } from "./lib/models/model-specs";
+export { createModelSpec } from "./lib/models/create-model-spec";
+export type { TypedModelSpec } from "./lib/models/create-model-spec";
 export { DEFAULT_OFFLOAD_THRESHOLD, contextPolicy } from "./lib/models/context-policy";
 export type { CompactionPolicy, ContextPolicy } from "./lib/models/context-policy";
 export type {
+	GeminiGenerationOptions,
 	GeminiOptions,
 	ModelSpec,
 	OpenAiLikeOptions,
 	RouterTarget,
 } from "./lib/models/model-specs";
+
+// model I/O (contrato neutro do AdkModel)
+export { GENERATION_KEYS } from "./lib/types/model-io";
+export type {
+	GenerateOptions,
+	GenerationParams,
+	ModelGenerationConfig,
+	ModelMessage,
+	ModelPart,
+	ModelRequest,
+	ModelResponse,
+	ModelUsage,
+	ToolDeclaration,
+} from "./lib/types/model-io";
 
 // testing (embryo — migrates to @nestjs-adk/testing in F5)
 export { ScriptedEngine, callTool, fail, text } from "./lib/testing/scripted-engine";
@@ -71,14 +137,17 @@ export {
 	AdkError,
 	DuplicateAgentNameError,
 	ConflictingPromptError,
+	InvalidModelError,
 	InvalidWorkflowError,
 	MissingModelError,
 	ReservedMethodError,
+	UnregisteredModelError,
 	UnregisteredPromptError,
 	UnregisteredSkillError,
 	UnregisteredSubAgentError,
 	UnregisteredToolError,
 	UnresolvedToolsetError,
+	UnsupportedModelScopeError,
 } from "./lib/errors";
 export {
 	AgentMaxIterationsError,

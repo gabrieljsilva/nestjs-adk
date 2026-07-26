@@ -35,13 +35,17 @@ defaultModel: new Gemini("gemini-2.5-flash", {
 	vertexai: true,
 	project: "my-project",
 	location: "us-central1",
+	temperature: 0.2,
+	stopSequences: ["END"],
 	labels: { team: "growth" },
 	cache: { content: "cachedContents/abc" },
-	config: { temperature: 0.2 },
+	config: { thinkingConfig: { thinkingBudget: 0 } },
 })
 ```
 
-`labels` are attached to every request for billing and cost tracking on Vertex. `cache` points the requests at an explicit cached content entry, and the cached token count then shows up in `run.usage.cachedTokens`. `config` is a free passthrough of `GenerateContentConfig`, for options like temperature and thinking budgets.
+Generation parameters (`temperature`, `topP`, `topK`, `maxOutputTokens`, the penalties and `stopSequences`) are first-class typed fields. `labels` are attached to every request for billing and cost tracking on Vertex. `cache` points the requests at an explicit cached content entry, and the cached token count then shows up in `run.usage.cachedTokens`. `config` remains a free passthrough of `GenerateContentConfig` for everything else, like thinking budgets and safety settings — when a parameter appears both typed and inside `config`, the typed field wins.
+
+The spec's configuration follows the spec everywhere: directly on an agent, as a `ModelRouter` target (each target keeps its own temperature and labels) and as the compaction summarizer.
 
 ## Failover with ModelRouter
 
@@ -63,6 +67,14 @@ When the current target fails before the first chunk of the response, the router
 ## Native compaction
 
 When an agent declares a compaction policy (`context: contextPolicy({ compaction: ... })`), this engine applies it with the ADK's native context compactors and an LLM summarizer. Old turns are summarized when the history passes the token threshold, and recent turns are kept whole.
+
+The summarizer is a real model call, so it is not free: its tokens join `run.usage` and, with pricing configured in the core, it is billed under the summarizer's own model, on its own line in `run.cost.byModel`. Compaction is skipped during `explain()`, since the compactor runs before the model call is short-circuited and a dry run must not bill anything.
+
+## Capturing the context
+
+With `forRoot({ diagnostics: true })`, this engine records what every model call actually received. Capture sits at the point where the final request is assembled, so it works the same for a plain model id, a `Gemini` spec, an OpenAI-compatible endpoint, a `ModelRouter` target or a custom `AdkModel` — it is not tied to the scripted path.
+
+The engine also implements `explain()`: it builds the request through the real native pipeline, including the ADK's own request processors and the hydrated history, then short-circuits before the provider. Serialization keeps the payload as it is, insertion order included, because that is what the provider caches on. See the testing package for the matchers that consume this.
 
 ## Using the ADK Dev UI
 

@@ -1,7 +1,9 @@
 import type { InjectionToken, ModuleMetadata, Type } from "@nestjs/common";
+import type { AdkEmbedder } from "../abstracts/adk-embedder";
 import type { AdkEngine } from "../abstracts/adk-engine";
 import type { ArtifactStore } from "../abstracts/artifact-store";
 import type { MemoryStore } from "../abstracts/memory-store";
+import type { PricingSource } from "../abstracts/pricing-source";
 import type { SessionStore } from "../abstracts/session-store";
 import type { ModelInput } from "../types/options";
 
@@ -16,7 +18,11 @@ export interface AdkModuleOptions {
 	/** Default: InMemoryArtifactStore. */
 	artifacts?: Type<ArtifactStore>;
 	/** Embedding provider (no default — bring your own; see the playground's GeminiEmbedder example). */
-	embedder?: Type<import("../abstracts/embedder").Embedder>;
+	embedder?: Type<AdkEmbedder>;
+	/** Cost tracking. Unset = runs report tokens only. E.g.: `new LiteLLMPricingSource()`. */
+	pricing?: PricingSource;
+	/** Captures the context sent to the model, for the testing matchers. Off by default — production captures nothing. */
+	diagnostics?: boolean;
 	prompts?: { dir?: string };
 	/**
 	 * Structured run logs via the Nest Logger (context `Adk:<agent>`). Cumulative levels:

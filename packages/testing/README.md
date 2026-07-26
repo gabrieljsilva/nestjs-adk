@@ -55,6 +55,8 @@ expect(run).toHaveCalledToolsInOrder(["get_weather"]);
 expect(run).toHavePausedForApproval("refund");
 expect(run).toHaveUsedAtMostTokens(1500);
 expect(run).toMatchOutput(reportSchema);
+expect([runA, runB]).toHaveStablePrefix(0.85);
+expect([warmUp, runA, runB]).toHaveCacheHitRatioAbove(0.6);
 ```
 
 Two of them deserve a note. `toHaveUsedAtMostTokens` turns your token budget into a regression test, so a prompt change that doubles your cost fails CI. And `toBeSemanticallySimilarTo` compares meaning instead of exact text, using the embedder configured in your module:
@@ -68,6 +70,41 @@ You can also snapshot the exact instruction the model received, which catches ac
 ```ts
 expect(weatherAgent.lastInstruction()).toMatchSnapshot();
 ```
+
+## Cache diagnostics
+
+Once your agent answers well, the next question is what it costs. The biggest lever is prefix caching: providers discount tokens whose prefix they already saw, and that only works while the start of your context stays byte-for-byte identical between calls. A `Date.now()` in the prompt or a tool catalog in shifting order kills the discount without changing a single answer.
+
+Enable capture with `AdkModule.forRoot({ diagnostics: true })`, then assert on it. Two tools, different price tags.
+
+**Stable Prefix** is deterministic, runs on the scripted model and belongs in your normal suite. Run the agent with different inputs and check how much of the context held still:
+
+```ts
+const runA = await agent.ask({ message: "what is my balance?" });
+const runB = await agent.ask({ message: "I want to cancel my account" });
+
+expect([runA, runB]).toHaveStablePrefix(0.85);
+```
+
+There is no default threshold on purpose: the instruction-to-history proportion changes too much between agents for a universal number to mean anything. When it fails, the message points at the segment and the exact text where the contexts parted ways, so you find the volatile value instead of guessing.
+
+**Cache Hit Ratio** talks to the real provider and measures what actually happened. Keep it in `*.agent.spec.ts`, which the `agents` project runs on demand and `npm test` leaves alone:
+
+```ts
+const warmUp = await agent.ask({ message: "hi" });
+const runA = await agent.ask({ message: "and my last order?" });
+const runB = await agent.ask({ message: "when does it arrive?" });
+
+expect([warmUp, runA, runB]).toHaveCacheHitRatioAbove(0.6);
+```
+
+The first run is dropped from the calculation, since implicit caching only exists after somebody paid for the prefix. A run the provider said nothing about leaves the sample entirely, numerator and denominator — keeping its prompt tokens would quietly assume "zero cached" and drag the ratio down for a run that was never measured. `CacheReport` reports both counts: `sampledRuns` fed the ratio, `silentRuns` were set aside. If nothing was reported at all, the matcher throws saying the metric is unavailable — never `0%`, which would send you hunting a bug that is not there.
+
+Implicit caching is best-effort, so expect variance between runs of the suite: it takes a few calls to engage and expires on its own schedule. That is why the assertion is a floor and never an equality.
+
+The two answer different questions. Stable Prefix measures what you control and costs nothing. Cache Hit Ratio measures what the infrastructure delivers and costs real money, so it runs in a cadence of its own rather than on every commit. A high prefix with a low real ratio is useful information: your prompt is fine, look elsewhere.
+
+One thing the library deliberately does not check: providers only engage caching above a minimum prefix size, which varies by model. Agent prompts with skills usually clear it comfortably, and hardcoding those thresholds would mean shipping data that goes stale.
 
 ## Testing with the real engine
 

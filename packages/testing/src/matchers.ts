@@ -1,7 +1,18 @@
-import { Embedder, type RunResult, Similarity } from "@nestjs-adk/core";
+import {
+	AdkEmbedder,
+	ContextCollector,
+	type ContextSnapshot,
+	type PrefixReport,
+	type RunResult,
+	Similarity,
+	cacheHitRatio,
+	comparePrefix,
+} from "@nestjs-adk/core";
 import { expect } from "vitest";
 
 const DEFAULT_SIMILARITY_THRESHOLD = 0.85;
+/** Snapshot of the FIRST model call: it holds instruction + tools, and is built before any tool result. */
+const FIRST_CALL = 0;
 
 interface ToolCallView {
 	tool: string;
@@ -25,6 +36,48 @@ function tryParseJson(text: string): unknown {
 function describeCalls(calls: ToolCallView[]): string {
 	if (calls.length === 0) return "(no tool called)";
 	return calls.map((call, index) => `  ${index + 1}. ${call.tool}(${JSON.stringify(call.args)})`).join("\n");
+}
+
+function percent(ratio: number): string {
+	return `${(ratio * 100).toFixed(1)}%`;
+}
+
+/** Misuse and misconfiguration THROW instead of failing: a `pass:false` would quietly satisfy `.not`. */
+function assertUsable(runs: RunResult[], matcher: string, hint: string, threshold: number): void {
+	if (!Array.isArray(runs) || runs.length < 2) throw new Error(`${matcher} ${hint}`);
+	if (!(threshold >= 0 && threshold <= 1)) {
+		throw new Error(`${matcher} takes a ratio between 0 and 1, received ${threshold}.`);
+	}
+}
+
+/**
+ * First model call of each run. Only that call is compared, because it holds the instruction and the
+ * tool catalog and is built before any tool result — and it always belongs to the root agent, since
+ * sub-agents can only be reached later in the loop.
+ */
+function firstCallSnapshots(runs: RunResult[]): ContextSnapshot[] {
+	const collector = ContextCollector.getActive();
+	if (!collector) {
+		throw new Error(
+			"Context diagnostics are off. Enable AdkModule.forRoot({ diagnostics: true }) to capture the context.",
+		);
+	}
+
+	return runs.map((run, index) => {
+		const first = collector.snapshotsOf(run)?.[FIRST_CALL];
+		if (!first) throw new Error(`Run #${index + 1} has no captured context — only runs started by ask() are tracked.`);
+		return first;
+	});
+}
+
+function describeDivergence(report: PrefixReport): string {
+	const divergence = report.divergesAt;
+	if (!divergence) return "The contexts are byte-identical.";
+	const excerpts = divergence.excerpts.map((excerpt, index) => `  run #${index + 1}: ${JSON.stringify(excerpt)}`);
+	return (
+		`Diverges in "${divergence.segment}" at offset ${divergence.segmentOffset} of the segment ` +
+		`(${divergence.offset} of the context):\n${excerpts.join("\n")}`
+	);
 }
 
 expect.extend({
@@ -52,7 +105,7 @@ expect.extend({
 		const threshold = options?.threshold ?? DEFAULT_SIMILARITY_THRESHOLD;
 
 		// Always the module-configured embedder — both texts MUST be embedded by the same model.
-		const embedder = Embedder.getActive();
+		const embedder = AdkEmbedder.getActive();
 		const { embeddings, usage } = await embedder.embed([actual, expected]);
 		const similarity = new Similarity().cosine(embeddings[0] ?? [], embeddings[1] ?? []);
 
@@ -100,6 +153,50 @@ expect.extend({
 		};
 	},
 
+	toHaveStablePrefix(received: RunResult[], threshold: number) {
+		assertUsable(
+			received,
+			"toHaveStablePrefix",
+			"compares runs: pass at least 2 RunResults, e.g. expect([runA, runB]).",
+			threshold,
+		);
+
+		const report = comparePrefix(firstCallSnapshots(received));
+		const pass = report.ratio >= threshold;
+		return {
+			pass,
+			message: () =>
+				`Expected the stable prefix to be ${pass ? "BELOW" : "at least"} ${percent(threshold)}, got ${percent(report.ratio)} ` +
+				`(${report.prefixChars} of ${report.totalChars} chars, comparing the first model call of each run).\n${describeDivergence(report)}`,
+		};
+	},
+
+	toHaveCacheHitRatioAbove(received: RunResult[], threshold: number) {
+		assertUsable(
+			received,
+			"toHaveCacheHitRatioAbove",
+			"needs a sequence of runs: the first one warms the cache, e.g. expect([warmUp, runA, runB]).",
+			threshold,
+		);
+
+		const report = cacheHitRatio(received.map((run) => run.usage));
+		if (!report.available) {
+			throw new Error(
+				"The provider reported no cached tokens for any measured run, so cache usage is UNKNOWN — this is not 0%. " +
+					"Check that the model supports context caching and reports it in usage metadata.",
+			);
+		}
+
+		const silent = report.silentRuns > 0 ? `; ${report.silentRuns} run(s) left out for reporting nothing` : "";
+		const pass = report.ratio >= threshold;
+		return {
+			pass,
+			message: () =>
+				`Expected the cache hit ratio to be ${pass ? "BELOW" : "at least"} ${percent(threshold)}, got ${percent(report.ratio)} ` +
+				`(${report.cachedTokens} cached of ${report.promptTokens} prompt tokens across ${report.sampledRuns} run(s), excluding the warm-up${silent}).`,
+		};
+	},
+
 	toHaveCalledToolsInOrder(received: RunResult, tools: string[]) {
 		const calls = toolCalls(received).map((call) => call.tool);
 		let cursor = 0;
@@ -125,6 +222,8 @@ declare module "vitest" {
 		toHaveUsedAtMostTokens(max: number): T;
 		toMatchOutput(schema: { safeParse(value: unknown): { success: boolean; error?: unknown } }): T;
 		toBeSemanticallySimilarTo(expected: string, options?: { threshold?: number }): Promise<T>;
+		toHaveStablePrefix(threshold: number): T;
+		toHaveCacheHitRatioAbove(threshold: number): T;
 	}
 	interface AsymmetricMatchersContaining {
 		toHaveCalledTool(tool: string, args?: unknown): void;
@@ -133,5 +232,7 @@ declare module "vitest" {
 		toHavePausedForApproval(tool?: string): void;
 		toHaveUsedAtMostTokens(max: number): void;
 		toMatchOutput(schema: { safeParse(value: unknown): { success: boolean; error?: unknown } }): void;
+		toHaveStablePrefix(threshold: number): void;
+		toHaveCacheHitRatioAbove(threshold: number): void;
 	}
 }

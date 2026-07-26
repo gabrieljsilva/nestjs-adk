@@ -3,14 +3,17 @@ export {
 	AdkBootError,
 	DuplicateAgentNameError,
 	ConflictingPromptError,
+	InvalidModelError,
 	InvalidWorkflowError,
 	MissingModelError,
 	ReservedMethodError,
+	UnregisteredModelError,
 	UnregisteredPromptError,
 	UnregisteredSkillError,
 	UnregisteredSubAgentError,
 	UnregisteredToolError,
 	UnresolvedToolsetError,
+	UnsupportedModelScopeError,
 } from "./boot.errors";
 export {
 	AgentMaxIterationsError,

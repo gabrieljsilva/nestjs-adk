@@ -9,6 +9,7 @@
 	"workspaces": ["packages/*", "apps/*"],
 	"license": "MIT",
 	"overrides": {
+		"brace-expansion": "^5.0.8",
 		"tar": "^7.5.20",
 		"uuid": "^14.0.1",
 		"adm-zip": "^0.6.0",

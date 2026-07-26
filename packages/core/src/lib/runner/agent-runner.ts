@@ -1,10 +1,13 @@
 import { randomUUID } from "node:crypto";
-import { Inject, Injectable, Optional, type Type } from "@nestjs/common";
+import { Inject, Injectable, Logger, Optional, type Type } from "@nestjs/common";
 import { z } from "zod";
 import { AdkEngine } from "../abstracts/adk-engine";
 import { ArtifactStore } from "../abstracts/artifact-store";
+import { PricingSource } from "../abstracts/pricing-source";
 import { SessionStore } from "../abstracts/session-store";
 import { ADK_OPTIONS } from "../constants";
+import { ContextCollector } from "../diagnostics/context-collector";
+import type { ContextSnapshot } from "../diagnostics/context-types";
 import {
 	type AdkError,
 	AgentMaxIterationsError,
@@ -17,6 +20,8 @@ import {
 } from "../errors";
 import { type ContextPolicy, DEFAULT_OFFLOAD_THRESHOLD } from "../models/context-policy";
 import type { AdkModuleOptions } from "../module/adk-options";
+import { PRICING_CURRENCY, llmCost } from "../pricing/cost-calculator";
+import type { CallCost, ModelCost, ModelPrice, RunCost } from "../pricing/pricing-types";
 import type { AgentDefinition, ToolBinding } from "../registry/agent-definition";
 import { AgentRegistry } from "../registry/agent-registry";
 import type {
@@ -36,6 +41,8 @@ import { RunLogger } from "./run-logger";
 import { DeltaStateBag } from "./state-bag";
 
 const EMPTY_USAGE: TokenUsage = { promptTokens: 0, outputTokens: 0, totalTokens: 0 };
+/** Placeholder in RunCost.unpriced for calls whose engine did not report which model served them. */
+const UNKNOWN_MODEL = "unknown";
 /** State key for pending approvals (HITL). */
 const HITL_STATE_KEY = "__adk_hitl";
 
@@ -72,6 +79,8 @@ export class AgentRunner {
 		private readonly artifacts: ArtifactStore,
 		@Inject(ADK_OPTIONS) private readonly options: AdkModuleOptions,
 		@Optional() private readonly toolsets?: ToolsetResolver,
+		@Optional() private readonly pricing?: PricingSource,
+		@Optional() private readonly collector?: ContextCollector,
 	) {}
 
 	public async *run(agentType: Type | string, input: RunInput): AsyncGenerator<AgentEvent> {
@@ -89,7 +98,15 @@ export class AgentRunner {
 		const resolved = await this.resolveAgent(definition, ctx, runtime);
 
 		// History captured BEFORE persisting the current message — engines hydrate the context with it.
-		const engineInput: RunInput = { ...input, signal, history: session?.events };
+		// The capture bucket comes from ask() when it owns the run, so it can correlate it to the RunResult.
+		// Gated by the collector, never by the caller: an untrusted `capture` in the input would otherwise
+		// switch capture on with diagnostics off and hand the composed prompt to whoever supplied the array.
+		const engineInput: RunInput = {
+			...input,
+			signal,
+			history: session?.events,
+			capture: this.collector ? (input.capture ?? this.collector.open()) : undefined,
+		};
 
 		if (session) await this.persist(session.id, "user", "message", { text: input.message });
 
@@ -97,6 +114,7 @@ export class AgentRunner {
 		let iterations = 0;
 		let usage = EMPTY_USAGE;
 		let lastEventType: AgentEvent["type"] | undefined;
+		const cost = new RunCostMeter(this.pricing);
 
 		try {
 			for await (const event of this.engine.run(resolved, engineInput)) {
@@ -113,13 +131,14 @@ export class AgentRunner {
 				}
 				lastEventType = event.type;
 
-				log?.event(event);
-				if (session) await this.persistAgentEvent(session.id, event);
+				const priced = cost.price(event);
+				log?.event(priced);
+				if (session) await this.persistAgentEvent(session.id, priced);
 				if (event.type === "final" && definition.output && definition.outputKey) {
 					const parsed = definition.output.safeParse(tryParseJson(event.text));
 					if (parsed.success) state.set(definition.outputKey, parsed.data);
 				}
-				yield event;
+				yield priced;
 			}
 		} catch (error) {
 			if (runtime.fatal) {
@@ -156,15 +175,24 @@ export class AgentRunner {
 		const events: AgentEvent[] = [];
 		let text = "";
 		let usage: TokenUsage = EMPTY_USAGE;
+		let cost: RunCost | undefined;
 		let agentName = typeof agentType === "string" ? agentType : agentType.name;
+		// Opened here, not in run(), so the snapshots can be keyed by the RunResult this call returns.
+		const capture = this.collector?.open();
 
-		for await (const event of this.run(agentType, input)) {
-			events.push(event);
-			if (event.type === "run_start") agentName = event.agent;
-			if (event.type === "final") {
-				text = event.text;
-				usage = event.usage;
+		try {
+			for await (const event of this.run(agentType, capture ? { ...input, capture } : input)) {
+				events.push(event);
+				if (event.type === "run_start") agentName = event.agent;
+				if (event.type === "final") {
+					text = event.text;
+					usage = event.usage;
+					cost = event.cost;
+				}
 			}
+		} catch (error) {
+			if (error instanceof Error) throw this.captured(error, capture);
+			throw error;
 		}
 
 		const pending: PendingApproval[] = [];
@@ -173,19 +201,46 @@ export class AgentRunner {
 				pending.push({ callId: event.callId, tool: event.tool, args: event.args, agent: event.agent });
 			}
 		}
-		if (pending.length > 0) return { text, usage, events, status: "pending_approval", pending };
+		if (pending.length > 0) {
+			return this.correlate({ text, usage, cost, events, status: "pending_approval", pending }, capture);
+		}
 
-		if (!text.trim()) throw new AiEmptyResponseError(agentName);
+		if (!text.trim()) throw this.captured(new AiEmptyResponseError(agentName), capture);
 
 		const definition = this.definitionOf(agentType);
 		let output: TOutput | undefined;
 		if (definition.output) {
 			const result = definition.output.safeParse(tryParseJson(text));
-			if (!result.success) throw new OutputValidationError(agentName, text, result.error.issues);
+			if (!result.success) throw this.captured(new OutputValidationError(agentName, text, result.error.issues), capture);
 			output = result.data as TOutput;
 		}
 
-		return { text, usage, events, status: "completed", output };
+		return this.correlate({ text, usage, cost, events, status: "completed", output }, capture);
+	}
+
+	/**
+	 * Context the agent WOULD send to the provider, without spending a token: the engine builds the
+	 * request through its real pipeline and stops before the call. Undefined when the engine does not
+	 * support it — the ScriptedEngine, for instance, has no native request to describe.
+	 */
+	public async explain(agentType: Type | string, input: RunInput = { message: "" }): Promise<ContextSnapshot[]> {
+		const definition = this.definitionOf(agentType);
+		// Read-only: a dry run must not create the session the way an actual run does.
+		const session = input.sessionId ? await this.store.get(input.sessionId) : null;
+		// Same state precedence as run(): session state under the call's own, or state-dependent
+		// instructions would render differently here than in the run this is supposed to describe.
+		const resolved = await this.resolve(agentType, {
+			...input,
+			state: { ...(session?.state ?? {}), ...(input.state ?? {}) },
+		});
+
+		const snapshots = await this.engine.explain(resolved, { ...input, history: session?.events });
+		if (snapshots.length === 0) {
+			new Logger(`Adk:${definition.name}`).warn(
+				`explain() produced no context — ${this.engine.constructor.name} never reached a model call.`,
+			);
+		}
+		return snapshots;
 	}
 
 	/** Approves a pending action (HITL): executes the tool and resumes the agent with the result. */
@@ -234,6 +289,18 @@ export class AgentRunner {
 	}
 
 	// ---------- internals ----------
+
+	/** Keys the run's snapshots by the result object, so matchers can take RunResults directly. */
+	private correlate<TOutput>(result: RunResult<TOutput>, capture: ContextSnapshot[] | undefined): RunResult<TOutput> {
+		if (capture) this.collector?.attach(result, capture);
+		return result;
+	}
+
+	/** Same correlation for the failure path: the context of a run that threw stays inspectable. */
+	private captured<TError extends Error>(error: TError, capture: ContextSnapshot[] | undefined): TError {
+		if (capture) this.collector?.attach(error, capture);
+		return error;
+	}
 
 	private definitionOf(agentType: Type | string): AgentDefinition {
 		return typeof agentType === "string" ? this.registry.get(agentType) : this.registry.getByType(agentType);
@@ -542,11 +609,86 @@ export class AgentRunner {
 }
 
 function addUsage(total: TokenUsage, delta: TokenUsage): TokenUsage {
+	const cached = (total.cachedTokens ?? 0) + (delta.cachedTokens ?? 0);
+	// A reported 0 must survive: "cache did not engage" and "provider never said" are different facts.
+	const reported = total.cachedTokens != null || delta.cachedTokens != null;
 	return {
 		promptTokens: total.promptTokens + delta.promptTokens,
 		outputTokens: total.outputTokens + delta.outputTokens,
 		totalTokens: total.totalTokens + delta.totalTokens,
+		...(reported ? { cachedTokens: cached } : {}),
 	};
+}
+
+/**
+ * Run-scoped cost aggregation. Every LLM call is priced by the model it was actually billed under,
+ * so a router failover or a compaction summary lands on its own line instead of the agent's model.
+ * A model without a usable price never becomes a zero: it goes to `unpriced` and the total says so.
+ */
+class RunCostMeter {
+	private readonly byModel = new Map<string, ModelCost>();
+	private readonly unpriced = new Set<string>();
+
+	public constructor(private readonly pricing?: PricingSource) {}
+
+	/** Returns the event with its cost attached, when there is one to attach. */
+	public price(event: AgentEvent): AgentEvent {
+		if (!this.pricing) return event;
+		if (event.type === "llm_response") {
+			const cost = this.add(event.model, event.usage);
+			return cost ? { ...event, cost } : event;
+		}
+		if (event.type === "final") {
+			const cost = this.result();
+			return cost ? { ...event, cost } : event;
+		}
+		return event;
+	}
+
+	private add(model: string | undefined, usage: TokenUsage | undefined): CallCost | undefined {
+		if (!usage) return undefined;
+		// an engine that cannot report the model still burned tokens — the total must admit it
+		if (!model) {
+			this.unpriced.add(UNKNOWN_MODEL);
+			return undefined;
+		}
+
+		const amount = llmCost(this.priceOf(model), usage);
+		if (amount === undefined) {
+			this.unpriced.add(model);
+			return undefined;
+		}
+
+		const current = this.byModel.get(model);
+		this.byModel.set(model, {
+			model,
+			calls: (current?.calls ?? 0) + 1,
+			usage: addUsage(current?.usage ?? EMPTY_USAGE, usage),
+			amount: (current?.amount ?? 0) + amount,
+		});
+		return { amount, currency: PRICING_CURRENCY };
+	}
+
+	/** A third-party source that throws must not take the run down with it — the call just goes unpriced. */
+	private priceOf(model: string): ModelPrice | undefined {
+		try {
+			return this.pricing?.priceFor(model);
+		} catch {
+			return undefined;
+		}
+	}
+
+	private result(): RunCost | undefined {
+		if (this.byModel.size === 0 && this.unpriced.size === 0) return undefined;
+		const byModel = [...this.byModel.values()];
+		return {
+			total: byModel.reduce((sum, entry) => sum + entry.amount, 0),
+			currency: PRICING_CURRENCY,
+			byModel,
+			unpriced: [...this.unpriced],
+			catalogAsOf: this.pricing?.asOf(),
+		};
+	}
 }
 
 /** Direct JSON or the first {...} block (models sometimes wrap it with text/fences). */

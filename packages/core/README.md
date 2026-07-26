@@ -156,26 +156,71 @@ The final instruction is always composed in the same order: the prompt, then the
 
 ## Models
 
-The `model` field on `@Agent` and the `defaultModel` on `forRoot` accept a string or a model spec class. Specs are small objects that only carry configuration. The engine turns them into real clients:
+The `model` field on `@Agent` and the `defaultModel` on `forRoot` accept a string, a model spec class or your own model implementation. Specs are small objects that only carry configuration. The engine turns them into real clients:
 
 ```ts
 model: "gemini-2.5-flash"
 
-model: new Gemini("gemini-2.5-flash", { labels, cache: { content }, config })
+model: new Gemini("gemini-2.5-flash", { temperature: 0.2, topP: 0.9, stopSequences: ["END"] })
 
 model: new OpenAiLike("gpt-4o-mini", { baseUrl, apiKeyEnv })
 
 model: new ModelRouter({
 	targets: {
-		primary: new Gemini("gemini-2.5-flash"),
+		primary: new Gemini("gemini-2.5-flash", { temperature: 0.1 }),
 		fallback: new OpenAiLike("gpt-4o-mini", { baseUrl: "https://openrouter.ai/api/v1" }),
 	},
 })
 ```
 
+The universal generation parameters — `temperature`, `topP`, `topK`, `maxOutputTokens`, `frequencyPenalty`, `presencePenalty` and `stopSequences` — are first-class typed fields, so a typo fails to compile. Provider-specific options still go through each spec's escape hatch (`config` on `Gemini`), and when both declare the same parameter, the typed field wins. A spec's configuration applies wherever the spec is used: as the agent's model, as a router target or as the compaction summarizer.
+
 `OpenAiLike` covers every provider that speaks the OpenAI API, which includes OpenAI itself, OpenRouter, Ollama and many others. `Gemini` lives in `@nestjs-adk/google` and adds Vertex AI options, billing labels and explicit content caching.
 
 `ModelRouter` gives you failover in one line. When the current target fails before the first chunk of the response, for example with a 429, the router moves to the next target in the declared order. Every switch is reported as a `model_rerouted` event, so failovers are never silent. If you use a router as your `defaultModel`, you get global failover for the whole app.
+
+### Restricting options per model
+
+Some models reject parameters that their siblings accept (reasoning models often pin `temperature`). `createModelSpec` narrows a spec's options at compile time from a map you own — the framework deliberately does not track per-model capabilities:
+
+```ts
+const MyGemini = createModelSpec(Gemini)<{
+	"gemini-2.5-flash-lite": Omit<GeminiOptions, "temperature">;
+}>();
+
+new MyGemini("gemini-2.5-flash-lite", { temperature: 0.2 }); // compile error
+new MyGemini("gemini-2.5-pro", { temperature: 0.2 }); // model outside the map → full options
+```
+
+It is type-only: at runtime `MyGemini` **is** `Gemini`, with zero extra behavior.
+
+### Your own model (AdkModel)
+
+When the framework does not know your provider — an internal proxy, a provider without an OpenAI-compatible API, a plain HTTP call — you implement the model yourself. A model is a provider like any other: extend `AdkModel`, implement `generate()` and reference the class in `@Agent({ model })` or as a router target:
+
+```ts
+@Injectable()
+export class ClaudeViaProxy extends AdkModel {
+	readonly model = "claude-sonnet-5";
+
+	constructor(private readonly http: ProxyClient) {
+		super();
+	}
+
+	async *generate(request: ModelRequest, opts?: GenerateOptions): AsyncIterable<ModelResponse> {
+		const stream = await this.http.stream(toClaude(request), { signal: opts?.signal });
+		for await (const chunk of stream) {
+			if (chunk.type === "text") yield { parts: [{ text: chunk.delta }] };
+			if (chunk.type === "tool_use") yield { parts: [{ toolCall: { name: chunk.name, args: chunk.input } }] };
+		}
+		yield { usage: { promptTokens: stream.usage.in, outputTokens: stream.usage.out } };
+	}
+}
+```
+
+The `ModelRequest` arrives ready — composed instruction, conversation history and tool declarations — and you only translate it to your provider's wire format. On the way back the engine aggregates your chunks: every `text` part is a delta, `toolCall`s accumulate, `usage` and `finishReason` are last-one-wins. Tool calling, streaming, sessions, structured output and human approval work exactly as with the built-in specs. If you forget to register the class as a provider, the app fails at boot pointing at it.
+
+Two contracts to respect. Instances are resolved once at boot and shared by every run, so keep the class a stateless singleton — `REQUEST`/`TRANSIENT` scopes are rejected at boot, and anything per-request belongs inside `generate()`, derived from the request. And honor `opts.signal` by stopping your upstream call when it fires; the engine stops consuming your chunks either way. Live (bidirectional audio/video) connections are not supported for custom models.
 
 ## Sessions
 
@@ -238,6 +283,28 @@ context: contextPolicy({
 
 You can set the policy globally in `forRoot` and override it per agent.
 
+## Seeing the context
+
+Most providers discount tokens whose prefix they have already seen. That discount depends on the beginning of your context staying byte-for-byte identical between calls, which is why the instruction is assembled from the stable parts to the volatile ones. A timestamp in the prompt or a tool catalog in shifting order breaks it silently — same answers, bigger bill.
+
+Turn on diagnostics to capture what actually reaches the provider:
+
+```ts
+AdkModule.forRoot({ engine: GoogleAdkEngine, diagnostics: true })
+```
+
+With it on, every model call is captured as a `ContextSnapshot` split into `systemInstruction`, `toolDeclarations` and `contents`. The testing package turns those into assertions.
+
+Keep it off in production. A snapshot holds the full prompt and the whole conversation, it is kept for as long as the `RunResult` lives, and a run that throws keeps its context attached to the `Error` — which is exactly the object crash reporters hang on to. The flag is opt-in and announces itself in the boot log for that reason; only the module can turn it on, so a `capture` field arriving in a request body does nothing.
+
+You can also inspect the context without spending anything:
+
+```ts
+const snapshots = await app.get(AgentRunner).explain(SupportAgent, { message: "hi" });
+```
+
+`explain()` runs the real assembly pipeline — instruction, tool declarations, hydrated history — and stops right before the provider call. It is a debugging tool: it returns the system prompt and, given a `sessionId`, that session's conversation in plain text. Do not put it behind an endpoint that reaches end users.
+
 ## Human approval
 
 Some actions should not run without a person saying yes. Mark the tool:
@@ -284,7 +351,7 @@ Modes are `sequential`, `parallel` and `loop`. A workflow is also an agent: you 
 
 ## Streaming, events and errors
 
-`stream()` yields a normalized event loop: `run_start`, `tool_call`, `tool_result`, `llm_response`, `model_rerouted`, `approval_required` and `final`. Every event carries a `raw` field with the original payload from the provider, so no information is lost. `ask()` consumes the same loop and aggregates it into a `RunResult` with `text`, `usage`, `events`, `status` and, when declared, `output`.
+`stream()` yields a normalized event loop: `run_start`, `tool_call`, `tool_result`, `llm_response`, `agent_transfer`, `model_rerouted`, `approval_required` and `final`. Every event carries a `raw` field with the original payload from the provider, so no information is lost. `ask()` consumes the same loop and aggregates it into a `RunResult` with `text`, `usage`, `events`, `status`, `cost` when pricing is configured, and, when declared, `output`.
 
 Errors are not events. They throw as typed classes that extend `AdkError` and carry a `code`. Configuration problems throw at startup and point at the class that caused them. Runtime problems throw classes like `AiEmptyResponseError`, `OutputValidationError`, `ToolExecutionError`, `ModelsExhaustedError`, `AgentStateInvalidError` and `AgentMaxIterationsError`, so you can catch exactly what you care about.
 
@@ -296,7 +363,7 @@ Turn on run logs in the module:
 AdkModule.forRoot({ engine: GoogleAdkEngine, logging: "debug" })
 ```
 
-Logs go through the normal Nest `Logger` with the context `Adk:<agent_name>`. Levels are cumulative. `"info"` (or `true`) logs the start and the end of each run with duration and token usage. `"debug"` adds tool calls and tool results. `"verbose"` adds intermediate model responses and stops truncating payloads. Reroutes and approval pauses are always logged as warnings.
+Logs go through the normal Nest `Logger` with the context `Adk:<agent_name>`. Levels are cumulative. `"info"` (or `true`) logs the start and the end of each run with duration and token usage. `"debug"` adds tool calls, tool results and transfers to sub-agents. `"verbose"` adds intermediate model responses and stops truncating payloads. Reroutes and approval pauses are always logged as warnings.
 
 ```
 run start session=smoke-1 user=u1 message=What's the status of my order 123?
@@ -305,11 +372,64 @@ tool result lookup_order result={"id":"123","status":"shipped"}
 run done in 1389ms text=Your order 123 has shipped. | tokens in=772 out=41 total=813
 ```
 
-Token usage is also available programmatically on every result as `run.usage`.
+Token usage is also available programmatically on every result as `run.usage`. With pricing configured, the same line carries the run cost.
+
+## Cost
+
+Turn on pricing in the module and every run reports what it cost:
+
+```ts
+AdkModule.forRoot({ engine: GoogleAdkEngine, pricing: new LiteLLMPricingSource() })
+```
+
+```ts
+const run = await support.ask({ message });
+run.cost;
+// { total: 0.000334, currency: "USD",
+//   byModel: [{ model: "gemini-2.5-flash", calls: 2, usage: { promptTokens: 772, outputTokens: 41, totalTokens: 813 },
+//               amount: 0.000334 }],
+//   unpriced: [], catalogAsOf: "2026-07-25T04:12:00Z" }
+```
+
+Prices come from the community catalog that LiteLLM maintains. `LiteLLMPricingSource` fetches it, keeps only the token rates, stores it and revalidates every four hours — all at runtime, inside the lib, with no build step. Every model in the catalog stays loaded, so a model released yesterday is priced today.
+
+Each call is billed under the model that actually served it, so a router failover or a compaction summary lands on its own line in `byModel` instead of being attributed to the agent's declared model. Cached prompt tokens are discounted from the prompt and charged at the cache rate, and models whose price grows above a context threshold (Gemini 2.5 Pro doubles past 200k) switch band by the real token count of the call.
+
+Nothing is ever guessed. A model the catalog does not know, or one with an incomplete price, is named in `unpriced` and left out of the total — you get tokens without cost instead of a number that looks right and is not. The same applies before the first successful fetch: the run completes normally with `run.cost` absent.
+
+```ts
+new LiteLLMPricingSource({
+	storage: new RedisPricingStorage({ client: redis }), // or FileSystemPricingStorage
+	refreshEvery: 4 * 60 * 60 * 1000,
+	overrides: {
+		"internal-proxy-gpt": { inputPerMTok: 0.5, outputPerMTok: 1.5 },
+		"gemini-2.5-flash": { inputPerMTok: 0.24 }, // contract discount, keeps the catalog's output price
+	},
+})
+```
+
+Storage is not about saving memory (the whole catalog is ~0.33 MB): it is what makes a restart skip the download, lets replicas share a single fetch, and keeps prices available offline. The default is in-memory, per process.
+
+The catalog in memory is only ever replaced by a new and valid payload. A failed fetch, a timeout or an unexpected format logs an error and keeps the prices already loaded — pricing never interrupts a run and never blocks boot. Because of that, the data can be stale: `catalogAsOf` tells you how old it is.
+
+One trust assumption comes with that convenience: by default the prices are community data, read at runtime from a mutable branch, so whatever upstream publishes becomes your cost numbers within four hours. Point `url` at a commit SHA when you need reproducible figures, and use `overrides` for any price you must guarantee — an override always wins, including above the context thresholds.
 
 ## Embeddings
 
-The core ships an `Embedder` contract with no default implementation, so you bring the provider you prefer. Configure it once with `forRoot({ embedder })` and inject `Embedder` wherever you need vectors, for semantic search or deduplication. The `Similarity` provider offers cosine similarity, and the testing package uses the same embedder for semantic assertions.
+The core ships an `AdkEmbedder` contract with no default implementation, so you bring the provider you prefer:
+
+```ts
+@Embedder({ model: "gemini-embedding-001", dimensions: 3072 })
+export class GeminiEmbedder extends AdkEmbedder {
+	protected async generate(texts: string[]): Promise<EmbeddingOutput> {
+		// call your provider, return vectors and the tokens it reported
+	}
+}
+```
+
+Configure it once with `forRoot({ embedder })` and inject `AdkEmbedder` wherever you need vectors, for semantic search or deduplication. You implement `generate()`; the base class exposes `embed()`, which prices the call against the configured `PricingSource` and returns `cost` alongside the vectors. Embeddings only bill input, so the model id on the decorator plus the reported tokens is all it takes. When the provider does not report tokens, `usage.promptTokens` is absent and the call goes unpriced instead of being counted as free.
+
+The `Similarity` provider offers cosine similarity, and the testing package uses the same embedder for semantic assertions.
 
 ## Testing
 

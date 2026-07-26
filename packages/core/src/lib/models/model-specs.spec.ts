@@ -17,6 +17,27 @@ describe("model specs (value-object classes)", () => {
 		expect(isModelSpec(spec)).toBe(true);
 	});
 
+	it("new Gemini() carries first-class typed generation params alongside the config escape hatch", () => {
+		const spec = new Gemini("gemini-2.5-flash", {
+			temperature: 0.1,
+			topP: 0.9,
+			topK: 40,
+			maxOutputTokens: 2048,
+			frequencyPenalty: 0.5,
+			presencePenalty: 0.3,
+			stopSequences: ["FIM"],
+			config: { candidateCount: 2 },
+		});
+		expect(spec.temperature).toBe(0.1);
+		expect(spec.topP).toBe(0.9);
+		expect(spec.topK).toBe(40);
+		expect(spec.maxOutputTokens).toBe(2048);
+		expect(spec.frequencyPenalty).toBe(0.5);
+		expect(spec.presencePenalty).toBe(0.3);
+		expect(spec.stopSequences).toEqual(["FIM"]);
+		expect(spec.config).toEqual({ candidateCount: 2 });
+	});
+
 	it("new OpenAiLike() with declarable defaults", () => {
 		const spec = new OpenAiLike("gpt-4o-mini", { baseUrl: "http://localhost:11434/v1", apiKeyEnv: "MY_KEY" });
 		expect(spec.__adkModelSpec).toBe("openai-like");

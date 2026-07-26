@@ -1,4 +1,5 @@
 export const AGENT_METADATA = Symbol("adk:agent");
+export const EMBEDDER_METADATA = Symbol("adk:embedder");
 export const TOOL_METADATA = Symbol("adk:tool");
 export const SKILL_METADATA = Symbol("adk:skill");
 export const WORKFLOW_METADATA = Symbol("adk:workflow");

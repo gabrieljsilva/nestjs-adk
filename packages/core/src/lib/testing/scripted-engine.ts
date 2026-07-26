@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
 import { AdkEngine } from "../abstracts/adk-engine";
+import { modelIdOf } from "../models/model-specs";
 import type { AgentEvent, RunInput, TokenUsage } from "../types/events";
 import type { ResolvedAgent } from "../types/resolved-agent";
 
@@ -81,7 +82,7 @@ export class ScriptedEngine extends AdkEngine {
 			total.outputTokens += turn.usage.outputTokens;
 			total.totalTokens += turn.usage.totalTokens;
 			finalText = turn.text;
-			yield { type: "llm_response", agent: agent.name, text: turn.text, usage: turn.usage };
+			yield { type: "llm_response", agent: agent.name, model: modelIdOf(agent.model), text: turn.text, usage: turn.usage };
 		}
 
 		yield { type: "final", agent: agent.name, text: finalText, usage: total };

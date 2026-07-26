@@ -1,13 +1,17 @@
 import type { Type } from "@nestjs/common";
 import type { ZodObject, ZodRawShape } from "zod";
 import type { AdkAgent } from "../abstracts/adk-agent";
+import type { AdkModel } from "../abstracts/adk-model";
 import type { AdkSkill } from "../abstracts/adk-skill";
 import type { AdkTool } from "../abstracts/adk-tool";
 import type { SessionStore } from "../abstracts/session-store";
 import type { ToolContext } from "./tool-context";
 
-/** v1: string for the active engine or a model spec class (ScriptedModel; Gemini/OpenAiLike/ModelRouter). */
-export type ModelInput = string | object;
+/**
+ * String for the active engine, a model spec (Gemini/OpenAiLike/ModelRouter; ScriptedModel in tests)
+ * or a custom AdkModel — as a provider class (resolved via DI at boot) or an instance.
+ */
+export type ModelInput = string | Type<AdkModel> | object;
 
 export type AnyZodObject = ZodObject<ZodRawShape>;
 

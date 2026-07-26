@@ -1,3 +1,4 @@
+import type { ContextSnapshot } from "../diagnostics/context-types";
 import type { AgentEvent, RunInput } from "../types/events";
 import type { ResolvedAgent } from "../types/resolved-agent";
 
@@ -13,5 +14,14 @@ export abstract class AdkEngine {
 	/** Deliberate escape hatch: access to the engine's native runtime. */
 	public native(): unknown {
 		return undefined;
+	}
+
+	/**
+	 * Optional: build the context through the real pipeline and stop before calling the provider.
+	 * Concrete default so existing engines keep compiling — an engine with no native request to
+	 * describe (the ScriptedEngine, for one) simply reports nothing.
+	 */
+	public explain(_agent: ResolvedAgent, _input: RunInput): Promise<ContextSnapshot[]> {
+		return Promise.resolve([]);
 	}
 }

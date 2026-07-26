@@ -1,10 +1,12 @@
-import { type DynamicModule, Module, type Provider, type Type } from "@nestjs/common";
+import { type DynamicModule, Logger, Module, type Provider, type Type } from "@nestjs/common";
 import { DiscoveryModule, ModuleRef } from "@nestjs/core";
+import { AdkEmbedder } from "../abstracts/adk-embedder";
 import { AdkEngine } from "../abstracts/adk-engine";
 import { ArtifactStore } from "../abstracts/artifact-store";
-import { Embedder } from "../abstracts/embedder";
+import { PricingSource } from "../abstracts/pricing-source";
 import { SessionStore } from "../abstracts/session-store";
 import { ADK_OPTIONS, ADK_RUNNER } from "../constants";
+import { ContextCollector } from "../diagnostics/context-collector";
 import { Similarity } from "../embeddings/similarity";
 import { AgentRegistry } from "../registry/agent-registry";
 import { AgentRunner } from "../runner/agent-runner";
@@ -57,13 +59,41 @@ export class AdkModule {
 			},
 			{
 				// No default implementation — undefined when unset (inject with @Optional in production).
-				provide: Embedder,
+				provide: AdkEmbedder,
 				useFactory: async (options: AdkModuleOptions, moduleRef: ModuleRef) => {
 					const instance = options.embedder ? await resolveStore(moduleRef, options.embedder) : undefined;
-					Embedder.setActive(instance);
+					AdkEmbedder.setActive(instance);
 					return instance;
 				},
 				inject: [ADK_OPTIONS, ModuleRef],
+			},
+			{
+				// Loading is never awaited: a slow or unreachable catalog must not delay boot.
+				provide: PricingSource,
+				useFactory: (options: AdkModuleOptions) => {
+					const source = options.pricing;
+					PricingSource.setActive(source);
+					source?.start().catch((error: unknown) => {
+						// pricing stays off for the whole process — silence here would show up only as missing cost
+						new Logger("Adk:pricing").error(`source failed to start: ${String(error)}`);
+					});
+					return source;
+				},
+				inject: [ADK_OPTIONS],
+			},
+			{
+				// Opt-in: without `diagnostics` nothing is captured and the runner keeps an undefined collector.
+				provide: ContextCollector,
+				useFactory: (options: AdkModuleOptions) => {
+					const collector = options.diagnostics ? new ContextCollector() : undefined;
+					if (collector) {
+						// visible on purpose: every model call is retained in memory for as long as the RunResult lives
+						new Logger("Adk:diagnostics").log("context capture is ON — intended for tests, not production");
+					}
+					ContextCollector.setActive(collector);
+					return collector;
+				},
+				inject: [ADK_OPTIONS],
 			},
 		];
 
@@ -84,9 +114,11 @@ export class AdkModule {
 			exports: [
 				ADK_OPTIONS,
 				AdkEngine,
+				ContextCollector,
 				SessionStore,
 				ArtifactStore,
-				Embedder,
+				AdkEmbedder,
+				PricingSource,
 				Similarity,
 				AgentRegistry,
 				AgentRunner,

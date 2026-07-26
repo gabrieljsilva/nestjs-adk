@@ -37,7 +37,7 @@ Under the hood, your agents run on a real agent engine. The first supported engi
 
 | Package | What it is |
 |---|---|
-| [`@nestjs-adk/core`](packages/core) | The framework itself. Decorators, module, contracts, sessions, prompts, models, human approval, structured output. Start here: the main documentation lives in this package. |
+| [`@nestjs-adk/core`](packages/core) | The framework itself. Decorators, module, contracts, sessions, prompts, models, human approval, structured output, cost tracking. Start here: the main documentation lives in this package. |
 | [`@nestjs-adk/google`](packages/google) | The Google ADK engine. Translates your agents into native ADK objects at runtime, including support for Gemini, Vertex AI and the `adk web` Dev UI. |
 | [`@nestjs-adk/mcp`](packages/mcp) | MCP client. Connects your agents to external MCP servers and turns their catalogs into agent tools. |
 | [`@nestjs-adk/testing`](packages/testing) | Testing utilities. A scripted fake LLM, stackable mocks, Vitest matchers and an LLM-as-judge helper. |
@@ -48,7 +48,7 @@ Under the hood, your agents run on a real agent engine. The first supported engi
 npm i @nestjs-adk/core @nestjs-adk/google
 ```
 
-Then read the [`@nestjs-adk/core` documentation](packages/core). It walks through the whole framework in order: module setup, agents, tools, prompts, models, sessions, approvals, structured output and testing.
+Then read the [`@nestjs-adk/core` documentation](packages/core). It walks through the whole framework in order: module setup, agents, tools, prompts, models, sessions, approvals, structured output, cost and testing.
 
 A complete working app lives in [apps/playground](apps/playground), including smoke tests that talk to the real Gemini API.
 
