@@ -38,7 +38,7 @@ Under the hood, your agents run on a real agent engine. The first supported engi
 | Package | What it is |
 |---|---|
 | [`@nestjs-adk/core`](packages/core) | The framework itself. Decorators, module, contracts, sessions, prompts, models, human approval, structured output, cost tracking. Start here: the main documentation lives in this package. |
-| [`@nestjs-adk/google`](packages/google) | The Google ADK engine. Translates your agents into native ADK objects at runtime, including support for Gemini, Vertex AI and the `adk web` Dev UI. |
+| [`@nestjs-adk/google`](packages/google) | The Gemini adapter: transport, request and response mapping, error translation and model specs, for both the Gemini API and Vertex AI. |
 | [`@nestjs-adk/openai`](packages/openai) | OpenAI models over the official SDK, with a configurable `baseURL` that also reaches OpenRouter, Ollama, Groq, Together and vLLM. |
 | [`@nestjs-adk/mcp`](packages/mcp) | MCP client. Connects your agents to external MCP servers and turns their catalogs into agent tools. |
 | [`@nestjs-adk/testing`](packages/testing) | Testing utilities. A scripted fake LLM, stackable mocks, Vitest matchers and an LLM-as-judge helper. |

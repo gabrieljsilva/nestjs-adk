@@ -3,16 +3,16 @@ import { Injectable, Module } from "@nestjs/common";
 import { Test, type TestingModule } from "@nestjs/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
-import { Agent } from "../../lib/decorators/agent.decorator";
-import { Skill } from "../../lib/decorators/skill.decorator";
-import { Tool } from "../../lib/decorators/tool.decorator";
-import { TransfersTo } from "../../lib/decorators/transfers-to.decorator";
 import { FakeClock } from "../../support/fake-clock";
 import { RecordingModel } from "../../support/nest/recording-model.fixture";
 import { SequenceIdGenerator } from "../../support/sequence-id-generator";
 import { AdkModule } from "./adk-module";
 import { AdkModuleOptions } from "./adk-module-options";
 import { AgentRegistry } from "./agent-registry";
+import { Agent } from "./decorators/agent.decorator";
+import { Skill } from "./decorators/skill.decorator";
+import { Tool } from "./decorators/tool.decorator";
+import { TransfersTo } from "./decorators/transfers-to.decorator";
 
 const lookupSchema = z.object({ orderId: z.string().describe("Order number.") });
 

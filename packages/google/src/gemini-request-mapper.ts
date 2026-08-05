@@ -6,7 +6,7 @@ import {
 	ToolCallMessage,
 	ToolResultMessage,
 	UserMessage,
-} from "@nestjs-adk/core/native";
+} from "@nestjs-adk/core";
 import { InvalidJsonSchemaError } from "./errors/invalid-json-schema.error";
 import type { GeminiOptions } from "./gemini-options";
 import { GeminiRequest } from "./gemini-request";

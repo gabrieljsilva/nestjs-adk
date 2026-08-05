@@ -9,7 +9,7 @@ import {
 	ModelSpec,
 	type TokenCount,
 	UnknownContextWindow,
-} from "@nestjs-adk/core/native";
+} from "@nestjs-adk/core";
 import type { GeminiOptions } from "./gemini-options";
 import { GeminiRequestMapper } from "./gemini-request-mapper";
 import type { GeminiTransport } from "./gemini-transport";

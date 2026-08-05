@@ -1,4 +1,4 @@
-import type { ModelChunk, TokenCount } from "@nestjs-adk/core/native";
+import type { ModelChunk, TokenCount } from "@nestjs-adk/core";
 import type { GeminiRequest } from "./gemini-request";
 
 /**

@@ -1,104 +1,79 @@
-import {
-	AdkEngine,
-	type AgentEvent,
-	AgentRegistry,
-	type ResolvedAgent,
-	type RunInput,
-	type RunResult,
-	type ScriptTurn,
-	ScriptedEngine,
-	ScriptedModel,
-	type TokenUsage,
-	callTool,
-	fail,
-	text,
-} from "@nestjs-adk/core";
-import type { Type } from "@nestjs/common";
+import { type AgentHandle, AgentRegistry, type AgentResult, SessionId, ToolCallId } from "@nestjs-adk/core";
+import type { ScriptedModel } from "./scripted-model";
 
-/** Minimal production handle shape (AdkAgent and AdkWorkflow both satisfy it). */
-interface AgentHandle {
-	ask(input: RunInput): Promise<RunResult>;
-	/** The streaming namespace: `instance.stream.ask(...)`. */
-	stream: { ask(input: RunInput): AsyncGenerator<AgentEvent> };
-}
-
-/** Anything with a DI `get`: TestingModule, INestApplication, ModuleRef. */
+/** Anything with a DI `get`: a TestingModule, an application, a ModuleRef. */
 interface DiContainer {
 	get<T>(token: (abstract new (...args: never[]) => T) | string | symbol): T;
 }
 
 /**
- * Test handle over the REAL agent instance (same DI, same run path as production).
- * Constructing it SCRIPTS the agent: a fresh ScriptedModel is registered as its model
- * override (AgentRegistry test hook). Want real AI? Don't wrap: use the agent directly.
- * `mock*` calls only STACK turns: nothing executes until the next run (triggered via
- * this handle OR any production service), which consumes them as that ONE run's script.
- * Stack again for the next run. Mock methods exist only here, never on the production type.
+ * A test's handle on one agent, over the real container and the real run path.
+ *
+ * Scripting happens on the model rather than on this: a run started by a production
+ * service consumes the same script as one started here, which is what makes an assertion
+ * about the application and not about the test's own shortcut.
+ *
+ * It holds the session it started, so a follow up and a decision go to the conversation
+ * that is actually waiting rather than to a new one.
  */
-export class TestAgent<TAgent extends AgentHandle> {
-	/** The real agent instance: approve/reject and anything else live here. */
-	public readonly instance: TAgent;
-	/** This agent's ScriptedModel, registered as the agent's model override. */
-	public readonly model: ScriptedModel;
+export class TestAgent {
+	private current?: SessionId;
 
-	private readonly engine: AdkEngine;
-	/** Script of the NEXT run (real engine): the array lives inside the model until a run consumes it. */
-	private draft: ScriptTurn[] = [];
-
-	public constructor(container: DiContainer, agentType: Type<TAgent>) {
-		this.instance = container.get(agentType);
-		this.engine = container.get(AdkEngine);
-		this.model = new ScriptedModel();
-		container.get(AgentRegistry).overrideModel(agentType, this.model);
+	public constructor(
+		container: DiContainer,
+		private readonly name: string,
+		public readonly model: ScriptedModel,
+	) {
+		this.agents = container.get(AgentRegistry);
 	}
 
-	/** Stacks a tool-call turn: the run will execute the REAL tool (DI) with these args. */
-	public mockCallTool(tool: string, args: unknown = {}): this {
-		this.stack(callTool(tool, args));
+	private readonly agents: AgentRegistry;
+
+	public get handle(): AgentHandle {
+		return this.agents.get(this.name);
+	}
+
+	/** The session this handle has been talking in, once it has said anything. */
+	public get sessionId(): SessionId | undefined {
+		return this.current;
+	}
+
+	public mockText(text: string): this {
+		this.model.mockText(text);
 		return this;
 	}
 
-	/** Stacks a model text response turn (usually the last turn of a run). */
-	public mockText(value: string, usage?: Partial<TokenUsage>): this {
-		this.stack(text(value, usage));
+	public mockToolCall(tool: string, args: Record<string, unknown> = {}): this {
+		this.model.mockToolCall(tool, args);
 		return this;
 	}
 
-	/** Stacks a model failure turn (e.g. simulate a 429 to test the router). */
-	public mockFail(message: string): this {
-		this.stack(fail(message));
-		return this;
+	public async ask(message: string): Promise<AgentResult> {
+		const result = await this.handle.ask(message, this.current);
+		this.current = result.sessionId;
+		return result;
 	}
 
-	/** Runs the real agent (production path) consuming the stacked turns as this run's script. */
-	public ask(input: RunInput): ReturnType<TAgent["ask"]> {
-		return this.instance.ask(input) as ReturnType<TAgent["ask"]>;
+	public async approve(callId: string, approvedBy = "test"): Promise<AgentResult> {
+		return this.handle.approve(this.sessionOrFail(), ToolCallId.from(callId), approvedBy);
 	}
 
-	/** Same as ask(), but streaming the normalized events. */
-	public stream(input: RunInput): AsyncGenerator<AgentEvent> {
-		return this.instance.stream.ask(input);
+	public async reject(callId: string, reason = "refused by the test"): Promise<AgentResult> {
+		return this.handle.reject(this.sessionOrFail(), ToolCallId.from(callId), reason);
 	}
 
-	/** Composed instruction the engine saw on the last run (prompt + skills + catalog); snapshot it. */
-	public lastInstruction(): string | undefined {
-		return (this.engine as { lastAgent?: ResolvedAgent }).lastAgent?.instruction;
+	/** Where the conversation stands, which is how a test finds what to approve. */
+	public async inspect() {
+		return this.handle.inspect(this.sessionOrFail());
 	}
 
-	/**
-	 * ScriptedEngine consumes turns directly; a real engine consumes them via this agent's ScriptedModel.
-	 * The draft array is enqueued on first stack and MUTATED in place until a run consumes it (shift),
-	 * so runs triggered by production services (not TestAgent.ask) also see the full script.
-	 */
-	private stack(turn: ScriptTurn): void {
-		if (this.engine instanceof ScriptedEngine) {
-			this.engine.push(turn);
-			return;
-		}
-		if (!this.model.scripts.includes(this.draft)) {
-			this.draft = [];
-			this.model.enqueue(this.draft);
-		}
-		this.draft.push(turn);
+	/** The instruction the last turn was sent with, which is where an always skill lands. */
+	public lastInstruction(): string {
+		return this.model.requests.at(-1)?.instructions?.text ?? "";
+	}
+
+	private sessionOrFail(): SessionId {
+		if (this.current === undefined) throw new Error("this agent has not been asked anything yet");
+		return this.current;
 	}
 }

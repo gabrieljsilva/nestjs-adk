@@ -1,4 +1,4 @@
-import type { ModelChunk } from "@nestjs-adk/core/native";
+import type { ModelChunk } from "@nestjs-adk/core";
 import type { OpenAiChatRequest } from "./openai-chat-request";
 
 /**

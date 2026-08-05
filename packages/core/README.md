@@ -344,7 +344,7 @@ Both are off unless you set them. You can define module wide defaults with `forR
 
 `maxInvalidArgs` follows the same resolution but is the one cap that is always on, defaulting to `2`. It counts how many times the model may call a tool with arguments the schema rejects: the first mistakes go back to the model as a result it can act on, and past the limit the run aborts with a `ToolInvalidArgsError`. Returning them rather than throwing is deliberate: the model wrote the argument and usually fixes it on the next call, while an exception would kill the run over a missing field. The cap exists because a schema the model cannot satisfy would otherwise retry on your bill forever. Set `maxInvalidArgs: 0` to abort on the first invalid call. It only counts for declared (`@Tool`) tools: a tool from an external catalog (MCP) carries the server's own JSON Schema, nothing rejects its arguments locally, and a bad call comes back from the server as a tool error the model reacts to.
 
-These caps protect runs that go through `ask()`, `stream.ask()` and the runner. The `adk web` playground resolves agents through a different path and does not count iterations, which is fine because it is a development tool.
+These caps protect every run, because there is only one way a run happens: the loop the runtime owns.
 
 ## Keeping the context small
 

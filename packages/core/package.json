@@ -13,11 +13,6 @@
 			"import": "./dist/index.mjs",
 			"require": "./dist/index.cjs"
 		},
-		"./native": {
-			"types": "./dist/native.d.ts",
-			"import": "./dist/native.mjs",
-			"require": "./dist/native.cjs"
-		},
 		"./package.json": "./package.json"
 	},
 	"files": ["dist"],

@@ -8,7 +8,7 @@ import {
 	AskInput,
 	InMemoryArtifactStorage,
 	SqliteSessionStorage,
-} from "@nestjs-adk/core/native";
+} from "@nestjs-adk/core";
 import { afterAll, describe, expect, it } from "vitest";
 import { agentOf, apiKeyFromEnvironment, cheapModel } from "./agent-suite.fixture";
 import { RandomIdGenerator } from "./random-id-generator.fixture";

@@ -8,7 +8,7 @@ import {
 	InMemoryArtifactStorage,
 	InMemorySessionStorage,
 	RunLimits,
-} from "@nestjs-adk/core/native";
+} from "@nestjs-adk/core";
 import { afterEach, describe, expect, it } from "vitest";
 import { agentOf, apiKeyFromEnvironment, cheapModel, toolModel } from "./agent-suite.fixture";
 import { RandomIdGenerator } from "./random-id-generator.fixture";

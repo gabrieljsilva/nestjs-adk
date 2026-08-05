@@ -8,7 +8,7 @@ import {
 	type ModelRequest,
 	ModelSpec,
 	UnknownContextWindow,
-} from "@nestjs-adk/core/native";
+} from "@nestjs-adk/core";
 import type { OpenAiOptions } from "./openai-options";
 import { OpenAiRequestMapper } from "./openai-request-mapper";
 import type { OpenAiTransport } from "./openai-transport";

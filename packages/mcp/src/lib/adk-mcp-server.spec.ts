@@ -2,7 +2,7 @@ import { UnauthorizedError } from "@modelcontextprotocol/sdk/client/auth.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { SseError } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StreamableHTTPError } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { AgentRunId, SessionId, ToolSourceAuthError, ToolSourceUnavailableError } from "@nestjs-adk/core/native";
+import { AgentRunId, SessionId, ToolSourceAuthError, ToolSourceUnavailableError } from "@nestjs-adk/core";
 import { AdkMcpServer } from "./adk-mcp-server";
 import { AdkMcpAuth, BearerAuth, McpReauthRequiredError, credentialDigest } from "./mcp-auth";
 

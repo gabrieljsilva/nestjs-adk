@@ -5,7 +5,7 @@ import {
 	ToolCallMessage,
 	ToolResultMessage,
 	UserMessage,
-} from "@nestjs-adk/core/native";
+} from "@nestjs-adk/core";
 import type { ChatCompletionFunctionTool, ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import { InvalidJsonSchemaError } from "./errors/invalid-json-schema.error";
 import { OpenAiChatRequest } from "./openai-chat-request";

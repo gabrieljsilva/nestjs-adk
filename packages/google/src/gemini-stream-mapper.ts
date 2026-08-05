@@ -1,4 +1,4 @@
-import { ModelChunk, ModelUsage, ToolCallDelta } from "@nestjs-adk/core/native";
+import { ModelChunk, ModelUsage, ToolCallDelta } from "@nestjs-adk/core";
 
 /** The fields this adapter reads from a generate response, streamed or whole. */
 export interface GeminiResponseChunk {

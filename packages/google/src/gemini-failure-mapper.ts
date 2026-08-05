@@ -6,7 +6,7 @@ import {
 	TimeoutFailure,
 	UnavailableFailure,
 	UnknownFailure,
-} from "@nestjs-adk/core/native";
+} from "@nestjs-adk/core";
 
 const SAFETY_REASONS = new Set(["SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST", "SPII", "IMAGE_SAFETY"]);
 const CONTEXT_HINTS = ["exceeds the maximum number of tokens", "input token count", "context length"];

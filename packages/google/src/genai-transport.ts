@@ -1,4 +1,4 @@
-import { ModelCallFailedError, type ModelChunk, TokenCount } from "@nestjs-adk/core/native";
+import { ModelCallFailedError, type ModelChunk, TokenCount } from "@nestjs-adk/core";
 import { GeminiFailureMapper } from "./gemini-failure-mapper";
 import type { GeminiOptions } from "./gemini-options";
 import type { GeminiRequest } from "./gemini-request";

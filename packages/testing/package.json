@@ -1,7 +1,7 @@
 {
 	"name": "@nestjs-adk/testing",
 	"version": "1.0.0",
-	"description": "Testing utilities for nestjs-adk: TestAgent, scripted engine/models, Vitest matchers and LLM-as-judge.",
+	"description": "Testing utilities for nestjs-adk: a scripted model and a test handle over the real container.",
 	"license": "MIT",
 	"sideEffects": ["./dist/matchers.mjs", "./dist/matchers.cjs"],
 	"main": "dist/index.cjs",
@@ -12,11 +12,6 @@
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.mjs",
 			"require": "./dist/index.cjs"
-		},
-		"./matchers": {
-			"types": "./dist/matchers.d.ts",
-			"import": "./dist/matchers.mjs",
-			"require": "./dist/matchers.cjs"
 		},
 		"./package.json": "./package.json"
 	},
@@ -41,11 +36,6 @@
 	},
 	"publishConfig": {
 		"access": "public"
-	},
-	"typesVersions": {
-		"*": {
-			"matchers": ["./dist/matchers.d.ts"]
-		}
 	},
 	"repository": {
 		"type": "git",

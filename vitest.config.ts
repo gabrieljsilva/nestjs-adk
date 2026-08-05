@@ -7,7 +7,6 @@ export default defineConfig({
 		alias: {
 			"@nestjs-adk/testing/matchers": resolve(__dirname, "packages/testing/src/matchers.ts"),
 			"@nestjs-adk/testing": resolve(__dirname, "packages/testing/src/index.ts"),
-			"@nestjs-adk/core/native": resolve(__dirname, "packages/core/src/native.ts"),
 			"@nestjs-adk/core": resolve(__dirname, "packages/core/src/index.ts"),
 			"@nestjs-adk/openai": resolve(__dirname, "packages/openai/src/index.ts"),
 			"@nestjs-adk/mcp": resolve(__dirname, "packages/mcp/src/index.ts"),

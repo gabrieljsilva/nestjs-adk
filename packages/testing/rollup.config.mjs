@@ -22,14 +22,4 @@ export default [
 		external,
 		plugins,
 	},
-	{
-		// entry com side effect (expect.extend) — importado via '@nestjs-adk/testing/matchers'
-		input: "src/matchers.ts",
-		output: [
-			{ file: "dist/matchers.cjs", format: "cjs", sourcemap: false },
-			{ file: "dist/matchers.mjs", format: "es", sourcemap: false },
-		],
-		external,
-		plugins,
-	},
 ];

@@ -1,4 +1,4 @@
-import { AdkError } from "@nestjs-adk/core/native";
+import { AdkError } from "@nestjs-adk/core";
 
 /**
  * A schema that reached the adapter is not a JSON Schema object.

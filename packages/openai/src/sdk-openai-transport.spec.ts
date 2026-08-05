@@ -1,4 +1,4 @@
-import { ModelCallFailedError, RateLimitedFailure, UnavailableFailure } from "@nestjs-adk/core/native";
+import { ModelCallFailedError, RateLimitedFailure, UnavailableFailure } from "@nestjs-adk/core";
 import type { ChatCompletionChunk, ChatCompletionCreateParamsStreaming } from "openai/resources/chat/completions";
 import { describe, expect, it } from "vitest";
 import type { OpenAiChatClient } from "./openai-chat-client";

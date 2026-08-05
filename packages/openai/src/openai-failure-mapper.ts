@@ -6,7 +6,7 @@ import {
 	TimeoutFailure,
 	UnavailableFailure,
 	UnknownFailure,
-} from "@nestjs-adk/core/native";
+} from "@nestjs-adk/core";
 
 const CONTEXT_CODES = new Set(["context_length_exceeded", "string_above_max_length"]);
 const SAFETY_CODES = new Set(["content_filter", "content_policy_violation"]);

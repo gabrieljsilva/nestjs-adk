@@ -1,55 +1,44 @@
-import { AdkAgent, AdkTool, Agent, Skill, Tool, type ToolContext } from "@nestjs-adk/core";
-import { Injectable } from "@nestjs/common";
+import { Agent, Skill, Tool, type ToolContext } from "@nestjs-adk/core";
 import { z } from "zod";
 import { OrdersService } from "./orders.service";
 
 const lookupSchema = z.object({ orderId: z.string().describe("Order number.") });
+const refundSchema = z.object({ orderId: z.string(), amount: z.number() });
 
-/** Shared tool (class): normal DI. */
-@Tool({ name: "lookup_order", description: "Looks up the status of an order.", schema: lookupSchema })
-@Injectable()
-export class LookupOrderTool extends AdkTool<typeof lookupSchema> {
-	constructor(private readonly orders: OrdersService) {
-		super();
-	}
+/** A shared tool: its own provider, with its own dependencies. */
+@Tool({ name: "lookup_order", description: "Looks up the status of an order.", schema: lookupSchema, effect: "read" })
+export class LookupOrderTool {
+	public constructor(private readonly orders: OrdersService) {}
 
-	execute(input: z.infer<typeof lookupSchema>) {
+	public execute(input: { orderId: string }): unknown {
 		return this.orders.find(input.orderId) ?? { error: `Order ${input.orderId} not found.` };
 	}
 }
 
-const refundSchema = z.object({ orderId: z.string(), amount: z.number() });
-
 @Agent({
-	name: "support_agent",
+	name: "support",
 	description: "Handles orders for the store.",
-	prompt: "You are the store's support agent. Help with orders, refunds, and policies.",
+	prompt: "You are the store's support agent. Help with orders, refunds and policies.",
 	tools: [LookupOrderTool],
 })
-export class SupportAgent extends AdkAgent {
-	constructor(private readonly orders: OrdersService) {
-		super();
-	}
+export class SupportAgent {
+	public constructor(private readonly orders: OrdersService) {}
 
-	/** Always-present skill (tone of voice). */
+	/** Always present: tone of voice is not something to look up. */
 	@Skill({ name: "tone", description: "Brand tone of voice.", mode: "always" })
-	tone() {
+	public tone(): string {
 		return "Answer in English, in a friendly and direct tone.";
 	}
 
-	/** On-demand skill, loaded via load_skill when the topic comes up. */
+	/** Loaded only when the topic comes up, so it costs nothing the rest of the time. */
 	@Skill({ name: "refund_policy", description: "The store's refund policy." })
-	refundPolicy() {
-		return "Refunds: up to 7 days after delivery. Above $1,000 require manual approval from the team.";
+	public refundPolicy(): string {
+		return "Refunds: up to 7 days after delivery. Above $1,000 require manual approval.";
 	}
 
-	/** Inline tool with HITL: money leaving is not recoverable, so every refund pauses for approval. */
-	@Tool({
-		description: "Executes the refund for an order.",
-		schema: refundSchema,
-		effect: "destructive",
-	})
-	refund(input: z.infer<typeof refundSchema>, _ctx?: ToolContext) {
+	/** Money leaving is not recoverable, so it is declared destructive and a policy can hold it. */
+	@Tool({ description: "Executes the refund for an order.", schema: refundSchema, effect: "destructive" })
+	public refund(input: { orderId: string; amount: number }, _context?: ToolContext): unknown {
 		return this.orders.refund(input.orderId);
 	}
 }

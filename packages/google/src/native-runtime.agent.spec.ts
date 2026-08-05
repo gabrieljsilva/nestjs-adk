@@ -16,7 +16,7 @@ import {
 	ToolEffect,
 	ToolHandler,
 	ZodToolSchema,
-} from "@nestjs-adk/core/native";
+} from "@nestjs-adk/core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { GeminiModel } from "./gemini-model";

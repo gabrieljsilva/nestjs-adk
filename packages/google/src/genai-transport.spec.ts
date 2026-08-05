@@ -1,5 +1,5 @@
 import type { CountTokensParameters, CountTokensResponse, GenerateContentParameters } from "@google/genai";
-import { ModelCallFailedError, RateLimitedFailure, TokenCount, UnavailableFailure } from "@nestjs-adk/core/native";
+import { ModelCallFailedError, RateLimitedFailure, TokenCount, UnavailableFailure } from "@nestjs-adk/core";
 import { describe, expect, it } from "vitest";
 import type { GeminiOptions } from "./gemini-options";
 import { GeminiRequest } from "./gemini-request";

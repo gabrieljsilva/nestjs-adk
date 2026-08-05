@@ -5,7 +5,7 @@ import {
 	TimeoutFailure,
 	UnavailableFailure,
 	UnknownFailure,
-} from "@nestjs-adk/core/native";
+} from "@nestjs-adk/core";
 import { describe, expect, it } from "vitest";
 import { GeminiFailureMapper } from "./gemini-failure-mapper";
 

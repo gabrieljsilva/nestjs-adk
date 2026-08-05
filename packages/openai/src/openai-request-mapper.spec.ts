@@ -7,7 +7,7 @@ import {
 	ToolDeclaration,
 	ToolResultMessage,
 	UserMessage,
-} from "@nestjs-adk/core/native";
+} from "@nestjs-adk/core";
 import { describe, expect, it } from "vitest";
 import { InvalidJsonSchemaError } from "./errors/invalid-json-schema.error";
 import { OpenAiRequestMapper } from "./openai-request-mapper";

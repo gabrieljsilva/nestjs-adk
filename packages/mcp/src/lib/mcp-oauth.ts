@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { AdkError } from "@nestjs-adk/core/native";
+import { AdkError } from "@nestjs-adk/core";
 import { McpBlockedTargetError } from "./errors/mcp-blocked-target.error";
 import type { McpClientInfo, McpTokens } from "./mcp-auth";
 import { type TargetTrust, guardedFetch } from "./mcp-target-guard";

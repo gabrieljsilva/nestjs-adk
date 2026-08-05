@@ -1,9 +1,12 @@
-export { createAdkEntry } from "./lib/create-adk-entry";
-export { GoogleAdkEngine } from "./lib/google-adk-engine";
-export { ScriptedLlm } from "./lib/scripted-llm";
-export { httpStatusOf } from "./lib/failover-llm";
-export { toGeminiSchema } from "./lib/gemini-schema";
-
-// canonical home for the Gemini model spec (implemented in core as pure data)
-export { Gemini } from "@nestjs-adk/core";
-export type { GeminiOptions } from "@nestjs-adk/core";
+export { GeminiModel } from "./gemini-model";
+export { GeminiFailureMapper } from "./gemini-failure-mapper";
+export { GeminiRequestMapper } from "./gemini-request-mapper";
+export { GeminiStreamMapper } from "./gemini-stream-mapper";
+export { GenAiTransport } from "./genai-transport";
+export { GenAiClientFactory } from "./genai-client-factory";
+export { InvalidJsonSchemaError } from "./errors/invalid-json-schema.error";
+export type { GeminiOptions } from "./gemini-options";
+export type { GeminiRequest } from "./gemini-request";
+export type { GeminiTransport } from "./gemini-transport";
+export type { GenAiClient } from "./genai-client";
+export type { GeminiResponseChunk } from "./gemini-stream-mapper";

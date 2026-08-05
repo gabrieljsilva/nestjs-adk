@@ -1,4 +1,4 @@
-import { Clock, Instant } from "@nestjs-adk/core/native";
+import { Clock, Instant } from "@nestjs-adk/core";
 
 /** The wall clock, for a suite whose whole point is that it talks to the real world. */
 export class SystemClock extends Clock {

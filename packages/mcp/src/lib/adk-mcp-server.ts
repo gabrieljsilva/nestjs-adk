@@ -12,7 +12,7 @@ import {
 	ToolSource,
 	ToolSourceAuthError,
 	ToolSourceUnavailableError,
-} from "@nestjs-adk/core/native";
+} from "@nestjs-adk/core";
 import { Logger } from "@nestjs/common";
 import { McpBlockedTargetError } from "./errors/mcp-blocked-target.error";
 

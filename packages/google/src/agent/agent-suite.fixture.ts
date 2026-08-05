@@ -7,7 +7,7 @@ import {
 	type LlmModel,
 	PromptInstructions,
 	type ToolDefinition,
-} from "@nestjs-adk/core/native";
+} from "@nestjs-adk/core";
 import { GeminiModel } from "../gemini-model";
 
 /**

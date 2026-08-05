@@ -1,1 +1,0 @@
-Relative support prompt. Tone: {{tone}}.

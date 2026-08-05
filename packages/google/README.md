@@ -59,7 +59,7 @@ defaultModel: new Gemini("gemini-2.5-flash", {
 
 When the current model fails before the first chunk of the response, the chain advances and the run continues. Every switch is emitted as a `model_rerouted` event and logged as a warning. `httpStatusOf()` is exported for failover policies that branch on the provider's HTTP status.
 
-`OpenAiLike` targets are materialized through the adk-llm-bridge, which lets you mix Gemini with any provider that speaks the OpenAI API.
+Other providers live in their own packages: this one is Gemini and Vertex AI, and nothing here knows another provider exists.
 
 ## Tool declarations from external catalogs
 
@@ -76,17 +76,6 @@ The summarizer is a real model call, so it is not free: its tokens join `run.usa
 With `forRoot({ diagnostics: true })`, this engine records what every model call actually received. Capture sits at the point where the final request is assembled, so it works the same for a plain model id, a `Gemini` spec, an OpenAI-compatible endpoint, a failover target or a custom `AdkModel`. It is not tied to the scripted path.
 
 The engine also implements `explain()`: it builds the request through the real native pipeline, including the ADK's own request processors and the hydrated history, then short-circuits before the provider. Serialization keeps the payload as it is, insertion order included, because that is what the provider caches on. See the testing package for the matchers that consume this.
-
-## Using the ADK Dev UI
-
-Google ships a web interface for inspecting agents, called `adk web`. Your NestJS agents can appear there through `createAdkEntry`:
-
-```ts
-// adk-agents/support/agent.mjs
-export const rootAgent = await createAdkEntry(AppModule, SupportAgent);
-```
-
-`createAdkEntry` boots your Nest application context, resolves the agent with full dependency injection and returns the native `LlmAgent` that the Dev UI consumes. You get chat, event inspection and tool call traces over your real agents. See the playground in the main repository for a complete working setup.
 
 ## Learn more
 

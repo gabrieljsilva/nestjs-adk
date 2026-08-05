@@ -6,7 +6,7 @@ import {
 	ModelSpec,
 	PromptInstructions,
 	UserMessage,
-} from "@nestjs-adk/core/native";
+} from "@nestjs-adk/core";
 import { describe, expect, it } from "vitest";
 import type { OpenAiChatRequest } from "./openai-chat-request";
 import { OpenAiModel } from "./openai-model";

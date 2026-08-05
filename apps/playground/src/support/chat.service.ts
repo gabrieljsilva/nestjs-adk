@@ -1,17 +1,27 @@
-import type { RunResult } from "@nestjs-adk/core";
+import { AgentRegistry, type AgentResult, SessionId, ToolCallId } from "@nestjs-adk/core";
 import { Injectable } from "@nestjs/common";
-import { SupportAgent } from "./support.agent";
 
-/** Idiomatic consumption: the agent instance IS the handle, plain Nest DI. */
+/**
+ * What an application actually writes: inject the registry, hold a handle, ask.
+ * Nothing here knows the runtime exists, which is the point of the handle.
+ */
 @Injectable()
 export class ChatService {
-	constructor(private readonly support: SupportAgent) {}
+	public constructor(private readonly agents: AgentRegistry) {}
 
-	public send(sessionId: string, userId: string, message: string): Promise<RunResult> {
-		return this.support.ask({ sessionId, userId, message });
+	public send(message: string, sessionId?: string): Promise<AgentResult> {
+		return this.support.ask(message, sessionId === undefined ? undefined : SessionId.from(sessionId));
 	}
 
-	public approve(sessionId: string, callId: string): Promise<RunResult> {
-		return this.support.approve({ sessionId, callId });
+	public approve(sessionId: string, callId: string): Promise<AgentResult> {
+		return this.support.approve(SessionId.from(sessionId), ToolCallId.from(callId));
+	}
+
+	public reject(sessionId: string, callId: string, reason: string): Promise<AgentResult> {
+		return this.support.reject(SessionId.from(sessionId), ToolCallId.from(callId), reason);
+	}
+
+	private get support() {
+		return this.agents.get("support");
 	}
 }

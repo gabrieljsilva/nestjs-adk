@@ -25,14 +25,4 @@ export default [
 		external,
 		plugins,
 	},
-	// Native runtime entry, consumed by the provider packages until it replaces the barrel above.
-	{
-		input: "src/native.ts",
-		output: [
-			{ file: "dist/native.cjs", format: "cjs", sourcemap: false },
-			{ file: "dist/native.mjs", format: "es", sourcemap: false },
-		],
-		external,
-		plugins,
-	},
 ];

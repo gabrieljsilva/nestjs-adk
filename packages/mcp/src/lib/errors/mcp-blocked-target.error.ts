@@ -1,4 +1,4 @@
-import { AdkError } from "@nestjs-adk/core/native";
+import { AdkError } from "@nestjs-adk/core";
 
 /**
  * A connection was refused before it was attempted.

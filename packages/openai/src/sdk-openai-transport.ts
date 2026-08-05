@@ -1,4 +1,4 @@
-import { ModelCallFailedError, type ModelChunk } from "@nestjs-adk/core/native";
+import { ModelCallFailedError, type ModelChunk } from "@nestjs-adk/core";
 import type { ChatCompletionChunk, ChatCompletionCreateParamsStreaming } from "openai/resources/chat/completions";
 import type { OpenAiChatClient } from "./openai-chat-client";
 import type { OpenAiChatRequest } from "./openai-chat-request";

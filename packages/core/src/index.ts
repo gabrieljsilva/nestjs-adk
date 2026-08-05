@@ -1,224 +1,228 @@
-// abstracts (contratos)
-export { AdkAgent } from "./lib/abstracts/adk-agent";
-export type { AgentStream, ApproveParams, RejectParams } from "./lib/abstracts/adk-agent";
-export { AdkEngine } from "./lib/abstracts/adk-engine";
-export { AdkModel, isAdkModel } from "./lib/abstracts/adk-model";
-export { AdkSkill } from "./lib/abstracts/adk-skill";
-export { AdkTool } from "./lib/abstracts/adk-tool";
-export { AdkWorkflow } from "./lib/abstracts/adk-workflow";
-export { AdkEmbedder } from "./lib/abstracts/adk-embedder";
-export type {
-	EmbedderOptions,
-	EmbeddingOutput,
-	EmbeddingResult,
-	EmbeddingUsage,
-} from "./lib/abstracts/adk-embedder";
-export { ArtifactStore } from "./lib/abstracts/artifact-store";
-export { AdkToolSource } from "./lib/abstracts/adk-tool-source";
-export type { ToolSourceContext } from "./lib/abstracts/adk-tool-source";
-export { Similarity } from "./lib/embeddings/similarity";
-export { MemoryStore } from "./lib/abstracts/memory-store";
-export { type SessionReadOptions, SessionStore } from "./lib/abstracts/session-store";
-
-// stores in-memory (defaults)
-export { InMemoryArtifactStore } from "./lib/stores/in-memory-artifact-store";
-export { InMemorySessionStore } from "./lib/stores/in-memory-session-store";
-
-// pricing
-export { PricingSource } from "./lib/abstracts/pricing-source";
-export { PricingStorage } from "./lib/abstracts/pricing-storage";
-export { LiteLLMPricingSource } from "./lib/pricing/litellm-pricing-source";
-export type { LiteLLMPricingSourceOptions } from "./lib/pricing/litellm-pricing-source";
-export { projectLiteLlmCatalog } from "./lib/pricing/litellm-projection";
-export {
-	PRICING_CURRENCY,
-	applyOverride,
-	embeddingCost,
-	llmCost,
-	resolveModelPrice,
-} from "./lib/pricing/cost-calculator";
-export type {
-	CallCost,
-	CostBreakdown,
-	LlmCost,
-	ModelCost,
-	ModelPrice,
-	PriceBand,
-	PriceOverride,
-	PriceRates,
-	PricingCatalog,
-	RunCost,
-} from "./lib/pricing/pricing-types";
-export { InMemoryPricingStorage } from "./lib/stores/in-memory-pricing-storage";
-export { FileSystemPricingStorage } from "./lib/stores/file-system-pricing-storage";
-export type { FileSystemPricingStorageOptions } from "./lib/stores/file-system-pricing-storage";
-export { RedisPricingStorage } from "./lib/stores/redis-pricing-storage";
-export type { RedisLikeClient, RedisPricingStorageOptions } from "./lib/stores/redis-pricing-storage";
-
-// context diagnostics
-export { ContextCollector } from "./lib/diagnostics/context-collector";
-export { comparePrefix } from "./lib/diagnostics/prefix-compare";
-export { cacheHitRatio } from "./lib/diagnostics/cache-ratio";
-export type {
-	CacheReport,
-	ContextSegment,
-	ContextSegmentKind,
-	ContextSnapshot,
-	PrefixDivergence,
-	PrefixReport,
-} from "./lib/diagnostics/context-types";
-
-// sessions
-export { AgentSessions } from "./lib/sessions/agent-sessions";
-export type { AppendSliceInput } from "./lib/sessions/agent-sessions";
-
-// decorators
-export { Agent } from "./lib/decorators/agent.decorator";
-export { DelegatesTo } from "./lib/decorators/delegates-to.decorator";
-export { Embedder } from "./lib/decorators/embedder.decorator";
-export { Skill } from "./lib/decorators/skill.decorator";
-export { Tool } from "./lib/decorators/tool.decorator";
-export { TransfersTo } from "./lib/decorators/transfers-to.decorator";
-export { WorkflowAgent } from "./lib/decorators/workflow-agent.decorator";
-
-// prompts
-export { AdkPrompt } from "./lib/prompts/adk-prompt";
-export type { PromptContext } from "./lib/prompts/adk-prompt";
-export { PromptFiles } from "./lib/prompts/prompt-files";
-
-// module
-export { ADK_OPTIONS } from "./lib/constants";
-export { AdkModule } from "./lib/module/adk.module";
-export type { AdkModuleAsyncOptions, AdkModuleOptions } from "./lib/module/adk-options";
-
-// runner
-export { AgentRunner } from "./lib/runner/agent-runner";
-export { RunLogger } from "./lib/runner/run-logger";
-export type { LoggingOption } from "./lib/runner/run-logger";
-export { DeltaStateBag } from "./lib/runner/state-bag";
-export type { StateGuard } from "./lib/runner/state-bag";
-export { buildInstruction, skillContent } from "./lib/runner/instruction-builder";
-
-// model specs
-export { failoverPolicy, Gemini, OpenAiLike, isModelSpec, modelIdOf } from "./lib/models/model-specs";
-export { createModelSpec } from "./lib/models/create-model-spec";
-export type { TypedModelSpec } from "./lib/models/create-model-spec";
-export { DEFAULT_OFFLOAD_THRESHOLD, contextPolicy } from "./lib/models/context-policy";
-export type { CompactionPolicy, ContextPolicy } from "./lib/models/context-policy";
-export type {
-	FailoverFn,
-	FailoverMeta,
-	FailoverOption,
-	FailoverTarget,
-	GeminiGenerationOptions,
-	GeminiOptions,
-	ModelSpec,
-	OpenAiLikeOptions,
-} from "./lib/models/model-specs";
-
-// model I/O (contrato neutro do AdkModel)
-export { GENERATION_KEYS } from "./lib/types/model-io";
-export type {
-	GenerateOptions,
-	GenerationParams,
-	ModelGenerationConfig,
-	ModelMessage,
-	ModelPart,
-	ModelRequest,
-	ModelResponse,
-	ModelUsage,
-	ToolDeclaration,
-} from "./lib/types/model-io";
-
-// multimodal tool results (attachments the model looks at, instead of JSON it reads)
-export { artifactEncoding, isTextMimeType, normalizeMimeType, TEXT_MIME_TYPES } from "./lib/types/artifact-encoding";
-export { isToolContent, toolContent } from "./lib/types/tool-content";
-export type { ToolContent, ToolContentPart } from "./lib/types/tool-content";
-
-// testing (embryo, migrates to @nestjs-adk/testing in F5)
-export { ScriptedEngine, callTool, deltas, fail, text } from "./lib/testing/scripted-engine";
-export type { ScriptTurn } from "./lib/testing/scripted-engine";
-export { ScriptedModel, isScriptedModel } from "./lib/testing/scripted-model";
-
-// registry
-export { AgentDefinition } from "./lib/registry/agent-definition";
-export type { SkillBinding, ToolBinding } from "./lib/registry/agent-definition";
-export { AgentRef } from "./lib/registry/agent-ref";
-export { AgentRegistry } from "./lib/registry/agent-registry";
+/**
+ * Entry point of the native runtime, published as `@nestjs-adk/core/native`.
+ *
+ * It exists because the provider packages need the new layers before the old barrel
+ * can be taken down: `index.ts` still exports the legacy runtime, and names like
+ * `ModelMessage` and `ModelRequest` exist on both sides with different meanings. When
+ * the Google ADK is cut, this file becomes `index.ts` and the subpath goes away.
+ */
 
 // errors
-export {
-	AdkBootError,
-	AdkError,
-	DuplicateAgentNameError,
-	ConflictingPromptError,
-	InvalidModelError,
-	InvalidWorkflowError,
-	MissingModelError,
-	NestedFailoverError,
-	ReservedMethodError,
-	UnregisteredModelError,
-	UnregisteredPromptError,
-	UnregisteredSkillError,
-	SubAgentsRemovedError,
-	UnregisteredToolError,
-	UnresolvedToolsetError,
-	UnsupportedModelScopeError,
-} from "./lib/errors";
-export {
-	AgentMaxIterationsError,
-	AgentNotFoundError,
-	AgentStateInvalidError,
-	AgentStateMissingError,
-	AiEmptyResponseError,
-	ApprovalNotFoundError,
-	DuplicateToolSourceError,
-	EmbedderNotConfiguredError,
-	McpBlockedTargetError,
-	McpConnectionError,
-	ModelsExhaustedError,
-	OutputValidationError,
-	SessionNotFoundError,
-	SkillNotFoundError,
-	ToolExecutionError,
-	ToolInvalidArgsError,
-	ToolRepeatedFailureError,
-	ToolSourceAuthError,
-	ToolSourceUnavailableError,
-} from "./lib/errors/runtime.errors";
+export { AdkError } from "./common/errors/adk.error";
 
-// events & run types
-export type {
-	AgentEvent,
-	ArtifactPart,
-	ArtifactRef,
-	PendingApproval,
-	RawRef,
-	ReauthRequest,
-	RunInput,
-	RunResult,
-	Session,
-	SessionEvent,
-	SessionInit,
-	TokenUsage,
-} from "./lib/types/events";
+// identity
+export { ToolCallId } from "./common/identity/tool-call-id";
 
-// types
-export type {
-	AgentOptions,
-	AnyZodObject,
-	ApprovalPolicy,
-	ModelInput,
-	SkillMode,
-	SkillOptions,
-	ToolEffect,
-	ToolOptions,
-	WorkflowMode,
-	WorkflowOptions,
-} from "./lib/types/options";
-export type { StateBag, ToolContext } from "./lib/types/tool-context";
-export type { ResolvedAgent, ResolvedTool } from "./lib/types/resolved-agent";
-export { isJsonSchema, pruneByProperties } from "./lib/types/json-schema";
-export type { JsonSchema, ToolSchema } from "./lib/types/json-schema";
-export { ToolsetResolver, isToolsetRef, toolset } from "./lib/types/toolset";
-export type { ToolsetRef } from "./lib/types/toolset";
+// model contract
+export { LlmModel } from "./domain/model/llm-model";
+export { ModelSpec } from "./domain/model/model-spec";
+export { createModelSpec } from "./domain/model/create-model-spec";
+export type { TypedModelSpec } from "./domain/model/create-model-spec";
+export { ModelDescriptor } from "./domain/model/model-descriptor";
+export { ModelIdentity } from "./domain/model/model-identity";
+export { ModelCapabilities } from "./domain/model/model-capabilities";
+export { ModelCapability } from "./domain/model/model-capability";
+export { ContextWindow } from "./domain/model/context-window";
+export { ModelContextWindow } from "./domain/model/model-context-window";
+export { UnknownContextWindow } from "./domain/model/unknown-context-window";
+
+// model input and output
+export { ModelRequest } from "./domain/model/model-request";
+export { ModelMessage } from "./domain/model/model-message";
+export type { ModelMessageRole } from "./domain/model/model-message";
+export { UserMessage } from "./domain/model/user-message";
+export { AssistantMessage } from "./domain/model/assistant-message";
+export { ToolCallMessage } from "./domain/model/tool-call-message";
+export { ToolResultMessage } from "./domain/model/tool-result-message";
+export { ToolDeclaration } from "./domain/model/tool-declaration";
+export { ModelChunk } from "./domain/model/model-chunk";
+export { ModelUsage } from "./domain/model/model-usage";
+export { ToolCallDelta } from "./domain/model/tool-call-delta";
+export { ToolCall } from "./domain/model/tool-call";
+export { ModelResponse } from "./domain/model/model-response";
+export { TokenCount } from "./domain/model/token-count";
+export { PromptInstructions } from "./domain/prompt/prompt-instructions";
+
+// session and run
+export { SessionId } from "./common/identity/session-id";
+export { AgentRunId } from "./common/identity/agent-run-id";
+export { AgentName } from "./domain/agent/agent-name";
+export { AgentDescription } from "./domain/agent/agent-description";
+export { AgentDefinition } from "./domain/agent/agent-definition";
+export { AgentExecutionPolicies } from "./domain/agent/agent-execution-policies";
+export { AgentTransferPolicy } from "./domain/agent/agent-transfer-policy";
+export { DeclaredAgent } from "./domain/agent/declared-agent";
+export { AskInput } from "./domain/session/ask-input";
+export { AgentResult } from "./domain/session/agent-result";
+export { AgentRunStatus } from "./domain/session/agent-run-status";
+export { RunLimits } from "./domain/session/run-limits";
+export { InvalidRunLimitError } from "./domain/session/errors/invalid-run-limit.error";
+export { SessionMode } from "./domain/session/session-mode";
+export { SessionOwner } from "./domain/session/session-owner";
+export { PromptMeasurement } from "./domain/model/prompt-measurement";
+export { SessionStorage } from "./contracts/session-storage";
+export { ModelResolver } from "./contracts/model-resolver";
+export { InMemorySessionStorage } from "./adapters/storage/in-memory-session-storage";
+export { SqliteSessionStorage } from "./adapters/storage/sqlite/sqlite-session-storage";
+export { SqliteConnection } from "./adapters/storage/sqlite/sqlite-connection";
+export { SessionStateCodec } from "./domain/session/session-state-codec";
+export { AgentRunner } from "./runtime/run/agent-runner";
+export { AgentRunCommand } from "./runtime/run/agent-run-command";
+export { AdkRuntimeHost } from "./public/adk-runtime-host";
+export { AdkModule, ADK_OPTIONS } from "./public/nest/adk-module";
+export { Agent } from "./public/nest/decorators/agent.decorator";
+export { Tool } from "./public/nest/decorators/tool.decorator";
+export { Skill } from "./public/nest/decorators/skill.decorator";
+export { TransfersTo } from "./public/nest/decorators/transfers-to.decorator";
+export { DelegatesTo } from "./public/nest/decorators/delegates-to.decorator";
+export type { AgentOptions } from "./public/nest/agent-options";
+export type { ToolOptions } from "./public/nest/decorators/tool.decorator";
+export type { SkillOptions } from "./public/nest/decorators/skill.decorator";
+export { AdkModuleOptions } from "./public/nest/adk-module-options";
+export { AgentRegistry } from "./public/nest/agent-registry";
+export { AgentHandle } from "./public/nest/agent-handle";
+export { SystemClock } from "./public/nest/system-clock";
+export { RandomIdGenerator } from "./public/nest/random-id-generator";
+export { RuntimeOptions } from "./runtime/composition/runtime-options";
+export { RuntimeServices } from "./runtime/composition/runtime-services";
+export { ShutdownOptions } from "./runtime/lifecycle/shutdown-options";
+export { Clock } from "./common/time/clock";
+export { Instant } from "./common/time/instant";
+export { IdGenerator } from "./common/identity/id-generator";
+
+// tools
+export { ToolEffect } from "./domain/tool/tool-effect";
+export { ToolSchema } from "./domain/tool/tool-schema";
+export { ToolHandler } from "./domain/tool/tool-handler";
+export { ToolContext } from "./domain/tool/tool-context";
+export { ToolDefinition } from "./domain/tool/tool-definition";
+export { ToolInvocation } from "./domain/tool/tool-invocation";
+export { ToolOutcome } from "./domain/tool/tool-outcome";
+export { ParsedArguments } from "./domain/tool/parsed-arguments";
+export { AdkApprovalPolicy } from "./domain/tool/adk-approval-policy";
+export { EffectApprovalPolicy } from "./domain/tool/effect-approval-policy";
+export { ToolNotFoundError } from "./domain/tool/errors/tool-not-found.error";
+export { ToolInvalidArgsError } from "./domain/tool/errors/tool-invalid-args.error";
+export { ToolRepeatedFailureError } from "./domain/tool/errors/tool-repeated-failure.error";
+export { ToolApprovalRequiredError } from "./domain/tool/errors/tool-approval-required.error";
+export { AgentMaxIterationsError } from "./domain/session/errors/agent-max-iterations.error";
+export { ToolCatalog } from "./runtime/tool/tool-catalog";
+export { ToolExecutor } from "./runtime/tool/tool-executor";
+export { ToolExecutionCommand } from "./runtime/tool/tool-execution-command";
+export { ToolBreaker } from "./runtime/tool/tool-breaker";
+export { ZodToolSchema } from "./adapters/schema/zod-tool-schema";
+export { JsonSchemaToolSchema } from "./runtime/tool/json-schema-tool-schema";
+
+// skills and sources
+export { SkillMode } from "./domain/skill/skill-mode";
+export { SkillDefinition } from "./domain/skill/skill-definition";
+export { SkillCatalog } from "./runtime/skill/skill-catalog";
+export { ActivateSkillTool } from "./runtime/skill/activate-skill-tool";
+export { ToolSource } from "./contracts/tool-source";
+export { ToolSourceScope } from "./runtime/tool/tool-source-scope";
+export { ToolSourceAuthError } from "./domain/tool/errors/tool-source-auth.error";
+export { ToolSourceUnavailableError } from "./domain/tool/errors/tool-source-unavailable.error";
+export { PendingCall } from "./domain/session/pending-call";
+export { ApprovalStatus } from "./domain/session/approval-status";
+export { SessionInspection } from "./domain/session/session-inspection";
+export { InspectSession } from "./runtime/session/inspect-session";
+export { SnapshotPolicy } from "./runtime/session/snapshot/snapshot-policy";
+export type { ApprovalDecision } from "./domain/session/pending-call";
+export { PendingTurn } from "./domain/session/pending-turn";
+export { ApproveInput } from "./domain/session/approve-input";
+export { DelegateInput } from "./domain/session/delegate-input";
+export { DelegateAgent } from "./runtime/run/delegate-agent";
+export { RejectInput } from "./domain/session/reject-input";
+export { ApprovalNotPendingError } from "./domain/session/errors/approval-not-pending.error";
+export { DuplicateSkillNameError } from "./domain/skill/errors/duplicate-skill-name.error";
+
+// diagnostics
+export { ContextSegment } from "./domain/diagnostics/context-segment";
+export { ContextSnapshot } from "./domain/diagnostics/context-snapshot";
+export { PrefixDivergence } from "./domain/diagnostics/prefix-divergence";
+export { PrefixReport } from "./domain/diagnostics/prefix-report";
+export { CacheReport } from "./domain/diagnostics/cache-report";
+export { ContextCapture } from "./runtime/diagnostics/context-capture";
+export { CapturedContexts } from "./runtime/diagnostics/captured-contexts";
+export { ContextPhotographer } from "./runtime/diagnostics/context-photographer";
+export { PrefixComparator } from "./runtime/diagnostics/prefix-comparator";
+export { CacheEfficiency } from "./runtime/diagnostics/cache-efficiency";
+export { NotEnoughRunsError } from "./runtime/diagnostics/errors/not-enough-runs.error";
+export { ExplainAgent } from "./runtime/run/explain-agent";
+export { RunObservers } from "./runtime/run/run-observers";
+
+// streaming
+export { ChunkSink } from "./runtime/stream/chunk-sink";
+export { ChunkStream } from "./runtime/stream/chunk-stream";
+export { StreamAgent } from "./runtime/run/stream-agent";
+
+// delegation
+export { DelegateToAgentTool } from "./runtime/delegation/delegate-to-agent-tool";
+export { DelegationRequest } from "./runtime/delegation/delegation-request";
+export { DelegationRunner } from "./runtime/delegation/delegation-runner";
+export { DelegatedTurnLoop } from "./runtime/delegation/delegated-turn-loop";
+export { AgentDelegationPolicy } from "./domain/agent/agent-delegation-policy";
+export { DelegationNotDeclaredError } from "./domain/agent/errors/delegation-not-declared.error";
+export { AgentMaxDelegationDepthError } from "./domain/session/errors/agent-max-delegation-depth.error";
+export { DelegationSuspendedError } from "./runtime/delegation/errors/delegation-suspended.error";
+export { UnknownDelegationTargetError } from "./runtime/catalog/errors/unknown-delegation-target.error";
+
+// transfer
+export { TransferToAgentTool } from "./runtime/transfer/transfer-to-agent-tool";
+export { TransferGate } from "./runtime/transfer/transfer-gate";
+export { AgentSwitch } from "./runtime/transfer/agent-switch";
+export { TransferNotDeclaredError } from "./domain/agent/errors/transfer-not-declared.error";
+export { AgentMaxTransfersError } from "./domain/session/errors/agent-max-transfers.error";
+export { UnknownTransferTargetError } from "./runtime/catalog/errors/unknown-transfer-target.error";
+
+// artifacts
+export { ArtifactId } from "./common/identity/artifact-id";
+export { ArtifactStorage } from "./contracts/artifact-storage";
+export { ArtifactContent } from "./domain/artifact/artifact-content";
+export { ArtifactReference } from "./domain/artifact/artifact-reference";
+export { OffloadPolicy } from "./domain/artifact/offload-policy";
+export { OffloadedContent } from "./domain/artifact/offloaded-content";
+export { ArtifactNotFoundError } from "./domain/artifact/errors/artifact-not-found.error";
+export { TamperedArtifactReferenceError } from "./domain/artifact/errors/tampered-artifact-reference.error";
+export { InMemoryArtifactStorage } from "./adapters/storage/in-memory-artifact-storage";
+export { ArtifactOffloader } from "./runtime/artifact/artifact-offloader";
+export { ReadArtifactTool } from "./runtime/artifact/read-artifact-tool";
+
+// observation
+export { Secret } from "./common/secrecy/secret";
+export { SessionEventConsumer } from "./contracts/session-event-consumer";
+export { ConsumerNoticeSink } from "./contracts/consumer-notice-sink";
+export { PublishedEvent } from "./domain/event/published-event";
+export { ConsumerFailed } from "./domain/event/consumer-failed";
+export { SessionEventCodecs } from "./domain/event/session-event-codecs";
+export { EventPublisher } from "./runtime/event/event-publisher";
+export { EventRedactor } from "./runtime/event/event-redactor";
+
+// execution
+export { ModelExecutor } from "./runtime/model/model-executor";
+export { ModelRunner } from "./runtime/model/model-runner";
+export { ModelRunCommand } from "./runtime/model/model-run-command";
+export { ModelRunOutcome } from "./runtime/model/model-run-outcome";
+
+// failover
+export { AgentFailoverPolicy } from "./domain/agent/agent-failover-policy";
+export { SequentialFailoverPolicy } from "./domain/agent/sequential-failover-policy";
+export { FailoverContext } from "./domain/agent/failover-context";
+export { ModelReroute } from "./domain/agent/model-reroute";
+export { ModelsExhaustedError } from "./domain/agent/errors/models-exhausted.error";
+export { StructuredOutputValidator } from "./contracts/structured-output-validator";
+export { JsonStructuredOutputValidator } from "./runtime/model/json-structured-output-validator";
+export { UnsupportedCapabilityError } from "./domain/model/errors/unsupported-capability.error";
+export { MalformedToolCallError } from "./domain/model/errors/malformed-tool-call.error";
+export { InvalidStructuredOutputError } from "./domain/model/errors/invalid-structured-output.error";
+export { EmptyModelResponseError } from "./domain/model/errors/empty-model-response.error";
+
+// model failures
+export { ModelFailure } from "./domain/model/model-failure";
+export { RateLimitedFailure } from "./domain/model/rate-limited-failure";
+export { UnavailableFailure } from "./domain/model/unavailable-failure";
+export { TimeoutFailure } from "./domain/model/timeout-failure";
+export { ContextExceededFailure } from "./domain/model/context-exceeded-failure";
+export { SafetyBlockedFailure } from "./domain/model/safety-blocked-failure";
+export { UnknownFailure } from "./domain/model/unknown-failure";
+export { ModelCallFailedError } from "./domain/model/errors/model-call-failed.error";

@@ -7,7 +7,7 @@ import {
 	PromptInstructions,
 	TokenCount,
 	UserMessage,
-} from "@nestjs-adk/core/native";
+} from "@nestjs-adk/core";
 import { describe, expect, it } from "vitest";
 import { GeminiModel } from "./gemini-model";
 import type { GeminiRequest } from "./gemini-request";

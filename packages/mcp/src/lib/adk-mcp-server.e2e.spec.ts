@@ -19,7 +19,7 @@ import {
 	ShutdownOptions,
 	ToolCallDelta,
 	ToolResultMessage,
-} from "@nestjs-adk/core/native";
+} from "@nestjs-adk/core";
 import { Module } from "@nestjs/common";
 import { Test, type TestingModule } from "@nestjs/testing";
 import { AdkMcpServer } from "./adk-mcp-server";
