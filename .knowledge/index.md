@@ -31,4 +31,5 @@ A row marked `target` describes a decision the code has not reached yet. It is s
 | `pattern` | [[agent-transfer]] | How a session changes hands, why the edges are declared by name, and what a handover deliberately does not change |
 | `convention` | [[agent-suites]] | What the real-provider tests are for, why they are tiny, and which Gemini model can actually finish a tool loop |
 | `pattern` | [[agent-delegation]] | How one agent has another answer a single task, why neither reads the other's conversation, and where the runtime's only dependency cycle lives |
+| `pattern` | [[multimodal-input]] | How an image reaches a model, why the journal never holds one, and what a tool result cannot carry |
 
