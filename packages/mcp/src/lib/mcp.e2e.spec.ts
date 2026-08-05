@@ -33,7 +33,7 @@ class FilteredAgent extends AdkAgent {}
 @Module({ providers: [McpAgent, FilteredAgent] })
 class FeatureModule {}
 
-describe("@nestjs-adk/mcp — integration with a real MCP server (stdio)", () => {
+describe("@nestjs-adk/mcp: integration with a real MCP server (stdio)", () => {
 	let app: TestingModule;
 	let engine: ScriptedEngine;
 	let registry: AgentRegistry;
@@ -71,7 +71,7 @@ describe("@nestjs-adk/mcp — integration with a real MCP server (stdio)", () =>
 		expect(result && "result" in result ? result.result : null).toEqual({ error: "kaboom" });
 	});
 
-	it("catalog with converted schema (JSON Schema → Zod) and tool filtering", async () => {
+	it("catalog keeps the server's JSON Schema and filters tools", async () => {
 		const runner = app.get(AgentRunner);
 
 		const full = await runner.resolve(McpAgent);
@@ -80,8 +80,9 @@ describe("@nestjs-adk/mcp — integration with a real MCP server (stdio)", () =>
 		expect(names).toContain("boom");
 
 		const echo = full.tools.find((tool) => tool.name === "echo");
-		expect(echo?.schema.safeParse({ message: "x" }).success).toBe(true);
-		expect(echo?.schema.safeParse({}).success).toBe(false);
+		const schema = echo?.schema as { type?: string; properties?: Record<string, unknown> };
+		expect(schema.type).toBe("object");
+		expect(schema.properties).toHaveProperty("message");
 
 		const filtered = await runner.resolve(FilteredAgent);
 		const filteredNames = filtered.tools.map((tool) => tool.name);
@@ -90,7 +91,7 @@ describe("@nestjs-adk/mcp — integration with a real MCP server (stdio)", () =>
 	});
 });
 
-describe("@nestjs-adk/mcp — boot resilience", () => {
+describe("@nestjs-adk/mcp: boot resilience", () => {
 	const downServer = {
 		name: "down",
 		transport: { type: "stdio" as const, command: process.execPath, args: ["-e", "process.exit(1)"] },

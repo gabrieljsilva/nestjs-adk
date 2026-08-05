@@ -4,22 +4,22 @@ import { Test, type TestingModule } from "@nestjs/testing";
 import { AppModule } from "./app.module";
 import { ChatService } from "./support/chat.service";
 
-// Loads the root .env (GEMINI_API_KEY) — without a key, the whole suite is skipped (CI doesn't break).
+// Loads the root .env (GEMINI_API_KEY): without a key, the whole suite is skipped (CI doesn't break).
 try {
 	process.loadEnvFile(new URL("../../../.env", import.meta.url).pathname);
 } catch {
-	// no .env — proceed with just the process environment
+	// no .env: proceed with just the process environment
 }
 
 const hasKey = Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_GENAI_API_KEY);
 
-describe.runIf(hasKey)("SMOKE — playground with REAL Gemini", () => {
+describe.runIf(hasKey)("SMOKE: playground with REAL Gemini", () => {
 	let app: TestingModule;
 	let chat: ChatService;
 
 	beforeAll(async () => {
 		app = await Test.createTestingModule({ imports: [AppModule] }).compile();
-		// @nestjs/testing silences the logger by default — re-enable so RunLogger output is visible.
+		// @nestjs/testing silences the logger by default: re-enable so RunLogger output is visible.
 		app.useLogger(console);
 		await app.init();
 		chat = app.get(ChatService);
@@ -47,7 +47,7 @@ describe.runIf(hasKey)("SMOKE — playground with REAL Gemini", () => {
 			expect(run.text.toLowerCase()).toMatch(/shipped|sent|on the way|delivered/);
 			expect(run.usage.totalTokens).toBeGreaterThan(0);
 
-			// REAL embeddings (GeminiEmbedder from the module) — meaning, not wording
+			// REAL embeddings (GeminiEmbedder from the module): meaning, not wording
 			await expect(run).toBeSemanticallySimilarTo("Your order has been shipped and is on its way.", {
 				threshold: 0.7,
 			});
@@ -68,18 +68,18 @@ describe.runIf(hasKey)("SMOKE — playground with REAL Gemini", () => {
 	});
 
 	it("REAL HITL: a large refund pauses awaiting approval and resumes with approve()", { timeout: 90_000 }, async () => {
-		// The real model sometimes asks for confirmation in text before calling the tool —
+		// The real model sometimes asks for confirmation in text before calling the tool,
 		// retry within the same session until the run actually pauses (max 3 turns).
 		let paused = await chat.send(
 			"smoke-3",
 			"u1",
-			"I need a refund for order 456 for $1800. Please call the refund tool now — calling it is exactly how the manual approval request gets registered in our system.",
+			"I need a refund for order 456 for $1800. Please call the refund tool now: calling it is exactly how the manual approval request gets registered in our system.",
 		);
 		for (let attempt = 0; attempt < 2 && paused.status !== "pending_approval"; attempt++) {
 			paused = await chat.send(
 				"smoke-3",
 				"u1",
-				"Yes — calling the refund tool IS the approval request. Call it now for order 456, amount 1800.",
+				"Yes, calling the refund tool IS the approval request. Call it now for order 456, amount 1800.",
 			);
 		}
 

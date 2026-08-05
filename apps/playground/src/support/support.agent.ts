@@ -5,7 +5,7 @@ import { OrdersService } from "./orders.service";
 
 const lookupSchema = z.object({ orderId: z.string().describe("Order number.") });
 
-/** Shared tool (class) — normal DI. */
+/** Shared tool (class): normal DI. */
 @Tool({ name: "lookup_order", description: "Looks up the status of an order.", schema: lookupSchema })
 @Injectable()
 export class LookupOrderTool extends AdkTool<typeof lookupSchema> {
@@ -37,17 +37,17 @@ export class SupportAgent extends AdkAgent {
 		return "Answer in English, in a friendly and direct tone.";
 	}
 
-	/** On-demand skill — loaded via load_skill when the topic comes up. */
+	/** On-demand skill, loaded via load_skill when the topic comes up. */
 	@Skill({ name: "refund_policy", description: "The store's refund policy." })
 	refundPolicy() {
 		return "Refunds: up to 7 days after delivery. Above $1,000 require manual approval from the team.";
 	}
 
-	/** Inline tool with HITL: a large refund pauses the run until human approval. */
+	/** Inline tool with HITL: money leaving is not recoverable, so every refund pauses for approval. */
 	@Tool({
 		description: "Executes the refund for an order.",
 		schema: refundSchema,
-		requiresApproval: (input) => (input as z.infer<typeof refundSchema>).amount > 1_000,
+		effect: "destructive",
 	})
 	refund(input: z.infer<typeof refundSchema>, _ctx?: ToolContext) {
 		return this.orders.refund(input.orderId);

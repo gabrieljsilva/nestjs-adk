@@ -117,7 +117,7 @@ describe("LiteLLMPricingSource", () => {
 		expect(errors.some((line) => line.includes("503"))).toBe(true);
 	});
 
-	it("an unexpected payload is discarded — the loaded prices do not change", async () => {
+	it("an unexpected payload is discarded: the loaded prices do not change", async () => {
 		const fetchMock = vi
 			.fn()
 			.mockResolvedValueOnce(respond({ "gemini-2.5-flash": FLASH }))

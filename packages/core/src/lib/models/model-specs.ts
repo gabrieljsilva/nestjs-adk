@@ -3,12 +3,49 @@ import { type AdkModel, isAdkModel } from "../abstracts/adk-model";
 import type { GenerationParams } from "../types/model-io";
 
 /**
- * Declarative model specs — value-object CLASSES, pure data, no SDK.
- * The active engine realizes each spec (e.g.: GoogleAdkEngine → native Gemini, OpenAI bridge, RoutedLlm).
- * Discrimination is by the __adkModelSpec field (not instanceof) — dual-package safe.
+ * Declarative model specs: value-object CLASSES, pure data, no SDK.
+ * The active engine realizes each spec (e.g.: GoogleAdkEngine → native Gemini, OpenAI bridge).
+ * Discrimination is by the __adkModelSpec field (not instanceof), dual-package safe.
  */
 
-/** Universal generation parameters — first-class typed; provider-specific extras go in `config`. */
+/** Anything a failover can land on: an id, a spec, a custom model instance or its DI class. */
+export type FailoverTarget = string | Gemini | OpenAiLike | AdkModel | Type<AdkModel> | object;
+
+export interface FailoverMeta {
+	/** Id of the model that just failed. */
+	currentModel: string;
+	/** PREVIOUS failed attempts, oldest first. The current error is the function's first argument. */
+	failures: Array<{ model: string; error: unknown }>;
+}
+
+/**
+ * Failover policy: called when the current model fails BEFORE its first chunk. Return the target
+ * to try next (the same model is a legitimate retry), or `undefined` to give up, which surfaces
+ * as `ModelsExhaustedError`. A mid-stream failure or an abort never consults the policy: part of
+ * the answer already reached the consumer, or nobody is waiting for one.
+ *
+ * The error arrives raw, as `unknown`: providers disagree on shapes, and a normalization would
+ * lie. `httpStatusOf()` (from `@nestjs-adk/google`) reads the status from the SDK errors the
+ * built-in specs produce, and returns `undefined` for shapes it does not know.
+ */
+export type FailoverFn = (
+	error: unknown,
+	meta: FailoverMeta,
+) => FailoverTarget | undefined | Promise<FailoverTarget | undefined>;
+
+/** The array form is sugar: any pre-stream failure advances to the next entry, in order. */
+export type FailoverOption = FailoverTarget[] | FailoverFn;
+
+/** Normalizes the option into the function form the executor drives. */
+export function failoverPolicy(option: FailoverOption | undefined): FailoverFn | undefined {
+	if (option === undefined) return undefined;
+	if (typeof option === "function") return option;
+	// meta.failures holds the attempts that already failed, so its length indexes the next entry:
+	// primary failed with no prior failures → entry 0; entry 0 failed → entry 1; past the end → give up.
+	return (_error, meta) => option[meta.failures.length];
+}
+
+/** Universal generation parameters: first-class typed; provider-specific extras go in `config`. */
 export type GeminiGenerationOptions = GenerationParams;
 
 export interface GeminiOptions extends GenerationParams {
@@ -16,12 +53,14 @@ export interface GeminiOptions extends GenerationParams {
 	vertexai?: boolean;
 	project?: string;
 	location?: string;
-	/** Billing/cost tracking — Vertex only (AI Studio ignores it). */
+	/** Billing/cost tracking: Vertex only (AI Studio ignores it). */
 	labels?: Record<string, string>;
 	/** Explicit Gemini cachedContent handle (created externally). */
 	cache?: { content: string };
 	/** Free passthrough for GenerateContentConfig (safetySettings, thinkingConfig, httpOptions...). Typed fields win. */
 	config?: Record<string, unknown>;
+	/** Resilience: where to go when THIS model fails before its first chunk. See FailoverFn. */
+	failover?: FailoverOption;
 }
 
 /** Gemini model spec. Canonical import: @nestjs-adk/google. */
@@ -41,6 +80,7 @@ export class Gemini<O extends GeminiOptions = GeminiOptions> implements GeminiOp
 	public readonly frequencyPenalty?: number;
 	public readonly presencePenalty?: number;
 	public readonly stopSequences?: string[];
+	public readonly failover?: FailoverOption;
 
 	public constructor(
 		public readonly model: string,
@@ -55,13 +95,16 @@ export interface OpenAiLikeOptions {
 	baseUrl?: string;
 	/** Env var holding the API key. Default: OPENAI_API_KEY. */
 	apiKeyEnv?: string;
+	/** Resilience: where to go when THIS model fails before its first chunk. See FailoverFn. */
+	failover?: FailoverOption;
 }
 
-/** Any OpenAI-compatible API — most providers implement it. */
+/** Any OpenAI-compatible API: most providers implement it. */
 export class OpenAiLike<O extends OpenAiLikeOptions = OpenAiLikeOptions> implements OpenAiLikeOptions {
 	public readonly __adkModelSpec = "openai-like" as const;
 	public readonly baseUrl?: string;
 	public readonly apiKeyEnv?: string;
+	public readonly failover?: FailoverOption;
 
 	public constructor(
 		public readonly model: string,
@@ -71,36 +114,16 @@ export class OpenAiLike<O extends OpenAiLikeOptions = OpenAiLikeOptions> impleme
 	}
 }
 
-export type RouterTarget = string | Gemini | OpenAiLike | AdkModel | Type<AdkModel> | object;
-
-/** Failover router: advances in declared order when the target fails before the 1st chunk. */
-export class ModelRouter {
-	public readonly __adkModelSpec = "router" as const;
-	public readonly targets: Record<string, RouterTarget>;
-	public readonly strategy: "failover";
-
-	public constructor(options: { targets: Record<string, RouterTarget> | RouterTarget[]; strategy?: "failover" }) {
-		this.targets = Array.isArray(options.targets)
-			? Object.fromEntries(options.targets.map((target, index) => [`target_${index}`, target]))
-			: options.targets;
-		this.strategy = options.strategy ?? "failover";
-	}
-}
-
-export type ModelSpec = Gemini | OpenAiLike | ModelRouter;
+export type ModelSpec = Gemini | OpenAiLike;
 
 export function isModelSpec(model: unknown): model is ModelSpec {
 	return typeof model === "object" && model !== null && "__adkModelSpec" in model;
 }
 
-/**
- * Model id for logs, events and pricing. A router reports its FIRST declared target — the one that
- * actually runs until a failover reroutes it, which the engine reports on its own.
- */
+/** Model id for logs, events and pricing: with failover, the primary's own id, until a reroute. */
 export function modelIdOf(model: unknown): string | undefined {
 	if (typeof model === "string") return model;
 	if (isAdkModel(model)) return model.model;
 	if (!isModelSpec(model)) return undefined;
-	if (model.__adkModelSpec === "router") return modelIdOf(Object.values(model.targets)[0]);
 	return model.model;
 }

@@ -18,10 +18,11 @@ import type { Type } from "@nestjs/common";
 /** Minimal production handle shape (AdkAgent and AdkWorkflow both satisfy it). */
 interface AgentHandle {
 	ask(input: RunInput): Promise<RunResult>;
-	stream(input: RunInput): AsyncGenerator<AgentEvent>;
+	/** The streaming namespace: `instance.stream.ask(...)`. */
+	stream: { ask(input: RunInput): AsyncGenerator<AgentEvent> };
 }
 
-/** Anything with a DI `get` — TestingModule, INestApplication, ModuleRef. */
+/** Anything with a DI `get`: TestingModule, INestApplication, ModuleRef. */
 interface DiContainer {
 	get<T>(token: (abstract new (...args: never[]) => T) | string | symbol): T;
 }
@@ -29,15 +30,15 @@ interface DiContainer {
 /**
  * Test handle over the REAL agent instance (same DI, same run path as production).
  * Constructing it SCRIPTS the agent: a fresh ScriptedModel is registered as its model
- * override (AgentRegistry test hook). Want real AI? Don't wrap — use the agent directly.
- * `mock*` calls only STACK turns — nothing executes until the next run (triggered via
+ * override (AgentRegistry test hook). Want real AI? Don't wrap: use the agent directly.
+ * `mock*` calls only STACK turns: nothing executes until the next run (triggered via
  * this handle OR any production service), which consumes them as that ONE run's script.
- * Stack again for the next run. Mock methods exist only here — never on the production type.
+ * Stack again for the next run. Mock methods exist only here, never on the production type.
  */
 export class TestAgent<TAgent extends AgentHandle> {
-	/** The real agent instance — approve/reject and anything else live here. */
+	/** The real agent instance: approve/reject and anything else live here. */
 	public readonly instance: TAgent;
-	/** This agent's ScriptedModel — registered as the agent's model override. */
+	/** This agent's ScriptedModel, registered as the agent's model override. */
 	public readonly model: ScriptedModel;
 
 	private readonly engine: AdkEngine;
@@ -76,10 +77,10 @@ export class TestAgent<TAgent extends AgentHandle> {
 
 	/** Same as ask(), but streaming the normalized events. */
 	public stream(input: RunInput): AsyncGenerator<AgentEvent> {
-		return this.instance.stream(input);
+		return this.instance.stream.ask(input);
 	}
 
-	/** Composed instruction the engine saw on the last run (prompt + skills + catalog) — snapshot it. */
+	/** Composed instruction the engine saw on the last run (prompt + skills + catalog); snapshot it. */
 	public lastInstruction(): string | undefined {
 		return (this.engine as { lastAgent?: ResolvedAgent }).lastAgent?.instruction;
 	}

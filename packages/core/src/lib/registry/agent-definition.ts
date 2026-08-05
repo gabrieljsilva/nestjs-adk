@@ -12,7 +12,7 @@ export type SkillBinding =
 	| { kind: "class"; type: Type<AdkSkill>; instance: AdkSkill; options: Required<SkillOptions> }
 	| { kind: "inline"; method: string; options: Required<SkillOptions> };
 
-/** Resolved view of an agent after discovery — what the engine consumes (via ResolvedAgent, F3). */
+/** Resolved view of an agent after discovery: what the engine consumes (via ResolvedAgent, F3). */
 export class AgentDefinition {
 	public constructor(
 		public readonly name: string,

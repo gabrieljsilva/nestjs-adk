@@ -80,7 +80,7 @@ class ReporterAgent extends AdkAgent<typeof reportSchema> {}
 })
 class FeatureModule {}
 
-describe("F6 — prompt file, load_skill and structured output", () => {
+describe("F6: prompt file, load_skill and structured output", () => {
 	let app: TestingModule;
 	let engine: ScriptedEngine;
 	let registry: AgentRegistry;

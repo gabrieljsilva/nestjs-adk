@@ -305,38 +305,6 @@ export class GoogleAdkEngine extends AdkEngine {
 					});
 				}
 
-				case "router": {
-					const keys = Object.keys(model.targets);
-					const models: Record<string, BaseLlm> = {};
-					for (const key of keys) {
-						const resolved = await this.resolveModel(model.targets[key] as ModelInput, reroutes, agentName);
-						models[key] = typeof resolved === "string" ? LLMRegistry.newLlm(resolved) : resolved;
-					}
-
-					let current = keys[0] ?? "";
-					return new RoutedLlm({
-						models,
-						// failover: advances in declared order when the target fails before the 1st chunk
-						router: (_models, _request, errorContext) => {
-							if (!errorContext) {
-								current = keys[0] ?? "";
-								return current;
-							}
-							const next = keys.find((key) => !errorContext.failedKeys.has(key));
-							if (next) {
-								reroutes?.push({
-									from: current,
-									to: next,
-									reason: describeError(errorContext.lastError),
-									agent: agentName,
-									toModel: models[next]?.model,
-								});
-								current = next;
-							}
-							return next;
-						},
-					});
-				}
 			}
 		}
 

@@ -83,7 +83,7 @@ describe("AgentRunner + agent handle (scriptable fake engine)", () => {
 		await app.close();
 	});
 
-	it("ask(): full run with a tool via DI — events in order, aggregated text and usage", async () => {
+	it("ask(): full run with a tool via DI, events in order, aggregated text and usage", async () => {
 		engine.enqueue([callTool("get_weather", { city: "SP" }), text("It's 25°C in SP.")]);
 
 		const run = await chat.weather.ask({ message: "weather in SP?" });
@@ -101,7 +101,7 @@ describe("AgentRunner + agent handle (scriptable fake engine)", () => {
 		engine.enqueue([text("hello")]);
 
 		const types: string[] = [];
-		for await (const event of chat.weather.stream({ message: "hi" })) types.push(event.type);
+		for await (const event of chat.weather.stream.ask({ message: "hi" })) types.push(event.type);
 
 		expect(types).toEqual(["run_start", "llm_response", "final"]);
 	});

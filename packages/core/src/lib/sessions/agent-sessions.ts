@@ -12,7 +12,7 @@ export interface AppendSliceInput {
 
 /**
  * Public session API outside the user's turn.
- * `append` injects an event WITHOUT triggering a run — e.g.: "order #123 shipped" lands in the
+ * `append` injects an event WITHOUT triggering a run, e.g.: "order #123 shipped" lands in the
  * chat before the next question. Operates on the module's default SessionStore.
  */
 @Injectable()

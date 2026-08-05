@@ -2,9 +2,9 @@ import { GoogleGenAI } from "@google/genai";
 import { AdkEmbedder, Embedder, type EmbeddingOutput } from "@nestjs-adk/core";
 
 /**
- * EXAMPLE AdkEmbedder implementation over @google/genai — the lib ships no default on purpose.
+ * EXAMPLE AdkEmbedder implementation over @google/genai; the lib ships no default on purpose.
  * Copy and adapt: model, batching, caching, or a fully local embedder (the contract doesn't care).
- * Token statistics are only reported on Vertex (ContentEmbeddingStatistics) — absent otherwise,
+ * Token statistics are only reported on Vertex (ContentEmbeddingStatistics), absent otherwise,
  * and an absent count means the call goes unpriced instead of being counted as free.
  */
 const MODEL = "gemini-embedding-001";
@@ -19,7 +19,7 @@ export class GeminiEmbedder extends AdkEmbedder {
 		const response = await this.genai.models.embedContent({
 			model: MODEL,
 			contents: texts,
-			// what the decorator declares is what the provider gets — no second source of truth
+			// what the decorator declares is what the provider gets: no second source of truth
 			config: { outputDimensionality: this.dimensions },
 		});
 

@@ -8,6 +8,7 @@
 	"include": [
 		"packages/**/src/**/*",
 		"packages/**/__tests__/**/*",
-		"apps/**/src/**/*"
+		"apps/**/src/**/*",
+		"tools/architecture-guards/src/**/*"
 	]
 }

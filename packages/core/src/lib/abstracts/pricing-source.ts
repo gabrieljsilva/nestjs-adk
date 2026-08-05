@@ -8,7 +8,7 @@ import type { ModelPrice } from "../pricing/pricing-types";
 export abstract class PricingSource {
 	private static active?: PricingSource;
 
-	/** Set by AdkModule when pricing is configured — lets AdkEmbedder price itself without extra injection. */
+	/** Set by AdkModule when pricing is configured: lets AdkEmbedder price itself without extra injection. */
 	public static setActive(instance: PricingSource | undefined): void {
 		PricingSource.active = instance;
 	}
@@ -18,7 +18,7 @@ export abstract class PricingSource {
 		return PricingSource.active;
 	}
 
-	/** Price for a model id, or undefined when it is unknown — an unknown model is never guessed. */
+	/** Price for a model id, or undefined when it is unknown; an unknown model is never guessed. */
 	public abstract priceFor(model: string): ModelPrice | undefined;
 
 	/** When the loaded catalog was fetched (ISO), or undefined while there is no catalog. */

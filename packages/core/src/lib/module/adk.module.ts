@@ -58,7 +58,7 @@ export class AdkModule {
 				inject: [ADK_OPTIONS, ModuleRef],
 			},
 			{
-				// No default implementation — undefined when unset (inject with @Optional in production).
+				// No default implementation: undefined when unset (inject with @Optional in production).
 				provide: AdkEmbedder,
 				useFactory: async (options: AdkModuleOptions, moduleRef: ModuleRef) => {
 					const instance = options.embedder ? await resolveStore(moduleRef, options.embedder) : undefined;
@@ -74,7 +74,7 @@ export class AdkModule {
 					const source = options.pricing;
 					PricingSource.setActive(source);
 					source?.start().catch((error: unknown) => {
-						// pricing stays off for the whole process — silence here would show up only as missing cost
+						// pricing stays off for the whole process: silence here would show up only as missing cost
 						new Logger("Adk:pricing").error(`source failed to start: ${String(error)}`);
 					});
 					return source;
@@ -88,7 +88,7 @@ export class AdkModule {
 					const collector = options.diagnostics ? new ContextCollector() : undefined;
 					if (collector) {
 						// visible on purpose: every model call is retained in memory for as long as the RunResult lives
-						new Logger("Adk:diagnostics").log("context capture is ON — intended for tests, not production");
+						new Logger("Adk:diagnostics").log("context capture is ON, intended for tests, not production");
 					}
 					ContextCollector.setActive(collector);
 					return collector;

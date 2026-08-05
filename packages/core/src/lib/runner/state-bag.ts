@@ -3,7 +3,7 @@ import type { AnyZodObject } from "../types/options";
 import type { StateBag } from "../types/tool-context";
 
 export interface StateGuard {
-	/** Agent's declared state schema — validates declared keys; undeclared keys pass through. */
+	/** Agent's declared state schema: validates declared keys; undeclared keys pass through. */
 	schema?: AnyZodObject;
 	/** Agent name for error messages. */
 	agent?: string;
@@ -17,7 +17,7 @@ export class DeltaStateBag implements StateBag {
 		private readonly initial: Record<string, unknown>,
 		private readonly guard: StateGuard = {},
 	) {
-		// Entry validation (ask() state + store hydration): declared keys present must match — types
+		// Entry validation (ask() state + store hydration): declared keys present must match, types
 		// only; presence is enforced lazily by require(), so partial states stay valid at the boundary.
 		const schema = guard.schema;
 		if (!schema) return;
@@ -46,11 +46,16 @@ export class DeltaStateBag implements StateBag {
 		return Object.fromEntries(this.changes);
 	}
 
+	/** Everything the bag can see right now: what a paused action has to be resumed with. */
+	public snapshot(): Record<string, unknown> {
+		return { ...this.initial, ...Object.fromEntries(this.changes) };
+	}
+
 	private validate(key: string, value: unknown): void {
 		const shape = this.guard.schema?.shape;
 		// Object.hasOwn: keys like "constructor"/"__proto__" must not resolve through the prototype chain.
 		if (!shape || !Object.hasOwn(shape, key)) return;
-		// Minimal parse contract — zod v3 and v4 type the shape values differently (peer range covers both).
+		// Minimal parse contract: zod v3 and v4 type the shape values differently (peer range covers both).
 		const field = shape[key] as unknown as {
 			safeParse(input: unknown): { success: boolean; error?: { issues: unknown } };
 		};

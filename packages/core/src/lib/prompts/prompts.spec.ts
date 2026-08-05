@@ -60,7 +60,7 @@ describe("PromptFiles", () => {
 
 @Injectable()
 class RelativePrompt extends AdkPrompt {
-	// "./" resolves relative to THIS file — fixtures live next to the spec
+	// "./" resolves relative to THIS file: fixtures live next to the spec
 	build(ctx: PromptContext) {
 		return this.fromFile("./fixtures/support.prompt.md", { tone: ctx.attributes.tone ?? "neutral" });
 	}
@@ -80,7 +80,7 @@ class RelativeAgent extends AdkAgent {}
 @Agent({ name: "async_agent", model: "m", description: "d", prompt: AsyncGlobalPrompt })
 class AsyncAgent extends AdkAgent {}
 
-// promptFile with "./" — normalized to absolute at DECORATION time, relative to this file
+// promptFile with "./": normalized to absolute at DECORATION time, relative to this file
 @Agent({ name: "file_agent", model: "m", description: "d", promptFile: "./fixtures/static-agent.prompt.md" })
 class FileAgent extends AdkAgent {}
 

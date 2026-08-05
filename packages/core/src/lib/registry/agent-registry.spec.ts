@@ -76,7 +76,7 @@ class WeatherAgent extends AdkAgent {
 	}
 }
 
-@Agent({ name: "concierge", description: "Coordinates.", subAgents: [WeatherAgent] })
+@Agent({ name: "concierge", description: "Coordinates." })
 class ConciergeAgent extends AdkAgent {}
 
 @WorkflowAgent({ name: "pipeline", mode: "sequential", agents: [WeatherAgent, ConciergeAgent] })
@@ -121,7 +121,6 @@ describe("AgentRegistry", () => {
 		expect(weather.skills.map((s) => s.options.name)).toEqual(["tax_rules"]);
 
 		const concierge = registry.get("concierge");
-		expect(concierge.subAgents).toEqual([WeatherAgent]);
 		// no model of its own → inherits the module's defaultModel
 		expect(concierge.model).toBe("gemini-2.5-flash");
 
@@ -149,7 +148,7 @@ describe("AgentRegistry", () => {
 		await app.close();
 	});
 
-	it("the agent instance is the handle — plain constructor injection", async () => {
+	it("the agent instance is the handle: plain constructor injection", async () => {
 		const app = await bootstrap();
 		const chat = app.get(ChatService);
 		expect(chat.weather).toBeInstanceOf(WeatherAgent);

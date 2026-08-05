@@ -25,7 +25,7 @@ class ReportService {
 @Module({ providers: [ExtractAgent, SummarizeAgent, EtlWorkflow, ReportService] })
 class FeatureModule {}
 
-describe("AdkWorkflow — the instance is the execution handle", () => {
+describe("AdkWorkflow: the instance is the execution handle", () => {
 	let app: TestingModule;
 	let engine: ScriptedEngine;
 	let service: ReportService;
@@ -58,7 +58,7 @@ describe("AdkWorkflow — the instance is the execution handle", () => {
 		engine.enqueue([text("streamed")]);
 
 		const types: string[] = [];
-		for await (const event of service.etl.stream({ message: "go" })) types.push(event.type);
+		for await (const event of service.etl.stream.ask({ message: "go" })) types.push(event.type);
 
 		expect(types[0]).toBe("run_start");
 		expect(types).toContain("llm_response");

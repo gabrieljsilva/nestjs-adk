@@ -1,7 +1,16 @@
 {
 	"$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
 	"organizeImports": { "enabled": true },
-	"files": { "ignore": ["dist", "node_modules", "coverage", ".turbo"] },
+	"files": {
+		"ignore": [
+			"dist",
+			"node_modules",
+			"coverage",
+			".turbo",
+			".tmp",
+			"tools/architecture-guards/fixtures"
+		]
+	},
 	"javascript": {
 		"formatter": { "lineWidth": 120, "indentWidth": 1 },
 		"parser": { "unsafeParameterDecoratorsEnabled": true }
@@ -10,7 +19,7 @@
 		"enabled": true,
 		"rules": {
 			"recommended": true,
-			"suspicious": { "noExplicitAny": "off" },
+			"suspicious": { "noExplicitAny": "error" },
 			"complexity": { "noBannedTypes": "off", "noStaticOnlyClass": "off" },
 			"style": { "useImportType": "off" },
 			"performance": { "noDelete": "off" }

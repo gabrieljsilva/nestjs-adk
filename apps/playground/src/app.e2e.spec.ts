@@ -8,10 +8,10 @@ import { SupportAgent } from "./support/support.agent";
 
 /**
  * E2E of the full happy path: REAL AppModule (GoogleAdkEngine, the ADK's native loop),
- * only the LLM is scripted — new TestAgent() registers a ScriptedModel as the agent's model
+ * only the LLM is scripted: new TestAgent() registers a ScriptedModel as the agent's model
  * override, so even runs triggered by production services (ChatService) consume the script.
  */
-describe("playground e2e — store support", () => {
+describe("playground e2e: store support", () => {
 	let app: TestingModule;
 	let chat: ChatService;
 	let support: TestAgent<SupportAgent>;
@@ -56,14 +56,8 @@ describe("playground e2e — store support", () => {
 		expect(JSON.stringify(result && "result" in result ? result.result : "")).toContain("7 days");
 	});
 
-	it("small refund executes directly; large refund pauses (HITL) and resumes with approve()", async () => {
-		// small: no approval needed
-		support.mockCallTool("refund", { orderId: "123", amount: 250 }).mockText("Refund of $250 completed.");
-		const low = await chat.send("chat-3", "u1", "refund order 123");
-		expect(low.status).toBe("completed");
-
-		// large: pauses
-		support.mockCallTool("refund", { orderId: "456", amount: 1800 }).mockText("I need approval for that amount.");
+	it("refund is destructive: it pauses (HITL) and resumes with approve()", async () => {
+		support.mockCallTool("refund", { orderId: "456", amount: 1800 }).mockText("I need approval for refunds.");
 		const high = await chat.send("chat-4", "u1", "refund order 456");
 		expect(high.status).toBe("pending_approval");
 		const pending = high.pending?.[0];

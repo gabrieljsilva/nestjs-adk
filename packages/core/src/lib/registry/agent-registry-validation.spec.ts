@@ -15,8 +15,8 @@ import {
 	InvalidWorkflowError,
 	MissingModelError,
 	ReservedMethodError,
+	SubAgentsRemovedError,
 	UnregisteredPromptError,
-	UnregisteredSubAgentError,
 	UnregisteredToolError,
 } from "../errors";
 import { AdkModule, type AdkModuleOptions } from "../module/adk.module";
@@ -38,7 +38,7 @@ async function bootstrapWith(providers: Type[], options: Partial<AdkModuleOption
 	return moduleRef;
 }
 
-describe("AgentRegistry — fail-fast validation at boot", () => {
+describe("AgentRegistry: fail-fast validation at boot", () => {
 	it("duplicate agent name → DuplicateAgentNameError", async () => {
 		@Agent({ name: "dup", description: "a" })
 		class A extends AdkAgent {}
@@ -73,13 +73,16 @@ describe("AgentRegistry — fail-fast validation at boot", () => {
 		await expect(bootstrapWith([A])).rejects.toBeInstanceOf(UnregisteredToolError);
 	});
 
-	it("unregistered subAgent → UnregisteredSubAgentError", async () => {
+	it("subAgents \u2192 SubAgentsRemovedError pointing at @TransfersTo", async () => {
 		@Agent({ name: "ghost_sub", description: "x" })
 		class GhostAgent extends AdkAgent {}
-		@Agent({ name: "a", description: "a", subAgents: [GhostAgent] })
+		// Not a literal: the key is gone from AgentOptions, so this is what an untyped caller looks like.
+		const options = { name: "a", description: "a", subAgents: [GhostAgent] };
+		@Agent(options)
 		class A extends AdkAgent {}
 
-		await expect(bootstrapWith([A])).rejects.toBeInstanceOf(UnregisteredSubAgentError);
+		await expect(bootstrapWith([A])).rejects.toBeInstanceOf(SubAgentsRemovedError);
+		await expect(bootstrapWith([A])).rejects.toThrow(/@TransfersTo/);
 	});
 
 	it("agent without model and module without defaultModel → MissingModelError", async () => {

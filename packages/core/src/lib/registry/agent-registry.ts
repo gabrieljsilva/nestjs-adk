@@ -22,16 +22,17 @@ import {
 	InvalidModelError,
 	InvalidWorkflowError,
 	MissingModelError,
+	NestedFailoverError,
 	ReservedMethodError,
+	SubAgentsRemovedError,
 	UnregisteredModelError,
 	UnregisteredPromptError,
 	UnregisteredSkillError,
-	UnregisteredSubAgentError,
 	UnregisteredToolError,
 	UnresolvedToolsetError,
 	UnsupportedModelScopeError,
 } from "../errors";
-import { ModelRouter, type RouterTarget, isModelSpec } from "../models/model-specs";
+import { isModelSpec, modelIdOf } from "../models/model-specs";
 import type { AdkModuleOptions } from "../module/adk-options";
 import type { AdkPrompt } from "../prompts/adk-prompt";
 import type { AgentOptions, ModelInput, SkillOptions, ToolOptions, WorkflowOptions } from "../types/options";
@@ -41,14 +42,14 @@ import { AgentRef } from "./agent-ref";
 
 /**
  * Discovers decorated providers (@Agent/@WorkflowAgent/@Tool/@Skill), builds the definitions,
- * and validates the entire configuration at bootstrap — fail-fast, pointing at the wrong class.
+ * and validates the entire configuration at bootstrap: fail-fast, pointing at the wrong class.
  */
 @Injectable()
 export class AgentRegistry implements OnApplicationBootstrap {
 	private readonly byName = new Map<string, AgentDefinition>();
 	private readonly byType = new Map<Type, AgentDefinition>();
 	private readonly refs = new Map<Type, AgentRef>();
-	/** Test hook (TestAgent): per-agent model override applied at run resolution — never set in production. */
+	/** Test hook (TestAgent): per-agent model override applied at run resolution; never set in production. */
 	private readonly modelOverrides = new Map<Type, ModelInput>();
 	private built = false;
 
@@ -81,7 +82,7 @@ export class AgentRegistry implements OnApplicationBootstrap {
 		return definition;
 	}
 
-	/** Lazy handle — safe to inject before bootstrap. */
+	/** Lazy handle: safe to inject before bootstrap. */
 	/** Test hook: forces this agent's model on subsequent runs (used by @nestjs-adk/testing's TestAgent). */
 	public overrideModel(type: Type, model: ModelInput): void {
 		this.modelOverrides.set(type, model);
@@ -150,7 +151,7 @@ export class AgentRegistry implements OnApplicationBootstrap {
 		const agentOptions: AgentOptions | undefined = Reflect.getMetadata(AGENT_METADATA, type);
 		const workflow: WorkflowOptions | undefined = Reflect.getMetadata(WORKFLOW_METADATA, type);
 
-		// The instance is the execution handle — own methods must not shadow the inherited API.
+		// The instance is the execution handle: own methods must not shadow the inherited API.
 		for (const reserved of ["ask", "stream", "approve", "reject"]) {
 			if (Object.getOwnPropertyNames(type.prototype).includes(reserved)) {
 				throw new ReservedMethodError(type.name, reserved);
@@ -227,11 +228,8 @@ export class AgentRegistry implements OnApplicationBootstrap {
 			}
 		}
 
-		const subAgents: Type[] = [];
-		for (const subAgent of options.subAgents ?? []) {
-			if (!agentTypes.has(subAgent as Type)) throw new UnregisteredSubAgentError(type.name, subAgent.name);
-			subAgents.push(subAgent as Type);
-		}
+		// The key is gone from the type, so this only catches a caller that is not typechecked.
+		if (Reflect.get(options, "subAgents") !== undefined) throw new SubAgentsRemovedError(type.name);
 
 		return new AgentDefinition(
 			options.name,
@@ -241,7 +239,7 @@ export class AgentRegistry implements OnApplicationBootstrap {
 			model,
 			tools,
 			skills,
-			subAgents,
+			[],
 			promptText,
 			options.promptFile,
 			promptInstance,
@@ -252,23 +250,32 @@ export class AgentRegistry implements OnApplicationBootstrap {
 		);
 	}
 
-	/** AdkModel classes → DI instances at boot (agent model and router targets), fail-fast like prompts. */
+	/** AdkModel classes → DI instances at boot (agent model and failover targets), fail-fast like prompts. */
 	private resolveModelInput(model: ModelInput, agentClass: string): ModelInput {
 		if (typeof model === "function") return this.getModelInstance(model as Type, agentClass);
 
-		if (isModelSpec(model) && model.__adkModelSpec === "router") {
+		// The array form of `failover` is static configuration, so it gets boot validation: DI classes
+		// resolve now (fail-fast) and a nested chain is refused instead of silently never running.
+		// The function form produces its target at runtime; the engine resolves it at that attempt.
+		const failover = (model as { failover?: unknown }).failover;
+		if (Array.isArray(failover)) {
 			let changed = false;
-			const targets: Record<string, RouterTarget> = {};
-			for (const [key, target] of Object.entries(model.targets)) {
+			const targets = failover.map((target) => {
+				let resolved = target;
 				if (typeof target === "function") {
-					targets[key] = this.getModelInstance(target as Type, agentClass);
+					resolved = this.getModelInstance(target as Type, agentClass);
 					changed = true;
-				} else {
-					targets[key] = target;
 				}
+				if ((resolved as { failover?: unknown })?.failover !== undefined) {
+					throw new NestedFailoverError(agentClass, modelIdOf(resolved) ?? String(resolved));
+				}
+				return resolved;
+			});
+			// Resolved copy, prototype preserved: the caller's spec (and its array) stays untouched, so
+			// the same spec object can boot a second container without leaking the first one's instances.
+			if (changed) {
+				return Object.assign(Object.create(Object.getPrototypeOf(model)), model, { failover: targets }) as ModelInput;
 			}
-			// spread preserves any future router options beyond targets/strategy in the resolved copy
-			return changed ? new ModelRouter({ ...model, targets }) : model;
 		}
 
 		return model;
@@ -279,7 +286,7 @@ export class AgentRegistry implements OnApplicationBootstrap {
 		try {
 			instance = this.moduleRef.get(type, { strict: false });
 		} catch (error) {
-			// Scoped providers get a dedicated message — the generic one would suggest the wrong fix.
+			// Scoped providers get a dedicated message: the generic one would suggest the wrong fix.
 			// Nest exceptions keep name="Error", so the constructor name is the reliable discriminator.
 			const boot =
 				(error as Error)?.constructor?.name === "InvalidClassScopeException"

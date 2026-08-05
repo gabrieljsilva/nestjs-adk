@@ -8,7 +8,7 @@ import { PromptFiles } from "./prompt-files";
 export type PromptContext = ToolContext;
 
 /**
- * Prompt builder contract — the AdkTool mirror for instructions.
+ * Prompt builder contract: the AdkTool mirror for instructions.
  * A regular provider: full constructor DI, referenced via @Agent({ prompt: MyPrompt }).
  * build(ctx) returns the final instruction; use fromFile() for .md templates.
  */

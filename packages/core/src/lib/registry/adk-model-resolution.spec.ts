@@ -6,7 +6,7 @@ import { AdkEngine } from "../abstracts/adk-engine";
 import { AdkModel, isAdkModel } from "../abstracts/adk-model";
 import { Agent } from "../decorators/agent.decorator";
 import { InvalidModelError, UnregisteredModelError, UnsupportedModelScopeError } from "../errors";
-import { ModelRouter } from "../models/model-specs";
+import { Gemini } from "../models/model-specs";
 import { AdkModule, type AdkModuleOptions } from "../module/adk.module";
 import type { ModelRequest, ModelResponse } from "../types/model-io";
 import { AgentRegistry } from "./agent-registry";
@@ -46,7 +46,7 @@ async function bootstrapWith(providers: Type[], options: Partial<AdkModuleOption
 	return moduleRef;
 }
 
-describe("AgentRegistry — AdkModel resolution at boot", () => {
+describe("AgentRegistry: AdkModel resolution at boot", () => {
 	it("model as class → resolved to the DI instance (dependencies injected)", async () => {
 		@Agent({ name: "custom_agent", description: "d", model: EchoModel })
 		class CustomAgent extends AdkAgent {}
@@ -59,19 +59,19 @@ describe("AgentRegistry — AdkModel resolution at boot", () => {
 		await app.close();
 	});
 
-	it("router targets as classes → resolved copy, original spec untouched", async () => {
-		const router = new ModelRouter({ targets: { primary: "gemini-2.5-flash", fallback: EchoModel } });
+	it("failover targets as classes → resolved copy at boot, original spec untouched", async () => {
+		const spec = new Gemini("gemini-2.5-flash", { failover: [EchoModel] });
 
-		@Agent({ name: "routed_custom_agent", description: "d", model: router })
+		@Agent({ name: "routed_custom_agent", description: "d", model: spec })
 		class RoutedAgent extends AdkAgent {}
 
 		const app = await bootstrapWith([RoutedAgent, EchoModel, GreetingService]);
-		const resolved = app.get(AgentRegistry).getByType(RoutedAgent).model as ModelRouter;
+		const resolved = app.get(AgentRegistry).getByType(RoutedAgent).model as Gemini;
 
-		expect(resolved).not.toBe(router);
-		expect(resolved.targets.primary).toBe("gemini-2.5-flash");
-		expect(resolved.targets.fallback).toBe(app.get(EchoModel));
-		expect(router.targets.fallback).toBe(EchoModel);
+		expect(resolved).not.toBe(spec);
+		expect(resolved.model).toBe("gemini-2.5-flash");
+		expect((resolved.failover as unknown[])[0]).toBe(app.get(EchoModel));
+		expect((spec.failover as unknown[])[0]).toBe(EchoModel);
 		await app.close();
 	});
 

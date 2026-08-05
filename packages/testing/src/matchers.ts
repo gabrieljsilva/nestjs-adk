@@ -52,7 +52,7 @@ function assertUsable(runs: RunResult[], matcher: string, hint: string, threshol
 
 /**
  * First model call of each run. Only that call is compared, because it holds the instruction and the
- * tool catalog and is built before any tool result — and it always belongs to the root agent, since
+ * tool catalog and is built before any tool result, and it always belongs to the root agent, since
  * sub-agents can only be reached later in the loop.
  */
 function firstCallSnapshots(runs: RunResult[]): ContextSnapshot[] {
@@ -65,7 +65,7 @@ function firstCallSnapshots(runs: RunResult[]): ContextSnapshot[] {
 
 	return runs.map((run, index) => {
 		const first = collector.snapshotsOf(run)?.[FIRST_CALL];
-		if (!first) throw new Error(`Run #${index + 1} has no captured context — only runs started by ask() are tracked.`);
+		if (!first) throw new Error(`Run #${index + 1} has no captured context; only runs started by ask() are tracked.`);
 		return first;
 	});
 }
@@ -104,7 +104,7 @@ expect.extend({
 		const actual = typeof received === "string" ? received : received.text;
 		const threshold = options?.threshold ?? DEFAULT_SIMILARITY_THRESHOLD;
 
-		// Always the module-configured embedder — both texts MUST be embedded by the same model.
+		// Always the module-configured embedder: both texts MUST be embedded by the same model.
 		const embedder = AdkEmbedder.getActive();
 		const { embeddings, usage } = await embedder.embed([actual, expected]);
 		const similarity = new Similarity().cosine(embeddings[0] ?? [], embeddings[1] ?? []);
@@ -182,7 +182,7 @@ expect.extend({
 		const report = cacheHitRatio(received.map((run) => run.usage));
 		if (!report.available) {
 			throw new Error(
-				"The provider reported no cached tokens for any measured run, so cache usage is UNKNOWN — this is not 0%. " +
+				"The provider reported no cached tokens for any measured run, so cache usage is UNKNOWN; this is not 0%. " +
 					"Check that the model supports context caching and reports it in usage metadata.",
 			);
 		}

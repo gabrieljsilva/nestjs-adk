@@ -45,13 +45,13 @@ export class PromptFiles {
 		return template.replace(/\{\{(\w+)\}\}/g, (_, key: string) => String(vars[key] ?? ""));
 	}
 
-	/** Directory of the first stack frame outside this lib — supports "./" paths relative to the caller's file. */
+	/** Directory of the first stack frame outside this lib: supports "./" paths relative to the caller's file. */
 	public callerDir(): string | undefined {
 		const frames = new Error().stack?.split("\n") ?? [];
 		for (const frame of frames) {
 			const match = frame.match(/\(?([^() ]+?):\d+:\d+\)?$/);
 			const file = match?.[1];
-			// "\0"-prefixed paths are bundler virtual modules (e.g. injected decorator helpers) — never the caller.
+			// "\0"-prefixed paths are bundler virtual modules (e.g. injected decorator helpers), never the caller.
 			if (!file || file.startsWith("node:") || file.includes("node_modules") || file.includes("\0")) continue;
 			if (LIB_FRAMES.some((name) => file.includes(name))) continue;
 			return dirname(file);

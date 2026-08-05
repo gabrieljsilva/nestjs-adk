@@ -1,5 +1,6 @@
 // abstracts (contratos)
 export { AdkAgent } from "./lib/abstracts/adk-agent";
+export type { AgentStream, ApproveParams, RejectParams } from "./lib/abstracts/adk-agent";
 export { AdkEngine } from "./lib/abstracts/adk-engine";
 export { AdkModel, isAdkModel } from "./lib/abstracts/adk-model";
 export { AdkSkill } from "./lib/abstracts/adk-skill";
@@ -13,9 +14,11 @@ export type {
 	EmbeddingUsage,
 } from "./lib/abstracts/adk-embedder";
 export { ArtifactStore } from "./lib/abstracts/artifact-store";
+export { AdkToolSource } from "./lib/abstracts/adk-tool-source";
+export type { ToolSourceContext } from "./lib/abstracts/adk-tool-source";
 export { Similarity } from "./lib/embeddings/similarity";
 export { MemoryStore } from "./lib/abstracts/memory-store";
-export { SessionStore } from "./lib/abstracts/session-store";
+export { type SessionReadOptions, SessionStore } from "./lib/abstracts/session-store";
 
 // stores in-memory (defaults)
 export { InMemoryArtifactStore } from "./lib/stores/in-memory-artifact-store";
@@ -36,6 +39,8 @@ export {
 } from "./lib/pricing/cost-calculator";
 export type {
 	CallCost,
+	CostBreakdown,
+	LlmCost,
 	ModelCost,
 	ModelPrice,
 	PriceBand,
@@ -69,9 +74,11 @@ export type { AppendSliceInput } from "./lib/sessions/agent-sessions";
 
 // decorators
 export { Agent } from "./lib/decorators/agent.decorator";
+export { DelegatesTo } from "./lib/decorators/delegates-to.decorator";
 export { Embedder } from "./lib/decorators/embedder.decorator";
 export { Skill } from "./lib/decorators/skill.decorator";
 export { Tool } from "./lib/decorators/tool.decorator";
+export { TransfersTo } from "./lib/decorators/transfers-to.decorator";
 export { WorkflowAgent } from "./lib/decorators/workflow-agent.decorator";
 
 // prompts
@@ -93,17 +100,20 @@ export type { StateGuard } from "./lib/runner/state-bag";
 export { buildInstruction, skillContent } from "./lib/runner/instruction-builder";
 
 // model specs
-export { Gemini, ModelRouter, OpenAiLike, isModelSpec, modelIdOf } from "./lib/models/model-specs";
+export { failoverPolicy, Gemini, OpenAiLike, isModelSpec, modelIdOf } from "./lib/models/model-specs";
 export { createModelSpec } from "./lib/models/create-model-spec";
 export type { TypedModelSpec } from "./lib/models/create-model-spec";
 export { DEFAULT_OFFLOAD_THRESHOLD, contextPolicy } from "./lib/models/context-policy";
 export type { CompactionPolicy, ContextPolicy } from "./lib/models/context-policy";
 export type {
+	FailoverFn,
+	FailoverMeta,
+	FailoverOption,
+	FailoverTarget,
 	GeminiGenerationOptions,
 	GeminiOptions,
 	ModelSpec,
 	OpenAiLikeOptions,
-	RouterTarget,
 } from "./lib/models/model-specs";
 
 // model I/O (contrato neutro do AdkModel)
@@ -120,8 +130,13 @@ export type {
 	ToolDeclaration,
 } from "./lib/types/model-io";
 
-// testing (embryo — migrates to @nestjs-adk/testing in F5)
-export { ScriptedEngine, callTool, fail, text } from "./lib/testing/scripted-engine";
+// multimodal tool results (attachments the model looks at, instead of JSON it reads)
+export { artifactEncoding, isTextMimeType, normalizeMimeType, TEXT_MIME_TYPES } from "./lib/types/artifact-encoding";
+export { isToolContent, toolContent } from "./lib/types/tool-content";
+export type { ToolContent, ToolContentPart } from "./lib/types/tool-content";
+
+// testing (embryo, migrates to @nestjs-adk/testing in F5)
+export { ScriptedEngine, callTool, deltas, fail, text } from "./lib/testing/scripted-engine";
 export type { ScriptTurn } from "./lib/testing/scripted-engine";
 export { ScriptedModel, isScriptedModel } from "./lib/testing/scripted-model";
 
@@ -140,11 +155,12 @@ export {
 	InvalidModelError,
 	InvalidWorkflowError,
 	MissingModelError,
+	NestedFailoverError,
 	ReservedMethodError,
 	UnregisteredModelError,
 	UnregisteredPromptError,
 	UnregisteredSkillError,
-	UnregisteredSubAgentError,
+	SubAgentsRemovedError,
 	UnregisteredToolError,
 	UnresolvedToolsetError,
 	UnsupportedModelScopeError,
@@ -156,14 +172,19 @@ export {
 	AgentStateMissingError,
 	AiEmptyResponseError,
 	ApprovalNotFoundError,
+	DuplicateToolSourceError,
 	EmbedderNotConfiguredError,
+	McpBlockedTargetError,
 	McpConnectionError,
 	ModelsExhaustedError,
 	OutputValidationError,
 	SessionNotFoundError,
 	SkillNotFoundError,
 	ToolExecutionError,
+	ToolInvalidArgsError,
 	ToolRepeatedFailureError,
+	ToolSourceAuthError,
+	ToolSourceUnavailableError,
 } from "./lib/errors/runtime.errors";
 
 // events & run types
@@ -173,6 +194,7 @@ export type {
 	ArtifactRef,
 	PendingApproval,
 	RawRef,
+	ReauthRequest,
 	RunInput,
 	RunResult,
 	Session,
@@ -185,14 +207,18 @@ export type {
 export type {
 	AgentOptions,
 	AnyZodObject,
+	ApprovalPolicy,
 	ModelInput,
 	SkillMode,
 	SkillOptions,
+	ToolEffect,
 	ToolOptions,
 	WorkflowMode,
 	WorkflowOptions,
 } from "./lib/types/options";
 export type { StateBag, ToolContext } from "./lib/types/tool-context";
 export type { ResolvedAgent, ResolvedTool } from "./lib/types/resolved-agent";
+export { isJsonSchema, pruneByProperties } from "./lib/types/json-schema";
+export type { JsonSchema, ToolSchema } from "./lib/types/json-schema";
 export { ToolsetResolver, isToolsetRef, toolset } from "./lib/types/toolset";
 export type { ToolsetRef } from "./lib/types/toolset";

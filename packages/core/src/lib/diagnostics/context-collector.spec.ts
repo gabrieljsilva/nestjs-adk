@@ -3,7 +3,13 @@ import { ContextCollector } from "./context-collector";
 import type { ContextSnapshot } from "./context-types";
 
 function result(text: string): RunResult {
-	return { text, usage: { promptTokens: 1, outputTokens: 1, totalTokens: 2 }, events: [], status: "completed" };
+	return {
+		text,
+		usage: { promptTokens: 1, outputTokens: 1, totalTokens: 2 },
+		events: [],
+		status: "completed",
+		reauth: [],
+	};
 }
 
 const snapshot: ContextSnapshot = { agent: "support", segments: [{ kind: "systemInstruction", text: "hi" }] };

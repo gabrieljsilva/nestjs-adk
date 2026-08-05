@@ -93,7 +93,7 @@ describe("RedisPricingStorage", () => {
 		expect(client.store.has("app-a:pricing")).toBe(true);
 	});
 
-	it("an unreachable client surfaces the failure — a silent miss would hide the outage", async () => {
+	it("an unreachable client surfaces the failure: a silent miss would hide the outage", async () => {
 		const storage = new RedisPricingStorage({
 			client: {
 				get: async () => {

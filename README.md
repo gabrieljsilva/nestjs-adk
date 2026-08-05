@@ -39,6 +39,7 @@ Under the hood, your agents run on a real agent engine. The first supported engi
 |---|---|
 | [`@nestjs-adk/core`](packages/core) | The framework itself. Decorators, module, contracts, sessions, prompts, models, human approval, structured output, cost tracking. Start here: the main documentation lives in this package. |
 | [`@nestjs-adk/google`](packages/google) | The Google ADK engine. Translates your agents into native ADK objects at runtime, including support for Gemini, Vertex AI and the `adk web` Dev UI. |
+| [`@nestjs-adk/openai`](packages/openai) | OpenAI models over the official SDK, with a configurable `baseURL` that also reaches OpenRouter, Ollama, Groq, Together and vLLM. |
 | [`@nestjs-adk/mcp`](packages/mcp) | MCP client. Connects your agents to external MCP servers and turns their catalogs into agent tools. |
 | [`@nestjs-adk/testing`](packages/testing) | Testing utilities. A scripted fake LLM, stackable mocks, Vitest matchers and an LLM-as-judge helper. |
 
@@ -66,6 +67,14 @@ npm run build
 ```
 
 Versioning and releases use [changesets](https://github.com/changesets/changesets). Every merge to `main` with a pending changeset opens a version PR; merging that PR publishes to npm automatically.
+
+## About this project
+
+nestjs-adk was built largely with [Claude Code](https://claude.com/claude-code), out of problems I ran into using Google ADK, Cline ADK and agents wired by hand: the run loop, cost, tool declaration, MCP registration, context and prompt management, skills as a first-class tool, event dispatch. Each of those was being solved from scratch every time, so the library turned them into one set of conventions.
+
+The core is mostly AI-written, and the tools I believe a good ADK must have are already in place. The current focus is bugs, code quality, performance and DX. DX drives the design, so expect several major releases with breaking changes, always following semver strictly. This is not an attempt to compete with Google ADK or Cline ADK: it is an agent toolkit that feels native to NestJS, on top of engines that already do the heavy lifting.
+
+Experienced developers are very welcome to open the code and push back on it. The longer version is in the [core README](packages/core#about-this-project).
 
 ## License
 

@@ -7,7 +7,6 @@ import {
 	AgentRegistry,
 	AgentRunner,
 	Gemini,
-	ModelRouter,
 	OpenAiLike,
 	ScriptedModel,
 	contextPolicy,
@@ -20,16 +19,6 @@ import { Test, type TestingModule } from "@nestjs/testing";
 import { z } from "zod";
 import { ConfiguredLlm } from "./configured-llm";
 import { GoogleAdkEngine } from "./google-adk-engine";
-
-const routedModel = new ModelRouter({
-	targets: {
-		primary: new ScriptedModel([fail("429 resource exhausted")]),
-		fallback: new ScriptedModel([text("fallback response")]),
-	},
-});
-
-@Agent({ name: "routed_agent", model: routedModel, description: "d" })
-class RoutedAgent extends AdkAgent {}
 
 @Agent({
 	name: "gemini_agent",
@@ -80,18 +69,6 @@ class PlainGeminiAgent extends AdkAgent {}
 })
 class CompactionAgent extends AdkAgent {}
 
-@Agent({
-	name: "gemini_router_agent",
-	model: new ModelRouter({
-		targets: {
-			cheap: new Gemini("gemini-2.5-flash", { apiKey: "test-key", temperature: 0.1 }),
-			smart: new Gemini("gemini-2.5-pro", { apiKey: "test-key", temperature: 0.9 }),
-		},
-	}),
-	description: "d",
-})
-class GeminiRouterAgent extends AdkAgent {}
-
 const labeledModel = new ScriptedModel();
 
 @Agent({ name: "labeled_agent", model: labeledModel, description: "d" })
@@ -105,12 +82,10 @@ class StructuredAgent extends AdkAgent<typeof reportSchema> {}
 
 @Module({
 	providers: [
-		RoutedAgent,
 		GeminiAgent,
 		OpenAiAgent,
 		TypedGeminiAgent,
 		PlainGeminiAgent,
-		GeminiRouterAgent,
 		CompactionAgent,
 		LabeledAgent,
 		StructuredAgent,
@@ -139,14 +114,6 @@ describe("GoogleAdkEngine — model specs (F6)", () => {
 		await app.close();
 	});
 
-	it("modelRouter: failover on a pre-1st-chunk error switches targets and emits model_rerouted", async () => {
-		const run = await registry.getRef(RoutedAgent).ask({ message: "hi" });
-
-		expect(run.text).toBe("fallback response");
-		const reroute = run.events.find((e) => e.type === "model_rerouted");
-		expect(reroute).toMatchObject({ from: "primary", to: "fallback" });
-		expect(reroute && "reason" in reroute ? reroute.reason : "").toContain("429");
-	});
 
 	it("new Gemini(): spec with config becomes a ConfiguredLlm over the native Gemini, config in generateContentConfig", async () => {
 		const resolved = await app.get(AgentRunner).resolve(GeminiAgent);
@@ -182,20 +149,6 @@ describe("GoogleAdkEngine — model specs (F6)", () => {
 		});
 	});
 
-	it("router targets keep their own spec config (each wrapped in ConfiguredLlm)", async () => {
-		const resolved = await app.get(AgentRunner).resolve(GeminiRouterAgent);
-		const llmAgent = await engine.toNative(resolved);
-
-		const targets = (llmAgent.model as unknown as { models: Record<string, unknown> }).models;
-		expect(targets.cheap).toBeInstanceOf(ConfiguredLlm);
-		expect(targets.smart).toBeInstanceOf(ConfiguredLlm);
-		expect((targets.cheap as unknown as { specConfig: Record<string, unknown> }).specConfig).toMatchObject({
-			temperature: 0.1,
-		});
-		expect((targets.smart as unknown as { specConfig: Record<string, unknown> }).specConfig).toMatchObject({
-			temperature: 0.9,
-		});
-	});
 
 	it("new OpenAiLike(): spec becomes an OpenAI-compatible model via the bridge", async () => {
 		const resolved = await app.get(AgentRunner).resolve(OpenAiAgent);

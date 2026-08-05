@@ -29,6 +29,7 @@
 		"pretest:coverage": "rimraf -g coverage",
 		"test:coverage": "vitest --coverage --run --project unit --project integration",
 		"lint": "biome check .",
+		"guard:allowlist": "tsc -p tools/architecture-guards/tsconfig.json && node .tmp/architecture-guards/generate-allowlist.js",
 		"format": "biome format --write .",
 		"changeset": "changeset",
 		"version": "changeset version && biome check --write .",

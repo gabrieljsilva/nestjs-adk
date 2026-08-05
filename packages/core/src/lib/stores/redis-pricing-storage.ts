@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { PricingStorage } from "../abstracts/pricing-storage";
 import type { PricingCatalog } from "../pricing/pricing-types";
 
-/** Minimal surface every Redis client already implements — the lib brings no client dependency of its own. */
+/** Minimal surface every Redis client already implements: the lib brings no client dependency of its own. */
 export interface RedisLikeClient {
 	get(key: string): Promise<string | null>;
 	set(key: string, value: string): Promise<unknown>;
@@ -29,7 +29,7 @@ export class RedisPricingStorage extends PricingStorage {
 		this.key = options.key ?? "adk:pricing:catalog";
 	}
 
-	/** Failures propagate: the source turns them into a cache miss AND logs them — swallowing here would hide a Redis outage. */
+	/** Failures propagate: the source turns them into a cache miss AND logs them; swallowing here would hide a Redis outage. */
 	public async read(): Promise<PricingCatalog | undefined> {
 		const raw = await this.client.get(this.key);
 		return raw ? (JSON.parse(raw) as PricingCatalog) : undefined;

@@ -2,7 +2,7 @@
  * What a tool sees in `execute(input, ctx)`.
  * TState is a manual annotation (a tool can serve many agents, so the running agent's schema
  * cannot be inferred): `ctx: ToolContext<z.infer<typeof MyState>>`. A union of states narrows
- * access to the keys all of them share — the safe contract for a shared tool.
+ * access to the keys all of them share, the safe contract for a shared tool.
  */
 export interface ToolContext<TState extends Record<string, unknown> = Record<string, unknown>> {
 	agentName: string;
@@ -20,7 +20,7 @@ export interface StateBag<TState extends Record<string, unknown> = Record<string
 	/** Key-typed read: autocomplete + inferred return when TState is declared. */
 	// The V type param blocks explicit-generic calls from landing here (arity), keeping get<T>(key) intact.
 	get<K extends keyof TState & string, V extends TState[K]>(key: K): V | undefined;
-	/** Explicit-generic read — undeclared keys and pre-typing code. */
+	/** Explicit-generic read: undeclared keys and pre-typing code. */
 	get<T = unknown>(key: string): T | undefined;
 	/** Runtime-validated against the agent's declared state schema (undeclared keys pass through). */
 	set<K extends keyof TState & string>(key: K, value: TState[K]): void;

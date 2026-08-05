@@ -1,7 +1,8 @@
 import { Inject, type Type } from "@nestjs/common";
 import { ADK_RUNNER } from "../constants";
 import type { AgentRunner } from "../runner/agent-runner";
-import type { AgentEvent, RunInput, RunResult } from "../types/events";
+import type { RunInput, RunResult } from "../types/events";
+import type { AgentStream } from "./adk-agent";
 
 /**
  * Base contract for deterministic workflows (@WorkflowAgent). Workflows are agents:
@@ -16,8 +17,14 @@ export abstract class AdkWorkflow {
 		return this.adkRunner.ask(this.constructor as Type, input);
 	}
 
-	/** Normalized event loop (streaming). */
-	public stream(input: RunInput): AsyncGenerator<AgentEvent> {
-		return this.adkRunner.run(this.constructor as Type, input);
+	/** The same verbs as AdkAgent, streaming: `workflow.stream.ask(...)`. */
+	public get stream(): AgentStream {
+		const type = this.constructor as Type;
+		const runner = this.adkRunner;
+		return {
+			ask: (input) => runner.run(type, input),
+			approve: (params) => runner.approveStream(type, params),
+			reject: (params) => runner.rejectStream(type, params),
+		};
 	}
 }

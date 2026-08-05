@@ -98,7 +98,7 @@ const runB = await agent.ask({ message: "when does it arrive?" });
 expect([warmUp, runA, runB]).toHaveCacheHitRatioAbove(0.6);
 ```
 
-The first run is dropped from the calculation, since implicit caching only exists after somebody paid for the prefix. A run the provider said nothing about leaves the sample entirely, numerator and denominator — keeping its prompt tokens would quietly assume "zero cached" and drag the ratio down for a run that was never measured. `CacheReport` reports both counts: `sampledRuns` fed the ratio, `silentRuns` were set aside. If nothing was reported at all, the matcher throws saying the metric is unavailable — never `0%`, which would send you hunting a bug that is not there.
+The first run is dropped from the calculation, since implicit caching only exists after somebody paid for the prefix. A run the provider said nothing about leaves the sample entirely, numerator and denominator, since keeping its prompt tokens would quietly assume "zero cached" and drag the ratio down for a run that was never measured. `CacheReport` reports both counts: `sampledRuns` fed the ratio, `silentRuns` were set aside. If nothing was reported at all, the matcher throws saying the metric is unavailable, never `0%`, which would send you hunting a bug that is not there.
 
 Implicit caching is best-effort, so expect variance between runs of the suite: it takes a few calls to engage and expires on its own schedule. That is why the assertion is a floor and never an equality.
 

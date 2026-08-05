@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
-import { SessionStore } from "../abstracts/session-store";
+import { type SessionReadOptions, SessionStore } from "../abstracts/session-store";
 import { SessionNotFoundError } from "../errors/runtime.errors";
 import type { Session, SessionEvent, SessionInit } from "../types/events";
 
@@ -9,9 +9,14 @@ import type { Session, SessionEvent, SessionInit } from "../types/events";
 export class InMemorySessionStore extends SessionStore {
 	private readonly sessions = new Map<string, Session>();
 
-	public async get(id: string): Promise<Session | null> {
+	public async get(id: string, options?: SessionReadOptions): Promise<Session | null> {
 		const session = this.sessions.get(id);
-		return session ? structuredClone(session) : null;
+		if (!session) return null;
+
+		const copy = structuredClone(session);
+		const excluded = options?.excludeEventId;
+		if (excluded !== undefined) copy.events = copy.events.filter((event) => event.id !== excluded);
+		return copy;
 	}
 
 	public async create(init: SessionInit): Promise<Session> {

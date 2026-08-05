@@ -4,18 +4,18 @@ import type { ContextSnapshot } from "./context-types";
 /**
  * Context diagnostics collector (same mold as PricingSource/AdkEmbedder: opt-in, with an active
  * instance test matchers can reach without extra injection). Enable it with
- * AdkModule.forRoot({ diagnostics: true }) — off by default, so production runs capture nothing.
+ * AdkModule.forRoot({ diagnostics: true }): off by default, so production runs capture nothing.
  *
  * Buckets are per-run and live in the run's own scope, like the engine's reroutes: concurrent runs
  * never mix. The WeakMap keys on the result object itself, which is what allows
- * `expect([runA, runB])` without inventing a public run id — and it frees itself when the test
+ * `expect([runA, runB])` without inventing a public run id, and it frees itself when the test
  * drops the result.
  */
 @Injectable()
 export class ContextCollector implements OnModuleDestroy {
 	private static active?: ContextCollector;
 
-	/** Keyed by RunResult, or by the Error when the run threw — a failed run is worth inspecting too. */
+	/** Keyed by RunResult, or by the Error when the run threw: a failed run is worth inspecting too. */
 	private readonly byOwner = new WeakMap<object, ContextSnapshot[]>();
 
 	/** Set by AdkModule when diagnostics are on. */
@@ -28,7 +28,7 @@ export class ContextCollector implements OnModuleDestroy {
 		return ContextCollector.active;
 	}
 
-	/** Fresh bucket for one run — the engine pushes one snapshot per model call into it. */
+	/** Fresh bucket for one run: the engine pushes one snapshot per model call into it. */
 	public open(): ContextSnapshot[] {
 		return [];
 	}

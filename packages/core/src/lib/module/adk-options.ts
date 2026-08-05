@@ -8,7 +8,7 @@ import type { SessionStore } from "../abstracts/session-store";
 import type { ModelInput } from "../types/options";
 
 export interface AdkModuleOptions {
-	/** Execution engine — AdkEngine contract (e.g.: GoogleAdkEngine from @nestjs-adk/google). */
+	/** Execution engine: AdkEngine contract (e.g.: GoogleAdkEngine from @nestjs-adk/google). */
 	engine: Type<AdkEngine>;
 	/** Default model for agents without their own `model`. Missing both → MissingModelError at boot. */
 	defaultModel?: ModelInput;
@@ -17,12 +17,18 @@ export interface AdkModuleOptions {
 	memory?: Type<MemoryStore>;
 	/** Default: InMemoryArtifactStore. */
 	artifacts?: Type<ArtifactStore>;
-	/** Embedding provider (no default — bring your own; see the playground's GeminiEmbedder example). */
+	/** Embedding provider (no default: bring your own; see the playground's GeminiEmbedder example). */
 	embedder?: Type<AdkEmbedder>;
 	/** Cost tracking. Unset = runs report tokens only. E.g.: `new LiteLLMPricingSource()`. */
 	pricing?: PricingSource;
-	/** Captures the context sent to the model, for the testing matchers. Off by default — production captures nothing. */
+	/** Captures the context sent to the model, for the testing matchers. Off by default: production captures nothing. */
 	diagnostics?: boolean;
+	/**
+	 * Token streaming. Off by default: the model answers per turn, one `llm_response` per call.
+	 * On → the same turn also emits incremental `llm_response` events flagged `partial`.
+	 * Overridable per call via `ask({ streaming })`.
+	 */
+	streaming?: boolean;
 	prompts?: { dir?: string };
 	/**
 	 * Structured run logs via the Nest Logger (context `Adk:<agent>`). Cumulative levels:
@@ -37,6 +43,10 @@ export interface AdkModuleOptions {
 	defaults?: {
 		maxIterations?: number;
 		maxConsecutiveToolFailures?: number;
+		/** Invalid tool arguments handed back to the model before aborting. Unset = 2; `0` aborts at once. */
+		maxInvalidArgs?: number;
+		/** Which tool effects pause for approval when ask() does not say. Unset = "destructive". */
+		approval?: import("../types/options").ApprovalPolicy;
 	};
 }
 

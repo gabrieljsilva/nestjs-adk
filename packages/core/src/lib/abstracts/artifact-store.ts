@@ -1,7 +1,7 @@
 import type { ArtifactPart, ArtifactRef } from "../types/events";
 
 /**
- * Contract for versioned artifacts — the basis for tool-result offloading.
+ * Contract for versioned artifacts: the basis for tool-result offloading.
  * Bridges to the ADK's BaseArtifactService in the adapter.
  */
 export abstract class ArtifactStore {

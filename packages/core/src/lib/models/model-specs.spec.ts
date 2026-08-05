@@ -1,4 +1,4 @@
-import { Gemini, ModelRouter, OpenAiLike, isModelSpec } from "./model-specs";
+import { Gemini, OpenAiLike, failoverPolicy, isModelSpec } from "./model-specs";
 
 describe("model specs (value-object classes)", () => {
 	it("new Gemini() loads provider config into the spec", () => {
@@ -44,10 +44,37 @@ describe("model specs (value-object classes)", () => {
 		expect(spec.baseUrl).toBe("http://localhost:11434/v1");
 	});
 
-	it("new ModelRouter() normalizes an array of targets into an ordered Record", () => {
-		const spec = new ModelRouter({ targets: [new Gemini("a"), new OpenAiLike("b")] });
-		expect(Object.keys(spec.targets)).toEqual(["target_0", "target_1"]);
-		expect(spec.strategy).toBe("failover");
+	it("failover rides on the spec itself: the primary is the identity, the chain is an attribute", () => {
+		const fallback = new OpenAiLike("gpt-4o-mini");
+		const spec = new Gemini("gemini-2.5-flash", { failover: [fallback] });
+		expect(spec.model).toBe("gemini-2.5-flash");
+		expect(spec.failover).toEqual([fallback]);
+	});
+
+	it("failoverPolicy: the array form walks the list in declared order, then gives up", async () => {
+		const first = new Gemini("a");
+		const second = new OpenAiLike("b");
+		const policy = failoverPolicy([first, second]);
+
+		expect(await policy?.(new Error("boom"), { currentModel: "primary", failures: [] })).toBe(first);
+		expect(await policy?.(new Error("boom"), { currentModel: "a", failures: [{ model: "primary", error: null }] })).toBe(
+			second,
+		);
+		expect(
+			await policy?.(new Error("boom"), {
+				currentModel: "b",
+				failures: [
+					{ model: "primary", error: null },
+					{ model: "a", error: null },
+				],
+			}),
+		).toBeUndefined();
+	});
+
+	it("failoverPolicy: the function form passes through untouched", () => {
+		const fn = () => undefined;
+		expect(failoverPolicy(fn)).toBe(fn);
+		expect(failoverPolicy(undefined)).toBeUndefined();
 	});
 
 	it("isModelSpec: plain strings and unrelated objects are not specs", () => {

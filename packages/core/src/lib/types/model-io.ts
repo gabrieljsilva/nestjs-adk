@@ -1,5 +1,5 @@
 /**
- * Neutral model I/O contract — SDK-free mirror of what the runner exercises.
+ * Neutral model I/O contract: SDK-free mirror of what the runner exercises.
  * AdkModel implementations receive a ready-made ModelRequest (composed instruction,
  * history, tool declarations) and yield ModelResponse chunks back to the engine.
  */
@@ -15,14 +15,14 @@ export interface ModelMessage {
 	parts: ModelPart[];
 }
 
-/** Tool available to the model — `parameters` is the JSON Schema of the tool input. */
+/** Tool available to the model; `parameters` is the JSON Schema of the tool input. */
 export interface ToolDeclaration {
 	name: string;
 	description?: string;
 	parameters?: Record<string, unknown>;
 }
 
-/** Universal generation parameters — the single source both specs and the neutral contract extend. */
+/** Universal generation parameters: the single source both specs and the neutral contract extend. */
 export interface GenerationParams {
 	temperature?: number;
 	topP?: number;
@@ -34,7 +34,7 @@ export interface GenerationParams {
 	stopSequences?: string[];
 }
 
-/** Keys of GenerationParams — engines use it to promote universal fields out of raw configs. */
+/** Keys of GenerationParams; engines use it to promote universal fields out of raw configs. */
 export const GENERATION_KEYS = [
 	"temperature",
 	"topP",
@@ -67,7 +67,7 @@ export interface ModelRequest {
 
 /**
  * One chunk of a generation. Aggregation contract: every `text` part is a DELTA
- * (the engine appends them); toolCalls accumulate; usage/finishReason — last one wins.
+ * (the engine appends them); toolCalls accumulate; usage/finishReason: last one wins.
  * A non-streaming implementation simply yields a single chunk with the full text.
  */
 export interface ModelResponse {
@@ -77,7 +77,7 @@ export interface ModelResponse {
 }
 
 export interface GenerateOptions {
-	/** True when the caller wants incremental deltas — yielding everything at once is still valid. */
+	/** True when the caller wants incremental deltas; yielding everything at once is still valid. */
 	stream?: boolean;
 	/**
 	 * Run abort. Implementations should honor it (stop the upstream provider call);

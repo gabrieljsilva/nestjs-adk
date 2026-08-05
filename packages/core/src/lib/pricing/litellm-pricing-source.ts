@@ -21,12 +21,12 @@ export interface LiteLLMPricingSourceOptions {
 	timeout?: number;
 	/** Default: InMemoryPricingStorage (per process). */
 	storage?: PricingStorage;
-	/** Price corrections by model id — contract discounts, internal models, catalog fixes. */
+	/** Price corrections by model id: contract discounts, internal models, catalog fixes. */
 	overrides?: Record<string, PriceOverride>;
 }
 
 /**
- * Community catalog as a live source: fetch, project, persist, revalidate — all at runtime,
+ * Community catalog as a live source: fetch, project, persist, revalidate, all at runtime,
  * inside the lib. The catalog in memory is only ever replaced by a NEW and VALID payload, so a
  * broken origin, a timeout or an unexpected format costs an error log, never the prices already loaded.
  * Nothing here blocks boot or the run path.
@@ -35,13 +35,13 @@ export interface LiteLLMPricingSourceOptions {
 export class LiteLLMPricingSource extends PricingSource implements OnApplicationBootstrap, OnApplicationShutdown {
 	private readonly logger = new Logger("Adk:pricing");
 	private readonly url: string;
-	/** The URL without query or credentials — a private mirror may carry a token there, and this one is logged and persisted. */
+	/** The URL without query or credentials: a private mirror may carry a token there, and this one is logged and persisted. */
 	private readonly safeUrl: string;
 	private readonly refreshEvery: number;
 	private readonly timeout: number;
 	private readonly storage: PricingStorage;
 	private readonly overrides: Record<string, PriceOverride>;
-	/** Memo of resolved lookups (including misses) — the prefix fallback scans every entry. */
+	/** Memo of resolved lookups (including misses): the prefix fallback scans every entry. */
 	private readonly resolved = new Map<string, ModelPrice | undefined>();
 
 	private catalog?: PricingCatalog;
@@ -73,7 +73,7 @@ export class LiteLLMPricingSource extends PricingSource implements OnApplication
 
 		const stored = await this.readStorage();
 		if (stored) this.adopt(stored, "storage");
-		// stop() may have run while the storage read was in flight — arming now would orphan the timer
+		// stop() may have run while the storage read was in flight: arming now would orphan the timer
 		if (!this.started) return;
 
 		this.timer = setInterval(() => {
@@ -103,10 +103,10 @@ export class LiteLLMPricingSource extends PricingSource implements OnApplication
 		return this.catalog?.asOf;
 	}
 
-	/** Revalidates against the origin. Errors are logged and swallowed — the loaded catalog stays. */
+	/** Revalidates against the origin. Errors are logged and swallowed: the loaded catalog stays. */
 	public async refresh(): Promise<void> {
 		const shared = await this.readStorage();
-		// another replica may have just refreshed — adopting its catalog saves a 1.67 MB download
+		// another replica may have just refreshed: adopting its catalog saves a 1.67 MB download
 		if (shared && this.isFresh(shared) && shared.asOf !== this.catalog?.asOf) {
 			this.adopt(shared, "storage");
 			return;
@@ -139,7 +139,7 @@ export class LiteLLMPricingSource extends PricingSource implements OnApplication
 				etag: response.headers.get("etag") ?? undefined,
 			});
 			if (!catalog) {
-				this.keep("payload has no usable model — unexpected format");
+				this.keep("payload has no usable model, unexpected format");
 				return;
 			}
 
@@ -156,10 +156,10 @@ export class LiteLLMPricingSource extends PricingSource implements OnApplication
 		return Number.isFinite(age) && age >= 0 && age < this.refreshEvery;
 	}
 
-	/** A storage can hand back anything (older format, corrupt value) — an invalid catalog is ignored, never adopted. */
+	/** A storage can hand back anything (older format, corrupt value): an invalid catalog is ignored, never adopted. */
 	private adopt(catalog: PricingCatalog, origin: "storage" | "origin"): void {
 		if (catalog.v !== 1 || typeof catalog.entries !== "object" || catalog.entries === null) {
-			this.logger.error(`catalog from ${origin} is not readable (format v${catalog.v}) — ignored`);
+			this.logger.error(`catalog from ${origin} is not readable (format v${catalog.v}), ignored`);
 			return;
 		}
 		this.catalog = catalog;
@@ -167,18 +167,18 @@ export class LiteLLMPricingSource extends PricingSource implements OnApplication
 		this.logger.log(`catalog from ${origin}: ${Object.keys(catalog.entries).length} models (asOf ${catalog.asOf})`);
 	}
 
-	/** 304: the data is unchanged, so only the freshness window moves — `asOf` keeps telling the real age. */
+	/** 304: the data is unchanged, so only the freshness window moves; `asOf` keeps telling the real age. */
 	private touch(): void {
 		if (this.catalog) this.catalog = { ...this.catalog, checkedAt: new Date().toISOString() };
 	}
 
 	private keep(reason: string): void {
 		if (this.catalog) {
-			this.logger.error(`refresh from ${this.safeUrl} failed: ${reason} — keeping catalog from ${this.catalog.asOf}`);
+			this.logger.error(`refresh from ${this.safeUrl} failed: ${reason}, keeping catalog from ${this.catalog.asOf}`);
 			return;
 		}
 		this.logger.error(
-			`refresh from ${this.safeUrl} failed: ${reason} — no catalog available, runs report tokens without cost`,
+			`refresh from ${this.safeUrl} failed: ${reason}, no catalog available, runs report tokens without cost`,
 		);
 	}
 
@@ -228,7 +228,7 @@ async function readCapped(response: Response): Promise<unknown> {
 	return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
-/** Keeps origin and path, drops query and userinfo — a mirror URL can carry a token in either. */
+/** Keeps origin and path, drops query and userinfo: a mirror URL can carry a token in either. */
 function redactUrl(url: string): string {
 	try {
 		const parsed = new URL(url);
@@ -238,7 +238,7 @@ function redactUrl(url: string): string {
 	}
 }
 
-/** Node's fetch reports every network failure as "fetch failed" — the real reason lives in `cause`. */
+/** Node's fetch reports every network failure as "fetch failed"; the real reason lives in `cause`. */
 function describeError(error: unknown): string {
 	if (!(error instanceof Error)) return String(error);
 	const cause = error.cause instanceof Error ? error.cause.message : undefined;

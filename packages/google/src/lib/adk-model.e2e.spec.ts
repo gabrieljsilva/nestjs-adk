@@ -23,7 +23,7 @@ import { GoogleAdkEngine } from "./google-adk-engine";
 
 const refundSchema = z.object({ orderId: z.string(), amount: z.number() });
 
-@Tool({ name: "refund", description: "Refunds an order.", schema: refundSchema, requiresApproval: true })
+@Tool({ name: "refund", description: "Refunds an order.", schema: refundSchema, effect: "destructive" })
 class RefundTool extends AdkTool<typeof refundSchema> {
 	execute(input: z.infer<typeof refundSchema>) {
 		return { refunded: input.orderId, amount: input.amount };

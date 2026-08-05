@@ -18,7 +18,7 @@ export abstract class AdkEngine {
 
 	/**
 	 * Optional: build the context through the real pipeline and stop before calling the provider.
-	 * Concrete default so existing engines keep compiling — an engine with no native request to
+	 * Concrete default so existing engines keep compiling: an engine with no native request to
 	 * describe (the ScriptedEngine, for one) simply reports nothing.
 	 */
 	public explain(_agent: ResolvedAgent, _input: RunInput): Promise<ContextSnapshot[]> {

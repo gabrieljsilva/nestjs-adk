@@ -9,7 +9,7 @@ type RestrictedMap = {
 describe("createModelSpec (type-only factory)", () => {
 	const MyGemini = createModelSpec(Gemini)<RestrictedMap>();
 
-	it("returns the same constructor — zero runtime behavior", () => {
+	it("returns the same constructor: zero runtime behavior", () => {
 		expect(MyGemini).toBe(Gemini);
 	});
 
@@ -21,7 +21,7 @@ describe("createModelSpec (type-only factory)", () => {
 	});
 
 	it("models in the map are restricted at compile time; outside the map keep full options", () => {
-		// @ts-expect-error — "no-temp-model" forbids temperature per the map
+		// @ts-expect-error: "no-temp-model" forbids temperature per the map
 		new MyGemini("no-temp-model", { temperature: 0.2 });
 		new MyGemini("no-temp-model", { topP: 0.9 });
 		new MyGemini("outside-the-map", { temperature: 0.7 });

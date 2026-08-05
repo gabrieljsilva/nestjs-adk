@@ -22,7 +22,7 @@ describe("resolveModelPrice", () => {
 		expect(resolveModelPrice(entries, "gemini-2.5-flash")).toEqual(FLASH);
 	});
 
-	it("gives up when prefixed candidates disagree — a reseller can cost 8x more", () => {
+	it("gives up when prefixed candidates disagree: a reseller can cost 8x more", () => {
 		const entries = {
 			"openrouter/google/gemini-2.5-flash": FLASH,
 			"replicate/google/gemini-2.5-flash": { input: 2.5e-6, output: 2.5e-6 },
@@ -44,7 +44,7 @@ describe("applyOverride", () => {
 		});
 	});
 
-	it("complements the catalog field by field — a discount on input keeps the catalog's output", () => {
+	it("complements the catalog field by field: a discount on input keeps the catalog's output", () => {
 		expect(applyOverride(FLASH, { inputPerMTok: 0.24 })).toEqual({ ...FLASH, input: 2.4e-7 });
 	});
 
@@ -58,7 +58,7 @@ describe("applyOverride", () => {
 		expect(discounted?.input).toBe(5e-7);
 		// the band no longer carries its own input rate, so the long prompt keeps the negotiated price
 		expect(discounted?.bands).toEqual([{ aboveTokens: 200_000, output: 1.5e-5, cacheRead: 2.5e-7 }]);
-		expect(llmCost(discounted, { promptTokens: 300_000, outputTokens: 0, totalTokens: 300_000 })).toBeCloseTo(
+		expect(llmCost(discounted, { promptTokens: 300_000, outputTokens: 0, totalTokens: 300_000 })?.amount).toBeCloseTo(
 			300_000 * 5e-7,
 			10,
 		);
@@ -67,7 +67,7 @@ describe("applyOverride", () => {
 
 describe("llmCost", () => {
 	it("charges prompt and output at the base rates", () => {
-		const amount = llmCost(FLASH, { promptTokens: 772, outputTokens: 41, totalTokens: 813 });
+		const amount = llmCost(FLASH, { promptTokens: 772, outputTokens: 41, totalTokens: 813 })?.amount;
 
 		expect(amount).toBeCloseTo(772 * 3e-7 + 41 * 2.5e-6, 12);
 	});
@@ -75,25 +75,25 @@ describe("llmCost", () => {
 	it("cached tokens are discounted from the prompt and billed at the cache rate", () => {
 		const usage = { promptTokens: 10_000, outputTokens: 100, totalTokens: 10_100, cachedTokens: 8_000 };
 
-		expect(llmCost(FLASH, usage)).toBeCloseTo(2_000 * 3e-7 + 8_000 * 3e-8 + 100 * 2.5e-6, 12);
+		expect(llmCost(FLASH, usage)?.amount).toBeCloseTo(2_000 * 3e-7 + 8_000 * 3e-8 + 100 * 2.5e-6, 12);
 	});
 
 	it("without a cache rate the cached tokens stay at the full input rate", () => {
 		const noCacheRate: ModelPrice = { input: 3e-7, output: 2.5e-6 };
 		const usage = { promptTokens: 1_000, outputTokens: 10, totalTokens: 1_010, cachedTokens: 400 };
 
-		expect(llmCost(noCacheRate, usage)).toBeCloseTo(1_000 * 3e-7 + 10 * 2.5e-6, 12);
+		expect(llmCost(noCacheRate, usage)?.amount).toBeCloseTo(1_000 * 3e-7 + 10 * 2.5e-6, 12);
 	});
 
 	it("a prompt past the band threshold switches to the band rates", () => {
-		const below = llmCost(PRO, { promptTokens: 199_000, outputTokens: 1_000, totalTokens: 200_000 });
-		const above = llmCost(PRO, { promptTokens: 201_000, outputTokens: 1_000, totalTokens: 202_000 });
+		const below = llmCost(PRO, { promptTokens: 199_000, outputTokens: 1_000, totalTokens: 200_000 })?.amount;
+		const above = llmCost(PRO, { promptTokens: 201_000, outputTokens: 1_000, totalTokens: 202_000 })?.amount;
 
 		expect(below).toBeCloseTo(199_000 * 1.25e-6 + 1_000 * 1e-5, 10);
 		expect(above).toBeCloseTo(201_000 * 2.5e-6 + 1_000 * 1.5e-5, 10);
 	});
 
-	it("a partial price is not a cheaper price — missing output rate means unknown", () => {
+	it("a partial price is not a cheaper price: missing output rate means unknown", () => {
 		expect(llmCost({ input: 3e-7 }, { promptTokens: 100, outputTokens: 10, totalTokens: 110 })).toBeUndefined();
 	});
 

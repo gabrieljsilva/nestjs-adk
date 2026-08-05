@@ -21,10 +21,10 @@ async function resolvePrompt(
 	options: InstructionOptions,
 	ctx?: ToolContext,
 ): Promise<string | undefined> {
-	// The runner always provides ctx (createToolContext) — builders can rely on attributes/state.
+	// The runner always provides ctx (createToolContext): builders can rely on attributes/state.
 	if (definition.promptInstance) return definition.promptInstance.build(ctx as ToolContext);
 	if (definition.promptText !== undefined) return definition.promptText;
-	// promptFile was normalized to absolute by @Agent when relative ("./") — verbatim, no vars.
+	// promptFile was normalized to absolute by @Agent when relative ("./"): verbatim, no vars.
 	if (definition.promptFile) return promptFiles.render(definition.promptFile, { promptsDir: options.promptsDir });
 	return undefined;
 }

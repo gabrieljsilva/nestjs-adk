@@ -9,3 +9,4 @@ coverage/
 .plans/
 TODO.md
 .idea/
+.tmp/

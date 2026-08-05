@@ -1,0 +1,14 @@
+{
+	"extends": "../../tsconfig.json",
+	"compilerOptions": {
+		"noEmit": false,
+		"module": "CommonJS",
+		"moduleResolution": "node",
+		"outDir": "../../.tmp/architecture-guards",
+		"declaration": false,
+		"removeComments": true,
+		"types": ["node"]
+	},
+	"include": ["src/**/*", "generate-allowlist.ts"],
+	"exclude": ["fixtures"]
+}

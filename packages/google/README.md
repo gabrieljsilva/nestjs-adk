@@ -43,26 +43,27 @@ defaultModel: new Gemini("gemini-2.5-flash", {
 })
 ```
 
-Generation parameters (`temperature`, `topP`, `topK`, `maxOutputTokens`, the penalties and `stopSequences`) are first-class typed fields. `labels` are attached to every request for billing and cost tracking on Vertex. `cache` points the requests at an explicit cached content entry, and the cached token count then shows up in `run.usage.cachedTokens`. `config` remains a free passthrough of `GenerateContentConfig` for everything else, like thinking budgets and safety settings — when a parameter appears both typed and inside `config`, the typed field wins.
+Generation parameters (`temperature`, `topP`, `topK`, `maxOutputTokens`, the penalties and `stopSequences`) are first-class typed fields. `labels` are attached to every request for billing and cost tracking on Vertex. `cache` points the requests at an explicit cached content entry, and the cached token count then shows up in `run.usage.cachedTokens`. `config` remains a free passthrough of `GenerateContentConfig` for everything else, like thinking budgets and safety settings. When a parameter appears both typed and inside `config`, the typed field wins.
 
-The spec's configuration follows the spec everywhere: directly on an agent, as a `ModelRouter` target (each target keeps its own temperature and labels) and as the compaction summarizer.
+The spec's configuration follows the spec everywhere: directly on an agent, as a failover target (each target keeps its own temperature and labels) and as the compaction summarizer.
 
-## Failover with ModelRouter
+## Failover
 
-The `ModelRouter` spec from the core runs here on top of the ADK's native routed model:
+The `failover` declared on a model spec (see the core documentation) is executed here by the lib's own `FailoverLlm`, not by the ADK. Each attempt receives the request naming that attempt's own model, by construction, so the provider is always asked for a real model id.
 
 ```ts
-defaultModel: new ModelRouter({
-	targets: {
-		primary: new Gemini("gemini-2.5-flash"),
-		fallback: new OpenAiLike("gpt-4o-mini", { baseUrl: "https://openrouter.ai/api/v1" }),
-	},
+defaultModel: new Gemini("gemini-2.5-flash", {
+	failover: [new OpenAiLike("gpt-4o-mini", { baseUrl: "https://openrouter.ai/api/v1" })],
 })
 ```
 
-When the current target fails before the first chunk of the response, the router moves to the next target in order and the run continues. Every switch is emitted as a `model_rerouted` event and logged as a warning.
+When the current model fails before the first chunk of the response, the chain advances and the run continues. Every switch is emitted as a `model_rerouted` event and logged as a warning. `httpStatusOf()` is exported for failover policies that branch on the provider's HTTP status.
 
 `OpenAiLike` targets are materialized through the adk-llm-bridge, which lets you mix Gemini with any provider that speaks the OpenAI API.
+
+## Tool declarations from external catalogs
+
+A tool from an MCP server keeps the JSON Schema the server published, and this engine filters it down to what Gemini's declaration surface accepts (`toGeminiSchema()`, exported). It is a filter, not a translator: `anyOf`, `format`, `pattern` and friends survive verbatim; keywords the API refuses are dropped; `$ref` is inlined; and an array without `items` is repaired, because one broken declaration would otherwise answer 400 for the whole turn. Declared (`@Tool`) tools are unaffected: their Zod schema is handed to the ADK as before.
 
 ## Native compaction
 
@@ -72,7 +73,7 @@ The summarizer is a real model call, so it is not free: its tokens join `run.usa
 
 ## Capturing the context
 
-With `forRoot({ diagnostics: true })`, this engine records what every model call actually received. Capture sits at the point where the final request is assembled, so it works the same for a plain model id, a `Gemini` spec, an OpenAI-compatible endpoint, a `ModelRouter` target or a custom `AdkModel` — it is not tied to the scripted path.
+With `forRoot({ diagnostics: true })`, this engine records what every model call actually received. Capture sits at the point where the final request is assembled, so it works the same for a plain model id, a `Gemini` spec, an OpenAI-compatible endpoint, a failover target or a custom `AdkModel`. It is not tied to the scripted path.
 
 The engine also implements `explain()`: it builds the request through the real native pipeline, including the ADK's own request processors and the hydrated history, then short-circuits before the provider. Serialization keeps the payload as it is, insertion order included, because that is what the provider caches on. See the testing package for the matchers that consume this.
 

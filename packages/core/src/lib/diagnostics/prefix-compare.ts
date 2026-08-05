@@ -1,6 +1,6 @@
 import type { ContextSegmentKind, ContextSnapshot, PrefixDivergence, PrefixReport } from "./context-types";
 
-/** Characters of context shown after the divergence point — enough to spot a timestamp, not a wall of text. */
+/** Characters of context shown after the divergence point: enough to spot a timestamp, not a wall of text. */
 const EXCERPT_LENGTH = 80;
 
 interface FlatContext {
@@ -33,7 +33,7 @@ function commonPrefixLength(texts: string[]): number {
 	return shortest;
 }
 
-/** Which segment an absolute offset falls into — an offset past the end belongs to the last segment. */
+/** Which segment an absolute offset falls into; an offset past the end belongs to the last segment. */
 function locate(context: FlatContext, offset: number): { segment: ContextSegmentKind; segmentOffset: number } {
 	for (let index = 0; index < context.ends.length; index++) {
 		const end = context.ends[index] ?? 0;
@@ -48,7 +48,7 @@ function locate(context: FlatContext, offset: number): { segment: ContextSegment
 }
 
 /**
- * Stable Prefix: how much of the context stays byte-identical across runs — the whole basis of
+ * Stable Prefix: how much of the context stays byte-identical across runs, the whole basis of
  * implicit prefix caching. The ratio is measured in CHARS on purpose: being a ratio, most of the
  * char→token conversion error cancels out between numerator and denominator, and it stays exact
  * and tokenizer-free. The denominator is the LARGEST context compared, so the number reflects

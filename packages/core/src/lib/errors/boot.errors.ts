@@ -43,12 +43,17 @@ export class UnregisteredSkillError extends AdkBootError {
 	}
 }
 
-export class UnregisteredSubAgentError extends AdkBootError {
-	public readonly code = "UNREGISTERED_SUB_AGENT";
+/**
+ * `subAgents` declared a tree and meant a handover, which are not the same thing.
+ * The replacement names the edges an agent may actually take, so the model is offered
+ * exactly those and nothing reaches an agent that never agreed to receive it.
+ */
+export class SubAgentsRemovedError extends AdkBootError {
+	public readonly code = "SUB_AGENTS_REMOVED";
 
-	public constructor(agentClass: string, subAgentClass: string) {
+	public constructor(agentClass: string) {
 		super(
-			`Agent ${agentClass} references sub-agent ${subAgentClass}, but it is not registered as a provider in any module.`,
+			`Agent ${agentClass} declares subAgents, which is no longer part of @Agent. Declare the handovers it may make with @TransfersTo('other-agent') instead.`,
 		);
 	}
 }
@@ -108,12 +113,22 @@ export class InvalidModelError extends AdkBootError {
 	}
 }
 
+export class NestedFailoverError extends AdkBootError {
+	public readonly code = "NESTED_FAILOVER";
+
+	public constructor(agentClass: string, targetModel: string) {
+		super(
+			`Agent ${agentClass} declares failover target "${targetModel}" which declares failover of its own. The chain is flat: a target's own failover never runs. Declare every target on the primary model.`,
+		);
+	}
+}
+
 export class UnsupportedModelScopeError extends AdkBootError {
 	public readonly code = "UNSUPPORTED_MODEL_SCOPE";
 
 	public constructor(agentClass: string, modelClass: string) {
 		super(
-			`Agent ${agentClass} references model ${modelClass}, which is a REQUEST/TRANSIENT-scoped provider. Models are resolved once at boot and shared across all runs — keep ${modelClass} a stateless singleton and resolve per-request data inside generate().`,
+			`Agent ${agentClass} references model ${modelClass}, which is a REQUEST/TRANSIENT-scoped provider. Models are resolved once at boot and shared across all runs: keep ${modelClass} a stateless singleton and resolve per-request data inside generate().`,
 		);
 	}
 }

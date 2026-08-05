@@ -1,16 +1,25 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { McpConnectionError, type ResolvedTool, type ToolsetRef, ToolsetResolver } from "@nestjs-adk/core";
+import {
+	type JsonSchema,
+	McpConnectionError,
+	type ResolvedTool,
+	type ToolEffect,
+	type ToolsetRef,
+	ToolsetResolver,
+} from "@nestjs-adk/core";
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
-import { jsonSchemaToZod } from "./json-schema-to-zod";
-import { MCP_OPTIONS, type McpModuleOptions, type McpServerConfig, type McpTransportConfig } from "./mcp-options";
+
+import { effectOf } from "./mcp-effect";
+import { MCP_OPTIONS, type McpModuleOptions, type McpServerConfig } from "./mcp-options";
+import { createTransport } from "./mcp-transport";
 
 interface McpToolInfo {
 	name: string;
 	description: string;
 	inputSchema: unknown;
+	effect: ToolEffect;
+	/** The SDK's tool object, untouched, carried into ResolvedTool.raw. */
+	raw: unknown;
 }
 
 interface ServerCatalog {
@@ -20,7 +29,7 @@ interface ServerCatalog {
 
 /**
  * MCP client: connects at boot, caches the tool catalog, and implements
- * ToolsetResolver — MCP tools become regular ResolvedTools (same pipeline: offload, events).
+ * ToolsetResolver: MCP tools become regular ResolvedTools (same pipeline: offload, events).
  * A runtime tool failure comes back as `{ error }` TO THE LLM, not as an exception.
  */
 @Injectable()
@@ -38,7 +47,7 @@ export class McpClient extends ToolsetResolver implements OnModuleInit, OnModule
 				await this.connect(server);
 			} catch (error) {
 				if (server.optional) {
-					this.logger.warn(`MCP server "${server.name}" unavailable (optional) — tools ignored.`);
+					this.logger.warn(`MCP server "${server.name}" unavailable (optional); tools ignored.`);
 					continue;
 				}
 				throw new McpConnectionError(server.name, error);
@@ -56,7 +65,7 @@ export class McpClient extends ToolsetResolver implements OnModuleInit, OnModule
 		const catalog = this.catalogs.get(ref.__adkToolset);
 		if (!catalog) {
 			const configured = this.options.servers.some((server) => server.name === ref.__adkToolset);
-			if (configured) return []; // optional and down — the agent boots without these tools
+			if (configured) return []; // optional and down: the agent boots without these tools
 			throw new McpConnectionError(ref.__adkToolset, new Error("server is not configured in McpModule.forRoot"));
 		}
 
@@ -65,7 +74,9 @@ export class McpClient extends ToolsetResolver implements OnModuleInit, OnModule
 		return tools.map((tool) => ({
 			name: tool.name,
 			description: tool.description,
-			schema: jsonSchemaToZod(tool.inputSchema),
+			schema: (tool.inputSchema ?? { type: "object" }) as JsonSchema,
+			effect: tool.effect,
+			raw: tool.raw,
 			execute: async (input: unknown) => this.callTool(catalog.client, tool.name, input),
 		}));
 	}
@@ -88,7 +99,7 @@ export class McpClient extends ToolsetResolver implements OnModuleInit, OnModule
 
 	private async connect(server: McpServerConfig): Promise<void> {
 		const client = new Client({ name: "nestjs-adk", version: "1.0.0" });
-		await client.connect(this.createTransport(server.transport));
+		await client.connect(createTransport(server.transport));
 
 		const { tools } = await client.listTools();
 		this.catalogs.set(server.name, {
@@ -97,29 +108,10 @@ export class McpClient extends ToolsetResolver implements OnModuleInit, OnModule
 				name: tool.name,
 				description: tool.description ?? "",
 				inputSchema: tool.inputSchema,
+				effect: effectOf(tool.annotations),
+				raw: tool,
 			})),
 		});
-		this.logger.log(`MCP server "${server.name}" connected — ${tools.length} tools in the catalog.`);
+		this.logger.log(`MCP server "${server.name}" connected, ${tools.length} tools in the catalog.`);
 	}
-
-	private createTransport(transport: McpTransportConfig) {
-		switch (transport.type) {
-			case "stdio":
-				return new StdioClientTransport({
-					command: transport.command,
-					args: transport.args,
-					env: transport.env ? { ...cleanEnv(process.env), ...transport.env } : undefined,
-				});
-			case "http":
-				return new StreamableHTTPClientTransport(new URL(transport.url), {
-					requestInit: { headers: transport.headers },
-				});
-			case "sse":
-				return new SSEClientTransport(new URL(transport.url), { requestInit: { headers: transport.headers } });
-		}
-	}
-}
-
-function cleanEnv(env: NodeJS.ProcessEnv): Record<string, string> {
-	return Object.fromEntries(Object.entries(env).filter(([, value]) => value !== undefined)) as Record<string, string>;
 }

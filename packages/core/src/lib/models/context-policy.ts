@@ -1,6 +1,6 @@
 import type { ModelInput } from "../types/options";
 
-/** Compaction policy — carried out by the engine's native contextCompactors. */
+/** Compaction policy, carried out by the engine's native contextCompactors. */
 export interface CompactionPolicy {
 	/** Triggers compaction when exceeded (prompt tokens). */
 	maxTokens: number;

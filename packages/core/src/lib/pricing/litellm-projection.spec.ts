@@ -93,7 +93,7 @@ describe("projectLiteLlmCatalog", () => {
 		expect(project(null)).toBeUndefined();
 	});
 
-	it("rejects a payload where no entry survived — an unexpected format is not an empty catalog", () => {
+	it("rejects a payload where no entry survived: an unexpected format is not an empty catalog", () => {
 		expect(project({ "gpt-5": { mode: "chat", supports_vision: true } })).toBeUndefined();
 	});
 });

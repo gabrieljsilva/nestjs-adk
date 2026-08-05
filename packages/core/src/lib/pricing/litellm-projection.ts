@@ -2,14 +2,14 @@
  * Projection of the LiteLLM catalog (`model_prices_and_context_window.json`) into PricingCatalog.
  *
  * The raw file is ~1.67 MB / 2983 entries, most of it fields this lib cannot use (`supports_*`,
- * `supported_endpoints`, image/audio/video pricing, `max_tokens` — which the file itself documents
+ * `supported_endpoints`, image/audio/video pricing, `max_tokens`, which the file itself documents
  * as a legacy duplicate). Keeping only token rates for text-capable modes leaves ~2.4k models and
  * ~0.33 MB of heap, so no model is ever dropped: the one created on demand is already here.
  */
 
 import type { ModelPrice, PriceBand, PriceRates, PricingCatalog } from "./pricing-types";
 
-/** Modes that consume or produce text tokens — image/audio/rerank pricing is out of scope. */
+/** Modes that consume or produce text tokens; image/audio/rerank pricing is out of scope. */
 const TEXT_MODES = new Set(["chat", "completion", "responses", "embedding"]);
 
 /** Cache WRITE cost is deliberately absent: no provider reports how many tokens were written, so it could never be billed. */
@@ -62,7 +62,7 @@ function priceOf(entry: Record<string, unknown>): ModelPrice | undefined {
 
 /**
  * Two levels of tolerance: a malformed entry is skipped on its own, while a payload that is not
- * an object — or that yields no usable model — is rejected as a whole so the caller can keep
+ * an object (or that yields no usable model) is rejected as a whole so the caller can keep
  * the catalog it already had.
  */
 export function projectLiteLlmCatalog(

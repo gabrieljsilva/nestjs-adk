@@ -1,17 +1,17 @@
-/** Context diagnostics types. Pure data — filled by engines, consumed by the comparators. */
+/** Context diagnostics types. Pure data: filled by engines, consumed by the comparators. */
 
 /** Context sections, in the order they reach the provider: stable first, volatile last. */
 export type ContextSegmentKind = "systemInstruction" | "toolDeclarations" | "contents";
 
 export interface ContextSegment {
 	kind: ContextSegmentKind;
-	/** Deterministic serialization — this is the text the prefix comparison runs on. */
+	/** Deterministic serialization: this is the text the prefix comparison runs on. */
 	text: string;
 }
 
 /** What one model call received, normalized by the engine adapter. */
 export interface ContextSnapshot {
-	/** Agent that owns the call — sub-agents produce their own snapshots. */
+	/** Agent that owns the call; sub-agents produce their own snapshots. */
 	agent: string;
 	model?: string;
 	segments: ContextSegment[];
@@ -29,7 +29,7 @@ export interface PrefixDivergence {
 }
 
 export interface PrefixReport {
-	/** Common prefix over the LARGEST context compared — the worst case, which is what the bigger run pays. */
+	/** Common prefix over the LARGEST context compared: the worst case, which is what the bigger run pays. */
 	ratio: number;
 	prefixChars: number;
 	totalChars: number;

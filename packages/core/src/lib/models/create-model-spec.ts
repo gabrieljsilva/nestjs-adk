@@ -5,7 +5,7 @@ export type TypedModelSpec<O, I, Map> = new <M extends string>(
 ) => I;
 
 /**
- * Type-only restriction of spec options per model name — zero runtime behavior.
+ * Type-only restriction of spec options per model name: zero runtime behavior.
  * Models outside the map keep the full options of the spec class. The map is
  * the app's responsibility (the lib does not track per-model capabilities).
  *

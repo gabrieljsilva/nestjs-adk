@@ -1,0 +1,30 @@
+import { describe, expect, it } from "vitest";
+import { AdkError } from "../../../common/errors/adk.error";
+import { ModelsExhaustedError } from "./models-exhausted.error";
+
+describe("ModelsExhaustedError", () => {
+	it("carries a stable code", () => {
+		expect(new ModelsExhaustedError("support", ["a"], ["unknown"]).code).toBe("AGENT_MODELS_EXHAUSTED");
+	});
+
+	it("names the agent and how many models were tried", () => {
+		const error = new ModelsExhaustedError("support", ["acme/a", "acme/b"], ["rate-limited", "unavailable"]);
+
+		expect(error.message).toContain("support");
+		expect(error.message).toContain("2 attempt");
+	});
+
+	it("spells out the chain, because the order of failures is the useful part", () => {
+		const error = new ModelsExhaustedError("support", ["acme/a", "acme/b"], ["rate-limited", "unavailable"]);
+
+		expect(error.message).toContain("acme/a (rate-limited) then acme/b (unavailable)");
+	});
+
+	it("survives a chain with fewer failures than models", () => {
+		expect(new ModelsExhaustedError("support", ["acme/a"], []).message).toContain("acme/a (unknown)");
+	});
+
+	it("is an adk error", () => {
+		expect(new ModelsExhaustedError("support", ["a"], ["unknown"])).toBeInstanceOf(AdkError);
+	});
+});

@@ -62,7 +62,7 @@ describe("comparePrefix", () => {
 		expect(report.divergesAt?.offset).toBe(0);
 	});
 
-	it("denominator is the LARGEST context — the worst case the bigger run pays", () => {
+	it("denominator is the LARGEST context: the worst case the bigger run pays", () => {
 		const short = snapshot("Prompt.", "", "hi");
 		const long = snapshot("Prompt.", "", "a much, much longer question from the user");
 		const report = comparePrefix([short, long]);

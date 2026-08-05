@@ -6,14 +6,14 @@ import type { CallCost } from "../pricing/pricing-types";
 import { PricingSource } from "./pricing-source";
 
 export interface EmbedderOptions {
-	/** Model id — the pricing key, and what shows up in logs. */
+	/** Model id: the pricing key, and what shows up in logs. */
 	model: string;
 	/** Output vector size, when the provider lets you choose it. */
 	dimensions?: number;
 }
 
 export interface EmbeddingUsage {
-	/** Input tokens — the only thing embedding providers bill. Absent when the provider does not report it. */
+	/** Input tokens: the only thing embedding providers bill. Absent when the provider does not report it. */
 	promptTokens?: number;
 }
 
@@ -25,12 +25,16 @@ export interface EmbeddingOutput {
 }
 
 export interface EmbeddingResult extends EmbeddingOutput {
-	/** Absent when the model has no price or the provider reported no tokens. */
-	cost?: CallCost;
+	/**
+	 * Absent when the model has no price or the provider reported no tokens. Amount and currency
+	 * only: an embedding call has one token counter, so the input/output/cached breakdown and the
+	 * per-band rates of an LLM `CallCost` have nothing to describe here.
+	 */
+	cost?: Pick<CallCost, "amount" | "currency">;
 }
 
 /**
- * Embedding contract — the @Agent/AdkAgent pair applied to embeddings. The model id is declared
+ * Embedding contract: the @Agent/AdkAgent pair applied to embeddings. The model id is declared
  * on the decorator, not buried inside the call, which is what makes the call priceable.
  * The lib ships NO implementation: write `generate()` over the provider you prefer and the
  * base class handles pricing. Configure it in AdkModule.forRoot({ embedder }).
@@ -40,7 +44,7 @@ export abstract class AdkEmbedder {
 	private static readonly logger = new Logger("Adk:embedder");
 	private warnedMissingOptions = false;
 
-	/** Set by AdkModule when the configured embedder resolves — lets test matchers reuse the module's model. */
+	/** Set by AdkModule when the configured embedder resolves: lets test matchers reuse the module's model. */
 	public static setActive(instance: AdkEmbedder | undefined): void {
 		AdkEmbedder.active = instance;
 	}
@@ -51,7 +55,7 @@ export abstract class AdkEmbedder {
 		return AdkEmbedder.active;
 	}
 
-	/** The provider call — vectors and reported tokens, nothing else. */
+	/** The provider call: vectors and reported tokens, nothing else. */
 	protected abstract generate(texts: string[]): Promise<EmbeddingOutput>;
 
 	/** Declared via @Embedder. */
@@ -84,7 +88,7 @@ export abstract class AdkEmbedder {
 		if (this.warnedMissingOptions) return;
 		this.warnedMissingOptions = true;
 		AdkEmbedder.logger.warn(
-			`${this.constructor.name} has no @Embedder({ model }) — embeddings run normally but are never priced.`,
+			`${this.constructor.name} has no @Embedder({ model }); embeddings run normally but are never priced.`,
 		);
 	}
 }

@@ -9,7 +9,6 @@ import {
 	type ModelPrice,
 	type ModelRequest,
 	type ModelResponse,
-	ModelRouter,
 	PricingSource,
 	contextPolicy,
 } from "@nestjs-adk/core";
@@ -50,9 +49,10 @@ class StubModel extends AdkModel {
 	}
 }
 
-/** Fails before the first chunk, which is what makes the router advance. */
+/** Fails before the first chunk, which is what makes the failover advance. */
 class FailingModel extends AdkModel {
 	public readonly model = "primary-model";
+	public override readonly failover = [new StubModel("fallback-model", "fallback answer")];
 
 	public generate(): AsyncIterable<ModelResponse> {
 		throw new Error("429 resource exhausted");
@@ -74,9 +74,7 @@ class UnknownModelAgent extends AdkAgent {}
 @Agent({
 	name: "routed_agent",
 	description: "Routed.",
-	model: new ModelRouter({
-		targets: { primary: new FailingModel(), fallback: new StubModel("fallback-model", "fallback answer") },
-	}),
+	model: new FailingModel(),
 })
 class RoutedAgent extends AdkAgent {}
 
@@ -88,30 +86,7 @@ class RoutedAgent extends AdkAgent {}
 })
 class LongChatAgent extends AdkAgent {}
 
-/** Hands the conversation over on the first turn; the sub-agent answers on its own model. */
-class TransferringModel extends AdkModel {
-	public readonly model = "root-model";
-
-	public async *generate(request: ModelRequest): AsyncIterable<ModelResponse> {
-		const handedOver = request.messages.some((message) => message.parts.some((part) => "toolResult" in part));
-		if (handedOver) {
-			yield { parts: [{ text: "root done" }], usage: { promptTokens: 10, outputTokens: 1, totalTokens: 11 } };
-			return;
-		}
-		yield {
-			parts: [{ toolCall: { name: "transfer_to_agent", args: { agentName: "support_sub" } } }],
-			usage: { promptTokens: 500, outputTokens: 50, totalTokens: 550 },
-		};
-	}
-}
-
-@Agent({ name: "support_sub", description: "Support.", model: new StubModel("sub-model", "sub answer") })
-class SupportSubAgent extends AdkAgent {}
-
-@Agent({ name: "root_agent", description: "Root.", model: new TransferringModel(), subAgents: [SupportSubAgent] })
-class RootAgent extends AdkAgent {}
-
-@Module({ providers: [BillingAgent, UnknownModelAgent, RoutedAgent, LongChatAgent, RootAgent, SupportSubAgent] })
+@Module({ providers: [BillingAgent, UnknownModelAgent, RoutedAgent, LongChatAgent] })
 class FeatureModule {}
 
 async function bootstrap(pricing: PricingSource): Promise<TestingModule> {
@@ -122,7 +97,7 @@ async function bootstrap(pricing: PricingSource): Promise<TestingModule> {
 	return app;
 }
 
-describe("pricing e2e — cost through the real engine", () => {
+describe("pricing e2e: cost through the real engine", () => {
 	let app: TestingModule;
 
 	afterEach(async () => {
@@ -160,8 +135,8 @@ describe("pricing e2e — cost through the real engine", () => {
 
 		expect(run.text).toBe("fallback answer");
 		expect(run.events.find((event) => event.type === "model_rerouted")).toMatchObject({
-			from: "primary",
-			to: "fallback",
+			from: "primary-model",
+			to: "fallback-model",
 		});
 		expect(run.cost?.byModel).toEqual([
 			expect.objectContaining({ model: "fallback-model", amount: 1_000 * 2e-6 + 100 * 2e-5 }),
@@ -191,24 +166,6 @@ describe("pricing e2e — cost through the real engine", () => {
 			expect.arrayContaining([
 				expect.objectContaining({ model: "summarizer-model", amount: 4_000 * 5e-7 + 50 * 5e-6 }),
 				expect.objectContaining({ model: "billing-custom" }),
-			]),
-		);
-	});
-
-	it("after a transfer the sub-agent is billed under its own model, not the root's", async () => {
-		app = await bootstrap(new FakePricingSource());
-
-		const run = await app.get(AgentRegistry).getRef(RootAgent).ask({ message: "hello" });
-
-		expect(run.text).toBe("sub answer");
-		expect(run.events.find((event) => event.type === "agent_transfer")).toMatchObject({
-			from: "root_agent",
-			to: "support_sub",
-		});
-		expect(run.cost?.byModel).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({ model: "root-model", amount: 500 * 3e-6 + 50 * 3e-5 }),
-				expect.objectContaining({ model: "sub-model", amount: 1_000 * 4e-6 + 100 * 4e-5 }),
 			]),
 		);
 	});

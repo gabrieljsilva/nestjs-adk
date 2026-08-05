@@ -53,7 +53,7 @@ class WeatherAgent extends AdkAgent {
 	}
 }
 
-/** A service consuming the agent — proves the setup tests YOUR code, not just the agent. */
+/** A service consuming the agent: proves the setup tests YOUR code, not just the agent. */
 @Injectable()
 class ForecastService {
 	constructor(private readonly agent: WeatherAgent) {}
@@ -63,7 +63,7 @@ class ForecastService {
 	}
 }
 
-/** Plain @nestjs/testing — overrides and mocks are the Nest-native ones. */
+/** Plain @nestjs/testing: overrides and mocks are the Nest-native ones. */
 async function bootstrap() {
 	const module = await Test.createTestingModule({
 		imports: [AdkModule.forRoot({ engine: ScriptedEngine, defaultModel: "test-model" })],
@@ -137,7 +137,7 @@ describe("TestAgent", () => {
 		await module.close();
 	});
 
-	it("lastInstruction() exposes the composed prompt (prompt + skills) — snapshotable", async () => {
+	it("lastInstruction() exposes the composed prompt (prompt + skills), snapshotable", async () => {
 		const module = await bootstrap();
 		const weatherAgent = new TestAgent(module, WeatherAgent);
 
@@ -206,7 +206,7 @@ describe("matchers", () => {
 
 		@Agent({ name: "hitl_agent", model: "test", description: "HITL." })
 		class HitlAgent extends AdkAgent {
-			@Tool({ description: "Refunds.", schema: refundSchema, requiresApproval: true })
+			@Tool({ description: "Refunds.", schema: refundSchema, effect: "destructive" })
 			refund(input: { amount: number }) {
 				return { refunded: input.amount };
 			}
@@ -229,7 +229,7 @@ describe("matchers", () => {
 	});
 });
 
-/** Deterministic bag-of-words embedder — word overlap drives similarity, no API involved. */
+/** Deterministic bag-of-words embedder: word overlap drives similarity, no API involved. */
 @Embedder({ model: "fake-embedding" })
 class FakeEmbedder extends AdkEmbedder {
 	protected async generate(texts: string[]): Promise<EmbeddingOutput> {
@@ -317,6 +317,7 @@ describe("toHaveCacheHitRatioAbove", () => {
 		},
 		events: [],
 		status: "completed",
+		reauth: [],
 	});
 
 	it("passes when the runs after the warm-up hit the cache above the floor", () => {
@@ -349,6 +350,7 @@ describe("matcher misuse is an error, not a failed assertion", () => {
 		usage: { promptTokens: 100, outputTokens: 10, totalTokens: 110, cachedTokens: 50 },
 		events: [],
 		status: "completed",
+		reauth: [],
 	});
 
 	it("a threshold outside 0..1 is rejected instead of silently comparing against 8500%", () => {

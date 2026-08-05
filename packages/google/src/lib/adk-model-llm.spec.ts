@@ -10,7 +10,6 @@ import {
 	type GenerateOptions,
 	type ModelRequest,
 	type ModelResponse,
-	ModelRouter,
 	ScriptedModel,
 	Tool,
 	fail,
@@ -284,17 +283,9 @@ class SessionAgent extends AdkAgent {}
 @Agent({ name: "structured_custom_agent", description: "d", model: JsonModel, output: reportSchema })
 class StructuredCustomAgent extends AdkAgent<typeof reportSchema> {}
 
-@Agent({
-	name: "failover_to_custom_agent",
-	description: "d",
-	model: new ModelRouter({ targets: { primary: new ScriptedModel([fail("boom")]), fallback: FallbackModel } }),
-})
-class FailoverAgent extends AdkAgent {}
-
 @Module({
 	providers: [
 		CustomWeatherAgent,
-		FailoverAgent,
 		SessionAgent,
 		StructuredCustomAgent,
 		ToolCallingModel,
@@ -363,10 +354,4 @@ describe("AdkModel — inside the real ADK loop", () => {
 		expect(model.requests[0]?.config?.raw?.responseMimeType).toBe("application/json");
 	});
 
-	it("router failover lands on a custom AdkModel target", async () => {
-		const run = await registry.getRef(FailoverAgent).ask({ message: "hi" });
-
-		expect(run.text).toBe("custom fallback");
-		expect(run.events.find((e) => e.type === "model_rerouted")).toMatchObject({ from: "primary", to: "fallback" });
-	});
 });

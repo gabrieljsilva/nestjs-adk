@@ -1,18 +1,18 @@
 /**
- * Cost formulas and model-name resolution — pure functions, no I/O.
+ * Cost formulas and model-name resolution: pure functions, no I/O.
  * Rule that governs everything here: a missing rate means "unknown", never zero.
  */
 
 import type { EmbeddingUsage } from "../abstracts/adk-embedder";
 import type { TokenUsage } from "../types/events";
-import type { ModelPrice, PriceBand, PriceOverride, PriceRates } from "./pricing-types";
+import type { CostBreakdown, LlmCost, ModelPrice, PriceBand, PriceOverride, PriceRates } from "./pricing-types";
 
 const PER_MILLION = 1_000_000;
 
 /** The LiteLLM catalog publishes every rate in USD. */
 export const PRICING_CURRENCY = "USD";
 
-/** Provider prefix in catalog keys — `vertex_ai/gemini-2.5-flash`, `openrouter/openai/gpt-5`. */
+/** Provider prefix in catalog keys: `vertex_ai/gemini-2.5-flash`, `openrouter/openai/gpt-5`. */
 function baseNameOf(key: string): string {
 	const slash = key.lastIndexOf("/");
 	return slash === -1 ? key : key.slice(slash + 1);
@@ -43,7 +43,7 @@ export function resolveModelPrice(entries: Record<string, ModelPrice>, model: st
 	return candidate;
 }
 
-/** Overrides complement the catalog field by field — a contract discount on input keeps the catalog's output. */
+/** Overrides complement the catalog field by field: a contract discount on input keeps the catalog's output. */
 export function applyOverride(
 	price: ModelPrice | undefined,
 	override: PriceOverride | undefined,
@@ -64,7 +64,7 @@ export function applyOverride(
 		overridden.push("cacheRead");
 	}
 
-	// a negotiated price holds above the context thresholds too — otherwise a long prompt would
+	// a negotiated price holds above the context thresholds too, otherwise a long prompt would
 	// silently fall back to the catalog's public rate for that band
 	if (merged.bands && overridden.length > 0) {
 		merged.bands = merged.bands.map((band) => {
@@ -96,20 +96,28 @@ function definedRates(rates: PriceRates): PriceRates {
 /**
  * LLM cost. `promptTokens` INCLUDES the cached ones (Gemini reports it that way), so the cached
  * share is discounted from the prompt and billed at the cache rate. With no cache rate published,
- * those tokens stay at the full input rate — which is what the provider charges anyway.
+ * those tokens stay at the full input rate, which is what the provider charges anyway.
  * Missing input or output rate → undefined: a partial price is not a cheaper price.
  */
-export function llmCost(price: ModelPrice | undefined, usage: TokenUsage): number | undefined {
+export function llmCost(price: ModelPrice | undefined, usage: TokenUsage): LlmCost | undefined {
 	if (!price) return undefined;
-	const rates = ratesFor(price, usage.promptTokens);
-	if (rates.input === undefined || rates.output === undefined) return undefined;
+	const applied = definedRates(ratesFor(price, usage.promptTokens));
+	if (applied.input === undefined || applied.output === undefined) return undefined;
 
-	const cached = Math.min(usage.cachedTokens ?? 0, usage.promptTokens);
-	const fresh = usage.promptTokens - cached;
-	return fresh * rates.input + cached * (rates.cacheRead ?? rates.input) + usage.outputTokens * rates.output;
+	const cachedTokens = Math.min(usage.cachedTokens ?? 0, usage.promptTokens);
+	const freshTokens = usage.promptTokens - cachedTokens;
+	// Kept apart rather than summed on the way out: a ledger bills these as separate columns, and
+	// re-deriving them from a total means dividing a float by a ratio to get back what we already knew.
+	const breakdown: CostBreakdown = {
+		input: freshTokens * applied.input,
+		output: usage.outputTokens * applied.output,
+		cached: cachedTokens * (applied.cacheRead ?? applied.input),
+	};
+
+	return { amount: breakdown.input + breakdown.output + breakdown.cached, breakdown, rates: applied };
 }
 
-/** Embedding cost — input only. Of the catalog's 124 embedding entries, 123 publish zero output cost. */
+/** Embedding cost: input only. Of the catalog's 124 embedding entries, 123 publish zero output cost. */
 export function embeddingCost(price: ModelPrice | undefined, usage: EmbeddingUsage | undefined): number | undefined {
 	if (!price || price.input === undefined || usage?.promptTokens === undefined) return undefined;
 	return usage.promptTokens * price.input;

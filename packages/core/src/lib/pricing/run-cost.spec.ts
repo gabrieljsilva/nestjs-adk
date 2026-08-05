@@ -92,6 +92,7 @@ describe("run cost", () => {
 					calls: 2,
 					usage: { promptTokens: 300, outputTokens: 30, totalTokens: 330 },
 					amount: 300 * 3e-7 + 30 * 2.5e-6,
+					breakdown: { input: 300 * 3e-7, output: 30 * 2.5e-6, cached: 0 },
 				},
 			],
 			unpriced: [],
@@ -110,7 +111,12 @@ describe("run cost", () => {
 		);
 
 		expect(responses[0]?.model).toBe("gemini-2.5-flash");
-		expect(responses[0]?.cost).toEqual({ amount: 100 * 3e-7 + 10 * 2.5e-6, currency: "USD" });
+		expect(responses[0]?.cost).toEqual({
+			amount: 100 * 3e-7 + 10 * 2.5e-6,
+			currency: "USD",
+			breakdown: { input: 100 * 3e-7, output: 10 * 2.5e-6, cached: 0 },
+			rates: FLASH,
+		});
 		expect(run.events.find((event) => event.type === "final")?.cost).toBe(run.cost);
 		await app.close();
 	});

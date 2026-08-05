@@ -2,7 +2,7 @@ import type { RunResult } from "@nestjs-adk/core";
 import { Injectable } from "@nestjs/common";
 import { SupportAgent } from "./support.agent";
 
-/** Idiomatic consumption: the agent instance IS the handle — plain Nest DI. */
+/** Idiomatic consumption: the agent instance IS the handle, plain Nest DI. */
 @Injectable()
 export class ChatService {
 	constructor(private readonly support: SupportAgent) {}

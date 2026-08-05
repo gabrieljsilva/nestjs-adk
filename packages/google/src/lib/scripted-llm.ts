@@ -49,7 +49,7 @@ export class ScriptedLlm extends BaseLlm {
 		}
 
 		yield {
-			content: { role: "model", parts: [{ text: turn.text }] },
+			content: { role: "model", parts: [{ text: "text" in turn ? turn.text : turn.chunks.join("") }] },
 			usageMetadata: {
 				promptTokenCount: turn.usage.promptTokens,
 				candidatesTokenCount: turn.usage.outputTokens,

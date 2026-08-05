@@ -7,6 +7,7 @@
 			"@nestjs-adk/core",
 			"@nestjs-adk/google",
 			"@nestjs-adk/mcp",
+			"@nestjs-adk/openai",
 			"@nestjs-adk/testing"
 		]
 	],

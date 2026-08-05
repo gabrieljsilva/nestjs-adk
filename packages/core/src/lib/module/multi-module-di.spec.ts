@@ -8,7 +8,7 @@ import { ScriptedEngine, text } from "../testing/scripted-engine";
 import { AdkModule } from "./adk.module";
 
 // Regression for the load-order bug: the old @InjectAgent relied on a global token map
-// snapshotted by forRoot — in multi-module apps the lib module loads BEFORE the feature
+// snapshotted by forRoot: in multi-module apps the lib module loads BEFORE the feature
 // modules and the AgentRef provider was never created. Plain DI has no such coupling:
 // the agent instance is the handle, resolved like any provider, in any module order.
 

@@ -6,10 +6,10 @@ import type { AgentEvent, RunInput, TokenUsage } from "../types/events";
 const PREVIEW_LENGTH = 160;
 
 /**
- * Log level for agent runs — mirrors the Nest Logger levels and is cumulative:
- * - "info":    run start + run done (duration, final text, token usage) — via logger.log
- * - "debug":   info + tool calls/results — via logger.debug
- * - "verbose": debug + intermediate LLM responses + full payloads (no truncation) — via logger.verbose
+ * Log level for agent runs, mirrors the Nest Logger levels and is cumulative:
+ * - "info":    run start + run done (duration, final text, token usage), via logger.log
+ * - "debug":   info + tool calls/results, via logger.debug
+ * - "verbose": debug + intermediate LLM responses + full payloads (no truncation), via logger.verbose
  * Anomalies (model reroutes) and HITL pauses always log via logger.warn.
  * `true` is an alias for "info".
  */
@@ -54,7 +54,7 @@ export class RunLogger {
 				}
 				return;
 			case "llm_response":
-				// no text still means a real call — the compaction summary arrives exactly like this
+				// no text still means a real call: the compaction summary arrives exactly like this
 				if (this.enabled("verbose")) {
 					this.logger.verbose(
 						`llm response${event.model ? ` model=${event.model}` : ""}` +
@@ -74,6 +74,11 @@ export class RunLogger {
 					`approval required tool=${event.tool} callId=${event.callId} args=${this.preview(json(event.args))}`,
 				);
 				return;
+			case "reauth_required":
+				// Warn like the other anomalies: an expired grant silently drops an integration from every
+				// run that user makes, and at verbose it would only be visible to someone already looking.
+				this.logger.warn(`re-authorization required source=${event.source} reason=${event.reason}`);
+				return;
 			case "final":
 				this.logger.log(
 					`run done in ${Date.now() - this.startedAt}ms text=${this.preview(event.text)}` +
@@ -85,7 +90,7 @@ export class RunLogger {
 		}
 	}
 
-	/** Run aborted by a limit (maxIterations / tool breaker) — always visible, like other anomalies. */
+	/** Run aborted by a limit (maxIterations / tool breaker): always visible, like other anomalies. */
 	public abort(error: Error, usage: TokenUsage): void {
 		this.logger.warn(`run aborted after ${Date.now() - this.startedAt}ms: ${error.message}${usageSuffix(usage)}`);
 	}
@@ -93,6 +98,16 @@ export class RunLogger {
 	/** Circuit-breaker escalation: one line per counted failure. */
 	public toolFailure(tool: string, count: number, limit: number | undefined): void {
 		if (this.enabled("debug")) this.logger.debug(`tool "${tool}" failed (${count}/${limit ?? "∞"} consecutive)`);
+	}
+
+	/**
+	 * Arguments the schema rejected. Separate from toolFailure because the tool never ran: reading
+	 * "failed" here would send someone debugging an integration that is working fine.
+	 */
+	public invalidArgs(tool: string, count: number, limit: number, issues: string): void {
+		if (this.enabled("debug")) {
+			this.logger.debug(`tool "${tool}" got invalid arguments (${count}/${limit} allowed): ${issues}`);
+		}
 	}
 
 	private enabled(level: LogLevel): boolean {

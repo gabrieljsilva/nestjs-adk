@@ -22,8 +22,10 @@
 		"moduleResolution": "node",
 		"paths": {
 			"@nestjs-adk/core": ["./packages/core/src/index.ts"],
+			"@nestjs-adk/core/native": ["./packages/core/src/native.ts"],
 			"@nestjs-adk/google": ["./packages/google/src/index.ts"],
 			"@nestjs-adk/mcp": ["./packages/mcp/src/index.ts"],
+			"@nestjs-adk/openai": ["./packages/openai/src/index.ts"],
 			"@nestjs-adk/testing": ["./packages/testing/src/index.ts"],
 			"@nestjs-adk/testing/matchers": ["./packages/testing/src/matchers.ts"]
 		}

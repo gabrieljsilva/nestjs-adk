@@ -11,11 +11,7 @@ import { contextPolicy } from "../models/context-policy";
 import { AdkModule } from "../module/adk.module";
 import { AgentRegistry } from "../registry/agent-registry";
 import { ScriptedEngine, callTool, text } from "../testing/scripted-engine";
-
-@Injectable()
-class PrefsService {
-	public requireConfirmation = false;
-}
+import type { AgentEvent } from "../types/events";
 
 @Injectable()
 class PaymentService {
@@ -50,34 +46,30 @@ const transferSchema = z.object({ amount: z.number(), to: z.string() });
 
 @Agent({ name: "banker", model: "m", description: "d" })
 class BankerAgent extends AdkAgent {
-	constructor(
-		private readonly payments: PaymentService,
-		private readonly prefs: PrefsService,
-	) {
+	constructor(private readonly payments: PaymentService) {
 		super();
 	}
 
-	@Tool({ description: "Transfers money.", schema: transferSchema, requiresApproval: true })
+	@Tool({ description: "Transfers money.", schema: transferSchema, effect: "destructive" })
 	transfer(input: z.infer<typeof transferSchema>) {
 		return this.payments.transfer(input.amount, input.to);
 	}
 
-	@Tool({
-		description: "Transfers with conditional approval based on user preference.",
-		schema: transferSchema,
-		requiresApproval(this: BankerAgent) {
-			return this.prefs.requireConfirmation;
-		},
-	})
-	transferConditional(input: z.infer<typeof transferSchema>) {
+	@Tool({ description: "Updates the transfer note.", schema: transferSchema })
+	annotate(input: z.infer<typeof transferSchema>) {
+		return this.payments.transfer(input.amount, input.to);
+	}
+
+	@Tool({ description: "Lists past transfers.", schema: transferSchema, effect: "read" })
+	history(input: z.infer<typeof transferSchema>) {
 		return this.payments.transfer(input.amount, input.to);
 	}
 }
 
-@Module({ providers: [PrefsService, PaymentService, DataAgent, TunedAgent, BankerAgent] })
+@Module({ providers: [PaymentService, DataAgent, TunedAgent, BankerAgent] })
 class FeatureModule {}
 
-describe("F7 — Continuity (offload + HITL)", () => {
+describe("F7: Continuity (offload + HITL)", () => {
 	let app: TestingModule;
 	let engine: ScriptedEngine;
 	let registry: AgentRegistry;
@@ -137,7 +129,7 @@ describe("F7 — Continuity (offload + HITL)", () => {
 		});
 	});
 
-	describe("HITL — requiresApproval", () => {
+	describe("HITL: effect-based approval", () => {
 		it("run pauses: pending_approval status, approval_required event, tool does NOT execute", async () => {
 			engine.enqueue([callTool("transfer", { amount: 500, to: "John" }), text("Awaiting approval.")]);
 			const run = await registry.getRef(BankerAgent).ask({ sessionId: "bank-1", message: "transfer 500" });
@@ -170,6 +162,45 @@ describe("F7 — Continuity (offload + HITL)", () => {
 			expect(JSON.stringify(session?.state)).not.toContain("pending");
 		});
 
+		it("stream.approve(): first event is the tool_result with the ORIGINAL callId, then the resumed turn streams", async () => {
+			engine.enqueue([callTool("transfer", { amount: 500, to: "John" }), text("Awaiting.")]);
+			const ref = registry.getRef(BankerAgent);
+			const paused = await ref.ask({ sessionId: "bank-8", message: "transfer 500" });
+			const pending = paused.pending?.[0];
+
+			engine.enqueue([text("Transfer completed!")]);
+			const events: AgentEvent[] = [];
+			// biome-ignore lint/style/noNonNullAssertion: pending action guaranteed above
+			for await (const event of ref.stream.approve({ sessionId: "bank-8", callId: pending!.callId })) {
+				events.push(event);
+			}
+
+			// The head event lets a UI replace its "awaiting approval" row: same callId, real result.
+			expect(events[0]).toMatchObject({
+				type: "tool_result",
+				tool: "transfer",
+				callId: pending?.callId,
+				result: { receipt: "rc-1" },
+			});
+			// Everything after it is a normal streamed run, final included.
+			expect(events.some((event) => event.type === "run_start")).toBe(true);
+			expect(events.at(-1)?.type).toBe("final");
+		});
+
+		it("approve() carries the same tool_result in RunResult.events", async () => {
+			engine.enqueue([callTool("transfer", { amount: 500, to: "John" }), text("Awaiting.")]);
+			const ref = registry.getRef(BankerAgent);
+			const paused = await ref.ask({ sessionId: "bank-9", message: "transfer 500" });
+			const pending = paused.pending?.[0];
+
+			engine.enqueue([text("Done!")]);
+			// biome-ignore lint/style/noNonNullAssertion: pending action guaranteed above
+			const resumed = await ref.approve({ sessionId: "bank-9", callId: pending!.callId });
+
+			const head = resumed.events.find((event) => event.type === "tool_result" && event.callId === pending?.callId);
+			expect(head && "result" in head && head.result).toEqual({ receipt: "rc-1" });
+		});
+
 		it("reject() does NOT execute and informs the agent", async () => {
 			engine.enqueue([callTool("transfer", { amount: 500, to: "John" }), text("Awaiting.")]);
 			const ref = registry.getRef(BankerAgent);
@@ -187,14 +218,40 @@ describe("F7 — Continuity (offload + HITL)", () => {
 			expect(resumed.text).toContain("canceled");
 		});
 
-		it("predicate with DI: prefs off → executes directly without pausing", async () => {
-			app.get(PrefsService).requireConfirmation = false;
-			engine.enqueue([callTool("transferConditional", { amount: 10, to: "Ana" }), text("Done.")]);
+		it("default policy: a write tool (effect unset) executes without pausing", async () => {
+			engine.enqueue([callTool("annotate", { amount: 10, to: "Ana" }), text("Done.")]);
 
-			const run = await registry.getRef(BankerAgent).ask({ sessionId: "bank-4", message: "transfer 10" });
+			const run = await registry.getRef(BankerAgent).ask({ sessionId: "bank-4", message: "annotate" });
 
 			expect(run.status).toBe("completed");
 			expect(app.get(PaymentService).transfer).toHaveBeenCalledWith(10, "Ana");
+		});
+
+		it("ask({ approval: 'write' }) tightens: a write tool pauses too", async () => {
+			engine.enqueue([callTool("annotate", { amount: 10, to: "Ana" }), text("Awaiting.")]);
+
+			const run = await registry.getRef(BankerAgent).ask({ sessionId: "bank-5", message: "annotate", approval: "write" });
+
+			expect(run.status).toBe("pending_approval");
+			expect(app.get(PaymentService).transfer).not.toHaveBeenCalled();
+		});
+
+		it("ask({ approval: 'write' }) still lets a read tool through", async () => {
+			engine.enqueue([callTool("history", { amount: 1, to: "Ana" }), text("Here.")]);
+
+			const run = await registry.getRef(BankerAgent).ask({ sessionId: "bank-6", message: "history", approval: "write" });
+
+			expect(run.status).toBe("completed");
+			expect(app.get(PaymentService).transfer).toHaveBeenCalledWith(1, "Ana");
+		});
+
+		it("ask({ approval: 'none' }) disables the gate for this run", async () => {
+			engine.enqueue([callTool("transfer", { amount: 99, to: "Ana" }), text("Done.")]);
+
+			const run = await registry.getRef(BankerAgent).ask({ sessionId: "bank-7", message: "transfer", approval: "none" });
+
+			expect(run.status).toBe("completed");
+			expect(app.get(PaymentService).transfer).toHaveBeenCalledWith(99, "Ana");
 		});
 	});
 });
