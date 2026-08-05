@@ -1,11 +1,12 @@
 import type { ArtifactId } from "../../../common/identity/artifact-id";
 import type { ToolCallId } from "../../../common/identity/tool-call-id";
+import type { AttachmentReference } from "../../model/attachment-reference";
 import type { EventHeader } from "../event-header";
 import { EventSchemaVersion } from "../event-schema-version";
 import { SessionEvent } from "../session-event";
 
-/** The version that started recording the images a tool produced alongside its data. */
-const SCHEMA_VERSION = 3;
+/** The version that started recording a link as an attachment, next to a stored one. */
+const SCHEMA_VERSION = 4;
 
 /**
  * One tool call finished and produced an output, successful or failed.
@@ -31,7 +32,7 @@ export class ToolResultProduced extends SessionEvent {
 		public readonly output: Record<string, unknown>,
 		public readonly failed: boolean,
 		public readonly artifactId?: ArtifactId,
-		public readonly attachments: readonly ArtifactId[] = [],
+		public readonly attachments: readonly AttachmentReference[] = [],
 	) {
 		super(header.id, header.occurredAt, header.correlation);
 	}

@@ -5,6 +5,7 @@ import { ArtifactId } from "../../../common/identity/artifact-id";
 import { CorrelationId } from "../../../common/identity/correlation-id";
 import { EventId } from "../../../common/identity/event-id";
 import { Instant } from "../../../common/time/instant";
+import { AttachmentReference } from "../../model/attachment-reference";
 import { UserMessageReceived } from "../catalog/user-message-received";
 import { InvalidEventPayloadError } from "../errors/invalid-event-payload.error";
 import { EventCorrelation } from "../event-correlation";
@@ -19,9 +20,13 @@ const header = new EventHeader(
 
 const codec = new UserMessageReceivedCodec();
 
+function artifact(id: string): AttachmentReference {
+	return AttachmentReference.artifact(ArtifactId.from(id));
+}
+
 describe("UserMessageReceivedCodec", () => {
-	it("is the version that records attachments", () => {
-		expect(codec.schemaVersion.value).toBe(2);
+	it("is the version that records a link next to a stored attachment", () => {
+		expect(codec.schemaVersion.value).toBe(3);
 	});
 
 	it("leaves the field out when nothing was attached, because most messages attach nothing", () => {
@@ -29,17 +34,39 @@ describe("UserMessageReceivedCodec", () => {
 	});
 
 	it("writes the ids, and never the bytes behind them", () => {
-		const event = new UserMessageReceived(header, "look", [ArtifactId.from("a-1"), ArtifactId.from("a-2")]);
+		const event = new UserMessageReceived(header, "look", [artifact("a-1"), artifact("a-2")]);
 
-		expect(codec.encode(event)).toEqual({ text: "look", attachments: ["a-1", "a-2"] });
+		expect(codec.encode(event)).toEqual({ text: "look", attachments: [{ id: "a-1" }, { id: "a-2" }] });
 	});
 
-	it("round trips the ids in the order they were attached", () => {
-		const event = new UserMessageReceived(header, "look", [ArtifactId.from("a-2"), ArtifactId.from("a-1")]);
+	it("writes a link as the address it already was, with the type nothing else knows", () => {
+		const event = new UserMessageReceived(header, "look", [
+			AttachmentReference.link("https://cdn.example/x.png", "image/png"),
+		]);
+
+		expect(codec.encode(event)).toEqual({
+			text: "look",
+			attachments: [{ url: "https://cdn.example/x.png", mediaType: "image/png" }],
+		});
+	});
+
+	it("round trips both kinds in the order they were attached", () => {
+		const event = new UserMessageReceived(header, "look", [
+			AttachmentReference.link("https://cdn.example/x.png", "image/png"),
+			artifact("a-1"),
+		]);
 
 		const decoded = codec.decode(codec.encode(event), header);
 
-		expect(decoded.attachments.map((id) => id.value)).toEqual(["a-2", "a-1"]);
+		expect(decoded.attachments[0]?.url).toBe("https://cdn.example/x.png");
+		expect(decoded.attachments[1]?.artifactId?.value).toBe("a-1");
+	});
+
+	it("reads the bare ids the first version of the field wrote", () => {
+		const decoded = codec.decode({ text: "look", attachments: ["a-1"] }, header);
+
+		expect(decoded.attachments[0]?.artifactId?.value).toBe("a-1");
+		expect(decoded.attachments[0]?.isLink).toBe(false);
 	});
 
 	it("reads a payload written before attachments existed", () => {
@@ -49,8 +76,9 @@ describe("UserMessageReceivedCodec", () => {
 		expect(decoded.hasAttachments).toBe(false);
 	});
 
-	it("refuses a payload whose attachments are not ids", () => {
+	it("refuses a payload whose attachments name nothing", () => {
 		expect(() => codec.decode({ text: "hi", attachments: "a-1" }, header)).toThrow(InvalidEventPayloadError);
 		expect(() => codec.decode({ text: "hi", attachments: [1] }, header)).toThrow(InvalidEventPayloadError);
+		expect(() => codec.decode({ text: "hi", attachments: [{}] }, header)).toThrow(InvalidEventPayloadError);
 	});
 });

@@ -41,6 +41,9 @@ export default defineConfig({
 					name: "agents",
 					include: ["**/*.agent.spec.ts"],
 					exclude: ["**/node_modules/**", "**/dist/**"],
+					// One file at a time: these talk to a real provider on one key, and eight suites
+					// at once spend the per minute quota on rate limit errors instead of on answers.
+					fileParallelism: false,
 				},
 			},
 		],

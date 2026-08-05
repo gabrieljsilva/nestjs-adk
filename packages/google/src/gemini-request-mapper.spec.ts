@@ -53,6 +53,22 @@ describe("GeminiRequestMapper", () => {
 		expect(parts[1]?.inlineData?.mimeType).toBe("image/jpeg");
 	});
 
+	it("sends a linked image as file data, which is the field that names instead of carrying", () => {
+		const request = new ModelRequest([
+			new UserMessage("what is this?", [MediaPart.link("https://cdn.example/photo.png", "image/png")]),
+		]);
+
+		expect(mapper.toRequest("gemini-2.5-flash", request).contents).toEqual([
+			{
+				role: "user",
+				parts: [
+					{ fileData: { fileUri: "https://cdn.example/photo.png", mimeType: "image/png" } },
+					{ text: "what is this?" },
+				],
+			},
+		]);
+	});
+
 	it("puts the prompt in the config, since Gemini has no system role", () => {
 		const request = new ModelRequest([new UserMessage("hi")], [], PromptInstructions.from("be brief"));
 

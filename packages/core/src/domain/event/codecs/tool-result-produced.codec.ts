@@ -1,18 +1,22 @@
 import { ArtifactId } from "../../../common/identity/artifact-id";
 import { ToolCallId } from "../../../common/identity/tool-call-id";
+import type { AttachmentReference } from "../../model/attachment-reference";
 import { ToolResultProduced } from "../catalog/tool-result-produced";
 import { InvalidEventPayloadError } from "../errors/invalid-event-payload.error";
 import type { EventHeader } from "../event-header";
 import { EventSchemaVersion } from "../event-schema-version";
 import { SessionEventCodec } from "../session-event-codec";
+import { AttachmentReferenceCodec } from "./attachment-reference.codec";
 
-/** The version that started recording the images a tool produced alongside its data. */
-const SCHEMA_VERSION = 3;
+/** The version that started recording a link as an attachment, next to a stored one. */
+const SCHEMA_VERSION = 4;
 
 /** Codec for the outcome of one tool call, kept paired with its request by callId. */
 export class ToolResultProducedCodec extends SessionEventCodec<ToolResultProduced> {
 	public readonly type = ToolResultProduced.TYPE;
 	public readonly schemaVersion = EventSchemaVersion.of(SCHEMA_VERSION);
+
+	private readonly attachments = new AttachmentReferenceCodec();
 
 	public encode(event: ToolResultProduced): Record<string, unknown> {
 		const payload: Record<string, unknown> = {
@@ -23,7 +27,9 @@ export class ToolResultProducedCodec extends SessionEventCodec<ToolResultProduce
 		};
 		// Absent rather than null: a result that fit in the context has no artifact at all.
 		if (event.artifactId !== undefined) payload.artifactId = event.artifactId.value;
-		if (event.hasAttachments) payload.attachments = event.attachments.map((id) => id.value);
+		if (event.hasAttachments) {
+			payload.attachments = event.attachments.map((reference) => this.attachments.encode(reference));
+		}
 		return payload;
 	}
 
@@ -40,15 +46,16 @@ export class ToolResultProducedCodec extends SessionEventCodec<ToolResultProduce
 	}
 
 	/** Absent means a result nobody was meant to look at, which is every result before v3. */
-	private readAttachments(payload: Readonly<Record<string, unknown>>): readonly ArtifactId[] {
+	private readAttachments(payload: Readonly<Record<string, unknown>>): readonly AttachmentReference[] {
 		const value = payload.attachments;
 		if (value === undefined || value === null) return [];
 		if (!Array.isArray(value)) throw new InvalidEventPayloadError(this.type, "attachments", "expected an array.");
 		return value.map((entry) => {
-			if (typeof entry !== "string") {
-				throw new InvalidEventPayloadError(this.type, "attachments", "expected an array of ids.");
+			const reference = this.attachments.decode(entry);
+			if (reference === undefined) {
+				throw new InvalidEventPayloadError(this.type, "attachments", "expected an id or a link.");
 			}
-			return ArtifactId.from(entry);
+			return reference;
 		});
 	}
 

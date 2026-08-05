@@ -3,7 +3,6 @@ import { z } from "zod";
 import { ZodToolSchema } from "../adapters/schema/zod-tool-schema";
 import { InMemoryArtifactStorage } from "../adapters/storage/in-memory-artifact-storage";
 import { InMemorySessionStorage } from "../adapters/storage/in-memory-session-storage";
-import type { ArtifactId } from "../common/identity/artifact-id";
 import { SessionId } from "../common/identity/session-id";
 import { SessionRevision } from "../common/revision/session-revision";
 import { ArtifactStorage } from "../contracts/artifact-storage";
@@ -17,6 +16,7 @@ import type { ArtifactContent } from "../domain/artifact/artifact-content";
 import type { ArtifactReference } from "../domain/artifact/artifact-reference";
 import { ToolResultProduced } from "../domain/event/catalog/tool-result-produced";
 import { UserMessageReceived } from "../domain/event/catalog/user-message-received";
+import type { AttachmentReference } from "../domain/model/attachment-reference";
 import { ModelCallFailedError } from "../domain/model/errors/model-call-failed.error";
 import { UnsupportedCapabilityError } from "../domain/model/errors/unsupported-capability.error";
 import { LlmModel } from "../domain/model/llm-model";
@@ -201,7 +201,13 @@ async function resultsOf(storage: InMemorySessionStorage, sessionId: SessionId):
 	return found;
 }
 
-async function base64Of(artifacts: InMemoryArtifactStorage, sessionId: SessionId, id: ArtifactId): Promise<string> {
+async function base64Of(
+	artifacts: InMemoryArtifactStorage,
+	sessionId: SessionId,
+	attachment: AttachmentReference,
+): Promise<string> {
+	const id = attachment.artifactId;
+	if (id === undefined) throw new Error("expected the attachment to be a stored one");
 	const reference = await artifacts.find(sessionId, id);
 	if (reference === undefined) throw new Error("expected the attachment to have been stored");
 	return (await artifacts.read(sessionId, reference)).text;

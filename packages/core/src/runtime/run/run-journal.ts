@@ -1,4 +1,3 @@
-import type { ArtifactId } from "../../common/identity/artifact-id";
 import type { ToolCallId } from "../../common/identity/tool-call-id";
 import type { AgentName } from "../../domain/agent/agent-name";
 import { AgentRunCancelled } from "../../domain/event/catalog/agent-run-cancelled";
@@ -23,6 +22,7 @@ import { UserMessageReceived } from "../../domain/event/catalog/user-message-rec
 import type { EventHeader } from "../../domain/event/event-header";
 import type { SessionEvent } from "../../domain/event/session-event";
 import { SessionEventBatch } from "../../domain/event/session-event-batch";
+import type { AttachmentReference } from "../../domain/model/attachment-reference";
 import type { ModelIdentity } from "../../domain/model/model-identity";
 import { PromptMeasurement } from "../../domain/model/prompt-measurement";
 import type { ApprovalDecision, PendingCall } from "../../domain/session/pending-call";
@@ -62,8 +62,8 @@ export class RunJournal {
 		command: AgentRunCommand,
 		opened: OpenedSession,
 		transferredFrom?: AgentName,
-		/** The ids the attachments were written under, never the bytes they were written from. */
-		attachments: readonly ArtifactId[] = [],
+		/** The names the attachments are kept under, never the bytes behind them. */
+		attachments: readonly AttachmentReference[] = [],
 	): SessionEventBatch {
 		const events: SessionEvent[] = [];
 		if (opened.isNew) {

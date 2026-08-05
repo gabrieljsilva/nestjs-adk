@@ -1,6 +1,6 @@
-import type { ArtifactId } from "../../common/identity/artifact-id";
 import { CanonicalJson } from "../../common/serialization/canonical-json";
 import { OffloadedContent } from "../../domain/artifact/offloaded-content";
+import type { AttachmentReference } from "../../domain/model/attachment-reference";
 import type { MediaPart } from "../../domain/model/media-part";
 import { AdkApprovalPolicy } from "../../domain/tool/adk-approval-policy";
 import { EffectApprovalPolicy } from "../../domain/tool/effect-approval-policy";
@@ -139,7 +139,10 @@ export class ToolExecutor {
 	 * that already ran, and that is how a refund happens twice. The data is the answer and
 	 * the image was the illustration: the answer survives without it.
 	 */
-	private async stored(command: ToolExecutionCommand, media: readonly MediaPart[]): Promise<readonly ArtifactId[]> {
+	private async stored(
+		command: ToolExecutionCommand,
+		media: readonly MediaPart[],
+	): Promise<readonly AttachmentReference[]> {
 		if (media.length === 0) return [];
 		try {
 			return await this.attachments.store(command.sessionId, media);

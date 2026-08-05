@@ -78,6 +78,33 @@ describe("MediaPart", () => {
 	});
 
 	it("writes itself back as the data URL it came from", () => {
-		expect(MediaPart.image("image/png", PIXEL).toDataUrl()).toBe(`data:image/png;base64,${PIXEL}`);
+		expect(MediaPart.image("image/png", PIXEL).toUrl()).toBe(`data:image/png;base64,${PIXEL}`);
+	});
+
+	it("takes an image the provider fetches for itself", () => {
+		const part = MediaPart.link("https://cdn.example/photo.png", "image/png");
+
+		expect(part.isRemote).toBe(true);
+		expect(part.url).toBe("https://cdn.example/photo.png");
+		expect(part.toUrl()).toBe("https://cdn.example/photo.png");
+		expect(part.base64).toBe("");
+		expect(part.encodedBytes).toBe(0);
+	});
+
+	it("still refuses a type no provider here accepts, link or not", () => {
+		expect(() => MediaPart.link("https://cdn.example/x.tiff", "image/tiff")).toThrow(UnsupportedMediaTypeError);
+	});
+
+	it("refuses an address nothing can fetch", () => {
+		expect(() => MediaPart.link("not a url", "image/png")).toThrow(MalformedMediaError);
+		expect(() => MediaPart.link("file:///etc/passwd", "image/png")).toThrow(MalformedMediaError);
+		expect(() => MediaPart.link(`data:image/png;base64,${PIXEL}`, "image/png")).toThrow(MalformedMediaError);
+	});
+
+	it("costs the same in a context whether it travels or is fetched", () => {
+		const inline = MediaPart.image("image/png", PIXEL);
+		const linked = MediaPart.link("https://cdn.example/photo.png", "image/png");
+
+		expect(linked.characters).toBe(inline.characters);
 	});
 });

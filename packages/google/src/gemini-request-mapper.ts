@@ -1,6 +1,7 @@
 import type { Content, FunctionDeclaration, GenerateContentConfig, Part } from "@google/genai";
 import {
 	AssistantMessage,
+	type MediaPart,
 	type ModelMessage,
 	type ModelRequest,
 	ToolCallMessage,
@@ -57,10 +58,18 @@ export class GeminiRequestMapper {
 	 */
 	private userPartsOf(message: UserMessage): Part[] {
 		if (!message.hasMedia) return this.textPartsOf(message.text);
-		const media = message.media.map((part) => ({
-			inlineData: { mimeType: part.mediaType, data: part.base64 },
-		}));
-		return [...media, { text: message.text }];
+		return [...message.media.map((part) => this.mediaPartOf(part)), { text: message.text }];
+	}
+
+	/**
+	 * Gemini keeps the two ways an image arrives in two different fields.
+	 * Bytes go inline, and an address goes as file data, which is the same field the Files
+	 * API and a Cloud Storage URI use: what varies is who fetches, not what is sent.
+	 */
+	private mediaPartOf(part: MediaPart): Part {
+		const url = part.url;
+		if (url !== undefined) return { fileData: { fileUri: url, mimeType: part.mediaType } };
+		return { inlineData: { mimeType: part.mediaType, data: part.base64 } };
 	}
 
 	private textPartsOf(text: string): Part[] {

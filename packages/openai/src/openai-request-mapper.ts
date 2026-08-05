@@ -78,14 +78,16 @@ export class OpenAiRequestMapper {
 
 	/**
 	 * A message with an image stops being a string and becomes parts.
-	 * The image travels as the data URL it already is, which is the only inline shape the
-	 * chat completions format accepts, and the words follow it.
+	 *
+	 * One field carries both ways an image arrives: `image_url.url` is either the address
+	 * the provider fetches or the data URL the bytes became, and OpenAI documents it as
+	 * exactly that. The words follow the images.
 	 */
 	private userContentOf(message: UserMessage): string | ChatCompletionContentPart[] {
 		if (!message.hasMedia) return message.text;
 		const media: ChatCompletionContentPart[] = message.media.map((part) => ({
 			type: "image_url",
-			image_url: { url: part.toDataUrl() },
+			image_url: { url: part.toUrl() },
 		}));
 		return [...media, { type: "text", text: message.text }];
 	}

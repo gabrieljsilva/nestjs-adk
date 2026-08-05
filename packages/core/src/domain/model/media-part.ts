@@ -7,17 +7,21 @@ import { ProjectedMediaCost } from "./projected-media-cost";
 const DATA_URL_PREFIX = "data:";
 const BASE64_MARKER = ";base64";
 const PADDING = "=";
+const REMOTE_SCHEMES: readonly string[] = ["http:", "https:"];
 
 /**
  * Something the model looks at rather than reads: an image, and nothing else for now.
  *
- * The bytes travel base64 encoded because that is what every provider accepts and what a
- * JSON journal can hold. What arrives is validated here and not at the call: an
- * unsupported type, base64 that does not decode or an image over the limit all end the
- * same way at the provider, which is a rejected request that was already paid for.
+ * It arrives one of two ways, because the providers accept both. Bytes travel base64
+ * encoded, which is what a JSON request carries and what a journal can hold a reference
+ * to. A link travels as a URL the provider fetches itself, which costs nothing to store
+ * and nothing to send, and is the shape an application already has after an upload.
  *
- * A data URL is accepted as readily as raw base64, because that is the shape a browser
- * hands over. When both say what the image is, they have to agree.
+ * Both are validated here rather than at the call: an unsupported type, base64 that does
+ * not decode, an image over the limit and a URL nobody can fetch all end the same way at
+ * the provider, which is a rejected request that was already paid for. What cannot be
+ * checked here is whether the link is reachable from the provider's network, and that is
+ * the one thing this shape gives up in exchange for not moving the bytes.
  *
  * It is deliberately not a union of every modality. Audio and video are different problems
  * with different limits, and a type that claims to carry them before anything does would
@@ -26,7 +30,8 @@ const PADDING = "=";
 export class MediaPart {
 	private constructor(
 		public readonly mediaType: string,
-		public readonly base64: string,
+		private readonly encoded?: string,
+		private readonly remote?: string,
 	) {}
 
 	public static image(mediaType: string, base64: string, limits: MediaLimits = MediaLimits.byDefault()): MediaPart {
@@ -49,15 +54,47 @@ export class MediaPart {
 		return part;
 	}
 
-	/** What the request carries for this attachment, which is the encoding and not the image. */
+	/**
+	 * An image the provider fetches for itself, named by URL.
+	 *
+	 * The type is still declared, because Gemini asks for it alongside the URI and because
+	 * a link nobody described is a link nothing can validate. Only http and https are
+	 * accepted: a `file:` or `data:` URL here would either fail at the provider or smuggle
+	 * bytes through a field meant to hold a name.
+	 */
+	public static link(url: string, mediaType: string, limits: MediaLimits = MediaLimits.byDefault()): MediaPart {
+		const declared = mediaType.trim().toLowerCase();
+		if (!limits.supports(declared)) throw new UnsupportedMediaTypeError(declared, limits.supportedTypes);
+
+		const address = MediaPart.remoteAddressOf(url.trim());
+		return new MediaPart(declared, undefined, address);
+	}
+
+	/** True when the bytes are somewhere else and only their address travels. */
+	public get isRemote(): boolean {
+		return this.remote !== undefined;
+	}
+
+	/** The address a provider is expected to fetch, or nothing for an image that travels whole. */
+	public get url(): string | undefined {
+		return this.remote;
+	}
+
+	/** The encoding a request carries; empty for an image the provider fetches itself. */
+	public get base64(): string {
+		return this.encoded ?? "";
+	}
+
+	/** What the request carries for this attachment, which is nothing at all for a link. */
 	public get encodedBytes(): number {
 		return this.base64.length;
 	}
 
 	/** The size of the image itself, derived from the encoding instead of by decoding it. */
 	public get decodedBytes(): number {
-		const padding = this.base64.endsWith(`${PADDING}${PADDING}`) ? 2 : this.base64.endsWith(PADDING) ? 1 : 0;
-		return Math.floor((this.base64.length * 3) / 4) - padding;
+		const base64 = this.base64;
+		const padding = base64.endsWith(`${PADDING}${PADDING}`) ? 2 : base64.endsWith(PADDING) ? 1 : 0;
+		return Math.max(0, Math.floor((base64.length * 3) / 4) - padding);
 	}
 
 	/** What this costs a context: a declared projection, never the size of the payload. */
@@ -69,9 +106,25 @@ export class MediaPart {
 		return this.mediaType.startsWith("image/");
 	}
 
-	/** The data URL written back out, which is the shape most consumers expect to receive. */
-	public toDataUrl(): string {
-		return `${DATA_URL_PREFIX}${this.mediaType}${BASE64_MARKER},${this.base64}`;
+	/**
+	 * The one string an OpenAI style request wants, whichever way the image arrived.
+	 * A link is already that string, and bytes become the data URL they came from.
+	 */
+	public toUrl(): string {
+		return this.remote ?? `${DATA_URL_PREFIX}${this.mediaType}${BASE64_MARKER},${this.base64}`;
+	}
+
+	private static remoteAddressOf(url: string): string {
+		let parsed: URL;
+		try {
+			parsed = new URL(url);
+		} catch {
+			throw new MalformedMediaError("the address is not a URL");
+		}
+		if (!REMOTE_SCHEMES.includes(parsed.protocol)) {
+			throw new MalformedMediaError(`the address is ${parsed.protocol} and only http and https are fetchable`);
+		}
+		return parsed.toString();
 	}
 
 	private static agreedTypeOf(declared: string, fromUrl: string): string {

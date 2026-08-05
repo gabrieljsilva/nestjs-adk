@@ -1,4 +1,4 @@
-import { Agent, Skill, Tool, type ToolContext } from "@nestjs-adk/core";
+import { AdkAgent, Agent, Skill, Tool, type ToolContext } from "@nestjs-adk/core";
 import { z } from "zod";
 import { OrdersService } from "./orders.service";
 
@@ -21,8 +21,10 @@ export class LookupOrderTool {
 	prompt: "You are the store's support agent. Help with orders, refunds and policies.",
 	tools: [LookupOrderTool],
 })
-export class SupportAgent {
-	public constructor(private readonly orders: OrdersService) {}
+export class SupportAgent extends AdkAgent {
+	public constructor(private readonly orders: OrdersService) {
+		super();
+	}
 
 	/** Always present: tone of voice is not something to look up. */
 	@Skill({ name: "tone", description: "Brand tone of voice.", mode: "always" })

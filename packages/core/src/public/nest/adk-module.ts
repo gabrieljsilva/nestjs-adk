@@ -13,6 +13,7 @@ import { RuntimeOptions } from "../../runtime/composition/runtime-options";
 import { RuntimeServices } from "../../runtime/composition/runtime-services";
 import { AdkRuntimeHost } from "../adk-runtime-host";
 import { AdkModuleOptions } from "./adk-module-options";
+import { AgentBinder } from "./agent-binder";
 import { AgentRegistry } from "./agent-registry";
 import { RandomIdGenerator } from "./random-id-generator";
 import { SystemClock } from "./system-clock";
@@ -72,8 +73,8 @@ export class AdkModule implements OnApplicationShutdown {
 			},
 			{
 				provide: AgentRegistry,
-				useFactory: (runtime: RuntimeServices) => new AgentRegistry(runtime),
-				inject: [RuntimeServices],
+				useFactory: AdkModule.buildRegistry,
+				inject: [RuntimeServices, DiscoveryService],
 			},
 		];
 	}
@@ -88,13 +89,29 @@ export class AdkModule implements OnApplicationShutdown {
 		clock: Clock,
 		ids: IdGenerator,
 	): Promise<RuntimeServices> {
-		const scanned = discovery
+		const scanned = AdkModule.scan(discovery);
+		const declared = new NestComponentDiscovery().discover(new NestAgentScanner().scan(scanned, options.defaultModel));
+		return host.start(declared, storage, artifacts, clock, ids, options.runtime ?? new RuntimeOptions());
+	}
+
+	/**
+	 * The registry, and the handles the agent classes themselves answer with.
+	 *
+	 * Binding happens here rather than in a lifecycle hook so that both ways of reaching an
+	 * agent become usable at the same moment, and so that an agent injected by class and the
+	 * same agent taken from the registry are the same handle.
+	 */
+	private static buildRegistry(runtime: RuntimeServices, discovery: DiscoveryService): AgentRegistry {
+		const registry = new AgentRegistry(runtime);
+		new AgentBinder(registry).bind(AdkModule.scan(discovery));
+		return registry;
+	}
+
+	private static scan(discovery: DiscoveryService): readonly ScannedProvider[] {
+		return discovery
 			.getProviders()
 			.filter((wrapper) => typeof wrapper.metatype === "function" && wrapper.instance !== undefined)
 			.map((wrapper) => new ScannedProvider(String(wrapper.name), Object(wrapper.metatype), Object(wrapper.instance)));
-
-		const declared = new NestComponentDiscovery().discover(new NestAgentScanner().scan(scanned, options.defaultModel));
-		return host.start(declared, storage, artifacts, clock, ids, options.runtime ?? new RuntimeOptions());
 	}
 }
 

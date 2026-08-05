@@ -4,6 +4,7 @@ import { ArtifactId } from "../../common/identity/artifact-id";
 import { SessionId } from "../../common/identity/session-id";
 import { ArtifactContent } from "../../domain/artifact/artifact-content";
 import type { ArtifactReference } from "../../domain/artifact/artifact-reference";
+import { AttachmentReference } from "../../domain/model/attachment-reference";
 import { SequenceIdGenerator } from "../../support/sequence-id-generator";
 import { AttachmentReader } from "./attachment-reader";
 
@@ -25,8 +26,8 @@ function storageOf(): CountingArtifactStorage {
 	return new CountingArtifactStorage(new SequenceIdGenerator("a"));
 }
 
-async function put(storage: InMemoryArtifactStorage, sessionId: SessionId = SESSION): Promise<ArtifactId> {
-	return (await storage.put(sessionId, ArtifactContent.of(PIXEL, "image/png"))).id;
+async function put(storage: InMemoryArtifactStorage, sessionId: SessionId = SESSION): Promise<AttachmentReference> {
+	return AttachmentReference.artifact((await storage.put(sessionId, ArtifactContent.of(PIXEL, "image/png"))).id);
 }
 
 describe("AttachmentReader", () => {
@@ -65,7 +66,7 @@ describe("AttachmentReader", () => {
 	it("leaves out an attachment that no longer resolves, instead of ending the session", async () => {
 		const reader = new AttachmentReader(storageOf());
 
-		expect(await reader.read(SESSION, [ArtifactId.from("a-404")])).toEqual([]);
+		expect(await reader.read(SESSION, [AttachmentReference.artifact(ArtifactId.from("a-404"))])).toEqual([]);
 	});
 
 	it("reads nothing when a message had nothing attached", async () => {
@@ -75,11 +76,30 @@ describe("AttachmentReader", () => {
 		expect(storage.reads).toBe(0);
 	});
 
+	it("rebuilds a link without touching storage", async () => {
+		const storage = storageOf();
+		const reader = new AttachmentReader(storage);
+
+		const parts = await reader.read(SESSION, [AttachmentReference.link("https://cdn.example/x.png", "image/png")]);
+
+		expect(parts[0]?.isRemote).toBe(true);
+		expect(parts[0]?.url).toBe("https://cdn.example/x.png");
+		expect(storage.reads).toBe(0);
+	});
+
+	it("leaves out a link that no longer passes validation", async () => {
+		const reader = new AttachmentReader(storageOf());
+
+		expect(await reader.read(SESSION, [AttachmentReference.link("https://cdn.example/x", "image/tiff")])).toEqual([]);
+	});
+
 	it("keeps the order of the ids it was given", async () => {
 		const storage = storageOf();
 		const reader = new AttachmentReader(storage);
 		const first = await put(storage);
-		const second = (await storage.put(SESSION, ArtifactContent.of("aGk=", "image/jpeg"))).id;
+		const second = AttachmentReference.artifact(
+			(await storage.put(SESSION, ArtifactContent.of("aGk=", "image/jpeg"))).id,
+		);
 
 		const parts = await reader.read(SESSION, [second, first]);
 

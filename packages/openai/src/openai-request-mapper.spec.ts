@@ -65,6 +65,22 @@ describe("OpenAiRequestMapper", () => {
 		]);
 	});
 
+	it("sends a linked image through the same field, because one field carries both", () => {
+		const request = new ModelRequest([
+			new UserMessage("what is this?", [MediaPart.link("https://cdn.example/photo.png", "image/png")]),
+		]);
+
+		expect(mapper.toChatRequest("gpt-5", request).messages).toEqual([
+			{
+				role: "user",
+				content: [
+					{ type: "image_url", image_url: { url: "https://cdn.example/photo.png" } },
+					{ type: "text", text: "what is this?" },
+				],
+			},
+		]);
+	});
+
 	it("leaves a message without attachments as a plain string", () => {
 		const chat = mapper.toChatRequest("gpt-5", new ModelRequest([new UserMessage("hi")]));
 

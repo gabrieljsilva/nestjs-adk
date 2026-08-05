@@ -1,6 +1,6 @@
-import type { ArtifactId } from "../../common/identity/artifact-id";
 import type { ToolCallId } from "../../common/identity/tool-call-id";
 import type { ArtifactReference } from "../artifact/artifact-reference";
+import type { AttachmentReference } from "../model/attachment-reference";
 
 /**
  * What one tool call produced, in the two forms it has to exist in.
@@ -22,8 +22,8 @@ export class ToolOutcome {
 		public readonly contextOutput: string,
 		public readonly failed: boolean,
 		public readonly reference?: ArtifactReference,
-		/** Ids of what the tool produced to be looked at, stored the way an attachment is. */
-		public readonly attachments: readonly ArtifactId[] = [],
+		/** What the tool produced to be looked at, named the way any attachment is. */
+		public readonly attachments: readonly AttachmentReference[] = [],
 	) {}
 
 	public static succeeded(
@@ -32,7 +32,7 @@ export class ToolOutcome {
 		output: Record<string, unknown>,
 		contextOutput: string,
 		reference?: ArtifactReference,
-		attachments: readonly ArtifactId[] = [],
+		attachments: readonly AttachmentReference[] = [],
 	): ToolOutcome {
 		return new ToolOutcome(callId, toolName, output, contextOutput, false, reference, [...attachments]);
 	}
