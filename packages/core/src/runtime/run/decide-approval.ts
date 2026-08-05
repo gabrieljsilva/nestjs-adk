@@ -102,7 +102,7 @@ export class DecideApproval {
 		if (turn === undefined) throw new ApprovalNotPendingError(session.id.value, started.run.id.value);
 		if (!turn.isDecided) return this.staySuspended(started, progress, turn);
 
-		const remote = await sources.open(session.id, started.run.id);
+		const remote = await sources.open(session.id, started.run.id, started.cancellation.signal);
 		const scope = this.scopes.create(definition, model, started, remote);
 		await this.commit(scope, progress, await this.executor.execute(scope, turn.calls, true));
 

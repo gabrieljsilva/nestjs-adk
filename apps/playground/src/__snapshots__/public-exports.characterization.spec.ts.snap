@@ -18,16 +18,14 @@ exports[`public package export characterization > snapshots MCP adapter exports 
   "BearerAuth",
   "EnvAuth",
   "HeaderAuth",
-  "McpClient",
+  "McpBlockedTargetError",
   "McpDiscoveryError",
-  "McpModule",
   "McpOAuth",
   "McpReauthRequiredError",
   "OAuthAuth",
   "assertSafeTarget",
   "credentialDigest",
   "guardedFetch",
-  "mcpTools",
 ]
 `;
 

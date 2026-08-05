@@ -89,7 +89,7 @@ export class AskAgent {
 		observers: RunObservers,
 	): Promise<AgentResult> {
 		try {
-			const remote = await sources.open(opened.session.id, started.run.id);
+			const remote = await sources.open(opened.session.id, started.run.id, started.cancellation.signal);
 			const scope = this.scopes.create(definition, model, started, remote, command.limits);
 			await this.reportUnauthorized(scope, progress, sources);
 			await this.loop.run(scope, opened, progress, observers);

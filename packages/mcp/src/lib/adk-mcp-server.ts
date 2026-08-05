@@ -3,15 +3,18 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { SseError } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StreamableHTTPError } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import {
-	AdkToolSource,
-	type JsonSchema,
-	McpBlockedTargetError,
-	type ResolvedTool,
+	type AgentRunId,
+	JsonSchemaToolSchema,
+	type SessionId,
+	ToolDefinition,
+	ToolEffect,
+	ToolHandler,
+	ToolSource,
 	ToolSourceAuthError,
-	type ToolSourceContext,
 	ToolSourceUnavailableError,
-} from "@nestjs-adk/core";
+} from "@nestjs-adk/core/native";
 import { Logger } from "@nestjs/common";
+import { McpBlockedTargetError } from "./errors/mcp-blocked-target.error";
 
 import { type AdkMcpAuth, McpReauthRequiredError } from "./mcp-auth";
 import { effectOf } from "./mcp-effect";
@@ -65,7 +68,7 @@ export interface AdkMcpServerOptions {
  * subclass it to bake in a known server's address; the library treats both identically, which is
  * why a curated catalogue and a user-supplied URL are the same code path.
  */
-export class AdkMcpServer extends AdkToolSource {
+export class AdkMcpServer extends ToolSource {
 	private readonly logger = new Logger("Adk:mcp");
 	public readonly name: string;
 	private client?: Client;
@@ -87,7 +90,7 @@ export class AdkMcpServer extends AdkToolSource {
 		return `${this.options.transport.type}:${target}:${this.options.auth?.fingerprint() ?? "anonymous"}`;
 	}
 
-	public async open(ctx: ToolSourceContext): Promise<ResolvedTool[]> {
+	public async open(_sessionId: SessionId, _runId: AgentRunId, signal?: AbortSignal): Promise<ToolDefinition[]> {
 		let credential: Awaited<ReturnType<AdkMcpAuth["resolve"]>> | undefined;
 		try {
 			credential = await this.options.auth?.resolve();
@@ -131,9 +134,9 @@ export class AdkMcpServer extends AdkToolSource {
 		try {
 			// The signal is honoured as the contract asks: an aborted run must not sit through a handshake
 			// with a server nobody is waiting for any more.
-			await client.connect(createTransport(this.options.transport, credential, guard), { signal: ctx.signal });
-			const { tools } = await client.listTools(undefined, { signal: ctx.signal });
-			return this.toResolvedTools(tools);
+			await client.connect(createTransport(this.options.transport, credential, guard), { signal });
+			const { tools } = await client.listTools(undefined, { signal });
+			return this.toDefinitions(tools);
 		} catch (error) {
 			// A 401 here means the credential resolved but the server rejected it, same outcome for the
 			// user as an expired token, so it must reach `reauth` rather than look like a dead server.
@@ -142,7 +145,7 @@ export class AdkMcpServer extends AdkToolSource {
 		}
 	}
 
-	public async close(): Promise<void> {
+	public async close(_runId?: AgentRunId): Promise<void> {
 		// The run that was refused owns nothing: closing here would disconnect somebody else.
 		if (this.borrowed) {
 			this.borrowed = false;
@@ -155,7 +158,7 @@ export class AdkMcpServer extends AdkToolSource {
 		await client?.close();
 	}
 
-	private toResolvedTools(tools: Awaited<ReturnType<Client["listTools"]>>["tools"]): ResolvedTool[] {
+	private toDefinitions(tools: Awaited<ReturnType<Client["listTools"]>>["tools"]): ToolDefinition[] {
 		const wanted = this.options.tools;
 		return tools
 			.filter((tool) => !wanted || wanted.includes(tool.name))
@@ -167,20 +170,31 @@ export class AdkMcpServer extends AdkToolSource {
 				this.logger.warn(`ignoring tool with unusable name from server "${this.name}"`);
 				return false;
 			})
-			.map((tool) => ({
-				name: `${PREFIX}__${this.name}__${tool.name}`,
-				description: tool.description ?? "",
-				// The server's schema, as published: the server owns this contract and validates on its
-				// side; each engine filters it to what its provider's declaration surface understands.
-				schema: (tool.inputSchema ?? { type: "object" }) as JsonSchema,
-				effect: this.options.trustAnnotations === false ? "destructive" : effectOf(tool.annotations),
-				raw: tool,
-				execute: (input: unknown) => this.callTool(tool.name, input),
-			}));
+			.map(
+				(tool) =>
+					new ToolDefinition(
+						`${PREFIX}__${this.name}__${tool.name}`,
+						tool.description ?? "",
+						// The server's schema, as published: the server owns this contract and validates on
+						// its side, and the runtime prunes what the provider's declaration cannot carry.
+						new JsonSchemaToolSchema(tool.inputSchema ?? { type: "object" }),
+						this.effectOf(tool.annotations),
+						new McpToolHandler(this, tool.name),
+					),
+			);
+	}
+
+	/**
+	 * What a server annotated, unless the application said not to believe it.
+	 * A server that will not classify its own tool gets no benefit of the doubt.
+	 */
+	private effectOf(annotations: Parameters<typeof effectOf>[0]): ToolEffect {
+		if (this.options.trustAnnotations === false) return ToolEffect.DESTRUCTIVE;
+		return ToolEffect.of(effectOf(annotations)) ?? ToolEffect.DESTRUCTIVE;
 	}
 
 	/** A runtime failure goes back TO THE MODEL, which can explain it or try something else. */
-	private async callTool(name: string, input: unknown): Promise<unknown> {
+	public async callTool(name: string, input: unknown): Promise<unknown> {
 		if (!this.client) return { error: `MCP server "${this.name}" is not connected.` };
 		try {
 			const result = await this.client.callTool({ name, arguments: (input ?? {}) as Record<string, unknown> });
@@ -211,4 +225,22 @@ function isUnauthorized(error: unknown): boolean {
 		return error.code === 401 || error.code === 403;
 	}
 	return false;
+}
+
+/**
+ * Calls one tool on the server this source is connected to.
+ * It holds the source rather than the client because the connection belongs to the run and
+ * may already be gone: asking the source keeps the "not connected" answer in one place.
+ */
+class McpToolHandler extends ToolHandler {
+	public constructor(
+		private readonly server: AdkMcpServer,
+		private readonly tool: string,
+	) {
+		super();
+	}
+
+	public async invoke(args: Record<string, unknown>): Promise<unknown> {
+		return this.server.callTool(this.tool, args);
+	}
 }

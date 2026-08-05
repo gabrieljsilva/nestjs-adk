@@ -2,6 +2,7 @@ import type { AgentRunId } from "../../common/identity/agent-run-id";
 import type { SessionId } from "../../common/identity/session-id";
 import type { ToolSource } from "../../contracts/tool-source";
 import { ToolSourceAuthError } from "../../domain/tool/errors/tool-source-auth.error";
+import { ToolSourceUnavailableError } from "../../domain/tool/errors/tool-source-unavailable.error";
 import type { ToolDefinition } from "../../domain/tool/tool-definition";
 
 /**
@@ -19,26 +20,39 @@ import type { ToolDefinition } from "../../domain/tool/tool-definition";
 export class ToolSourceScope {
 	private readonly opened: ToolSource[] = [];
 	private readonly refused: ToolSourceAuthError[] = [];
+	private readonly unreachable: ToolSourceUnavailableError[] = [];
 
 	public constructor(private readonly sources: readonly ToolSource[] = []) {}
 
 	/** Everything the sources offered, in the order the sources were declared. */
-	public async open(sessionId: SessionId, runId: AgentRunId): Promise<readonly ToolDefinition[]> {
+	public async open(sessionId: SessionId, runId: AgentRunId, signal?: AbortSignal): Promise<readonly ToolDefinition[]> {
 		const tools: ToolDefinition[] = [];
 		for (const source of this.sources) {
 			try {
-				const offered = await source.open(sessionId, runId);
+				const offered = await source.open(sessionId, runId, signal);
 				this.opened.push(source);
 				tools.push(...offered);
 			} catch (error) {
-				if (!(error instanceof ToolSourceAuthError)) throw error;
-				this.refused.push(error);
+				if (error instanceof ToolSourceAuthError) {
+					this.refused.push(error);
+					continue;
+				}
+				if (error instanceof ToolSourceUnavailableError) {
+					this.unreachable.push(error);
+					continue;
+				}
+				throw error;
 			}
 		}
 		return tools;
 	}
 
 	/** What could not be authorized, for the run to record before it carries on. */
+	/** Sources nobody could reach this run, which is worth knowing and is not a failure. */
+	public get unavailable(): readonly ToolSourceUnavailableError[] {
+		return [...this.unreachable];
+	}
+
 	public get unauthorized(): readonly ToolSourceAuthError[] {
 		return [...this.refused];
 	}

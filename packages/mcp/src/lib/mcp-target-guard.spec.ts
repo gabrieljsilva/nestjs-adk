@@ -1,6 +1,6 @@
 import { type Server, createServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import { McpBlockedTargetError } from "@nestjs-adk/core";
+import { McpBlockedTargetError } from "./errors/mcp-blocked-target.error";
 import { assertSafeTarget, guardedFetch } from "./mcp-target-guard";
 
 describe("assertSafeTarget", () => {

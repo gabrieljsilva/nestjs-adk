@@ -1,6 +1,6 @@
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
-import { McpBlockedTargetError } from "@nestjs-adk/core";
+import { McpBlockedTargetError } from "./errors/mcp-blocked-target.error";
 
 /**
  * How much a URL that reaches the network is trusted. `"user"` is the default for anything a

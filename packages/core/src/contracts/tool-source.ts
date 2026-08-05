@@ -10,14 +10,21 @@ import type { ToolDefinition } from "../domain/tool/tool-definition";
  * settles, because a connection held open by a run that failed is a leak and a
  * connection reopened per call is a handshake per call.
  *
- * `open` may fail with `ToolSourceAuthError`, which is not a failed run: the runtime
- * records that the source needs credentials again and lets the model carry on with the
- * tools it does have.
+ * `open` may fail with `ToolSourceAuthError` or `ToolSourceUnavailableError`, and neither
+ * is a failed run: the runtime leaves the source out and lets the model carry on with the
+ * tools it does have. A conversation with fewer tools is worth more than no conversation.
+ *
+ * The signal is the run's own. Opening a source is I/O, often a handshake with something
+ * across a network, and a run that was already abandoned must not sit through one.
  */
 export abstract class ToolSource {
 	public abstract readonly name: string;
 
-	public abstract open(sessionId: SessionId, runId: AgentRunId): Promise<readonly ToolDefinition[]>;
+	public abstract open(
+		sessionId: SessionId,
+		runId: AgentRunId,
+		signal?: AbortSignal,
+	): Promise<readonly ToolDefinition[]>;
 
 	/** Called exactly once per successful open, including when the run failed or was aborted. */
 	public abstract close(runId: AgentRunId): Promise<void>;

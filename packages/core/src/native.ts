@@ -113,6 +113,7 @@ export { ActivateSkillTool } from "./runtime/skill/activate-skill-tool";
 export { ToolSource } from "./contracts/tool-source";
 export { ToolSourceScope } from "./runtime/tool/tool-source-scope";
 export { ToolSourceAuthError } from "./domain/tool/errors/tool-source-auth.error";
+export { ToolSourceUnavailableError } from "./domain/tool/errors/tool-source-unavailable.error";
 export { PendingCall } from "./domain/session/pending-call";
 export { ApprovalStatus } from "./domain/session/approval-status";
 export { SessionInspection } from "./domain/session/session-inspection";
