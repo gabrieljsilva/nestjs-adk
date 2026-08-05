@@ -6,7 +6,11 @@ import {
 	ToolResultMessage,
 	UserMessage,
 } from "@nestjs-adk/core";
-import type { ChatCompletionFunctionTool, ChatCompletionMessageParam } from "openai/resources/chat/completions";
+import type {
+	ChatCompletionContentPart,
+	ChatCompletionFunctionTool,
+	ChatCompletionMessageParam,
+} from "openai/resources/chat/completions";
 import { InvalidJsonSchemaError } from "./errors/invalid-json-schema.error";
 import { OpenAiChatRequest } from "./openai-chat-request";
 import type { OpenAiOptions } from "./openai-options";
@@ -68,8 +72,22 @@ export class OpenAiRequestMapper {
 		if (message instanceof ToolResultMessage) {
 			return { role: "tool", tool_call_id: message.callId.value, content: JSON.stringify(message.output) };
 		}
-		if (message instanceof UserMessage) return { role: "user", content: message.text };
+		if (message instanceof UserMessage) return { role: "user", content: this.userContentOf(message) };
 		return { role: "user", content: message.text };
+	}
+
+	/**
+	 * A message with an image stops being a string and becomes parts.
+	 * The image travels as the data URL it already is, which is the only inline shape the
+	 * chat completions format accepts, and the words follow it.
+	 */
+	private userContentOf(message: UserMessage): string | ChatCompletionContentPart[] {
+		if (!message.hasMedia) return message.text;
+		const media: ChatCompletionContentPart[] = message.media.map((part) => ({
+			type: "image_url",
+			image_url: { url: part.toDataUrl() },
+		}));
+		return [...media, { type: "text", text: message.text }];
 	}
 
 	/** A tool schema arrives as `unknown` and is checked here, never sent on trust. */

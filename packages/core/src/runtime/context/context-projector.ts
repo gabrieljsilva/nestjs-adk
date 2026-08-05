@@ -12,6 +12,7 @@ import { AssistantMessage } from "../../domain/model/assistant-message";
 import { ToolCallMessage } from "../../domain/model/tool-call-message";
 import { ToolResultMessage } from "../../domain/model/tool-result-message";
 import { UserMessage } from "../../domain/model/user-message";
+import { AttachmentReader } from "../artifact/attachment-reader";
 
 /**
  * Turns a journal into the causal blocks a model can read.
@@ -31,6 +32,8 @@ import { UserMessage } from "../../domain/model/user-message";
  * knowledge loaded for one question does not quietly follow the session forever.
  */
 export class ContextProjector {
+	public constructor(private readonly attachments: AttachmentReader = AttachmentReader.none()) {}
+
 	public async project(
 		events: AsyncIterable<StoredSessionEvent>,
 		currentRun?: AgentRunId,
@@ -54,7 +57,7 @@ export class ContextProjector {
 			}
 			if (this.belongsToAnother(delegated, stored, currentRun)) continue;
 			if (event instanceof UserMessageReceived) {
-				blocks.push(ContextBlock.conversation(new UserMessage(event.text), stored.revision));
+				blocks.push(ContextBlock.conversation(await this.said(stored, event), stored.revision));
 				continue;
 			}
 			// A turn that only asked for tools said nothing, and an empty message read back as
@@ -82,6 +85,17 @@ export class ContextProjector {
 		}
 
 		return blocks;
+	}
+
+	/**
+	 * What the user said, with what they attached put back where it was.
+	 *
+	 * The journal kept ids, so the bytes are fetched here and only here. A message that
+	 * attached nothing costs no read at all, which is almost every message.
+	 */
+	private async said(stored: StoredSessionEvent, event: UserMessageReceived): Promise<UserMessage> {
+		if (!event.hasAttachments) return new UserMessage(event.text);
+		return new UserMessage(event.text, await this.attachments.read(stored.sessionId, event.attachments));
 	}
 
 	/**

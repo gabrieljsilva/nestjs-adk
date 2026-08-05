@@ -46,8 +46,21 @@ export class GeminiRequestMapper {
 				parts: [{ functionResponse: { id: message.callId.value, name: message.toolName, response: message.output } }],
 			};
 		}
-		if (message instanceof UserMessage) return { role: "user", parts: [{ text: message.text }] };
+		if (message instanceof UserMessage) return { role: "user", parts: this.userPartsOf(message) };
 		return { role: "user", parts: this.textPartsOf(message.text) };
+	}
+
+	/**
+	 * The image comes first and the words after it.
+	 * That is the order Google recommends for a prompt about a single image, and it is the
+	 * order that reads as a question about the picture rather than a caption under it.
+	 */
+	private userPartsOf(message: UserMessage): Part[] {
+		if (!message.hasMedia) return this.textPartsOf(message.text);
+		const media = message.media.map((part) => ({
+			inlineData: { mimeType: part.mediaType, data: part.base64 },
+		}));
+		return [...media, { text: message.text }];
 	}
 
 	private textPartsOf(text: string): Part[] {

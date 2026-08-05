@@ -1,3 +1,4 @@
+import type { ArtifactId } from "../../common/identity/artifact-id";
 import type { ToolCallId } from "../../common/identity/tool-call-id";
 import type { AgentName } from "../../domain/agent/agent-name";
 import { AgentRunCancelled } from "../../domain/event/catalog/agent-run-cancelled";
@@ -61,13 +62,15 @@ export class RunJournal {
 		command: AgentRunCommand,
 		opened: OpenedSession,
 		transferredFrom?: AgentName,
+		/** The ids the attachments were written under, never the bytes they were written from. */
+		attachments: readonly ArtifactId[] = [],
 	): SessionEventBatch {
 		const events: SessionEvent[] = [];
 		if (opened.isNew) {
 			events.push(new SessionCreated(this.headerOf(started), transferredFrom ?? agent, command.owner?.value));
 		}
 		if (transferredFrom !== undefined) events.push(this.transfer(started, transferredFrom, agent));
-		events.push(new UserMessageReceived(this.headerOf(started), command.input.message));
+		events.push(new UserMessageReceived(this.headerOf(started), command.input.message, attachments));
 		events.push(this.started(started, agent, model));
 		return SessionEventBatch.of(events);
 	}

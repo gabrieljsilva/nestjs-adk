@@ -34,7 +34,7 @@ export class ContextMeasurer {
 		for (const category of ContextCategory.all()) {
 			const characters = projection.blocks
 				.filter((block) => block.category.equals(category))
-				.reduce((total, block) => total + block.messages.reduce((sum, message) => sum + message.text.length, 0), 0);
+				.reduce((total, block) => total + block.messages.reduce((sum, message) => sum + message.characters, 0), 0);
 			if (characters === 0) continue;
 			sizes.push([category, characters]);
 		}

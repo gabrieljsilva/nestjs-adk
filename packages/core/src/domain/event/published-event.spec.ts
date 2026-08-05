@@ -33,7 +33,7 @@ describe("PublishedEvent", () => {
 		expect(published.type).toBe(UserMessageReceived.TYPE);
 		expect(published.correlation.runId.value).toBe("run-1");
 		expect(published.payload.text).toBe("hi");
-		expect(published.schemaVersion).toBe(1);
+		expect(published.schemaVersion).toBe(event.schemaVersion.value);
 	});
 
 	it("is durable when it advanced a revision", () => {

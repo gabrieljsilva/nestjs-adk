@@ -5,6 +5,8 @@ import { ArtifactStorage } from "../../contracts/artifact-storage";
 import { ModelResolver } from "../../contracts/model-resolver";
 import { SessionStorage } from "../../contracts/session-storage";
 import { ArtifactOffloader } from "../artifact/artifact-offloader";
+import { AttachmentReader } from "../artifact/attachment-reader";
+import { AttachmentStore } from "../artifact/attachment-store";
 import { ReadArtifactTool } from "../artifact/read-artifact-tool";
 import { AgentCatalog } from "../catalog/agent-catalog";
 import { ContextManager } from "../context/context-manager";
@@ -64,6 +66,7 @@ export class RuntimeFactory {
 	): Promise<RuntimeServices> {
 		const tracker = new ActiveRunTracker();
 		const offloader = new ArtifactOffloader(artifacts, options.offload);
+		const attachments = new AttachmentStore(artifacts);
 		const readArtifact = ReadArtifactTool.forStorage(artifacts);
 		const lifecycle = new RuntimeLifecycle(tracker, options.shutdown, clock);
 		const resolver = options.models ?? new CatalogModelResolver();
@@ -72,7 +75,7 @@ export class RuntimeFactory {
 		const sessions = new SessionManager(storage, undefined, events, undefined, options.snapshots);
 		const context = new ContextManager(
 			storage,
-			new ContextProjector(),
+			new ContextProjector(new AttachmentReader(artifacts)),
 			measurer,
 			new StablePrefixDigest(),
 			new OldestFirstCompactionStrategy(measurer, options.summarizer),
@@ -108,6 +111,7 @@ export class RuntimeFactory {
 			settler,
 			new TransferGate(catalog),
 			ids,
+			attachments,
 			options.sources,
 		);
 		const runner = new AgentRunner(

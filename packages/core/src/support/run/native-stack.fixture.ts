@@ -18,6 +18,8 @@ import { AdkApprovalPolicy } from "../../domain/tool/adk-approval-policy";
 import { EffectApprovalPolicy } from "../../domain/tool/effect-approval-policy";
 import type { ToolDefinition } from "../../domain/tool/tool-definition";
 import { ArtifactOffloader } from "../../runtime/artifact/artifact-offloader";
+import { AttachmentReader } from "../../runtime/artifact/attachment-reader";
+import { AttachmentStore } from "../../runtime/artifact/attachment-store";
 import { AgentCatalog } from "../../runtime/catalog/agent-catalog";
 import { ContextManager } from "../../runtime/context/context-manager";
 import { ContextMeasurer } from "../../runtime/context/context-measurer";
@@ -75,6 +77,7 @@ export class NativeStackFixture {
 	public static readonly AGENT = AgentName.from("support");
 
 	public readonly storage = new InMemorySessionStorage();
+	public readonly artifacts = new InMemoryArtifactStorage(new SequenceIdGenerator("a"));
 	public readonly clock = new FakeClock(START);
 	public readonly ids = new SequenceIdGenerator("id");
 	public readonly tracker = new ActiveRunTracker();
@@ -93,7 +96,7 @@ export class NativeStackFixture {
 		const measurer = new ContextMeasurer();
 		const context = new ContextManager(
 			this.storage,
-			new ContextProjector(),
+			new ContextProjector(new AttachmentReader(this.artifacts)),
 			measurer,
 			new StablePrefixDigest(),
 			new OldestFirstCompactionStrategy(measurer),
@@ -106,10 +109,7 @@ export class NativeStackFixture {
 		const resolver = new FixedModelResolver(model);
 		const scopes = new RunScopeFactory();
 		const settler = new RunSettler(this.sessions, journal);
-		const executor = new TurnExecutor(
-			new ToolExecutor(new ArtifactOffloader(new InMemoryArtifactStorage(new SequenceIdGenerator("a"))), approvals),
-			journal,
-		);
+		const executor = new TurnExecutor(new ToolExecutor(new ArtifactOffloader(this.artifacts), approvals), journal);
 		const delegations = new DelegationRunner(catalog, resolver, runs, scopes, journal, this.sessions);
 		const loop = new TurnLoop(
 			context,
@@ -135,6 +135,7 @@ export class NativeStackFixture {
 			settler,
 			new TransferGate(catalog),
 			this.ids,
+			new AttachmentStore(this.artifacts),
 			sources,
 		);
 		this.deciding = new DecideApproval(

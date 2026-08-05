@@ -7,6 +7,7 @@ import type { ModelDescriptor } from "../../domain/model/model-descriptor";
 import type { ModelRequest } from "../../domain/model/model-request";
 import type { ModelResponse } from "../../domain/model/model-response";
 import { JsonStructuredOutputValidator } from "./json-structured-output-validator";
+import { MediaFit } from "./media-fit";
 import { ModelChunkAggregator } from "./model-chunk-aggregator";
 
 /**
@@ -21,10 +22,15 @@ import { ModelChunkAggregator } from "./model-chunk-aggregator";
  * only one implementation of aggregation.
  *
  * Capabilities are checked before the request leaves. A model that never declared tools
- * fails saying so, rather than answering prose to a call that expected an action.
+ * fails saying so rather than answering prose to a call that expected an action. Media is
+ * the exception and it is not checked: an image in history is fitted to whatever model is
+ * serving this turn, because a routing decision must not end a conversation.
  */
 export class ModelExecutor {
-	public constructor(private readonly validator: StructuredOutputValidator = new JsonStructuredOutputValidator()) {}
+	public constructor(
+		private readonly validator: StructuredOutputValidator = new JsonStructuredOutputValidator(),
+		private readonly media: MediaFit = new MediaFit(),
+	) {}
 
 	public async execute(model: LlmModel, request: ModelRequest, signal?: AbortSignal): Promise<ModelResponse> {
 		const turn = this.stream(model, request, signal);
@@ -40,9 +46,10 @@ export class ModelExecutor {
 	): AsyncGenerator<ModelChunk, ModelResponse> {
 		const descriptor = model.descriptor();
 		this.verify(descriptor, request);
+		const fitted = this.media.fit(request, descriptor);
 
 		const aggregator = new ModelChunkAggregator();
-		for await (const chunk of model.generate(request, signal)) {
+		for await (const chunk of model.generate(fitted, signal)) {
 			aggregator.accept(chunk);
 			yield chunk;
 		}

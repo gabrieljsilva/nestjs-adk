@@ -3,9 +3,12 @@ import { SessionId } from "../../common/identity/session-id";
 import type { ModelResolver } from "../../contracts/model-resolver";
 import type { ToolSource } from "../../contracts/tool-source";
 import type { AgentDefinition } from "../../domain/agent/agent-definition";
+import { UnsupportedCapabilityError } from "../../domain/model/errors/unsupported-capability.error";
 import type { LlmModel } from "../../domain/model/llm-model";
+import { ModelCapability } from "../../domain/model/model-capability";
 import { AgentResult } from "../../domain/session/agent-result";
 import { AgentRunStatus } from "../../domain/session/agent-run-status";
+import type { AttachmentStore } from "../artifact/attachment-store";
 import type { AgentCatalog } from "../catalog/agent-catalog";
 import type { OpenedSession } from "../session/opened-session";
 import type { SessionManager } from "../session/session-manager";
@@ -47,6 +50,7 @@ export class AskAgent {
 		private readonly settler: RunSettler,
 		private readonly transfers: TransferGate,
 		private readonly ids: IdGenerator,
+		private readonly attachments: AttachmentStore,
 		private readonly sources: readonly ToolSource[] = [],
 	) {}
 
@@ -57,16 +61,20 @@ export class AskAgent {
 		const started = this.runs.start(sessionId, entry.name);
 		const sources = new ToolSourceScope(this.sources);
 		try {
-			const opened = await this.opener.open(command, sessionId);
-			// The edge is checked before the first commit, so a handover nobody declared leaves no trace.
+			// Both edges are checked before the session is touched, so a handover nobody declared
+			// and a question nobody can look at leave no trace at all.
 			const definition = command.transferTo === undefined ? entry : this.transfers.open(entry, command.transferTo);
 			const model = command.model ?? this.models.resolve(definition);
+			this.assertCanSee(command, model);
+
+			const opened = await this.opener.open(command, sessionId);
 			const from = command.transferTo === undefined ? undefined : entry.name;
+			const attached = await this.attachments.store(opened.session.id, command.input.attachments);
 			const progress = new RunProgress(
 				await this.sessions.commit(
 					opened.session.id,
 					opened.session.revision,
-					this.journal.opening(started, definition.name, model.descriptor().identity, command, opened, from),
+					this.journal.opening(started, definition.name, model.descriptor().identity, command, opened, from, attached),
 					opened.state,
 				),
 			);
@@ -75,6 +83,21 @@ export class AskAgent {
 			await sources.close(started.run.id);
 			this.runs.finish(started.run);
 		}
+	}
+
+	/**
+	 * An attachment nobody can look at ends the command before it becomes history.
+	 *
+	 * This is configuration and not conversation: the application pointed an agent at a
+	 * model that never declared media input and then handed it an image. Accepting the
+	 * message would pay for a call that answers about nothing, and recording it would leave
+	 * an image in the journal that this session can never use.
+	 */
+	private assertCanSee(command: AgentRunCommand, model: LlmModel): void {
+		if (!command.input.hasAttachments) return;
+		const descriptor = model.descriptor();
+		if (descriptor.capabilities.supports(ModelCapability.MEDIA_INPUT)) return;
+		throw new UnsupportedCapabilityError(descriptor.identity.toString(), ModelCapability.MEDIA_INPUT.name);
 	}
 
 	/** From here on the run has a journal entry, so every ending it can reach gets recorded. */

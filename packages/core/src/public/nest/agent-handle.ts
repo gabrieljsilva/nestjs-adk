@@ -1,6 +1,7 @@
 import type { SessionId } from "../../common/identity/session-id";
 import type { ToolCallId } from "../../common/identity/tool-call-id";
 import type { AgentName } from "../../domain/agent/agent-name";
+import type { MediaPart } from "../../domain/model/media-part";
 import type { ModelChunk } from "../../domain/model/model-chunk";
 import type { AgentResult } from "../../domain/session/agent-result";
 import { ApproveInput } from "../../domain/session/approve-input";
@@ -31,9 +32,29 @@ export class AgentHandle {
 		return this.runtime.runner.ask(this.commandOf(message, sessionId));
 	}
 
+	/**
+	 * The same question with something for the model to look at.
+	 *
+	 * The words are still required, because an image with nothing asked about it leaves the
+	 * model guessing. The agent's model has to declare media input: one that cannot see
+	 * fails here rather than answering about an image it never received.
+	 */
+	public async askWith(message: string, attachments: readonly MediaPart[], sessionId?: SessionId): Promise<AgentResult> {
+		return this.runtime.runner.ask(this.commandOf(message, sessionId, attachments));
+	}
+
 	/** The same question, watched: the chunks first, the result as the return value. */
 	public stream(message: string, sessionId?: SessionId): AsyncGenerator<ModelChunk, AgentResult> {
 		return this.runtime.runner.stream(this.commandOf(message, sessionId));
+	}
+
+	/** Watching a question that has something attached to it. */
+	public streamWith(
+		message: string,
+		attachments: readonly MediaPart[],
+		sessionId?: SessionId,
+	): AsyncGenerator<ModelChunk, AgentResult> {
+		return this.runtime.runner.stream(this.commandOf(message, sessionId, attachments));
 	}
 
 	/** Where a conversation stands, for a caller that is not running anything. */
@@ -64,7 +85,7 @@ export class AgentHandle {
 		return this.runtime.runner.explain(this.commandOf(message, sessionId));
 	}
 
-	private commandOf(message: string, sessionId?: SessionId): AgentRunCommand {
-		return new AgentRunCommand(this.name, AskInput.of(message, sessionId));
+	private commandOf(message: string, sessionId?: SessionId, attachments: readonly MediaPart[] = []): AgentRunCommand {
+		return new AgentRunCommand(this.name, AskInput.with(message, attachments, sessionId));
 	}
 }

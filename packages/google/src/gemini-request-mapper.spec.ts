@@ -1,5 +1,6 @@
 import {
 	AssistantMessage,
+	MediaPart,
 	ModelRequest,
 	PromptInstructions,
 	ToolCallId,
@@ -27,6 +28,29 @@ describe("GeminiRequestMapper", () => {
 			{ role: "user", parts: [{ text: "hi" }] },
 			{ role: "model", parts: [{ text: "hello" }] },
 		]);
+	});
+
+	it("sends an attached image inline, before the words that ask about it", () => {
+		const request = new ModelRequest([new UserMessage("what is this?", [MediaPart.image("image/png", "iVBORw0KGgo=")])]);
+
+		expect(mapper.toRequest("gemini-2.5-flash", request).contents).toEqual([
+			{
+				role: "user",
+				parts: [{ inlineData: { mimeType: "image/png", data: "iVBORw0KGgo=" } }, { text: "what is this?" }],
+			},
+		]);
+	});
+
+	it("sends every attachment of the message, in the order they were attached", () => {
+		const request = new ModelRequest([
+			new UserMessage("compare", [MediaPart.image("image/png", "iVBORw0KGgo="), MediaPart.image("image/jpeg", "aGk=")]),
+		]);
+
+		const parts = mapper.toRequest("gemini-2.5-flash", request).contents[0]?.parts ?? [];
+
+		expect(parts).toHaveLength(3);
+		expect(parts[0]?.inlineData?.mimeType).toBe("image/png");
+		expect(parts[1]?.inlineData?.mimeType).toBe("image/jpeg");
 	});
 
 	it("puts the prompt in the config, since Gemini has no system role", () => {

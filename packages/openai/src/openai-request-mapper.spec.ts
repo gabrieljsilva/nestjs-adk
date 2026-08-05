@@ -1,5 +1,6 @@
 import {
 	AssistantMessage,
+	MediaPart,
 	ModelRequest,
 	PromptInstructions,
 	ToolCallId,
@@ -48,6 +49,26 @@ describe("OpenAiRequestMapper", () => {
 			{ role: "user", content: "hi" },
 			{ role: "assistant", content: "hello" },
 		]);
+	});
+
+	it("sends an attached image as a data URL part, before the words that ask about it", () => {
+		const request = new ModelRequest([new UserMessage("what is this?", [MediaPart.image("image/png", "iVBORw0KGgo=")])]);
+
+		expect(mapper.toChatRequest("gpt-5", request).messages).toEqual([
+			{
+				role: "user",
+				content: [
+					{ type: "image_url", image_url: { url: "data:image/png;base64,iVBORw0KGgo=" } },
+					{ type: "text", text: "what is this?" },
+				],
+			},
+		]);
+	});
+
+	it("leaves a message without attachments as a plain string", () => {
+		const chat = mapper.toChatRequest("gpt-5", new ModelRequest([new UserMessage("hi")]));
+
+		expect(chat.messages[0]?.content).toBe("hi");
 	});
 
 	it("keeps a call and its result paired by the same id", () => {

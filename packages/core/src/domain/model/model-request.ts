@@ -1,6 +1,7 @@
 import type { PromptInstructions } from "../prompt/prompt-instructions";
 import type { ModelMessage } from "./model-message";
 import type { ToolDeclaration } from "./tool-declaration";
+import { UserMessage } from "./user-message";
 
 /** Everything a model needs for one turn, already composed by the runtime. */
 export class ModelRequest {
@@ -14,6 +15,11 @@ export class ModelRequest {
 
 	public get wantsStructuredOutput(): boolean {
 		return this.outputSchema !== undefined;
+	}
+
+	/** True when any message carries something the model has to look at rather than read. */
+	public get hasMedia(): boolean {
+		return this.messages.some((message) => message instanceof UserMessage && message.hasMedia);
 	}
 
 	public get hasTools(): boolean {
