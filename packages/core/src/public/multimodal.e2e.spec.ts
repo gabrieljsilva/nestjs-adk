@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { z } from "zod";
+import { ZodToolSchema } from "../adapters/schema/zod-tool-schema";
 import { InMemoryArtifactStorage } from "../adapters/storage/in-memory-artifact-storage";
 import { InMemorySessionStorage } from "../adapters/storage/in-memory-session-storage";
 import type { ArtifactId } from "../common/identity/artifact-id";
@@ -10,6 +12,7 @@ import { AgentExecutionPolicies } from "../domain/agent/agent-execution-policies
 import { AgentName } from "../domain/agent/agent-name";
 import { DeclaredAgent } from "../domain/agent/declared-agent";
 import { SequentialFailoverPolicy } from "../domain/agent/sequential-failover-policy";
+import { ToolResultProduced } from "../domain/event/catalog/tool-result-produced";
 import { UserMessageReceived } from "../domain/event/catalog/user-message-received";
 import { ModelCallFailedError } from "../domain/model/errors/model-call-failed.error";
 import { UnsupportedCapabilityError } from "../domain/model/errors/unsupported-capability.error";
@@ -22,10 +25,16 @@ import { ModelContextWindow } from "../domain/model/model-context-window";
 import { ModelDescriptor } from "../domain/model/model-descriptor";
 import { ModelIdentity } from "../domain/model/model-identity";
 import { ModelRequest } from "../domain/model/model-request";
+import { ToolCallDelta } from "../domain/model/tool-call-delta";
+import { ToolResultMessage } from "../domain/model/tool-result-message";
 import { UnavailableFailure } from "../domain/model/unavailable-failure";
 import { UserMessage } from "../domain/model/user-message";
 import { PromptInstructions } from "../domain/prompt/prompt-instructions";
 import { AskInput } from "../domain/session/ask-input";
+import { ToolDefinition } from "../domain/tool/tool-definition";
+import { ToolEffect } from "../domain/tool/tool-effect";
+import { ToolHandler } from "../domain/tool/tool-handler";
+import { ToolOutput } from "../domain/tool/tool-output";
 import { AgentRunCommand } from "../runtime/run/agent-run-command";
 import { FakeClock } from "../support/fake-clock";
 import { SequenceIdGenerator } from "../support/sequence-id-generator";
@@ -83,13 +92,62 @@ class FailingModel extends LlmModel {
 	}
 }
 
-function agentOf(model: LlmModel, policies: AgentExecutionPolicies = AgentExecutionPolicies.of()): DeclaredAgent {
+/** Asks for the chart on the first turn and comments on it once it has seen it. */
+class ChartingModel extends LlmModel {
+	public readonly requests: ModelRequest[] = [];
+
+	public descriptor(): ModelDescriptor {
+		return new ModelDescriptor(
+			ModelIdentity.of("acme", "charting"),
+			ModelContextWindow.of(100_000, 4000),
+			ModelCapabilities.of([
+				[ModelCapability.TOOLS, true],
+				[ModelCapability.MEDIA_INPUT, true],
+			]),
+		);
+	}
+
+	public async *generate(request: ModelRequest): AsyncIterable<ModelChunk> {
+		this.requests.push(request);
+		if (request.messages.some((message) => message instanceof ToolResultMessage)) {
+			yield ModelChunk.text("sales are up");
+			yield ModelChunk.finish("stop");
+			return;
+		}
+		yield ModelChunk.toolCall(new ToolCallDelta(0, JSON.stringify({ metric: "sales" }), "c-1", "render_chart"));
+		yield ModelChunk.finish("tool_calls");
+	}
+}
+
+/** Answers data and the picture of it, which is what `ToolOutput` exists for. */
+class ChartHandler extends ToolHandler {
+	public async invoke(): Promise<unknown> {
+		return ToolOutput.with({ rendered: true }, [imageOf()]);
+	}
+}
+
+function chartTool(): ToolDefinition {
+	return new ToolDefinition(
+		"render_chart",
+		"Draws a chart of a metric",
+		ZodToolSchema.of(z.object({ metric: z.string() })),
+		ToolEffect.READ,
+		new ChartHandler(),
+	);
+}
+
+function agentOf(
+	model: LlmModel,
+	policies: AgentExecutionPolicies = AgentExecutionPolicies.of(),
+	tools: readonly ToolDefinition[] = [],
+): DeclaredAgent {
 	const definition = AgentDefinition.of(
 		SUPPORT,
 		AgentDescription.from("support agent", SUPPORT.value),
 		model,
 		PromptInstructions.from("Be brief."),
 		policies,
+		tools,
 	);
 	return new DeclaredAgent(definition, "SupportAgent");
 }
@@ -102,6 +160,14 @@ async function messagesOf(storage: InMemorySessionStorage, sessionId: SessionId)
 	const found: UserMessageReceived[] = [];
 	for await (const stored of storage.readEvents(sessionId, SessionRevision.initial())) {
 		if (stored.event instanceof UserMessageReceived) found.push(stored.event);
+	}
+	return found;
+}
+
+async function resultsOf(storage: InMemorySessionStorage, sessionId: SessionId): Promise<ToolResultProduced[]> {
+	const found: ToolResultProduced[] = [];
+	for await (const stored of storage.readEvents(sessionId, SessionRevision.initial())) {
+		if (stored.event instanceof ToolResultProduced) found.push(stored.event);
 	}
 	return found;
 }
@@ -210,5 +276,49 @@ describe("a question with an image in it", () => {
 		expect(blind.lastUserMessage?.hasMedia).toBe(false);
 		expect(blind.lastUserMessage?.text).toContain("cannot see images");
 		expect(blind.lastUserMessage?.text).toContain("what is this?");
+	});
+});
+
+describe("a tool that answers with an image", () => {
+	it("shows the model the data and the picture, in that order", async () => {
+		const model = new ChartingModel();
+		const runtime = await host.start(
+			[agentOf(model, AgentExecutionPolicies.of(), [chartTool()])],
+			new InMemorySessionStorage(),
+			new InMemoryArtifactStorage(new SequenceIdGenerator("a")),
+			new FakeClock(),
+			new SequenceIdGenerator(),
+		);
+
+		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("chart my sales")));
+
+		const messages = model.requests[1]?.messages ?? [];
+		const at = messages.findIndex((message) => message instanceof ToolResultMessage);
+		const result = messages[at];
+		const carrier = messages[at + 1];
+
+		expect(result instanceof ToolResultMessage ? result.hasMedia : true).toBe(false);
+		expect(result?.text).toContain("render_chart");
+		expect(carrier instanceof UserMessage && carrier.media[0]?.base64).toBe(PIXEL);
+	});
+
+	it("records the id of what it drew, and never the drawing", async () => {
+		const storage = new InMemorySessionStorage();
+		const artifacts = new InMemoryArtifactStorage(new SequenceIdGenerator("a"));
+		const runtime = await host.start(
+			[agentOf(new ChartingModel(), AgentExecutionPolicies.of(), [chartTool()])],
+			storage,
+			artifacts,
+			new FakeClock(),
+			new SequenceIdGenerator(),
+		);
+
+		const answer = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("chart my sales")));
+		const [produced] = await resultsOf(storage, answer.sessionId);
+		const id = produced?.attachments[0];
+		if (id === undefined) throw new Error("expected the tool result to name an attachment");
+
+		expect(JSON.stringify(produced?.output)).not.toContain(PIXEL);
+		expect(await base64Of(artifacts, answer.sessionId, id)).toBe(PIXEL);
 	});
 });

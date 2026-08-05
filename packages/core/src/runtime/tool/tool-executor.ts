@@ -1,5 +1,7 @@
+import type { ArtifactId } from "../../common/identity/artifact-id";
 import { CanonicalJson } from "../../common/serialization/canonical-json";
 import { OffloadedContent } from "../../domain/artifact/offloaded-content";
+import type { MediaPart } from "../../domain/model/media-part";
 import { AdkApprovalPolicy } from "../../domain/tool/adk-approval-policy";
 import { EffectApprovalPolicy } from "../../domain/tool/effect-approval-policy";
 import { ToolApprovalRequiredError } from "../../domain/tool/errors/tool-approval-required.error";
@@ -8,7 +10,9 @@ import { ToolContext } from "../../domain/tool/tool-context";
 import type { ToolDefinition } from "../../domain/tool/tool-definition";
 import type { ToolInvocation } from "../../domain/tool/tool-invocation";
 import { ToolOutcome } from "../../domain/tool/tool-outcome";
+import { ToolOutput } from "../../domain/tool/tool-output";
 import type { ArtifactOffloader } from "../artifact/artifact-offloader";
+import { AttachmentStore } from "../artifact/attachment-store";
 import type { ToolBreaker } from "./tool-breaker";
 import type { ToolCatalog } from "./tool-catalog";
 import type { ToolExecutionCommand } from "./tool-execution-command";
@@ -41,6 +45,8 @@ export class ToolExecutor {
 	public constructor(
 		private readonly offloader: ArtifactOffloader,
 		private readonly approvals: AdkApprovalPolicy = EffectApprovalPolicy.never(),
+		/** Where an image a tool produced is written; without one, a tool can only answer data. */
+		private readonly attachments: AttachmentStore = AttachmentStore.none(),
 	) {}
 
 	/**
@@ -101,14 +107,16 @@ export class ToolExecutor {
 		const invocation = command.invocation;
 		const context = new ToolContext(command.sessionId, command.runId, command.agent, invocation.callId, command.signal);
 
-		let produced: unknown;
+		let answered: unknown;
 		try {
-			produced = await tool.handler.invoke(args, context);
+			answered = await tool.handler.invoke(args, context);
 		} catch (error) {
 			return this.fail(command, breaker, error instanceof Error ? error.message : String(error));
 		}
 
 		breaker.recordSuccess(tool.name);
+		const produced = answered instanceof ToolOutput ? answered.data : answered;
+		const media = answered instanceof ToolOutput ? answered.media : [];
 		const text = this.textOf(produced);
 		// A tool that exists to bring content back into the context must not have it taken out again.
 		const offloaded = tool.internal
@@ -120,7 +128,24 @@ export class ToolExecutor {
 			this.recordOf(produced),
 			offloaded.text,
 			offloaded.reference,
+			await this.stored(command, media),
 		);
+	}
+
+	/**
+	 * Keeps what the tool produced even when its image could not be written.
+	 *
+	 * The effect already happened, so failing the call would tell the model to run a tool
+	 * that already ran, and that is how a refund happens twice. The data is the answer and
+	 * the image was the illustration: the answer survives without it.
+	 */
+	private async stored(command: ToolExecutionCommand, media: readonly MediaPart[]): Promise<readonly ArtifactId[]> {
+		if (media.length === 0) return [];
+		try {
+			return await this.attachments.store(command.sessionId, media);
+		} catch {
+			return [];
+		}
 	}
 
 	/** Counting the failure may end the run; when it does not, the model is told and tries again. */

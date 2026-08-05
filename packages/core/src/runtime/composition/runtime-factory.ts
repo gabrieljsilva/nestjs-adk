@@ -85,7 +85,7 @@ export class RuntimeFactory {
 		const journal = new RunJournal(new RunEventFactory(ids, clock));
 		const scopes = new RunScopeFactory([readArtifact], options.limits);
 		const settler = new RunSettler(sessions, journal);
-		const turns = new TurnExecutor(new ToolExecutor(offloader, options.approvals), journal);
+		const turns = new TurnExecutor(new ToolExecutor(offloader, options.approvals, attachments), journal);
 		const delegations = new DelegationRunner(catalog, resolver, runs, scopes, journal, sessions);
 		const loop = new TurnLoop(
 			context,

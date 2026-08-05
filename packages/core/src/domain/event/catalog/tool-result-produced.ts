@@ -4,8 +4,8 @@ import type { EventHeader } from "../event-header";
 import { EventSchemaVersion } from "../event-schema-version";
 import { SessionEvent } from "../session-event";
 
-/** The version that started recording where an offloaded result went. */
-const SCHEMA_VERSION = 2;
+/** The version that started recording the images a tool produced alongside its data. */
+const SCHEMA_VERSION = 3;
 
 /**
  * One tool call finished and produced an output, successful or failed.
@@ -13,6 +13,9 @@ const SCHEMA_VERSION = 2;
  * The output is what the model reads back. When the result was too large for a context it
  * is the placeholder, and the artifact holds the content: the id travels here so anything
  * reading the journal can still reach what the placeholder stands for.
+ *
+ * `attachments` is a different thing from `artifactId`. The first is what the tool meant
+ * to be looked at, and the second is where its text went when it did not fit.
  */
 export class ToolResultProduced extends SessionEvent {
 	public readonly type = ToolResultProduced.TYPE;
@@ -28,11 +31,16 @@ export class ToolResultProduced extends SessionEvent {
 		public readonly output: Record<string, unknown>,
 		public readonly failed: boolean,
 		public readonly artifactId?: ArtifactId,
+		public readonly attachments: readonly ArtifactId[] = [],
 	) {
 		super(header.id, header.occurredAt, header.correlation);
 	}
 
 	public get wasOffloaded(): boolean {
 		return this.artifactId !== undefined;
+	}
+
+	public get hasAttachments(): boolean {
+		return this.attachments.length > 0;
 	}
 }

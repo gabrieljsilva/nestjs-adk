@@ -148,6 +148,7 @@ export class RunJournal {
 			outcome.recordedOutput,
 			outcome.failed,
 			outcome.reference?.id,
+			outcome.attachments,
 		);
 	}
 

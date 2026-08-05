@@ -4,6 +4,7 @@ import { ModelRequest } from "../model/model-request";
 import type { ToolDeclaration } from "../model/tool-declaration";
 import type { PromptInstructions } from "../prompt/prompt-instructions";
 import type { ContextBlock } from "./context-block";
+import { MediaSplitter } from "./media-splitter";
 
 /**
  * What the model is about to read, as blocks instead of a flat list of messages.
@@ -51,8 +52,13 @@ export class ContextProjection {
 		return covered;
 	}
 
+	/**
+	 * The blocks as one call, with images moved to where a provider can carry them.
+	 * The projection itself is untouched: what a block holds is a fact of the session, and
+	 * what a request holds is a fact about one provider's wire format.
+	 */
 	public toRequest(): ModelRequest {
-		return new ModelRequest(this.messages, this.tools, this.instructions());
+		return new ModelRequest(new MediaSplitter().split(this.messages), this.tools, this.instructions());
 	}
 
 	/** Runtime instructions come before the agent prompt, and absence stays absence. */

@@ -109,7 +109,10 @@ export class NativeStackFixture {
 		const resolver = new FixedModelResolver(model);
 		const scopes = new RunScopeFactory();
 		const settler = new RunSettler(this.sessions, journal);
-		const executor = new TurnExecutor(new ToolExecutor(new ArtifactOffloader(this.artifacts), approvals), journal);
+		const executor = new TurnExecutor(
+			new ToolExecutor(new ArtifactOffloader(this.artifacts), approvals, new AttachmentStore(this.artifacts)),
+			journal,
+		);
 		const delegations = new DelegationRunner(catalog, resolver, runs, scopes, journal, this.sessions);
 		const loop = new TurnLoop(
 			context,

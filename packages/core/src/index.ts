@@ -101,6 +101,7 @@ export { ToolContext } from "./domain/tool/tool-context";
 export { ToolDefinition } from "./domain/tool/tool-definition";
 export { ToolInvocation } from "./domain/tool/tool-invocation";
 export { ToolOutcome } from "./domain/tool/tool-outcome";
+export { ToolOutput } from "./domain/tool/tool-output";
 export { ParsedArguments } from "./domain/tool/parsed-arguments";
 export { AdkApprovalPolicy } from "./domain/tool/adk-approval-policy";
 export { EffectApprovalPolicy } from "./domain/tool/effect-approval-policy";

@@ -80,7 +80,7 @@ export class ContextProjector {
 				continue;
 			}
 			if (event instanceof ToolResultProduced) {
-				this.close(blocks, pending, event, stored);
+				await this.close(blocks, pending, event, stored);
 			}
 		}
 
@@ -110,18 +110,19 @@ export class ContextProjector {
 		return delegated.has(runId) && runId !== currentRun?.value;
 	}
 
-	private close(
+	private async close(
 		blocks: ContextBlock[],
 		pending: Map<string, number>,
 		event: ToolResultProduced,
 		stored: StoredSessionEvent,
-	): void {
+	): Promise<void> {
 		const at = pending.get(event.callId.value);
 		const open = at === undefined ? undefined : blocks[at];
 		if (at === undefined || open === undefined) {
 			throw new OrphanToolResultError(event.callId.value, event.toolName);
 		}
-		const result = new ToolResultMessage(event.callId, event.toolName, event.output, event.failed);
+		const media = event.hasAttachments ? await this.attachments.read(stored.sessionId, event.attachments) : [];
+		const result = new ToolResultMessage(event.callId, event.toolName, event.output, event.failed, media);
 		blocks[at] = open.answeredBy(result, stored.revision);
 		pending.delete(event.callId.value);
 	}

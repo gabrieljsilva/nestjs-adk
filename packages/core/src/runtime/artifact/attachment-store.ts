@@ -1,7 +1,8 @@
 import type { ArtifactId } from "../../common/identity/artifact-id";
 import type { SessionId } from "../../common/identity/session-id";
-import type { ArtifactStorage } from "../../contracts/artifact-storage";
+import { ArtifactStorage } from "../../contracts/artifact-storage";
 import { ArtifactContent } from "../../domain/artifact/artifact-content";
+import type { ArtifactReference } from "../../domain/artifact/artifact-reference";
 import type { MediaPart } from "../../domain/model/media-part";
 import { AttachmentNotStoredError } from "./errors/attachment-not-stored.error";
 
@@ -20,6 +21,15 @@ import { AttachmentNotStoredError } from "./errors/attachment-not-stored.error";
 export class AttachmentStore {
 	public constructor(private readonly storage: ArtifactStorage) {}
 
+	/**
+	 * A store with nowhere to write, for a caller assembled without artifact storage.
+	 * It refuses rather than pretending to have written, which is the difference between a
+	 * missing dependency and a lost image.
+	 */
+	public static none(): AttachmentStore {
+		return new AttachmentStore(new UnwritableArtifactStorage());
+	}
+
 	public async store(sessionId: SessionId, attachments: readonly MediaPart[]): Promise<readonly ArtifactId[]> {
 		const ids: ArtifactId[] = [];
 		for (const part of attachments) ids.push(await this.putOne(sessionId, part));
@@ -33,5 +43,24 @@ export class AttachmentStore {
 		} catch (error) {
 			throw new AttachmentNotStoredError(part.mediaType, error);
 		}
+	}
+}
+
+/** Storage that takes nothing, which is the honest shape of having none. */
+class UnwritableArtifactStorage extends ArtifactStorage {
+	public async put(): Promise<ArtifactReference> {
+		throw new Error("This runtime was assembled without artifact storage.");
+	}
+
+	public async read(): Promise<ArtifactContent> {
+		throw new Error("This runtime was assembled without artifact storage.");
+	}
+
+	public async find(): Promise<ArtifactReference | undefined> {
+		return undefined;
+	}
+
+	public async deleteAll(): Promise<void> {
+		return undefined;
 	}
 }

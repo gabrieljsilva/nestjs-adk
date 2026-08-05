@@ -6,8 +6,8 @@ import type { EventHeader } from "../event-header";
 import { EventSchemaVersion } from "../event-schema-version";
 import { SessionEventCodec } from "../session-event-codec";
 
-/** The version that started recording where an offloaded result went. */
-const SCHEMA_VERSION = 2;
+/** The version that started recording the images a tool produced alongside its data. */
+const SCHEMA_VERSION = 3;
 
 /** Codec for the outcome of one tool call, kept paired with its request by callId. */
 export class ToolResultProducedCodec extends SessionEventCodec<ToolResultProduced> {
@@ -23,6 +23,7 @@ export class ToolResultProducedCodec extends SessionEventCodec<ToolResultProduce
 		};
 		// Absent rather than null: a result that fit in the context has no artifact at all.
 		if (event.artifactId !== undefined) payload.artifactId = event.artifactId.value;
+		if (event.hasAttachments) payload.attachments = event.attachments.map((id) => id.value);
 		return payload;
 	}
 
@@ -34,7 +35,21 @@ export class ToolResultProducedCodec extends SessionEventCodec<ToolResultProduce
 			this.readRecord(payload, "output"),
 			this.readFailedFlag(payload),
 			this.readArtifactId(payload),
+			this.readAttachments(payload),
 		);
+	}
+
+	/** Absent means a result nobody was meant to look at, which is every result before v3. */
+	private readAttachments(payload: Readonly<Record<string, unknown>>): readonly ArtifactId[] {
+		const value = payload.attachments;
+		if (value === undefined || value === null) return [];
+		if (!Array.isArray(value)) throw new InvalidEventPayloadError(this.type, "attachments", "expected an array.");
+		return value.map((entry) => {
+			if (typeof entry !== "string") {
+				throw new InvalidEventPayloadError(this.type, "attachments", "expected an array of ids.");
+			}
+			return ArtifactId.from(entry);
+		});
 	}
 
 	private readArtifactId(payload: Readonly<Record<string, unknown>>): ArtifactId | undefined {

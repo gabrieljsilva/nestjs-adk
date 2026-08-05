@@ -1,3 +1,4 @@
+import type { ArtifactId } from "../../common/identity/artifact-id";
 import type { ToolCallId } from "../../common/identity/tool-call-id";
 import type { ArtifactReference } from "../artifact/artifact-reference";
 
@@ -21,6 +22,8 @@ export class ToolOutcome {
 		public readonly contextOutput: string,
 		public readonly failed: boolean,
 		public readonly reference?: ArtifactReference,
+		/** Ids of what the tool produced to be looked at, stored the way an attachment is. */
+		public readonly attachments: readonly ArtifactId[] = [],
 	) {}
 
 	public static succeeded(
@@ -29,13 +32,18 @@ export class ToolOutcome {
 		output: Record<string, unknown>,
 		contextOutput: string,
 		reference?: ArtifactReference,
+		attachments: readonly ArtifactId[] = [],
 	): ToolOutcome {
-		return new ToolOutcome(callId, toolName, output, contextOutput, false, reference);
+		return new ToolOutcome(callId, toolName, output, contextOutput, false, reference, [...attachments]);
 	}
 
 	/** The reason travels as text because its reader is the model, not a log. */
 	public static failed(callId: ToolCallId, toolName: string, reason: string): ToolOutcome {
 		return new ToolOutcome(callId, toolName, { error: reason }, reason, true);
+	}
+
+	public get hasAttachments(): boolean {
+		return this.attachments.length > 0;
 	}
 
 	public get wasOffloaded(): boolean {
