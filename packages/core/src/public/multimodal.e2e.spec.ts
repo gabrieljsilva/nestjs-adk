@@ -6,12 +6,15 @@ import { InMemorySessionStorage } from "../adapters/storage/in-memory-session-st
 import type { ArtifactId } from "../common/identity/artifact-id";
 import { SessionId } from "../common/identity/session-id";
 import { SessionRevision } from "../common/revision/session-revision";
+import { ArtifactStorage } from "../contracts/artifact-storage";
 import { AgentDefinition } from "../domain/agent/agent-definition";
 import { AgentDescription } from "../domain/agent/agent-description";
 import { AgentExecutionPolicies } from "../domain/agent/agent-execution-policies";
 import { AgentName } from "../domain/agent/agent-name";
 import { DeclaredAgent } from "../domain/agent/declared-agent";
 import { SequentialFailoverPolicy } from "../domain/agent/sequential-failover-policy";
+import type { ArtifactContent } from "../domain/artifact/artifact-content";
+import type { ArtifactReference } from "../domain/artifact/artifact-reference";
 import { ToolResultProduced } from "../domain/event/catalog/tool-result-produced";
 import { UserMessageReceived } from "../domain/event/catalog/user-message-received";
 import { ModelCallFailedError } from "../domain/model/errors/model-call-failed.error";
@@ -35,6 +38,7 @@ import { ToolDefinition } from "../domain/tool/tool-definition";
 import { ToolEffect } from "../domain/tool/tool-effect";
 import { ToolHandler } from "../domain/tool/tool-handler";
 import { ToolOutput } from "../domain/tool/tool-output";
+import { AttachmentNotStoredError } from "../runtime/artifact/errors/attachment-not-stored.error";
 import { AgentRunCommand } from "../runtime/run/agent-run-command";
 import { FakeClock } from "../support/fake-clock";
 import { SequenceIdGenerator } from "../support/sequence-id-generator";
@@ -164,6 +168,31 @@ async function messagesOf(storage: InMemorySessionStorage, sessionId: SessionId)
 	return found;
 }
 
+/** Refuses every write, which is a bucket that is unreachable rather than one that is full. */
+class RefusingArtifactStorage extends ArtifactStorage {
+	public async put(): Promise<ArtifactReference> {
+		throw new Error("the bucket is unreachable");
+	}
+
+	public async read(): Promise<ArtifactContent> {
+		throw new Error("the bucket is unreachable");
+	}
+
+	public async find(): Promise<ArtifactReference | undefined> {
+		return undefined;
+	}
+
+	public async deleteAll(): Promise<void> {
+		return undefined;
+	}
+}
+
+async function eventCountOf(storage: InMemorySessionStorage, sessionId: SessionId): Promise<number> {
+	let count = 0;
+	for await (const _stored of storage.readEvents(sessionId, SessionRevision.initial())) count += 1;
+	return count;
+}
+
 async function resultsOf(storage: InMemorySessionStorage, sessionId: SessionId): Promise<ToolResultProduced[]> {
 	const found: ToolResultProduced[] = [];
 	for await (const stored of storage.readEvents(sessionId, SessionRevision.initial())) {
@@ -262,10 +291,12 @@ describe("a question with an image in it", () => {
 	it("degrades to a note when a reroute lands on a model that cannot see", async () => {
 		const blind = new SeeingModel("blind", false);
 		const policies = AgentExecutionPolicies.of(new SequentialFailoverPolicy([blind]));
+		const storage = new InMemorySessionStorage();
+		const artifacts = new InMemoryArtifactStorage(new SequenceIdGenerator("a"));
 		const runtime = await host.start(
 			[agentOf(new FailingModel(), policies)],
-			new InMemorySessionStorage(),
-			new InMemoryArtifactStorage(new SequenceIdGenerator("a")),
+			storage,
+			artifacts,
 			new FakeClock(),
 			new SequenceIdGenerator(),
 		);
@@ -276,6 +307,29 @@ describe("a question with an image in it", () => {
 		expect(blind.lastUserMessage?.hasMedia).toBe(false);
 		expect(blind.lastUserMessage?.text).toContain("cannot see images");
 		expect(blind.lastUserMessage?.text).toContain("what is this?");
+
+		// The session was not rewritten, so a model that can see would be shown the image again.
+		const [message] = await messagesOf(storage, result.sessionId);
+		const id = message?.attachments[0];
+		if (id === undefined) throw new Error("expected the attachment to still be recorded");
+		expect(await base64Of(artifacts, result.sessionId, id)).toBe(PIXEL);
+	});
+
+	it("refuses the question when the attachment cannot be written anywhere", async () => {
+		const storage = new InMemorySessionStorage();
+		const runtime = await host.start(
+			[agentOf(new SeeingModel())],
+			storage,
+			new RefusingArtifactStorage(),
+			new FakeClock(),
+			new SequenceIdGenerator(),
+		);
+
+		await expect(
+			runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.with("what is this?", [imageOf()]))),
+		).rejects.toBeInstanceOf(AttachmentNotStoredError);
+
+		expect(await eventCountOf(storage, SessionId.from("id-1"))).toBe(0);
 	});
 });
 
@@ -299,6 +353,8 @@ describe("a tool that answers with an image", () => {
 
 		expect(result instanceof ToolResultMessage ? result.hasMedia : true).toBe(false);
 		expect(result?.text).toContain("render_chart");
+		// The base64 must not have been stringified into the result the model reads.
+		expect(result?.text).not.toContain(PIXEL);
 		expect(carrier instanceof UserMessage && carrier.media[0]?.base64).toBe(PIXEL);
 	});
 

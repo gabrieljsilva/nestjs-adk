@@ -42,10 +42,6 @@ export class ToolOutcome {
 		return new ToolOutcome(callId, toolName, { error: reason }, reason, true);
 	}
 
-	public get hasAttachments(): boolean {
-		return this.attachments.length > 0;
-	}
-
 	public get wasOffloaded(): boolean {
 		return this.reference !== undefined;
 	}

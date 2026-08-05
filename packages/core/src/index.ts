@@ -191,6 +191,15 @@ export { TamperedArtifactReferenceError } from "./domain/artifact/errors/tampere
 export { InMemoryArtifactStorage } from "./adapters/storage/in-memory-artifact-storage";
 export { ArtifactOffloader } from "./runtime/artifact/artifact-offloader";
 export { ReadArtifactTool } from "./runtime/artifact/read-artifact-tool";
+export { AttachmentStore } from "./runtime/artifact/attachment-store";
+export { AttachmentReader } from "./runtime/artifact/attachment-reader";
+
+// embeddings
+export { Embedder } from "./contracts/embedder";
+export { EmbeddingVector } from "./domain/embedding/embedding-vector";
+export { Similarity } from "./domain/embedding/similarity";
+export { EmptyVectorError } from "./domain/embedding/errors/empty-vector.error";
+export { IncompatibleVectorsError } from "./domain/embedding/errors/incompatible-vectors.error";
 
 // observation
 export { Secret } from "./common/secrecy/secret";

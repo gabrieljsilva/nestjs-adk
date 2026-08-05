@@ -13,6 +13,11 @@
 			"import": "./dist/index.mjs",
 			"require": "./dist/index.cjs"
 		},
+		"./matchers": {
+			"types": "./dist/matchers.d.ts",
+			"import": "./dist/matchers.mjs",
+			"require": "./dist/matchers.cjs"
+		},
 		"./package.json": "./package.json"
 	},
 	"files": ["dist"],
