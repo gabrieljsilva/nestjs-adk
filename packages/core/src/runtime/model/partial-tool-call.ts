@@ -13,6 +13,7 @@ export class PartialToolCall {
 		public readonly argumentsText: string = "",
 		public readonly callId?: string,
 		public readonly toolName?: string,
+		public readonly signature?: string,
 	) {}
 
 	public with(delta: ToolCallDelta): PartialToolCall {
@@ -20,6 +21,7 @@ export class PartialToolCall {
 			`${this.argumentsText}${delta.argumentsDelta}`,
 			delta.callId ?? this.callId,
 			delta.toolName ?? this.toolName,
+			delta.signature ?? this.signature,
 		);
 	}
 

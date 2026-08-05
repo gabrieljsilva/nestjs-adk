@@ -114,7 +114,6 @@ describe("GoogleAdkEngine — model specs (F6)", () => {
 		await app.close();
 	});
 
-
 	it("new Gemini(): spec with config becomes a ConfiguredLlm over the native Gemini, config in generateContentConfig", async () => {
 		const resolved = await app.get(AgentRunner).resolve(GeminiAgent);
 		const llmAgent = await engine.toNative(resolved);
@@ -148,7 +147,6 @@ describe("GoogleAdkEngine — model specs (F6)", () => {
 			candidateCount: 2,
 		});
 	});
-
 
 	it("new OpenAiLike(): spec becomes an OpenAI-compatible model via the bridge", async () => {
 		const resolved = await app.get(AgentRunner).resolve(OpenAiAgent);

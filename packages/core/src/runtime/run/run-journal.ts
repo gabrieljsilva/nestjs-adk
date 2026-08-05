@@ -95,7 +95,7 @@ export class RunJournal {
 			),
 		);
 		for (const call of outcome.response.toolCalls) {
-			events.push(new ToolCallRequested(this.headerOf(started), call.callId, call.toolName, call.args));
+			events.push(new ToolCallRequested(this.headerOf(started), call.callId, call.toolName, call.args, call.signature));
 		}
 		if (isFinal) {
 			events.push(new AgentRunCompleted(this.headerOf(started), outcome.response.finishReason ?? DEFAULT_FINISH_REASON));

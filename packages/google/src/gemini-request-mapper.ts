@@ -33,9 +33,11 @@ export class GeminiRequestMapper {
 	private contentOf(message: ModelMessage): Content {
 		if (message instanceof AssistantMessage) return { role: "model", parts: [{ text: message.text }] };
 		if (message instanceof ToolCallMessage) {
+			// The signature rides next to the call, not inside it, which is where Gemini put it.
+			const call = { functionCall: { id: message.callId.value, name: message.toolName, args: message.args } };
 			return {
 				role: "model",
-				parts: [{ functionCall: { id: message.callId.value, name: message.toolName, args: message.args } }],
+				parts: [message.signature === undefined ? call : { ...call, thoughtSignature: message.signature }],
 			};
 		}
 		if (message instanceof ToolResultMessage) {

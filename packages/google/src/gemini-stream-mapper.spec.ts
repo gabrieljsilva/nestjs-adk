@@ -81,4 +81,31 @@ describe("GeminiStreamMapper", () => {
 		expect(mapper.toChunks(chunkOf({}))).toHaveLength(0);
 		expect(mapper.toChunks(chunkOf({ candidates: [] }))).toHaveLength(0);
 	});
+
+	it("carries the thought signature Gemini 3 attaches to a call", () => {
+		const chunks = new GeminiStreamMapper().toChunks({
+			candidates: [
+				{
+					content: {
+						parts: [
+							{
+								functionCall: { id: "c-1", name: "stock_of", args: { sku: "SKU-9" } },
+								thoughtSignature: "opaque-token",
+							},
+						],
+					},
+				},
+			],
+		});
+
+		expect(chunks[0]?.toolCall?.signature).toBe("opaque-token");
+	});
+
+	it("leaves the signature absent for a provider that never sent one", () => {
+		const chunks = new GeminiStreamMapper().toChunks({
+			candidates: [{ content: { parts: [{ functionCall: { id: "c-1", name: "stock_of", args: {} } }] } }],
+		});
+
+		expect(chunks[0]?.toolCall?.signature).toBeUndefined();
+	});
 });

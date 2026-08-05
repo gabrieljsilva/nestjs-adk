@@ -29,7 +29,7 @@ try {
 }
 
 const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENAI_API_KEY;
-const MODEL = "gemini-2.5-flash-lite";
+const MODEL = "gemini-3.5-flash-lite";
 const SUPPORT = AgentName.from("greeter");
 
 /**

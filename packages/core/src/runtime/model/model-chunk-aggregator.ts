@@ -65,6 +65,6 @@ export class ModelChunkAggregator {
 		if (name === undefined) throw new MalformedToolCallError(`call at index ${index}`, "the model never named the tool");
 		const args = partial.parseArguments();
 		if (args === undefined) throw new MalformedToolCallError(name, partial.argumentsText);
-		return new ToolCall(ToolCallId.from(partial.callId ?? `call-${index}`), name, args);
+		return new ToolCall(ToolCallId.from(partial.callId ?? `call-${index}`), name, args, partial.signature);
 	}
 }

@@ -353,5 +353,4 @@ describe("AdkModel — inside the real ADK loop", () => {
 		expect(model.requests[0]?.config?.raw?.responseSchema).toBeDefined();
 		expect(model.requests[0]?.config?.raw?.responseMimeType).toBe("application/json");
 	});
-
 });

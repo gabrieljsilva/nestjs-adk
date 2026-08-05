@@ -117,4 +117,24 @@ describe("GeminiRequestMapper", () => {
 		expect(mapped.config.temperature).toBe(0.2);
 		expect(mapped.config.thinkingConfig).toEqual({ thinkingBudget: 100 });
 	});
+
+	it("sends the thought signature back next to the call, which is where Gemini put it", () => {
+		const request = new ModelRequest([
+			new ToolCallMessage(ToolCallId.from("c-1"), "stock_of", { sku: "SKU-9" }, "opaque-token"),
+		]);
+
+		const contents = new GeminiRequestMapper().toRequest("gemini-3.5-flash-lite", request).contents;
+		const part = contents[0]?.parts?.[0];
+
+		expect(Reflect.get(Object(part), "thoughtSignature")).toBe("opaque-token");
+		expect(Reflect.get(Object(Reflect.get(Object(part), "functionCall")), "name")).toBe("stock_of");
+	});
+
+	it("omits the field entirely for a call that never carried one", () => {
+		const request = new ModelRequest([new ToolCallMessage(ToolCallId.from("c-1"), "stock_of", { sku: "SKU-9" })]);
+
+		const part = new GeminiRequestMapper().toRequest("gemini-3.5-flash-lite", request).contents[0]?.parts?.[0];
+
+		expect(Object.keys(Object(part))).toEqual(["functionCall"]);
+	});
 });

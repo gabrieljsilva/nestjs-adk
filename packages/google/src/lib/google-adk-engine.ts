@@ -304,7 +304,6 @@ export class GoogleAdkEngine extends AdkEngine {
 						apiKey,
 					});
 				}
-
 			}
 		}
 

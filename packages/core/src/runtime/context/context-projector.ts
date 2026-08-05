@@ -70,7 +70,7 @@ export class ContextProjector {
 				continue;
 			}
 			if (event instanceof ToolCallRequested) {
-				const call = new ToolCallMessage(event.callId, event.toolName, event.args);
+				const call = new ToolCallMessage(event.callId, event.toolName, event.args, event.signature);
 				pending.set(event.callId.value, blocks.length);
 				positions.set(event.callId.value, blocks.length);
 				blocks.push(ContextBlock.pendingCall(call, stored.revision));

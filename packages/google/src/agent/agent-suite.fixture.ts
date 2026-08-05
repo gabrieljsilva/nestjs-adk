@@ -17,17 +17,19 @@ import { GeminiModel } from "../gemini-model";
  * are deliberately tiny: the cheapest model, a handful of output tokens, one question with
  * one right answer. A suite that costs real money has to earn every call it makes.
  */
-export const CHEAP_MODEL = "gemini-2.5-flash-lite";
+export const CHEAP_MODEL = "gemini-3.5-flash-lite";
 
 /**
  * The model for anything that continues after a tool result.
  *
- * `flash-lite` reliably answers a plain question and reliably answers **nothing** on the
- * turn after a function response: an empty candidate, finish reason STOP, zero output
- * tokens. Measured, not guessed. The runtime is right to fail that run loudly, so a suite
- * that wants to test the tool loop has to ask a model that finishes it.
+ * It is the same model now, and the split is kept because it was earned. On the 2.5 line,
+ * `flash-lite` answered a plain question reliably and answered **nothing** on the turn
+ * after a function response, three out of three. Gemini 3 fixed that and introduced a
+ * different rule: a function call comes back with a `thoughtSignature` that has to be sent
+ * again, or the next turn is a 400. Two names keep it visible which capability each suite
+ * is actually leaning on.
  */
-export const TOOL_MODEL = "gemini-2.5-flash";
+export const TOOL_MODEL = "gemini-3.5-flash-lite";
 
 /** Enough for a sentence or one tool call, and not enough for the model to ramble. */
 const MAX_OUTPUT_TOKENS = 256;
