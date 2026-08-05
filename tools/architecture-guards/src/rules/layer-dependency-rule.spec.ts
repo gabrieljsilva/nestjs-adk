@@ -35,10 +35,22 @@ describe("LayerDependencyRule", () => {
 		expect(violations).toHaveLength(1);
 	});
 
-	it("rejects public reaching into adapters", () => {
+	// Public is the composition root: picking the defaults an application did not pick
+	// means reaching for an adapter, and forbidding that only moves the wiring somewhere
+	// that has less right to it.
+	it("allows public reaching into adapters, because that is where a default lives", () => {
 		const violations = check(
 			"packages/core/src/public/thing.ts",
 			'import { X } from "../adapters/nest/agent-metadata";\nexport class Thing {}\n',
+		);
+
+		expect(violations).toHaveLength(0);
+	});
+
+	it("still refuses an adapter reaching into the runtime", () => {
+		const violations = check(
+			"packages/core/src/adapters/nest/thing.ts",
+			'import { X } from "../../runtime/run/agent-runner";\nexport class Thing {}\n',
 		);
 
 		expect(violations).toHaveLength(1);

@@ -8,6 +8,8 @@ import { AgentTransferPolicy } from "../../domain/agent/agent-transfer-policy";
 import { DeclaredAgent } from "../../domain/agent/declared-agent";
 import type { LlmModel } from "../../domain/model/llm-model";
 import type { PromptInstructions } from "../../domain/prompt/prompt-instructions";
+import type { SkillDefinition } from "../../domain/skill/skill-definition";
+import type { ToolDefinition } from "../../domain/tool/tool-definition";
 import { AgentMetadata } from "./agent-metadata";
 import { DelegationMetadata } from "./delegation-metadata";
 import { TransferMetadata } from "./transfer-metadata";
@@ -23,6 +25,9 @@ export interface DiscoveredProvider {
 	readonly transfers?: unknown;
 	/** The `@DelegatesTo` payload, unvalidated for the same reason. */
 	readonly delegations?: unknown;
+	/** Already built: turning a decorated class into a tool belongs to whoever holds the container. */
+	readonly tools?: readonly ToolDefinition[];
+	readonly skills?: readonly SkillDefinition[];
 }
 
 /**
@@ -52,6 +57,8 @@ export class NestComponentDiscovery {
 				this.transferOf(provider),
 				this.delegationOf(provider),
 			),
+			provider.tools ?? [],
+			provider.skills ?? [],
 		);
 		return new DeclaredAgent(definition, provider.providerName);
 	}

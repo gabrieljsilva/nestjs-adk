@@ -49,8 +49,15 @@ export class Layer {
 		if (this.equals(other)) return true;
 		if (other.equals(Layer.COMMON)) return true;
 		switch (this.name) {
+			// The composition root: it is the one place allowed to pick the defaults an
+			// application did not, and every default it can pick lives in adapters.
 			case "public":
-				return other.equals(Layer.RUNTIME) || other.equals(Layer.DOMAIN) || other.equals(Layer.CONTRACTS);
+				return (
+					other.equals(Layer.RUNTIME) ||
+					other.equals(Layer.DOMAIN) ||
+					other.equals(Layer.CONTRACTS) ||
+					other.equals(Layer.ADAPTERS)
+				);
 			case "runtime":
 				return other.equals(Layer.DOMAIN) || other.equals(Layer.CONTRACTS);
 			case "adapters":
