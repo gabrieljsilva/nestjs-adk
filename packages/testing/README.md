@@ -88,7 +88,7 @@ expect([runA, runB]).toHaveStablePrefix(0.85);
 
 There is no default threshold on purpose: the instruction-to-history proportion changes too much between agents for a universal number to mean anything. When it fails, the message points at the segment and the exact text where the contexts parted ways, so you find the volatile value instead of guessing.
 
-**Cache Hit Ratio** talks to the real provider and measures what actually happened. Keep it in `*.agent.spec.ts`, which the `agents` project runs on demand and `npm test` leaves alone:
+**Cache Hit Ratio** talks to the real provider and measures what actually happened. Keep it in `*.ai.spec.ts`, which the `agents` project runs on demand and `npm test` leaves alone:
 
 ```ts
 const warmUp = await agent.ask({ message: "hi" });

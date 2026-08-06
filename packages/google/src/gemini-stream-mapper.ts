@@ -32,10 +32,19 @@ export interface GeminiResponseChunk {
  * read here, carried by the runtime, written back untouched.
  */
 export class GeminiStreamMapper {
-	public toChunks(raw: GeminiResponseChunk): ModelChunk[] {
+	/**
+	 * The index counts calls in the answer, not calls in the chunk.
+	 *
+	 * Two calls the model asked for together arrive in two chunks, and the executor keys a
+	 * call being assembled by its index: counting from zero on every chunk gives both the
+	 * same index, so the second call's arguments are appended to the first and the run dies
+	 * with `{"orderId":"A-1042"}{"plan":"gold"}`. The caller owns the count because only the
+	 * caller knows where one answer ends and the next begins.
+	 */
+	public toChunks(raw: GeminiResponseChunk, firstCallIndex = 0): ModelChunk[] {
 		const chunks: ModelChunk[] = [];
 		const candidate = raw.candidates?.[0];
-		let callIndex = 0;
+		let callIndex = firstCallIndex;
 
 		for (const part of candidate?.content?.parts ?? []) {
 			if (typeof part.text === "string" && part.text.length > 0) chunks.push(ModelChunk.text(part.text));

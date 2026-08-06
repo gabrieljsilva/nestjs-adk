@@ -1,5 +1,6 @@
 import { AgentName } from "../../domain/agent/agent-name";
 import type { RuntimeServices } from "../../runtime/composition/runtime-services";
+import type { StartedRuntime } from "../adk-runtime-host";
 import { AgentHandle } from "./agent-handle";
 
 /**
@@ -8,11 +9,15 @@ import { AgentHandle } from "./agent-handle";
  * A handle is created on demand and remembered, so two injections of the same agent are
  * the same object. Asking for an agent nobody declared fails here rather than at the first
  * question, with the catalog saying which names exist.
+ *
+ * It holds where the runtime lives rather than the runtime, because the container builds
+ * this registry before the runtime exists. Used too early it says so, which is the same
+ * answer an agent gives before the module has initialized.
  */
 export class AgentRegistry {
 	private readonly handles = new Map<string, AgentHandle>();
 
-	public constructor(private readonly runtime: RuntimeServices) {}
+	public constructor(private readonly host: StartedRuntime) {}
 
 	public get names(): readonly string[] {
 		return this.runtime.catalog.names;
@@ -26,5 +31,9 @@ export class AgentRegistry {
 		const handle = new AgentHandle(agent, this.runtime);
 		this.handles.set(agent.value, handle);
 		return handle;
+	}
+
+	private get runtime(): RuntimeServices {
+		return this.host.runtime;
 	}
 }

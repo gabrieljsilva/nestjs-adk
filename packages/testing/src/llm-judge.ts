@@ -16,10 +16,18 @@ const INSTRUCTIONS = [
 ].join(" ");
 
 /** The shape the judge is asked for, and the only thing it is allowed to answer with. */
+/**
+ * The shape the judge is asked for, in the strict subset every provider accepts.
+ *
+ * `additionalProperties: false` is not decoration: OpenAI refuses a structured output
+ * schema without it, with a 400 that names the field, and Gemini does not care either way.
+ * Measured against `gpt-5.6-luna`, which is what a judge running on OpenAI hits first.
+ */
 const SCHEMA = {
 	type: "object",
 	properties: { score: { type: "number" }, reason: { type: "string" } },
 	required: ["score", "reason"],
+	additionalProperties: false,
 };
 
 /**

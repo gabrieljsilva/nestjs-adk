@@ -1,5 +1,6 @@
 import {
 	ContextExceededFailure,
+	InvalidRequestFailure,
 	type ModelFailure,
 	RateLimitedFailure,
 	SafetyBlockedFailure,
@@ -30,7 +31,19 @@ export class GeminiFailureMapper {
 		if (status === 408 || status === 504 || this.isTimeout(error, message)) return new TimeoutFailure(message, error);
 		if (status !== undefined && status >= 500) return new UnavailableFailure(message, error);
 		if (status === undefined && this.isConnection(error, message)) return new UnavailableFailure(message, error);
+		if (this.isClientError(status)) return new InvalidRequestFailure(message, error);
 		return new UnknownFailure(message, error);
+	}
+
+	/**
+	 * A 4xx that is not one of the cases above is the request itself being refused.
+	 *
+	 * This is where a thinking budget the model does not take, a field it does not know
+	 * and an unsigned function call all land: `INVALID_ARGUMENT` and `PERMISSION_DENIED`
+	 * describe what was sent, and the next model in a chain is sent the same thing.
+	 */
+	private isClientError(status: number | undefined): boolean {
+		return status !== undefined && status >= 400 && status < 500;
 	}
 
 	private isSafety(error: unknown, message: string): boolean {

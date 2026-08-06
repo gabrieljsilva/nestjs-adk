@@ -24,6 +24,24 @@ describe("ModelsExhaustedError", () => {
 		expect(new ModelsExhaustedError("support", ["acme/a"], []).message).toContain("acme/a (unknown)");
 	});
 
+	/**
+	 * The words the provider used, because a kind alone is not something to act on.
+	 *
+	 * An `unknown` failure is the case that matters here: it is what a 400 nobody has
+	 * classified looks like, and the message is the only thing in it that says what to fix.
+	 */
+	it("quotes what the provider said, when there is anything to quote", () => {
+		const error = new ModelsExhaustedError("support", ["acme/a"], ["unknown"], "400: missing a thought_signature");
+
+		expect(error.message).toContain("The provider said: 400: missing a thought_signature");
+		expect(error.lastMessage).toBe("400: missing a thought_signature");
+	});
+
+	it("says nothing extra when the failure carried no message", () => {
+		expect(new ModelsExhaustedError("support", ["acme/a"], ["unknown"]).message).not.toContain("provider said");
+		expect(new ModelsExhaustedError("support", ["acme/a"], ["unknown"], "").message).not.toContain("provider said");
+	});
+
 	it("is an adk error", () => {
 		expect(new ModelsExhaustedError("support", ["a"], ["unknown"])).toBeInstanceOf(AdkError);
 	});

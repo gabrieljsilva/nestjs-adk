@@ -43,7 +43,17 @@ describe("GeminiFailureMapper", () => {
 
 		expect(overflow).toBeInstanceOf(ContextExceededFailure);
 		expect(overflow.isTransient).toBe(false);
-		expect(other).toBeInstanceOf(UnknownFailure);
+		expect(other.isInvalidRequest).toBe(true);
+	});
+
+	/**
+	 * The one the suites hit: a thinking budget the 3.5 line does not take is a 400
+	 * `INVALID_ARGUMENT`, and so is an unsigned function call. Both describe what was
+	 * sent, which is what the next model in a chain would be sent again.
+	 */
+	it("reads a refused argument and a rejected key as the request being refused", () => {
+		expect(mapper.toFailure(new ApiError("INVALID_ARGUMENT: thinking_budget", 400)).kind).toBe("invalid-request");
+		expect(mapper.toFailure(new ApiError("PERMISSION_DENIED", 403)).isInvalidRequest).toBe(true);
 	});
 
 	it("reads a safety block from the finish reason", () => {
@@ -77,10 +87,11 @@ describe("GeminiFailureMapper", () => {
 	});
 
 	it("leaves an unrecognised error unknown, and unknown is not transient", () => {
-		const failure = mapper.toFailure(new ApiError("something else", 418));
+		const failure = mapper.toFailure(new ApiError("something else"));
 
 		expect(failure).toBeInstanceOf(UnknownFailure);
 		expect(failure.isTransient).toBe(false);
+		expect(failure.isInvalidRequest).toBe(false);
 	});
 
 	it("keeps the provider message and the original error", () => {

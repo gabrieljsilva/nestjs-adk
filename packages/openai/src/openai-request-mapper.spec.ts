@@ -11,6 +11,7 @@ import {
 } from "@nestjs-adk/core";
 import { describe, expect, it } from "vitest";
 import { InvalidJsonSchemaError } from "./errors/invalid-json-schema.error";
+import { NonStrictJsonSchemaError } from "./errors/non-strict-json-schema.error";
 import { OpenAiRequestMapper } from "./openai-request-mapper";
 
 const mapper = new OpenAiRequestMapper();
@@ -120,6 +121,32 @@ describe("OpenAiRequestMapper", () => {
 		const request = new ModelRequest([], [new ToolDeclaration("refund", "refunds an order", [])]);
 
 		expect(() => mapper.toChatRequest("gpt-5", request)).toThrow(InvalidJsonSchemaError);
+	});
+
+	it("asks the provider to enforce a structured output schema, not to suggest it", () => {
+		const schema = { type: "object", properties: { score: { type: "number" } }, required: ["score"] };
+		const request = new ModelRequest([], [], undefined, { ...schema, additionalProperties: false });
+
+		expect(mapper.toChatRequest("gpt-5", request).parameters.response_format).toEqual({
+			type: "json_schema",
+			json_schema: { name: "response", schema: { ...schema, additionalProperties: false }, strict: true },
+		});
+	});
+
+	/**
+	 * Strict mode is claimed on every request, so the schema has to be able to keep the
+	 * claim. Sent as it is, this one comes back as a 400 naming the field it lacks.
+	 */
+	it("refuses an output schema strict mode would reject, instead of letting the provider say so", () => {
+		const request = new ModelRequest([], [], undefined, { type: "object", properties: { score: {} } });
+
+		expect(() => mapper.toChatRequest("gpt-5", request)).toThrow(NonStrictJsonSchemaError);
+	});
+
+	it("refuses an output schema that is not an object at all", () => {
+		expect(() => mapper.toChatRequest("gpt-5", new ModelRequest([], [], undefined, "not a schema"))).toThrow(
+			InvalidJsonSchemaError,
+		);
 	});
 
 	it("maps the generation options to the names the API uses", () => {

@@ -14,6 +14,7 @@ import type {
 import { InvalidJsonSchemaError } from "./errors/invalid-json-schema.error";
 import { OpenAiChatRequest } from "./openai-chat-request";
 import type { OpenAiOptions } from "./openai-options";
+import { StrictSchemaValidator } from "./strict-schema-validator";
 
 /**
  * Turns a neutral request into a Chat Completions body.
@@ -26,6 +27,8 @@ import type { OpenAiOptions } from "./openai-options";
  * the model reads back exactly the exchange the journal recorded.
  */
 export class OpenAiRequestMapper {
+	public constructor(private readonly strict: StrictSchemaValidator = new StrictSchemaValidator()) {}
+
 	public toChatRequest(model: string, request: ModelRequest, options: OpenAiOptions = {}): OpenAiChatRequest {
 		return new OpenAiChatRequest(
 			model,
@@ -35,13 +38,18 @@ export class OpenAiRequestMapper {
 		);
 	}
 
-	/** Structured output travels as a json schema response format, which is what makes the provider enforce it. */
+	/**
+	 * Structured output travels as a json schema response format, which is what makes the
+	 * provider enforce it. `strict` is what makes enforcing mean the schema rather than
+	 * only valid JSON, and `StrictSchemaValidator` checks the claim before it is made.
+	 */
 	private responseFormatOf(request: ModelRequest): Record<string, unknown> {
 		const schema = request.outputSchema;
 		if (schema === undefined) return {};
 		if (typeof schema !== "object" || schema === null || Array.isArray(schema)) {
 			throw new InvalidJsonSchemaError("the requested output", this.typeNameOf(schema));
 		}
+		this.strict.validate(schema);
 		return { response_format: { type: "json_schema", json_schema: { name: "response", schema, strict: true } } };
 	}
 

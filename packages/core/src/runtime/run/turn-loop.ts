@@ -142,7 +142,7 @@ export class TurnLoop extends DelegatedTurnLoop {
 				scope.catalog.declarations(),
 				undefined,
 				scope.skills.instructions(scope.definition.instructions),
-				scope.definition.compaction,
+				scope.compaction,
 				measured?.usage,
 				measured?.characters,
 				scope.run.id,

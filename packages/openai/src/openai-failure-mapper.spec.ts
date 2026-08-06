@@ -64,11 +64,32 @@ describe("OpenAiFailureMapper", () => {
 		expect(mapper.toFailure(new ApiError("refused", undefined, "ECONNREFUSED"))).toBeInstanceOf(UnavailableFailure);
 	});
 
+	/**
+	 * The one the suites hit: `gpt-5.6-luna` refuses function tools while a reasoning
+	 * effort is set, and says so in a 400. Read as unknown it looked like a bad day at
+	 * the provider, and a failover chain sent the same refused request to every model.
+	 */
+	it("reads a 4xx that is none of the above as the request being refused", () => {
+		const raw = new ApiError("Function tools with reasoning_effort are not supported", 400, "invalid_request_error");
+
+		const failure = mapper.toFailure(raw);
+
+		expect(failure.isInvalidRequest).toBe(true);
+		expect(failure.kind).toBe("invalid-request");
+		expect(failure.isTransient).toBe(false);
+	});
+
+	it("reads a rejected key and a model that does not exist the same way", () => {
+		expect(mapper.toFailure(new ApiError("incorrect api key", 401)).isInvalidRequest).toBe(true);
+		expect(mapper.toFailure(new ApiError("no such model", 404)).isInvalidRequest).toBe(true);
+	});
+
 	it("leaves an unrecognised error unknown, and unknown is not transient", () => {
-		const failure = mapper.toFailure(new ApiError("something else", 400, "invalid_request_error"));
+		const failure = mapper.toFailure(new ApiError("something else", undefined, "eperm"));
 
 		expect(failure).toBeInstanceOf(UnknownFailure);
 		expect(failure.isTransient).toBe(false);
+		expect(failure.isInvalidRequest).toBe(false);
 	});
 
 	it("keeps the provider message and the original error", () => {

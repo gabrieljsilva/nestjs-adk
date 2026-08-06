@@ -1,3 +1,6 @@
+import type { AgentFailoverPolicy } from "../../domain/agent/agent-failover-policy";
+import { SequentialFailoverPolicy } from "../../domain/agent/sequential-failover-policy";
+import type { AdkCompactionPolicy } from "../../domain/context/adk-compaction-policy";
 import type { LlmModel } from "../../domain/model/llm-model";
 import { PromptInstructions } from "../../domain/prompt/prompt-instructions";
 import type { SkillDefinition } from "../../domain/skill/skill-definition";
@@ -57,6 +60,8 @@ export class NestAgentScanner {
 			providerName: provider.name,
 			metadata,
 			model: this.modelOf(metadata, defaultModel),
+			failover: this.failoverOf(metadata),
+			compaction: this.compactionOf(metadata),
 			instructions: this.instructionsOf(metadata),
 			transfers: Reflect.getMetadata(TRANSFERS_TO_METADATA, provider.type),
 			delegations: Reflect.getMetadata(DELEGATES_TO_METADATA, provider.type),
@@ -73,6 +78,30 @@ export class NestAgentScanner {
 	/** An agent may hand the module a model instance; anything else falls back to the default. */
 	private isModel(value: unknown): value is LlmModel {
 		return typeof value === "object" && value !== null && typeof Reflect.get(value, "generate") === "function";
+	}
+
+	/** A list of models becomes a sequential walk; a policy stays itself; anything else is none. */
+	private failoverOf(metadata: unknown): AgentFailoverPolicy | undefined {
+		const declared = typeof metadata === "object" && metadata !== null ? Reflect.get(metadata, "failover") : undefined;
+		if (Array.isArray(declared)) {
+			const models = declared.filter((entry): entry is LlmModel => this.isModel(entry));
+			return models.length > 0 && models.length === declared.length ? new SequentialFailoverPolicy(models) : undefined;
+		}
+		return this.isFailoverPolicy(declared) ? declared : undefined;
+	}
+
+	private isFailoverPolicy(value: unknown): value is AgentFailoverPolicy {
+		return typeof value === "object" && value !== null && typeof Reflect.get(value, "next") === "function";
+	}
+
+	/** Absent means the module's policy answers for this agent, which may itself be absent. */
+	private compactionOf(metadata: unknown): AdkCompactionPolicy | undefined {
+		const declared = typeof metadata === "object" && metadata !== null ? Reflect.get(metadata, "compaction") : undefined;
+		return this.isCompaction(declared) ? declared : undefined;
+	}
+
+	private isCompaction(value: unknown): value is AdkCompactionPolicy {
+		return typeof value === "object" && value !== null && typeof Reflect.get(value, "decide") === "function";
 	}
 
 	private instructionsOf(metadata: unknown): PromptInstructions | undefined {

@@ -27,28 +27,83 @@ export class GeminiRequestMapper {
 		return new GeminiRequest(model, this.contentsOf(request), this.configOf(request, options));
 	}
 
+	/**
+	 * The journal keeps one message per call; Gemini wants one turn per answer.
+	 *
+	 * Gemini 3 signs an answer on its first function call part only, and then refuses any
+	 * later turn whose calls are not signed. Calls the model asked for in one answer have to
+	 * go back as parts of one model turn, or the unsigned ones arrive alone and the request
+	 * is a 400 naming the tool.
+	 *
+	 * The context arrives paired, call then result then call then result, because a call and
+	 * its answer are one unit for everything upstream of here. So an unsigned call is put
+	 * back where it came from: it can only be a continuation of the last signed answer,
+	 * since a turn that opens an answer always carries a signature. Its result joins the
+	 * results already grouped, which is the shape the provider documents for parallel calls.
+	 */
 	private contentsOf(request: ModelRequest): Content[] {
-		return request.messages.map((message) => this.contentOf(message));
+		const contents: Content[] = [];
+		let lastAnswer: number | undefined;
+		for (const message of request.messages) {
+			const at = this.foldInto(contents, message, lastAnswer);
+			if (at === undefined) {
+				contents.push(this.contentOf(message));
+				lastAnswer = message instanceof ToolCallMessage ? contents.length - 1 : lastAnswer;
+			}
+		}
+		return contents;
+	}
+
+	/** Where the message was folded, or nothing when it opens a turn of its own. */
+	private foldInto(contents: Content[], message: ModelMessage, lastAnswer?: number): number | undefined {
+		if (message instanceof ToolCallMessage) return this.foldCall(contents, message, lastAnswer);
+		if (message instanceof ToolResultMessage) return this.foldResult(contents, message);
+		return undefined;
+	}
+
+	private foldCall(contents: Content[], message: ToolCallMessage, lastAnswer?: number): number | undefined {
+		const answer = lastAnswer === undefined ? undefined : contents[lastAnswer];
+		if (message.signature !== undefined || answer === undefined || !this.isSignedAnswer(answer)) return undefined;
+		contents[lastAnswer ?? 0] = { role: "model", parts: [...(answer.parts ?? []), this.callPartOf(message)] };
+		return lastAnswer;
+	}
+
+	private foldResult(contents: Content[], message: ToolResultMessage): number | undefined {
+		const at = contents.length - 1;
+		const previous = contents[at];
+		if (previous === undefined || !this.carries(previous, "functionResponse")) return undefined;
+		contents[at] = { role: "user", parts: [...(previous.parts ?? []), this.resultPartOf(message)] };
+		return at;
+	}
+
+	/** Only an answer the provider signed can adopt a call that carries no signature. */
+	private isSignedAnswer(content: Content): boolean {
+		const first = content.parts?.[0];
+		return this.carries(content, "functionCall") && Reflect.get(Object(first), "thoughtSignature") !== undefined;
+	}
+
+	/** A turn is foldable when everything already in it is the same kind of part. */
+	private carries(content: Content, field: "functionCall" | "functionResponse"): boolean {
+		const parts = content.parts ?? [];
+		return parts.length > 0 && parts.every((part) => Reflect.get(part, field) !== undefined);
 	}
 
 	private contentOf(message: ModelMessage): Content {
 		if (message instanceof AssistantMessage) return { role: "model", parts: [{ text: message.text }] };
-		if (message instanceof ToolCallMessage) {
-			// The signature rides next to the call, not inside it, which is where Gemini put it.
-			const call = { functionCall: { id: message.callId.value, name: message.toolName, args: message.args } };
-			return {
-				role: "model",
-				parts: [message.signature === undefined ? call : { ...call, thoughtSignature: message.signature }],
-			};
-		}
-		if (message instanceof ToolResultMessage) {
-			return {
-				role: "user",
-				parts: [{ functionResponse: { id: message.callId.value, name: message.toolName, response: message.output } }],
-			};
-		}
+		if (message instanceof ToolCallMessage) return { role: "model", parts: [this.callPartOf(message)] };
+		if (message instanceof ToolResultMessage) return { role: "user", parts: [this.resultPartOf(message)] };
 		if (message instanceof UserMessage) return { role: "user", parts: this.userPartsOf(message) };
 		return { role: "user", parts: this.textPartsOf(message.text) };
+	}
+
+	private callPartOf(message: ToolCallMessage): Part {
+		// The signature rides next to the call, not inside it, which is where Gemini put it.
+		const call = { functionCall: { id: message.callId.value, name: message.toolName, args: message.args } };
+		return message.signature === undefined ? call : { ...call, thoughtSignature: message.signature };
+	}
+
+	private resultPartOf(message: ToolResultMessage): Part {
+		return { functionResponse: { id: message.callId.value, name: message.toolName, response: message.output } };
 	}
 
 	/**

@@ -1,6 +1,8 @@
 import "reflect-metadata";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { SequentialFailoverPolicy } from "../../domain/agent/sequential-failover-policy";
+import { TokenThresholdCompactionPolicy } from "../../domain/context/token-threshold-compaction-policy";
 import { ScriptedModel } from "../../support/run/scripted-model.fixture";
 import {
 	AGENT_METADATA,
@@ -111,9 +113,86 @@ describe("NestAgentScanner", () => {
 		expect(agent?.model).toBe(own);
 	});
 
+	it("takes the compaction policy an agent declared for itself", () => {
+		const own = new TokenThresholdCompactionPolicy(1000, 400, 2);
+		class CompactingAgent {}
+		Reflect.defineMetadata(AGENT_METADATA, { name: "c", description: "d", compaction: own }, CompactingAgent);
+
+		const [agent] = new NestAgentScanner().scan(
+			[new ScannedProvider("CompactingAgent", CompactingAgent, new CompactingAgent())],
+			MODEL,
+		);
+
+		expect(agent?.compaction).toBe(own);
+	});
+
+	/** Absent leaves the agent on the module's policy, which the runtime resolves later. */
+	it("declares no compaction for an agent that asked for none", () => {
+		const [agent] = new NestAgentScanner().scan(scanned(), MODEL);
+
+		expect(agent?.compaction).toBeUndefined();
+	});
+
+	it("ignores a compaction that cannot decide anything", () => {
+		class BrokenAgent {}
+		Reflect.defineMetadata(AGENT_METADATA, { name: "b", description: "d", compaction: { limit: 10 } }, BrokenAgent);
+
+		const [agent] = new NestAgentScanner().scan(
+			[new ScannedProvider("BrokenAgent", BrokenAgent, new BrokenAgent())],
+			MODEL,
+		);
+
+		expect(agent?.compaction).toBeUndefined();
+	});
+
 	it("turns the declared prompt into instructions", () => {
 		const [agent] = new NestAgentScanner().scan(scanned(), MODEL);
 
 		expect(agent?.instructions?.text).toBe("Be helpful.");
+	});
+
+	it("turns a declared list of models into a sequential failover walk", () => {
+		class FailoverAgent {}
+		Reflect.defineMetadata(
+			AGENT_METADATA,
+			{ name: "f", description: "d", failover: [new ScriptedModel("backup")] },
+			FailoverAgent,
+		);
+
+		const [agent] = new NestAgentScanner().scan(
+			[new ScannedProvider("FailoverAgent", FailoverAgent, new FailoverAgent())],
+			MODEL,
+		);
+
+		expect(agent?.failover).toBeInstanceOf(SequentialFailoverPolicy);
+	});
+
+	it("keeps a declared failover policy as the policy it is", () => {
+		const policy = new SequentialFailoverPolicy([new ScriptedModel("backup")]);
+		class PolicyAgent {}
+		Reflect.defineMetadata(AGENT_METADATA, { name: "p", description: "d", failover: policy }, PolicyAgent);
+
+		const [agent] = new NestAgentScanner().scan(
+			[new ScannedProvider("PolicyAgent", PolicyAgent, new PolicyAgent())],
+			MODEL,
+		);
+
+		expect(agent?.failover).toBe(policy);
+	});
+
+	it("declares no failover when the list carries something that is not a model", () => {
+		class BrokenFailoverAgent {}
+		Reflect.defineMetadata(
+			AGENT_METADATA,
+			{ name: "bf", description: "d", failover: [{ notAModel: true }] },
+			BrokenFailoverAgent,
+		);
+
+		const [agent] = new NestAgentScanner().scan(
+			[new ScannedProvider("BrokenFailoverAgent", BrokenFailoverAgent, new BrokenFailoverAgent())],
+			MODEL,
+		);
+
+		expect(agent?.failover).toBeUndefined();
 	});
 });

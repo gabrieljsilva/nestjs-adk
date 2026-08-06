@@ -1,6 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import type { GeminiOptions } from "./gemini-options";
-import type { GenAiClient } from "./genai-client";
+import type { GenAiClient, GenAiEmbeddingClient } from "./genai-client";
 
 /**
  * Builds the official client from the options, and is the only place that imports the SDK.
@@ -11,6 +11,15 @@ import type { GenAiClient } from "./genai-client";
  */
 export class GenAiClientFactory {
 	public create(options: GeminiOptions): GenAiClient {
+		return this.client(options);
+	}
+
+	/** The same client, narrowed to the single call an embedder makes. */
+	public embeddings(options: GeminiOptions): GenAiEmbeddingClient {
+		return this.client(options);
+	}
+
+	private client(options: GeminiOptions): GoogleGenAI {
 		if (options.vertexai === true) {
 			return new GoogleGenAI({ vertexai: true, project: options.project, location: options.location });
 		}

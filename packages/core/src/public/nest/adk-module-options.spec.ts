@@ -19,4 +19,24 @@ describe("AdkModuleOptions", () => {
 
 		expect(options.storage).toBe(storage);
 	});
+
+	it("builds from a literal without restating the optional ports", () => {
+		const model = new ScriptedModel("primary");
+		const options = AdkModuleOptions.from({ defaultModel: model });
+
+		expect(options.defaultModel).toBe(model);
+		expect(options.storage).toBeUndefined();
+	});
+
+	it("patches only the named fields and keeps every other one", () => {
+		const storage = new InMemorySessionStorage();
+		const declared = AdkModuleOptions.from({ defaultModel: new ScriptedModel("primary"), storage });
+		const replacement = new ScriptedModel("replacement");
+
+		const patched = declared.with({ defaultModel: replacement });
+
+		expect(patched.defaultModel).toBe(replacement);
+		expect(patched.storage).toBe(storage);
+		expect(declared.defaultModel).not.toBe(replacement);
+	});
 });

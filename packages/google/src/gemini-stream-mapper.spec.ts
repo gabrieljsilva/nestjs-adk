@@ -56,6 +56,16 @@ describe("GeminiStreamMapper", () => {
 		expect(chunks.map((chunk) => chunk.toolCall?.index)).toEqual([0, 1]);
 	});
 
+	/** The caller counts, because a chunk is not an answer and only the caller sees both. */
+	it("carries on from the index it was given, for a call that arrived in a later chunk", () => {
+		const chunks = mapper.toChunks(
+			chunkOf({ candidates: [{ content: { parts: [{ functionCall: { name: "second" } }] } }] }),
+			1,
+		);
+
+		expect(chunks.map((chunk) => chunk.toolCall?.index)).toEqual([1]);
+	});
+
 	it("turns usage metadata into a usage chunk, keeping the cached share apart", () => {
 		const chunks = mapper.toChunks(
 			chunkOf({

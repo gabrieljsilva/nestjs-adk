@@ -1,5 +1,9 @@
-import { ModelCapability, ModelRequest, UserMessage } from "@nestjs-adk/core";
+import { ModelCallFailedError, ModelCapability, ModelRequest, RateLimitedFailure, UserMessage } from "@nestjs-adk/core";
 import { describe, expect, it } from "vitest";
+import { ScriptDeviationError } from "./errors/script-deviation.error";
+import { ScriptExhaustedError } from "./errors/script-exhausted.error";
+import { ScriptMisuseError } from "./errors/script-misuse.error";
+import { ScriptNotConsumedError } from "./errors/script-not-consumed.error";
 import { ScriptedModel } from "./scripted-model";
 
 async function collect(model: ScriptedModel, request = new ModelRequest([new UserMessage("hi")])) {
@@ -46,9 +50,83 @@ describe("ScriptedModel", () => {
 		expect(model.pending).toBe(2);
 	});
 
+	/** A context has no size until a provider reports one, so a script has to say it. */
+	it("reports the prompt size a test asked for, on text and on a tool call alike", async () => {
+		const model = new ScriptedModel().reportsPromptTokens(9_000).mockText("hi").mockToolCall("find_order");
+
+		const answered = await collect(model);
+		const called = await collect(model);
+
+		expect(answered.find((chunk) => chunk.usage !== undefined)?.usage?.inputTokens).toBe(9_000);
+		expect(called.find((chunk) => chunk.usage !== undefined)?.usage?.inputTokens).toBe(9_000);
+	});
+
+	it("reports a small prompt until somebody says otherwise", async () => {
+		const model = new ScriptedModel().mockText("hi");
+
+		const chunks = await collect(model);
+
+		expect(chunks.find((chunk) => chunk.usage !== undefined)?.usage?.inputTokens).toBe(10);
+	});
+
 	it("declares tools and structured output, so a run never refuses it for a capability", () => {
 		const capabilities = new ScriptedModel().descriptor().capabilities;
 
 		expect(capabilities.supports(ModelCapability.TOOLS)).toBe(true);
+	});
+
+	it("fails a strict script that runs out, naming itself and how much was played", async () => {
+		const model = new ScriptedModel("billing").strict().mockText("only turn");
+
+		await collect(model);
+
+		await expect(collect(model)).rejects.toThrow(ScriptExhaustedError);
+		await expect(collect(model)).rejects.toThrow(/billing/);
+	});
+
+	it("asks for two tools in one turn, each call with its own index and id", async () => {
+		const model = new ScriptedModel().mockToolCalls([
+			{ tool: "find_order", args: { id: "1" } },
+			{ tool: "refund_limit", args: { plan: "gold" } },
+		]);
+
+		const calls = (await collect(model)).flatMap((chunk) => (chunk.toolCall === undefined ? [] : [chunk.toolCall]));
+
+		expect(calls.map((call) => call.toolName)).toEqual(["find_order", "refund_limit"]);
+		expect(new Set(calls.map((call) => call.callId)).size).toBe(2);
+	});
+
+	it("throws the scripted failure before any chunk, the way an adapter throws a classified one", async () => {
+		const model = new ScriptedModel().mockFailure(new RateLimitedFailure("scripted 429"));
+
+		await expect(collect(model)).rejects.toThrow(ModelCallFailedError);
+	});
+
+	it("stops the run at the turn whose guard the request does not satisfy", async () => {
+		const model = new ScriptedModel("sales").mockText("hi").expecting("A-1042");
+
+		await expect(collect(model, new ModelRequest([new UserMessage("hello")]))).rejects.toThrow(ScriptDeviationError);
+	});
+
+	it("plays a guarded turn when the request satisfies the guard", async () => {
+		const model = new ScriptedModel().mockText("hi").expecting("A-1042");
+
+		const chunks = await collect(model, new ModelRequest([new UserMessage("where is A-1042?")]));
+
+		expect(chunks.map((chunk) => chunk.textDelta).join("")).toBe("hi");
+	});
+
+	it("refuses to guard a script with no turn queued", () => {
+		expect(() => new ScriptedModel().expecting("anything")).toThrow(ScriptMisuseError);
+	});
+
+	it("verifies that everything queued was played", async () => {
+		const model = new ScriptedModel("warranty").mockText("a").mockText("b");
+
+		await collect(model);
+
+		expect(() => model.verify()).toThrow(ScriptNotConsumedError);
+		await collect(model);
+		expect(() => model.verify()).not.toThrow();
 	});
 });

@@ -78,6 +78,7 @@ export class ModelRunner {
 			command.agent.value,
 			attempted.map((model) => model.descriptor().identity.toString()),
 			failures.map((each) => each.kind),
+			failures[failures.length - 1]?.message,
 		);
 	}
 

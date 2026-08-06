@@ -59,12 +59,22 @@ This is a monorepo managed with npm workspaces and Turborepo.
 
 ```bash
 npm install
-npm run test             # unit + integration (no real AI)
-npm run test:agents      # real AI smoke tests (needs GEMINI_API_KEY)
 npm run typecheck
 npm run lint
 npm run build
 ```
+
+Tests are split by what they cover and what they cost. The library and the application that exercises it are separate projects, so a red suite says which of the two broke:
+
+```bash
+npm run test                    # the library: unit + integration, no real AI
+npm run test:playground         # the example application: unit + end to end, no real AI
+npm run test:playground:agents  # the example application against a real provider (needs GEMINI_API_KEY)
+```
+
+A suffix decides the level: `*.e2e.spec.ts` boots the whole thing, `*.ai.spec.ts` spends money on a real provider, everything else is a unit test. Add a path to run part of a project, as in `npm run test:playground -- apps/playground/src/catalog`.
+
+The library has no provider suites of its own. What it does against a real model is proved through the example application, where the thing under test is the API an application actually writes.
 
 Versioning and releases use [changesets](https://github.com/changesets/changesets). Every merge to `main` with a pending changeset opens a version PR; merging that PR publishes to npm automatically.
 

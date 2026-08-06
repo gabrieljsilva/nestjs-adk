@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { SessionId } from "../../common/identity/session-id";
 import { Instant } from "../../common/time/instant";
+import { AgentDefinition } from "../../domain/agent/agent-definition";
+import { AgentDescription } from "../../domain/agent/agent-description";
+import { AgentExecutionPolicies } from "../../domain/agent/agent-execution-policies";
+import { AdkCompactionPolicy } from "../../domain/context/adk-compaction-policy";
+import { CompactionDecision } from "../../domain/context/compaction-decision";
 import { RunLimits } from "../../domain/session/run-limits";
 import { SkillDefinition } from "../../domain/skill/skill-definition";
 import { ParsedArguments } from "../../domain/tool/parsed-arguments";
@@ -52,6 +57,27 @@ function startedRun(): StartedRun {
 }
 
 const readArtifact = toolOf("read_artifact");
+
+/** Told apart by identity, because which policy answered is the whole assertion. */
+class NamedCompaction extends AdkCompactionPolicy {
+	public constructor(public readonly label: string) {
+		super();
+	}
+
+	public decide(): CompactionDecision {
+		return CompactionDecision.skip();
+	}
+}
+
+function compacting(policy: AdkCompactionPolicy): AgentDefinition {
+	return AgentDefinition.of(
+		NativeStackFixture.AGENT,
+		AgentDescription.from("Support agent", NativeStackFixture.AGENT.value),
+		model,
+		undefined,
+		AgentExecutionPolicies.of(undefined, policy),
+	);
+}
 
 describe("RunScopeFactory", () => {
 	it("offers the agent tools together with the ones the runtime always brings", () => {
@@ -105,5 +131,52 @@ describe("RunScopeFactory", () => {
 		const scope = factory.create(NativeStackFixture.definitionOf(model), model, startedRun());
 
 		expect(() => scope.breaker.recordFailure("lookup_order", "boom")).toThrow();
+	});
+
+	/**
+	 * Compaction replaces rather than narrows, which is the one rule it does not share
+	 * with limits: two policies deciding how much of a context to keep would be one of
+	 * them shortening what the other just decided to hold on to.
+	 */
+	describe("which compaction policy a run ends up under", () => {
+		const moduleWide = new NamedCompaction("module");
+		const declared = new NamedCompaction("agent");
+
+		it("hands the module policy to an agent that declared none", () => {
+			const factory = new RunScopeFactory([], RunLimits.none(), moduleWide);
+
+			const scope = factory.create(NativeStackFixture.definitionOf(model), model, startedRun());
+
+			expect(scope.compaction).toBe(moduleWide);
+		});
+
+		it("lets the agent replace it", () => {
+			const factory = new RunScopeFactory([], RunLimits.none(), moduleWide);
+
+			const scope = factory.create(compacting(declared), model, startedRun());
+
+			expect(scope.compaction).toBe(declared);
+		});
+
+		it("compacts nothing when neither declared a policy", () => {
+			const scope = new RunScopeFactory().create(NativeStackFixture.definitionOf(model), model, startedRun());
+
+			expect(scope.compaction).toBeUndefined();
+		});
+
+		/** A handover runs under the rules of whoever received the session, not of whoever sent it. */
+		it("resolves again for the agent that received a handover", () => {
+			const factory = new RunScopeFactory([], RunLimits.none(), moduleWide);
+			const scope = factory.create(compacting(declared), model, startedRun());
+
+			expect(factory.switched(scope, NativeStackFixture.definitionOf(model), model).compaction).toBe(moduleWide);
+		});
+
+		it("resolves from scratch for a delegated child", () => {
+			const factory = new RunScopeFactory([], RunLimits.none(), moduleWide);
+			const parent = factory.create(NativeStackFixture.definitionOf(model), model, startedRun());
+
+			expect(factory.delegated(parent, startedRun(), compacting(declared), model).compaction).toBe(declared);
+		});
 	});
 });

@@ -10,13 +10,24 @@ import type { RuntimeServices } from "../runtime/composition/runtime-services";
 import { HostNotStartedError } from "./errors/host-not-started.error";
 
 /**
+ * Where a composed runtime is read from, whenever it exists.
+ *
+ * Anything built while the container is still being wired holds this rather than the
+ * services themselves: the runtime is composed on module init, so a collaborator created
+ * before that has to ask later instead of being handed something that does not exist yet.
+ */
+export interface StartedRuntime {
+	readonly runtime: RuntimeServices;
+}
+
+/**
  * Binds the runtime to the NestJS lifecycle.
  *
  * One host per `AdkModule`, and therefore one container per module. Starting builds
  * the catalog and composes the runtime; stopping drains active runs before disposing,
  * and is safe to call twice because both the drain and the disposal are idempotent.
  */
-export class AdkRuntimeHost {
+export class AdkRuntimeHost implements StartedRuntime {
 	private services?: RuntimeServices;
 
 	public constructor(private readonly factory: RuntimeFactory = new RuntimeFactory()) {}

@@ -9,4 +9,6 @@ export { OpenAiFailureMapper } from "./openai-failure-mapper";
 export { OpenAiClientFactory } from "./openai-client-factory";
 export type { OpenAiChatClient } from "./openai-chat-client";
 export { SdkOpenAiTransport } from "./sdk-openai-transport";
+export { StrictSchemaValidator } from "./strict-schema-validator";
 export { InvalidJsonSchemaError } from "./errors/invalid-json-schema.error";
+export { NonStrictJsonSchemaError } from "./errors/non-strict-json-schema.error";

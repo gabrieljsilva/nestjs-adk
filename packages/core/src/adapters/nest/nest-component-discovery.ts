@@ -6,6 +6,7 @@ import type { AgentFailoverPolicy } from "../../domain/agent/agent-failover-poli
 import { AgentName } from "../../domain/agent/agent-name";
 import { AgentTransferPolicy } from "../../domain/agent/agent-transfer-policy";
 import { DeclaredAgent } from "../../domain/agent/declared-agent";
+import type { AdkCompactionPolicy } from "../../domain/context/adk-compaction-policy";
 import type { LlmModel } from "../../domain/model/llm-model";
 import type { PromptInstructions } from "../../domain/prompt/prompt-instructions";
 import type { SkillDefinition } from "../../domain/skill/skill-definition";
@@ -21,6 +22,8 @@ export interface DiscoveredProvider {
 	readonly model: LlmModel | undefined;
 	readonly instructions?: PromptInstructions;
 	readonly failover?: AgentFailoverPolicy;
+	/** Absent leaves the agent on the module's policy, which may itself be absent. */
+	readonly compaction?: AdkCompactionPolicy;
 	/** The `@TransfersTo` payload, still unvalidated: reflect metadata is `unknown` by definition. */
 	readonly transfers?: unknown;
 	/** The `@DelegatesTo` payload, unvalidated for the same reason. */
@@ -52,7 +55,7 @@ export class NestComponentDiscovery {
 			provider.instructions,
 			AgentExecutionPolicies.of(
 				provider.failover,
-				undefined,
+				provider.compaction,
 				undefined,
 				this.transferOf(provider),
 				this.delegationOf(provider),

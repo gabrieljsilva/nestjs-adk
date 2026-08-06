@@ -61,6 +61,30 @@ new OpenAiModel("gpt-5", {
 `body` is a passthrough for fields this adapter does not model, such as gateway
 specific extensions. Typed options win over it.
 
+Reasoning models are configured through it, and one of them needs it: `gpt-5.6-luna`
+answers 400 to any request declaring function tools while a reasoning effort is set. An
+agent with tools runs on `body: { reasoning_effort: "none" }`.
+
+## Structured output
+
+A schema reaches the API as a `json_schema` response format with `strict: true`, which
+is what makes the provider enforce the shape instead of suggesting it. Strict mode
+accepts a subset of JSON Schema: every object closed with `additionalProperties: false`,
+and every property it declares listed in `required`.
+
+```ts
+{
+	type: "object",
+	properties: { score: { type: "number" }, reason: { type: "string" } },
+	required: ["score", "reason"],
+	additionalProperties: false,
+}
+```
+
+Anything else is refused before the request is sent, with `NonStrictJsonSchemaError`
+naming the object and what it lacks. Sent as it is, it comes back as a 400 about a
+request nobody wrote by hand.
+
 ## License
 
 MIT

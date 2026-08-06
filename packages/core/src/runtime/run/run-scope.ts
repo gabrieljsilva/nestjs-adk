@@ -1,6 +1,7 @@
 import type { SessionId } from "../../common/identity/session-id";
 import type { AgentDefinition } from "../../domain/agent/agent-definition";
 import type { AgentName } from "../../domain/agent/agent-name";
+import type { AdkCompactionPolicy } from "../../domain/context/adk-compaction-policy";
 import type { LlmModel } from "../../domain/model/llm-model";
 import type { AgentRun } from "../../domain/session/agent-run";
 import type { RunLimits } from "../../domain/session/run-limits";
@@ -32,6 +33,8 @@ export class RunScope {
 		public readonly breaker: ToolBreaker,
 		/** What the run's tool sources opened, kept so a handover can rebuild the catalog with it. */
 		public readonly remote: readonly ToolDefinition[] = [],
+		/** Already resolved from the module and the agent, so the loop never asks twice. */
+		public readonly compaction?: AdkCompactionPolicy,
 	) {}
 
 	public get agent(): AgentName {

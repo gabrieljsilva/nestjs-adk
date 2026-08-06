@@ -52,6 +52,21 @@ describe("LlmJudge", () => {
 		);
 	});
 
+	/**
+	 * The schema travels in the strict subset, because one provider enforces it.
+	 *
+	 * OpenAI answers 400 to a structured output schema that does not close the object, and
+	 * it names the field. Gemini accepts either shape, so the strict one is the only one
+	 * worth sending.
+	 */
+	it("asks for a closed object, which is the only shape every provider accepts", async () => {
+		const model = new ScriptedModel().mockText('{"score":1,"reason":"ok"}');
+
+		await new LlmJudge(model).judge("order 42 has shipped", RUBRIC);
+
+		expect(JSON.stringify(model.requests.at(0)?.outputSchema)).toContain('"additionalProperties":false');
+	});
+
 	it("survives a judge that scored without explaining", async () => {
 		const verdict = await judgeAnswering('{"score":1}').judge("order 42 shipped", RUBRIC);
 

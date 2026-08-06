@@ -32,11 +32,24 @@ export class GenAiTransport extends GeminiTransport {
 		return this.options.vertexai === true;
 	}
 
+	/**
+	 * One answer, chunk by chunk, with the calls in it counted from here.
+	 *
+	 * Calls the model asked for together arrive in separate chunks, and each needs an index
+	 * of its own or the executor assembles them into one call with both sets of arguments
+	 * concatenated. The count belongs to this loop because this is what knows where an
+	 * answer starts: a mapper that counted for itself would either reset per chunk or leak
+	 * the previous turn's total into the next one.
+	 */
 	public async *stream(request: GeminiRequest, signal?: AbortSignal): AsyncIterable<ModelChunk> {
 		const stream = await this.open(request, signal);
+		let calls = 0;
 		try {
 			for await (const raw of stream) {
-				for (const chunk of this.chunks.toChunks(raw)) yield chunk;
+				for (const chunk of this.chunks.toChunks(raw, calls)) {
+					if (chunk.toolCall !== undefined) calls += 1;
+					yield chunk;
+				}
 			}
 		} catch (error) {
 			throw new ModelCallFailedError(this.failures.toFailure(error), request.model);

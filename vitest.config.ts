@@ -16,54 +16,70 @@ export default defineConfig({
 	test: {
 		globals: true,
 		root: "./",
+		// Inherited by every project, which then only names what it excludes on top of this.
 		exclude: ["**/node_modules/**", "**/dist/**"],
 		hookTimeout: 30000,
+		// The library and the application that exercises it are separate projects, because they
+		// answer different questions and a red one means different things. `unit` and
+		// `integration` cover `packages/` and the tooling around it, and neither reaches a
+		// provider: everything the library does against a real model is proved through the
+		// application, in `playground:agents`, because that is where the public API is the
+		// thing under test. A suffix decides the level: `.e2e.spec.ts` boots the whole store,
+		// `.ai.spec.ts` spends money, everything else is a unit test.
 		projects: [
 			{
 				extends: true,
 				test: {
 					name: "unit",
-					include: ["**/*.spec.ts"],
-					exclude: ["**/node_modules/**", "**/dist/**", "**/*.e2e.spec.ts", "**/*.agent.spec.ts"],
+					include: ["packages/**/*.spec.ts"],
+					exclude: ["**/*.e2e.spec.ts", "**/*.ai.spec.ts"],
 				},
 			},
 			{
 				extends: true,
 				test: {
 					name: "integration",
-					include: ["**/*.e2e.spec.ts"],
-					exclude: ["**/node_modules/**", "**/dist/**"],
+					include: ["packages/**/*.e2e.spec.ts"],
 				},
 			},
 			{
 				extends: true,
 				test: {
-					name: "agents",
-					include: ["**/*.agent.spec.ts"],
-					exclude: ["**/node_modules/**", "**/dist/**"],
-					// One file at a time: these talk to a real provider on one key, and eight suites
+					name: "playground",
+					// The application's own suites, unit and end to end alike: both are free and
+					// offline, so there is nothing to gain from running them apart.
+					include: ["apps/playground/**/*.spec.ts"],
+					exclude: ["**/*.ai.spec.ts"],
+				},
+			},
+			{
+				extends: true,
+				test: {
+					name: "playground:agents",
+					include: ["apps/playground/**/*.ai.spec.ts"],
+					// One file at a time: these talk to a real provider on one key, and four suites
 					// at once spend the per minute quota on rate limit errors instead of on answers.
 					fileParallelism: false,
+					// A 429 is the provider saying "later", not the code being wrong. One retry, after
+					// the pause the suite already takes between cases, is what turns it back into an
+					// answer. Anything that fails twice failed for a reason worth reading.
+					retry: 1,
 				},
 			},
 		],
 		coverage: {
 			reporter: ["text", "html"],
 			provider: "v8",
-			include: ["packages/*/src/**", "apps/*/src/**"],
-			exclude: [
-				"**/dist/**",
-				"**/*.spec.ts",
-				"**/main.ts",
-				// type-only files: SWC emits an empty module and v8 reports it as 0% — nothing to test
-				"packages/core/src/lib/types/events.ts",
-				"packages/core/src/lib/types/options.ts",
-				"packages/core/src/lib/types/resolved-agent.ts",
-				"packages/core/src/lib/types/tool-context.ts",
-				"packages/core/src/lib/module/adk-options.ts",
-			],
+			// Coverage follows `npm run test`, which is the library. The application has its own
+			// project and measuring it here would report every file it has as untested.
+			include: ["packages/*/src/**"],
+			exclude: ["**/dist/**", "**/*.spec.ts", "**/*.fixture.ts", "**/main.ts"],
 		},
 	},
+	// Vitest 4 transforms with oxc, which does not emit decorator metadata. SWC does it, so
+	// oxc is turned off here rather than left to warn on every run about the esbuild flag
+	// the plugin sets for the same reason.
+	oxc: false,
 	plugins: [
 		// SWC no lugar do esbuild: necessário para emitDecoratorMetadata (DI do NestJS em testes)
 		swc.vite({ module: { type: "es6" } }),

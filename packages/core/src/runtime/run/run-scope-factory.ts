@@ -1,4 +1,5 @@
 import type { AgentDefinition } from "../../domain/agent/agent-definition";
+import type { AdkCompactionPolicy } from "../../domain/context/adk-compaction-policy";
 import type { LlmModel } from "../../domain/model/llm-model";
 import { RunLimits } from "../../domain/session/run-limits";
 import type { ToolDefinition } from "../../domain/tool/tool-definition";
@@ -14,15 +15,21 @@ import type { StartedRun } from "./started-run";
 /**
  * Resolves what a run is allowed to do, from three levels that each narrow the one above.
  *
- * It owns the two things the runtime decides rather than the agent: the tools offered on
- * the runtime's own behalf, and the widest limits any run may have. The agent narrows
- * those limits and the call narrows them again, and a level that declared nothing leaves
- * the level above exactly as it was.
+ * It owns the things the runtime decides rather than the agent: the tools offered on the
+ * runtime's own behalf, the widest limits any run may have, and what to do about a context
+ * that grew. The agent narrows the limits and the call narrows them again, and a level
+ * that declared nothing leaves the level above exactly as it was.
+ *
+ * Compaction resolves the same way with one difference: it replaces rather than narrows.
+ * An agent that declared a policy runs under its own, and one that declared none runs
+ * under the module's, because two policies deciding how much to keep would be one of them
+ * shortening what the other just decided to hold on to.
  */
 export class RunScopeFactory {
 	public constructor(
 		private readonly runtimeTools: readonly ToolDefinition[] = [],
 		private readonly limits: RunLimits = RunLimits.none(),
+		private readonly compaction?: AdkCompactionPolicy,
 	) {}
 
 	public create(
@@ -43,6 +50,7 @@ export class RunScopeFactory {
 			limits,
 			new ToolBreaker(limits),
 			remote,
+			this.compactionFor(definition),
 		);
 	}
 
@@ -66,6 +74,7 @@ export class RunScopeFactory {
 			scope.limits,
 			scope.breaker,
 			scope.remote,
+			this.compactionFor(definition),
 		);
 	}
 
@@ -89,7 +98,13 @@ export class RunScopeFactory {
 			limits,
 			new ToolBreaker(limits),
 			parent.remote,
+			this.compactionFor(definition),
 		);
+	}
+
+	/** The agent's own policy, or the module's, and never both narrowing each other. */
+	private compactionFor(definition: AgentDefinition): AdkCompactionPolicy | undefined {
+		return definition.compaction ?? this.compaction;
 	}
 
 	/**

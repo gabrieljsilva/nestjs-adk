@@ -115,6 +115,30 @@ describe("GenAiTransport", () => {
 		expect(texts.filter((text) => text.length > 0)).toEqual(["Reem", "bolso"]);
 	});
 
+	/**
+	 * Two calls the model asked for at once, as the provider actually streams them.
+	 *
+	 * Gemini sends one call per chunk, so an index counted inside a chunk is zero for both:
+	 * the executor then assembles them into a single call whose arguments are two JSON
+	 * objects stuck together, and the run dies on arguments that are not an object. This
+	 * was found against the real provider, on a question that needed two lookups.
+	 */
+	it("indexes calls across chunks, so parallel calls stay two calls", async () => {
+		const factory = new RecordingFactory([
+			{ candidates: [{ content: { parts: [{ functionCall: { name: "find_order", args: { orderId: "A-1" } } }] } }] },
+			{ candidates: [{ content: { parts: [{ functionCall: { name: "refund_limit", args: { plan: "gold" } } }] } }] },
+			{ candidates: [{ finishReason: "STOP" }] },
+		]);
+
+		const calls = [];
+		for await (const chunk of new GenAiTransport({}, factory).stream(request)) {
+			if (chunk.toolCall !== undefined) calls.push(chunk.toolCall);
+		}
+
+		expect(calls.map((call) => call.index)).toEqual([0, 1]);
+		expect(calls.map((call) => call.toolName)).toEqual(["find_order", "refund_limit"]);
+	});
+
 	it("counts tokens through the provider, measured rather than estimated", async () => {
 		const factory = new RecordingFactory([], undefined, 123);
 

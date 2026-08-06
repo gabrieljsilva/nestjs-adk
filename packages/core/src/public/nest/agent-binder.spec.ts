@@ -7,8 +7,8 @@ import { AgentDescription } from "../../domain/agent/agent-description";
 import { AgentName } from "../../domain/agent/agent-name";
 import { DeclaredAgent } from "../../domain/agent/declared-agent";
 import { AgentCatalog } from "../../runtime/catalog/agent-catalog";
-import type { RuntimeServices } from "../../runtime/composition/runtime-services";
 import { ScriptedModel } from "../../support/run/scripted-model.fixture";
+import type { StartedRuntime } from "../adk-runtime-host";
 import { AdkAgent } from "./adk-agent";
 import { AgentBinder } from "./agent-binder";
 import { AgentRegistry } from "./agent-registry";
@@ -17,7 +17,7 @@ import { AgentNotBoundError } from "./errors/agent-not-bound.error";
 class SupportAgent extends AdkAgent {}
 class PlainService {}
 
-function runtimeWith(...names: readonly string[]): RuntimeServices {
+function hostWith(...names: readonly string[]): StartedRuntime {
 	const model = new ScriptedModel("primary");
 	const catalog = AgentCatalog.of(
 		names.map((name) => {
@@ -28,7 +28,7 @@ function runtimeWith(...names: readonly string[]): RuntimeServices {
 			);
 		}),
 	);
-	return Object.assign(Object.create(null), { catalog });
+	return { runtime: Object.assign(Object.create(null), { catalog }) };
 }
 
 function provider(type: object, instance: object, agentName?: string): ScannedProvider {
@@ -38,7 +38,7 @@ function provider(type: object, instance: object, agentName?: string): ScannedPr
 
 describe("AgentBinder", () => {
 	it("hands an agent class the handle for the agent it declared", () => {
-		const registry = new AgentRegistry(runtimeWith("support"));
+		const registry = new AgentRegistry(hostWith("support"));
 		const instance = new SupportAgent();
 
 		const bound = new AgentBinder(registry).bind([provider(SupportAgent, instance, "support")]);
@@ -48,7 +48,7 @@ describe("AgentBinder", () => {
 	});
 
 	it("hands out the registry's own handle, so both ways reach the same conversation", () => {
-		const registry = new AgentRegistry(runtimeWith("support"));
+		const registry = new AgentRegistry(hostWith("support"));
 		const instance = new SupportAgent();
 
 		new AgentBinder(registry).bind([provider(SupportAgent, instance, "support")]);
@@ -57,13 +57,13 @@ describe("AgentBinder", () => {
 	});
 
 	it("skips a provider that is not an agent class", () => {
-		const registry = new AgentRegistry(runtimeWith("support"));
+		const registry = new AgentRegistry(hostWith("support"));
 
 		expect(new AgentBinder(registry).bind([provider(PlainService, new PlainService())])).toBe(0);
 	});
 
 	it("skips an agent class that never extended the base, because the registry is the other way", () => {
-		const registry = new AgentRegistry(runtimeWith("support"));
+		const registry = new AgentRegistry(hostWith("support"));
 		class DetachedAgent {}
 
 		expect(new AgentBinder(registry).bind([provider(DetachedAgent, new DetachedAgent(), "support")])).toBe(0);

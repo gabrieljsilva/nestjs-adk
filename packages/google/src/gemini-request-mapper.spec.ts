@@ -177,4 +177,88 @@ describe("GeminiRequestMapper", () => {
 
 		expect(Object.keys(Object(part))).toEqual(["functionCall"]);
 	});
+
+	/**
+	 * Calls asked for together go back as one turn, which is how they arrived.
+	 *
+	 * Gemini 3 signs an answer on its first function call part and then checks that a turn
+	 * carrying calls has that signature. One journal message per call turned into one Gemini
+	 * turn per call, and the second one, unsigned, came back as a 400 naming the tool. Found
+	 * against the real provider, on a question that needed two lookups.
+	 */
+	it("folds parallel calls into a single model turn, signature and all", () => {
+		const request = new ModelRequest([
+			new ToolCallMessage(ToolCallId.from("c-1"), "find_order", { orderId: "A-1" }, "opaque-token"),
+			new ToolCallMessage(ToolCallId.from("c-2"), "refund_limit", { plan: "gold" }),
+		]);
+
+		const contents = mapper.toRequest("gemini-3.5-flash-lite", request).contents;
+
+		expect(contents).toHaveLength(1);
+		expect(contents[0]?.parts).toHaveLength(2);
+		expect(Reflect.get(Object(contents[0]?.parts?.[0]), "thoughtSignature")).toBe("opaque-token");
+	});
+
+	it("folds the results of parallel calls into a single user turn", () => {
+		const request = new ModelRequest([
+			new ToolResultMessage(ToolCallId.from("c-1"), "find_order", { total: 349 }, false),
+			new ToolResultMessage(ToolCallId.from("c-2"), "refund_limit", { limit: 1437 }, false),
+		]);
+
+		const contents = mapper.toRequest("gemini-3.5-flash-lite", request).contents;
+
+		expect(contents).toHaveLength(1);
+		expect(contents[0]?.parts).toHaveLength(2);
+		expect(contents[0]?.role).toBe("user");
+	});
+
+	/**
+	 * The context arrives paired, and Gemini wants the answer back whole.
+	 *
+	 * Two calls asked for at once reach here as call, result, call, result, because a call
+	 * and its answer are one unit upstream. The unsigned one belongs to the signed answer
+	 * before it, and its result belongs with the results already grouped: sending it as a
+	 * turn of its own is the 400 this exists to avoid.
+	 */
+	it("puts an unsigned call back into the signed answer it came from", () => {
+		const request = new ModelRequest([
+			new ToolCallMessage(ToolCallId.from("c-1"), "find_order", { orderId: "A-1" }, "opaque-token"),
+			new ToolResultMessage(ToolCallId.from("c-1"), "find_order", { total: 349 }, false),
+			new ToolCallMessage(ToolCallId.from("c-2"), "refund_limit", { plan: "gold" }),
+			new ToolResultMessage(ToolCallId.from("c-2"), "refund_limit", { limit: 1437 }, false),
+		]);
+
+		const contents = mapper.toRequest("gemini-3.5-flash-lite", request).contents;
+
+		expect(contents).toHaveLength(2);
+		expect(contents[0]?.role).toBe("model");
+		expect(contents[0]?.parts).toHaveLength(2);
+		expect(contents[1]?.parts).toHaveLength(2);
+	});
+
+	/**
+	 * A model that signs nothing is a different conversation.
+	 *
+	 * On 2.5 no call carries a signature, so folding by absence would glue every call of a
+	 * session into one turn. Only an answer the provider signed can adopt an unsigned call.
+	 */
+	it("leaves calls alone when the provider signed none of them", () => {
+		const request = new ModelRequest([
+			new ToolCallMessage(ToolCallId.from("c-1"), "find_order", { orderId: "A-1" }),
+			new ToolResultMessage(ToolCallId.from("c-1"), "find_order", { total: 349 }, false),
+			new ToolCallMessage(ToolCallId.from("c-2"), "refund_limit", { plan: "gold" }),
+		]);
+
+		expect(mapper.toRequest("gemini-2.5-flash", request).contents).toHaveLength(3);
+	});
+
+	it("keeps a call and its result in turns of their own, because they are different turns", () => {
+		const request = new ModelRequest([
+			new ToolCallMessage(CALL, "find_order", { orderId: "A-1" }),
+			new ToolResultMessage(CALL, "find_order", { total: 349 }, false),
+			new ToolCallMessage(ToolCallId.from("c-2"), "refund_limit", { plan: "gold" }),
+		]);
+
+		expect(mapper.toRequest("gemini-3.5-flash-lite", request).contents).toHaveLength(3);
+	});
 });

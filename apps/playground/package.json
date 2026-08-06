@@ -2,10 +2,11 @@
 	"name": "@workspace/playground",
 	"version": "0.0.4",
 	"private": true,
-	"description": "NestJS app consuming the lib for real — e2e of the complete happy path.",
+	"description": "NestJS app consuming the lib for real: the store the AI suites run against.",
 	"dependencies": {
 		"@nestjs-adk/core": "^1.0.0",
 		"@nestjs-adk/google": "^1.0.0",
+		"@nestjs-adk/openai": "^1.0.0",
 		"@nestjs-adk/testing": "^1.0.0",
 		"@google/genai": "^1.52.0"
 	}

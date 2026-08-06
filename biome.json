@@ -2,14 +2,7 @@
 	"$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
 	"organizeImports": { "enabled": true },
 	"files": {
-		"ignore": [
-			"dist",
-			"node_modules",
-			"coverage",
-			".turbo",
-			".tmp",
-			"tools/architecture-guards/fixtures"
-		]
+		"ignore": ["dist", "node_modules", "coverage", ".turbo", ".tmp"]
 	},
 	"javascript": {
 		"formatter": { "lineWidth": 120, "indentWidth": 1 },

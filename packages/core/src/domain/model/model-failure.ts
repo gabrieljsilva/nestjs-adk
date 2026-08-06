@@ -22,4 +22,15 @@ export abstract class ModelFailure {
 	public get isTransient(): boolean {
 		return false;
 	}
+
+	/**
+	 * True when the provider rejected the request rather than the work it asked for.
+	 *
+	 * It is asked instead of `instanceof` for the same reason `isRateLimited` is: an
+	 * adapter ships as its own package, and two copies of this one in a tree would make
+	 * the identity check answer no to a failure that plainly is one.
+	 */
+	public get isInvalidRequest(): boolean {
+		return false;
+	}
 }

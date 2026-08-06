@@ -1,19 +1,25 @@
-import { type DynamicModule, Global, Inject, Module, type OnApplicationShutdown, type Provider } from "@nestjs/common";
+import {
+	type DynamicModule,
+	Global,
+	Module,
+	type OnApplicationShutdown,
+	type OnModuleInit,
+	type Provider,
+} from "@nestjs/common";
 import { DiscoveryService } from "@nestjs/core";
-import { NestAgentScanner } from "../../adapters/nest/nest-agent-scanner";
-import { NestComponentDiscovery } from "../../adapters/nest/nest-component-discovery";
-import { ScannedProvider } from "../../adapters/nest/scanned-provider";
 import { InMemoryArtifactStorage } from "../../adapters/storage/in-memory-artifact-storage";
 import { InMemorySessionStorage } from "../../adapters/storage/in-memory-session-storage";
 import { IdGenerator } from "../../common/identity/id-generator";
 import { Clock } from "../../common/time/clock";
 import { ArtifactStorage } from "../../contracts/artifact-storage";
+import { ModelResolver } from "../../contracts/model-resolver";
+import type { SessionEventConsumer } from "../../contracts/session-event-consumer";
 import { SessionStorage } from "../../contracts/session-storage";
-import { RuntimeOptions } from "../../runtime/composition/runtime-options";
-import { RuntimeServices } from "../../runtime/composition/runtime-services";
+import type { LlmModel } from "../../domain/model/llm-model";
+import { CatalogModelResolver } from "../../runtime/model/catalog-model-resolver";
 import { AdkRuntimeHost } from "../adk-runtime-host";
+import { AdkComposer } from "./adk-composer";
 import { AdkModuleOptions } from "./adk-module-options";
-import { AgentBinder } from "./agent-binder";
 import { AgentRegistry } from "./agent-registry";
 import { RandomIdGenerator } from "./random-id-generator";
 import { SystemClock } from "./system-clock";
@@ -22,22 +28,45 @@ import { SystemClock } from "./system-clock";
 export const ADK_OPTIONS = Symbol.for("adk:module-options");
 
 /**
+ * The model every agent that declared none runs on.
+ *
+ * Overriding this token replaces only that fallback: an agent that declared its own model
+ * in `@Agent` keeps it. A test that wants one agent on another model replaces the
+ * `ModelResolver` instead.
+ */
+export const ADK_DEFAULT_MODEL = Symbol.for("adk:default-model");
+
+/**
+ * Consumers appended to the ones the application declared, never replacing them.
+ *
+ * The module provides an empty list; overriding the token plugs observers in without
+ * rebuilding `RuntimeOptions`, which is how a test records events while the approval
+ * policy and limits the application declared stay in force.
+ */
+export const ADK_EVENT_CONSUMERS = Symbol.for("adk:event-consumers");
+
+/**
  * The one thing an application imports.
  *
  * It owns the runtime for the lifetime of the application: it discovers the agents,
  * composes the runtime once everything NestJS builds exists, and drains it on shutdown.
  * Everything it exposes is already resolved, so no consumer ever waits on a boot order.
  *
- * Discovery happens after the container is ready rather than at import time. An agent's
- * tools are providers with their own dependencies, and reading them earlier would mean
- * reading half-built objects.
+ * Composition happens in `onModuleInit` and not in a provider, and that is the whole of
+ * the boot order. NestJS creates a prototype for every provider first and only then
+ * constructs them, all modules at once, replacing what the prototype step left behind. A
+ * provider that composed while that was happening would capture objects the container is
+ * about to throw away: tools without their dependencies, agents that never receive a
+ * handle. By the first lifecycle hook every static instance exists and is final, and an
+ * imported module reaches its hook before the module that imported it, so an application
+ * can already use an agent inside its own `onModuleInit`.
  */
 @Global()
 @Module({})
-export class AdkModule implements OnApplicationShutdown {
+export class AdkModule implements OnModuleInit, OnApplicationShutdown {
 	public constructor(
-		@Inject(ADK_OPTIONS) private readonly options: AdkModuleOptions,
 		private readonly discovery: DiscoveryService,
+		private readonly composer: AdkComposer,
 		private readonly host: AdkRuntimeHost,
 	) {}
 
@@ -46,72 +75,94 @@ export class AdkModule implements OnApplicationShutdown {
 			module: AdkModule,
 			imports: [DiscoveryModule],
 			providers: [...AdkModule.providersFor(options)],
-			exports: [RuntimeServices, AgentRegistry, AdkRuntimeHost, SessionStorage, ArtifactStorage, Clock, IdGenerator],
+			exports: [AgentRegistry, AdkRuntimeHost, SessionStorage, ArtifactStorage, Clock, IdGenerator, ModelResolver],
 		};
+	}
+
+	public async onModuleInit(): Promise<void> {
+		await this.composer.compose(this.discovery.getProviders());
 	}
 
 	public async onApplicationShutdown(): Promise<void> {
 		await this.host.stop();
 	}
 
+	/**
+	 * Providers declare, they do not compose.
+	 *
+	 * Every factory here reads the options through `ADK_OPTIONS` rather than capturing them
+	 * in a closure, so overriding one token is enough: the others keep following whatever
+	 * the container says the options are.
+	 */
 	private static providersFor(options: AdkModuleOptions): Provider[] {
 		return [
 			{ provide: ADK_OPTIONS, useValue: options },
-			{ provide: SessionStorage, useValue: options.storage ?? new InMemorySessionStorage() },
-			{ provide: Clock, useValue: options.clock ?? new SystemClock() },
-			{ provide: IdGenerator, useValue: options.ids ?? new RandomIdGenerator() },
+			{
+				provide: ADK_DEFAULT_MODEL,
+				useFactory: (declared: AdkModuleOptions) => declared.defaultModel,
+				inject: [ADK_OPTIONS],
+			},
+			{ provide: ADK_EVENT_CONSUMERS, useValue: [] },
+			{
+				provide: SessionStorage,
+				useFactory: (declared: AdkModuleOptions) => declared.storage ?? new InMemorySessionStorage(),
+				inject: [ADK_OPTIONS],
+			},
+			{
+				provide: Clock,
+				useFactory: (declared: AdkModuleOptions) => declared.clock ?? new SystemClock(),
+				inject: [ADK_OPTIONS],
+			},
+			{
+				provide: IdGenerator,
+				useFactory: (declared: AdkModuleOptions) => declared.ids ?? new RandomIdGenerator(),
+				inject: [ADK_OPTIONS],
+			},
 			{
 				provide: ArtifactStorage,
-				useFactory: (ids: IdGenerator) => options.artifacts ?? new InMemoryArtifactStorage(ids),
-				inject: [IdGenerator],
+				useFactory: (declared: AdkModuleOptions, ids: IdGenerator) =>
+					declared.artifacts ?? new InMemoryArtifactStorage(ids),
+				inject: [ADK_OPTIONS, IdGenerator],
+			},
+			{
+				provide: ModelResolver,
+				useFactory: (declared: AdkModuleOptions) => declared.runtime?.models ?? new CatalogModelResolver(),
+				inject: [ADK_OPTIONS],
 			},
 			AdkRuntimeHost,
 			{
-				provide: RuntimeServices,
-				useFactory: AdkModule.startRuntime,
-				inject: [AdkRuntimeHost, DiscoveryService, ADK_OPTIONS, SessionStorage, ArtifactStorage, Clock, IdGenerator],
+				provide: AgentRegistry,
+				useFactory: (host: AdkRuntimeHost) => new AgentRegistry(host),
+				inject: [AdkRuntimeHost],
 			},
 			{
-				provide: AgentRegistry,
-				useFactory: AdkModule.buildRegistry,
-				inject: [RuntimeServices, DiscoveryService],
+				provide: AdkComposer,
+				useFactory: (
+					host: AdkRuntimeHost,
+					registry: AgentRegistry,
+					declared: AdkModuleOptions,
+					storage: SessionStorage,
+					artifacts: ArtifactStorage,
+					clock: Clock,
+					ids: IdGenerator,
+					models: ModelResolver,
+					consumers: readonly SessionEventConsumer[],
+					defaultModel: LlmModel,
+				) => new AdkComposer(host, registry, declared, storage, artifacts, clock, ids, models, consumers, defaultModel),
+				inject: [
+					AdkRuntimeHost,
+					AgentRegistry,
+					ADK_OPTIONS,
+					SessionStorage,
+					ArtifactStorage,
+					Clock,
+					IdGenerator,
+					ModelResolver,
+					ADK_EVENT_CONSUMERS,
+					ADK_DEFAULT_MODEL,
+				],
 			},
 		];
-	}
-
-	/** Composes the runtime from what the container finished building. */
-	private static async startRuntime(
-		host: AdkRuntimeHost,
-		discovery: DiscoveryService,
-		options: AdkModuleOptions,
-		storage: SessionStorage,
-		artifacts: ArtifactStorage,
-		clock: Clock,
-		ids: IdGenerator,
-	): Promise<RuntimeServices> {
-		const scanned = AdkModule.scan(discovery);
-		const declared = new NestComponentDiscovery().discover(new NestAgentScanner().scan(scanned, options.defaultModel));
-		return host.start(declared, storage, artifacts, clock, ids, options.runtime ?? new RuntimeOptions());
-	}
-
-	/**
-	 * The registry, and the handles the agent classes themselves answer with.
-	 *
-	 * Binding happens here rather than in a lifecycle hook so that both ways of reaching an
-	 * agent become usable at the same moment, and so that an agent injected by class and the
-	 * same agent taken from the registry are the same handle.
-	 */
-	private static buildRegistry(runtime: RuntimeServices, discovery: DiscoveryService): AgentRegistry {
-		const registry = new AgentRegistry(runtime);
-		new AgentBinder(registry).bind(AdkModule.scan(discovery));
-		return registry;
-	}
-
-	private static scan(discovery: DiscoveryService): readonly ScannedProvider[] {
-		return discovery
-			.getProviders()
-			.filter((wrapper) => typeof wrapper.metatype === "function" && wrapper.instance !== undefined)
-			.map((wrapper) => new ScannedProvider(String(wrapper.name), Object(wrapper.metatype), Object(wrapper.instance)));
 	}
 }
 
