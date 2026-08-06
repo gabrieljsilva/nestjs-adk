@@ -113,7 +113,8 @@ describe.runIf(storeGate.present)("AI: billing, and the human in front of the mo
 		const run = await bed.agent(BillingAgent).ask("Qual o teto de reembolso do plano gold?");
 
 		expect(run).toHaveRunTool("refund_limit");
-		expect(run.text).toContain("1437");
+		// The thousands separator is the model's choice, and it makes both spellings correct.
+		expect(run.text).toMatch(/1\.?437/);
 	});
 
 	/** The wording moves every run, so the judge grades what the answer had to say. */

@@ -44,6 +44,10 @@ Every bug fix adds a test that fails for the reported behavior before the correc
 
 Test doubles belong to the Support layer. Production modules never export private collaborators only to make tests easier.
 
+## Testing an agent
+
+An agent is tested through the application it lives in, not by building a runtime by hand. `@nestjs-adk/testing` boots the real module and replaces the model of each agent; assertions read the run, which carries the events it published. A use case that merely hands a request to an agent is a different question, and `AgentStub` answers it without a runtime. See [[test-bed]], and [[tool-doubles]] before replacing a tool with anything.
+
 ## What is still missing
 
 Files with behaviour and no spec are still spread across the tree. Add the missing test when each one is moved or rewritten, and let coverage say how far that has got rather than a rule that counts files.

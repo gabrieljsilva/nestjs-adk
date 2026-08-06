@@ -45,6 +45,7 @@ describe.runIf(storeGate.present)("AI: warranty, a photo and the sector next doo
 		});
 
 		expect(run).toHaveRunTool("open_ticket");
+		expect(run.callsTo("open_ticket").at(0)?.args).toMatchObject({ orderId: ORDER });
 		const ticket = bed.get(TicketRepository).findByOrder(ORDER).at(0);
 		expect(ticket?.sessionId).toBe(run.sessionId.value);
 		expect(ticket?.reason.length).toBeGreaterThan(0);
@@ -99,12 +100,20 @@ describe.runIf(storeGate.present)("AI: warranty, a photo and the sector next doo
 		expect(run.text).toMatch(/1\.?437/);
 	});
 
-	it("opens the ticket pointing at the order the customer named", { timeout: 120_000 }, async () => {
+	/**
+	 * A ticket is a record somebody will read, so a greeting must not become one.
+	 *
+	 * Asked to open a ticket for a product it cannot see, this sector asks for the picture
+	 * first, which is it behaving well. What has to hold either way is that nothing was
+	 * written down.
+	 */
+	it("writes nothing down for a question that is not a complaint", { timeout: 120_000 }, async () => {
 		await booted();
 
-		const run = await bed.agent(WarrantyAgent).ask(`Abre um chamado do pedido ${ORDER}: o controle chegou quebrado.`);
+		const run = await bed.agent(WarrantyAgent).ask("Oi, bom dia! Vocês trabalham aos sábados?");
 
-		expect(JSON.stringify(run.callsTo("open_ticket").at(0)?.args)).toContain(ORDER);
+		expect(run).not.toHaveRunTool("open_ticket");
+		expect(bed.get(TicketRepository).findByOrder(ORDER)).toEqual([]);
 	});
 
 	it("refuses to open a ticket for an order the store never sold", { timeout: 120_000 }, async () => {

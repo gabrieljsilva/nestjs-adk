@@ -34,4 +34,6 @@ A row marked `target` describes a decision the code has not reached yet. It is s
 | `pattern` | [[multimodal-input]] | How an image reaches a model, why the journal never holds one, and what a tool result cannot carry |
 | `pattern` | [[tool-declaration]] | What a shared tool extends, how one schema types both forms of a tool, and why the method form has its own descriptor type |
 | `pitfall` | [[nest-composition-timing]] | Why the runtime is composed in a lifecycle hook and never in a provider, and what NestJS does to an instance captured too early |
+| `pattern` | [[test-bed]] | How a test replaces the model of one agent, what a run is asserted on, and why the bed refuses to boot |
+| `pitfall` | [[tool-doubles]] | Why overrideProvider removes a tool instead of replacing it, and what to replace instead |
 

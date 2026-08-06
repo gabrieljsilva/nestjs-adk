@@ -13,7 +13,13 @@ The suffix is `.ai` and not `.agent` because `.agent` already names a production
 
 ## They belong to the application, not to the library
 
-The library has no provider suites. Everything it does against a real model is proved through the example store in `apps/playground`, booted by `bootAi` with a provider behind it, because that is where the public API is the thing under test: an application declares `@Agent` and `@Tool`, injects a use case and asks a question. A suite that builds `DeclaredAgent` by hand and drives `AdkRuntimeHost` proves the runtime works and says nothing about whether anybody can use it.
+The library has no provider suites. Everything it does against a real model is proved through the example store in `apps/playground`, booted by `aiStore()` with a provider behind every agent, because that is where the public API is the thing under test: an application declares `@Agent` and `@Tool`, injects a use case and asks a question. A suite that builds `DeclaredAgent` by hand and drives `AdkRuntimeHost` proves the runtime works and says nothing about whether anybody can use it.
+
+The one exception is the API these suites are written with. `testing-api.ai.spec.ts` exercises the test bed itself against a provider: that a run a real model decided records the tools it reached for, that a double stands in for a tool the model chose to call, and that scripting one agent while another decides for itself works in a single run. Everything a fake can prove about that API is proved for free in `packages/testing`; this file is only for what a fake cannot.
+
+## Paying for the decision and scripting the answer
+
+A run reaches several agents, and usually only one of them is the thing under test. `withModelFor` puts a provider behind that one and `withScript` answers for the rest, so a transfer or a delegation costs one call instead of three. See [[test-bed]].
 
 One file per agent, not per feature. A real conversation does several things at once, so the scenarios follow the sector they happen in: sales calls tools and gets judged, warranty looks at photos and delegates, billing waits for a human, the concierge routes and remembers.
 
@@ -36,6 +42,12 @@ Three findings, each of which cost a red suite before it was understood. They li
 **Thinking is a level, not a budget.** `thinkingConfig: { thinkingBudget: 0 }`, which is how 2.5 was told not to think, is a 400 with `INVALID_ARGUMENT` on 3.5. `thinkingLevel: "low"` is accepted and answers with zero thought tokens.
 
 **A parallel call is streamed unsigned.** Asked for two tools at once, the provider sends one call per chunk and puts the `thoughtSignature` on the first one only. Sent back as two turns, the unsigned one is a 400 naming the tool. The adapter folds an unsigned call into the signed answer before it, which is the shape the provider documents.
+
+**A session cannot be transferred into a Gemini agent.** Measured: with the concierge on OpenAI and the warranty sector on `gemini-3.5-flash-lite`, the transfer lands and the next call is a 400: "Function call is missing a thought_signature in functionCall parts ... `transfer_to_agent`". The call that moved the conversation was written by another provider and has no signature Gemini will accept, and the agent it landed on reads a journal that contains it. The run fails with `ModelsExhaustedError` carrying that message.
+
+Delegation crosses providers cleanly, and the difference is the context: a delegate is handed a task and starts from nothing, so nothing another provider wrote reaches it. That is the shape `concierge.ai.spec.ts` uses for the cross provider case.
+
+The other direction is a different problem rather than a fix: asked about a broken product, `gemini-3.5-flash-lite` as the concierge answers in prose instead of reaching for `transfer_to_agent` at all.
 
 **The index counts calls in an answer, not in a chunk.** Both parallel calls arrive as part zero of their own chunk, so an index counted per chunk collides and the executor concatenates their arguments into one call: `{"orderId":"A-1042"}{"plan":"gold"}`.
 

@@ -1,9 +1,9 @@
 import "reflect-metadata";
 import "@nestjs-adk/testing/matchers";
-import type { AdkTestBed } from "@nestjs-adk/testing";
+import { type AdkTestBed, RecordingModel } from "@nestjs-adk/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { InspectSessionUseCase } from "../chat/inspect-session.use-case";
-import { aiStore, breathe, judge, storeGate } from "./ai-suite.fixture";
+import { aiStore, breathe, judge, mixedStore, storeGate, storeModel } from "./ai-suite.fixture";
 import { SalesAgent } from "./sales.agent";
 
 let bed: AdkTestBed;
@@ -114,13 +114,26 @@ describe.runIf(storeGate.present)("AI: sales, tools and the answer they produce"
 		await expect(run.text).toSatisfyRubric(judge(), "says the store does not have that game");
 	});
 
-	/** The always skill is in every prompt, which is what the tone of an answer comes from. */
-	it("carries the always skill into the instructions of every turn", { timeout: 120_000 }, async () => {
-		await booted();
+	/**
+	 * The always skill is in every prompt, which is what the tone of an answer comes from.
+	 *
+	 * A scripted agent keeps its requests, so a fake suite reads them off the script. Behind
+	 * a provider there is no script to read, and what the model was actually sent is only
+	 * knowable by recording it, which is what this wraps the model to do.
+	 */
+	it("carries the always skill into the instructions the provider was sent", { timeout: 120_000 }, async () => {
+		const recording = new RecordingModel(storeModel());
+		bed = await mixedStore()
+			.withModel(recording)
+			.withModelFor("concierge", recording)
+			.withModelFor("sales", recording)
+			.withModelFor("warranty", recording)
+			.withModelFor("billing", recording)
+			.boot();
 
 		await bed.agent(SalesAgent).ask("Oi!");
 
-		expect(bed.agent(SalesAgent).lastInstruction().length).toBeGreaterThan(0);
+		expect(recording.calls.at(0)?.request.instructions?.text.length).toBeGreaterThan(0);
 	});
 
 	it("starts a new conversation when the test asks for one", { timeout: 120_000 }, async () => {
