@@ -16,6 +16,7 @@ import { ModelResolver } from "../../contracts/model-resolver";
 import type { SessionEventConsumer } from "../../contracts/session-event-consumer";
 import { SessionStorage } from "../../contracts/session-storage";
 import type { LlmModel } from "../../domain/model/llm-model";
+import type { RuntimeOptionsPatch } from "../../runtime/composition/runtime-options";
 import { CatalogModelResolver } from "../../runtime/model/catalog-model-resolver";
 import { AdkRuntimeHost } from "../adk-runtime-host";
 import { AdkComposer } from "./adk-composer";
@@ -44,6 +45,16 @@ export const ADK_DEFAULT_MODEL = Symbol.for("adk:default-model");
  * policy and limits the application declared stay in force.
  */
 export const ADK_EVENT_CONSUMERS = Symbol.for("adk:event-consumers");
+
+/**
+ * Runtime fields replaced after the application declared them, by name.
+ *
+ * The module provides an empty patch, so nothing changes unless somebody overrides the
+ * token. It exists because the options are a value the module was constructed with:
+ * without it, replacing one runtime field from outside means rebuilding all of them, and
+ * a field added later goes silently missing from every copy.
+ */
+export const ADK_RUNTIME_PATCH = Symbol.for("adk:runtime-patch");
 
 /**
  * The one thing an application imports.
@@ -103,6 +114,7 @@ export class AdkModule implements OnModuleInit, OnApplicationShutdown {
 				inject: [ADK_OPTIONS],
 			},
 			{ provide: ADK_EVENT_CONSUMERS, useValue: [] },
+			{ provide: ADK_RUNTIME_PATCH, useValue: {} },
 			{
 				provide: SessionStorage,
 				useFactory: (declared: AdkModuleOptions) => declared.storage ?? new InMemorySessionStorage(),
@@ -148,7 +160,9 @@ export class AdkModule implements OnModuleInit, OnApplicationShutdown {
 					models: ModelResolver,
 					consumers: readonly SessionEventConsumer[],
 					defaultModel: LlmModel,
-				) => new AdkComposer(host, registry, declared, storage, artifacts, clock, ids, models, consumers, defaultModel),
+					patch: RuntimeOptionsPatch,
+				) =>
+					new AdkComposer(host, registry, declared, storage, artifacts, clock, ids, models, consumers, defaultModel, patch),
 				inject: [
 					AdkRuntimeHost,
 					AgentRegistry,
@@ -160,6 +174,7 @@ export class AdkModule implements OnModuleInit, OnApplicationShutdown {
 					ModelResolver,
 					ADK_EVENT_CONSUMERS,
 					ADK_DEFAULT_MODEL,
+					ADK_RUNTIME_PATCH,
 				],
 			},
 		];

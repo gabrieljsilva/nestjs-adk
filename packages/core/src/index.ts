@@ -85,7 +85,13 @@ export { AdkRuntimeHost } from "./public/adk-runtime-host";
 export type { StartedRuntime } from "./public/adk-runtime-host";
 export { HostNotStartedError } from "./public/errors/host-not-started.error";
 export { UnusableComponentError } from "./adapters/nest/errors/unusable-component.error";
-export { AdkModule, ADK_OPTIONS, ADK_DEFAULT_MODEL, ADK_EVENT_CONSUMERS } from "./public/nest/adk-module";
+export {
+	AdkModule,
+	ADK_OPTIONS,
+	ADK_DEFAULT_MODEL,
+	ADK_EVENT_CONSUMERS,
+	ADK_RUNTIME_PATCH,
+} from "./public/nest/adk-module";
 export { Agent } from "./public/nest/decorators/agent.decorator";
 export { Tool } from "./public/nest/decorators/tool.decorator";
 export { Skill } from "./public/nest/decorators/skill.decorator";

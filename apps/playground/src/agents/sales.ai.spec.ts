@@ -1,11 +1,12 @@
 import "reflect-metadata";
 import "@nestjs-adk/testing/matchers";
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import type { AdkTestBed } from "@nestjs-adk/testing";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { InspectSessionUseCase } from "../chat/inspect-session.use-case";
-import { type AiStore, bootAi, breathe, judgeWith, storeKey, storeModel } from "./ai-suite.fixture";
+import { aiStore, breathe, judge, storeGate } from "./ai-suite.fixture";
 import { SalesAgent } from "./sales.agent";
 
-const apiKey = storeKey();
+let bed: AdkTestBed;
 
 /**
  * The sector that has to use its tools, against a provider that decides on its own.
@@ -15,42 +16,35 @@ const apiKey = storeKey();
  * answer carrying that number is an answer that went through `search_games` and
  * `quote_game`, which is the only thing worth paying a provider to find out.
  */
-describe.runIf(apiKey)("AI: sales, tools and the answer they produce", () => {
-	let store: AiStore;
-
-	beforeAll(() => {
-		if (apiKey === undefined) throw new Error("no api key");
-	});
-
+describe.runIf(storeGate.present)("AI: sales, tools and the answer they produce", () => {
 	beforeEach(breathe);
 
 	afterEach(async () => {
-		await store?.app.close();
+		await bed?.close();
 	});
 
-	async function booted(): Promise<AiStore> {
-		if (apiKey === undefined) throw new Error("no api key");
-		store = await bootAi(storeModel(apiKey));
-		return store;
+	async function booted(): Promise<AdkTestBed> {
+		bed = await aiStore().boot();
+		return bed;
 	}
 
 	it("quotes from the catalog instead of inventing a price", { timeout: 120_000 }, async () => {
-		const { app, events } = await booted();
+		await booted();
 
-		const result = await app.get(SalesAgent).ask("Quanto sai três cópias de Elden Ring Nightreign?");
+		const run = await bed.agent(SalesAgent).ask("Quanto sai três cópias de Elden Ring Nightreign?");
 
-		expect(events.toolsRun).toContain("quote_game");
-		expect(result.text).toContain("755");
-		expect(result.status.name).toBe("completed");
+		expect(run).toHaveRunTool("quote_game");
+		expect(run.text).toContain("755");
+		expect(run).toHaveStatus("completed");
 	});
 
 	it("answers a greeting without reaching for a tool", { timeout: 60_000 }, async () => {
-		const { app, events } = await booted();
+		await booted();
 
-		const result = await app.get(SalesAgent).ask("Oi, tudo bem?");
+		const run = await bed.agent(SalesAgent).ask("Oi, tudo bem?");
 
-		expect(result.text.length).toBeGreaterThan(0);
-		expect(events.toolsRun).toEqual([]);
+		expect(run.text.length).toBeGreaterThan(0);
+		expect(run.toolsRun).toEqual([]);
 	});
 
 	/**
@@ -61,14 +55,14 @@ describe.runIf(apiKey)("AI: sales, tools and the answer they produce", () => {
 	 * together in one turn, which is the case the runtime runs in parallel.
 	 */
 	it("compares titles by quoting each one, in as few turns as it can", { timeout: 120_000 }, async () => {
-		const { app, events } = await booted();
+		await booted();
 
-		await app
-			.get(SalesAgent)
+		const run = await bed
+			.agent(SalesAgent)
 			.ask("Compare os preços de Elden Ring Nightreign, Hollow Knight Silksong e Stardew Valley. Uma cópia de cada.");
 
-		expect(events.ran("quote_game")).toBeGreaterThanOrEqual(3);
-		expect(events.largestBatch).toBeGreaterThan(1);
+		expect(run.events.ran("quote_game")).toBeGreaterThanOrEqual(3);
+		expect(run.events.largestBatch).toBeGreaterThan(1);
 	});
 
 	/**
@@ -79,30 +73,63 @@ describe.runIf(apiKey)("AI: sales, tools and the answer they produce", () => {
 	 * rest move.
 	 */
 	it("says what a customer asked for, judged rather than matched", { timeout: 120_000 }, async () => {
-		if (apiKey === undefined) throw new Error("no api key");
-		const { app } = await booted();
+		await booted();
 
-		const result = await app.get(SalesAgent).ask("Quais jogos de PS5 vocês têm? Cite os títulos.");
+		const run = await bed.agent(SalesAgent).ask("Quais jogos de PS5 vocês têm? Cite os títulos.");
 
-		await expect(result.text).toSatisfyRubric(
-			judgeWith(apiKey),
-			"lists at least two PlayStation 5 game titles sold by the store",
-		);
+		await expect(run.text).toSatisfyRubric(judge(), "lists at least two PlayStation 5 game titles sold by the store");
 	});
 
 	it(
 		"keeps the conversation, so the next question is answered with the first in view",
 		{ timeout: 120_000 },
 		async () => {
-			const { app } = await booted();
-			const opening = await app.get(SalesAgent).ask("Estou de olho em Stardew Valley.");
+			await booted();
+			const sales = bed.agent(SalesAgent);
+			const opening = await sales.ask("Estou de olho em Stardew Valley.");
 
-			const follow = await app.get(SalesAgent).ask("Quanto custa uma cópia dele?", opening.sessionId);
-			const session = await app.get(InspectSessionUseCase).execute(opening.sessionId.value);
+			const follow = await sales.ask("Quanto custa uma cópia dele?");
+			const session = await bed.get(InspectSessionUseCase).execute(opening.sessionId.value);
 
 			expect(follow.sessionId.value).toBe(opening.sessionId.value);
 			expect(follow.text).toContain("24");
 			expect(session.revision.value).toBeGreaterThan(1);
 		},
 	);
+
+	/** The arguments are the assertion: a quote for the wrong title is a wrong answer. */
+	it("sends the tool the title the customer named", { timeout: 120_000 }, async () => {
+		await booted();
+
+		const run = await bed.agent(SalesAgent).ask("Quanto custa uma cópia de Stardew Valley?");
+
+		expect(JSON.stringify(run.callsTo("quote_game").at(0)?.args)).toContain("stardew");
+	});
+
+	it("says it does not have a title the shelf never carried", { timeout: 120_000 }, async () => {
+		await booted();
+
+		const run = await bed.agent(SalesAgent).ask("Vocês têm Half-Life 3? Responda em uma frase.");
+
+		await expect(run.text).toSatisfyRubric(judge(), "says the store does not have that game");
+	});
+
+	/** The always skill is in every prompt, which is what the tone of an answer comes from. */
+	it("carries the always skill into the instructions of every turn", { timeout: 120_000 }, async () => {
+		await booted();
+
+		await bed.agent(SalesAgent).ask("Oi!");
+
+		expect(bed.agent(SalesAgent).lastInstruction().length).toBeGreaterThan(0);
+	});
+
+	it("starts a new conversation when the test asks for one", { timeout: 120_000 }, async () => {
+		await booted();
+		const sales = bed.agent(SalesAgent);
+		const first = await sales.ask("Estou de olho em Stardew Valley.");
+
+		const fresh = await sales.newSession().ask("Oi, tudo bem?");
+
+		expect(fresh.sessionId.value).not.toBe(first.sessionId.value);
+	});
 });

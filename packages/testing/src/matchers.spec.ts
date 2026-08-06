@@ -1,29 +1,15 @@
-import {
-	AgentResult,
-	AgentRunId,
-	AgentRunStatus,
-	ModelRequest,
-	PendingCall,
-	SessionId,
-	ToolCallId,
-	ToolResultMessage,
-	UserMessage,
-} from "@nestjs-adk/core";
+import { AgentResult, AgentRunId, AgentRunStatus, PendingCall, SessionId, ToolCallId } from "@nestjs-adk/core";
 import { describe, expect, it } from "vitest";
 import { JudgeRubric } from "./judge-rubric";
 import { LlmJudge } from "./llm-judge";
 import { adkMatchers } from "./matchers";
 import { ScriptedModel } from "./scripted-model";
+import { IssueRefundTool } from "./support/store.fixture";
+import { ToolFake } from "./tool-fake";
 
 const SESSION = SessionId.from("s-1");
 const RUN = AgentRunId.from("r-1");
 const CALL = ToolCallId.from("c-1");
-
-function modelThatRan(tool: string): ScriptedModel {
-	const model = new ScriptedModel();
-	model.requests.push(new ModelRequest([new UserMessage("hi"), new ToolResultMessage(CALL, tool, { ok: true }, false)]));
-	return model;
-}
 
 function suspendedOn(tool: string): AgentResult {
 	return new AgentResult(SESSION, RUN, AgentRunStatus.SUSPENDED, "", [new PendingCall(CALL, tool, {})]);
@@ -33,20 +19,55 @@ function judgeAnswering(text: string): LlmJudge {
 	return new LlmJudge(new ScriptedModel().mockText(text));
 }
 
-describe("toCallTool", () => {
-	it("passes when the tool actually ran", () => {
-		expect(adkMatchers.toCallTool(modelThatRan("refund_order"), "refund_order").pass).toBe(true);
+/** The event based matchers are proved over a booted run in `matchers.e2e.spec.ts`. */
+describe("matchers over a subject they cannot read", () => {
+	it("says what each one expected instead of throwing", () => {
+		expect(adkMatchers.toHaveRunTool("not a run", "refund_order").pass).toBe(false);
+		expect(adkMatchers.toHaveRunTool("not a run", "refund_order").message()).toContain("RecordedRun");
+		expect(adkMatchers.toHaveRequestedTool(42, "refund_order").pass).toBe(false);
+		expect(adkMatchers.toHaveDeniedTool(42, "refund_order").pass).toBe(false);
+		expect(adkMatchers.toHaveTransferredTo(42, "billing").pass).toBe(false);
+		expect(adkMatchers.toHaveDelegatedTo(42, "billing").pass).toBe(false);
+		expect(adkMatchers.toAwaitApproval("not a result").pass).toBe(false);
+		expect(adkMatchers.toHaveStatus("not a result", "completed").pass).toBe(false);
+		expect(adkMatchers.toHaveBeenCalledWithArgs("not a fake", {}).pass).toBe(false);
+		expect(adkMatchers.toBeFullyPlayed("not a script").pass).toBe(false);
+	});
+});
+
+describe("toHaveStatus", () => {
+	it("passes for the state the run ended in, and names the other one when it fails", () => {
+		const completed = new AgentResult(SESSION, RUN, AgentRunStatus.COMPLETED, "done");
+
+		expect(adkMatchers.toHaveStatus(completed, "completed").pass).toBe(true);
+		expect(adkMatchers.toHaveStatus(completed, "suspended").message()).toContain("completed");
+	});
+});
+
+describe("toHaveBeenCalledWithArgs", () => {
+	it("passes when the double was called with these arguments, among others", () => {
+		const fake = ToolFake.replacing(IssueRefundTool);
+		fake.execute({ orderId: "A-1042", amountBrl: 349 }, undefined as never);
+
+		expect(adkMatchers.toHaveBeenCalledWithArgs(fake, { orderId: "A-1042" }).pass).toBe(true);
+		expect(adkMatchers.toHaveBeenCalledWithArgs(fake, { orderId: "A-9" }).pass).toBe(false);
 	});
 
-	it("fails when another tool ran, and says which", () => {
-		const result = adkMatchers.toCallTool(modelThatRan("lookup_order"), "refund_order");
+	it("reports the calls it did see", () => {
+		const fake = ToolFake.replacing(IssueRefundTool);
 
-		expect(result.pass).toBe(false);
-		expect(result.message()).toContain("lookup_order");
+		expect(adkMatchers.toHaveBeenCalledWithArgs(fake, { orderId: "A-1" }).message()).toContain("none");
 	});
+});
 
-	it("fails on a subject it cannot read", () => {
-		expect(adkMatchers.toCallTool("not a model", "refund_order").pass).toBe(false);
+describe("toBeFullyPlayed", () => {
+	it("passes for a script with nothing left, and counts what is left when it fails", async () => {
+		const played = new ScriptedModel();
+		const pending = new ScriptedModel().mockText("never reached");
+
+		expect(adkMatchers.toBeFullyPlayed(played).pass).toBe(true);
+		expect(adkMatchers.toBeFullyPlayed(pending).pass).toBe(false);
+		expect(adkMatchers.toBeFullyPlayed(pending).message()).toContain("1 turn");
 	});
 });
 
@@ -118,7 +139,7 @@ describe("toSatisfyRubric", () => {
 
 describe("registration", () => {
 	it("extends expect, so importing the module is all a suite has to do", () => {
-		expect(modelThatRan("refund_order")).toCallTool("refund_order");
 		expect(suspendedOn("refund_order")).toAwaitApproval("refund_order");
+		expect(new ScriptedModel()).toBeFullyPlayed();
 	});
 });

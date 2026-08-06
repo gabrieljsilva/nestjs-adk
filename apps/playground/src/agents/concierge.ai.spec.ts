@@ -3,26 +3,27 @@ import "@nestjs-adk/testing/matchers";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { AdkTestBed } from "@nestjs-adk/testing";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { InspectSessionUseCase } from "../chat/inspect-session.use-case";
 import { SendMessageUseCase } from "../chat/send-message.use-case";
 import {
-	type AiStore,
-	bootAi,
+	aiStore,
 	breathe,
 	closenessOf,
-	geminiKey,
+	geminiGate,
 	geminiModel,
-	storeKey,
+	mixedStore,
+	storeGate,
 	storeModel,
 } from "./ai-suite.fixture";
-
-const apiKey = storeKey();
-const gemini = geminiKey();
+import { ConciergeAgent } from "./concierge.agent";
 
 /** Two models never write the same sentence, so the question has one narrow right answer. */
 const SAME_QUESTION = "Vocês vendem jogos de qual plataforma? Responda em uma frase.";
 const CLOSE_ENOUGH = 0.6;
+
+let bed: AdkTestBed;
 
 /**
  * The front desk, where every conversation starts and most of them leave.
@@ -31,38 +32,53 @@ const CLOSE_ENOUGH = 0.6;
  * question, and a real model is the only thing that can be asked to decide it. What lands
  * in the session afterwards is the assertion.
  */
-describe.runIf(apiKey)("AI: the concierge, and where a conversation ends up", () => {
-	let store: AiStore;
-
+describe.runIf(storeGate.present)("AI: the concierge, and where a conversation ends up", () => {
 	beforeEach(breathe);
 
 	afterEach(async () => {
-		await store?.app.close();
+		await bed?.close();
 	});
 
-	async function booted(location?: string): Promise<AiStore> {
-		if (apiKey === undefined) throw new Error("no api key");
-		store = await bootAi(storeModel(apiKey), location === undefined ? {} : { location });
-		return store;
+	async function booted(location?: string): Promise<AdkTestBed> {
+		bed = await aiStore(location).boot();
+		return bed;
 	}
 
 	it("hands a broken product to the sector that owns it", { timeout: 120_000 }, async () => {
-		const { app, events } = await booted();
+		await booted();
 
-		const result = await app.get(SendMessageUseCase).execute("Meu controle chegou quebrado, o analógico está solto.");
-		const session = await app.get(InspectSessionUseCase).execute(result.sessionId.value);
+		const result = await bed.get(SendMessageUseCase).execute("Meu controle chegou quebrado, o analógico está solto.");
+		const session = await bed.get(InspectSessionUseCase).execute(result.sessionId.value);
 
-		expect(events.types).toContain("agent.transferred");
+		expect(bed.events).toHaveTransferredTo("warranty");
 		expect(session.activeAgent.value).toBe("warranty");
 	});
 
 	it("hands a question about buying to sales instead", { timeout: 120_000 }, async () => {
-		const { app } = await booted();
+		await booted();
 
-		const result = await app.get(SendMessageUseCase).execute("Queria comprar um jogo de corrida para PS5.");
-		const session = await app.get(InspectSessionUseCase).execute(result.sessionId.value);
+		const result = await bed.get(SendMessageUseCase).execute("Queria comprar um jogo de corrida para PS5.");
+		const session = await bed.get(InspectSessionUseCase).execute(result.sessionId.value);
 
 		expect(session.activeAgent.value).toBe("sales");
+	});
+
+	it("hands a question about money to billing", { timeout: 120_000 }, async () => {
+		await booted();
+
+		const result = await bed.get(SendMessageUseCase).execute("Quero o reembolso de um pedido que chegou errado.");
+		const session = await bed.get(InspectSessionUseCase).execute(result.sessionId.value);
+
+		expect(session.activeAgent.value).toBe("billing");
+	});
+
+	it("answers a greeting itself, without handing it to anybody", { timeout: 120_000 }, async () => {
+		await booted();
+
+		const run = await bed.agent(ConciergeAgent).ask("Oi, bom dia!");
+
+		expect(run.text.length).toBeGreaterThan(0);
+		expect(run.transfers).toEqual([]);
 	});
 
 	/**
@@ -77,11 +93,11 @@ describe.runIf(apiKey)("AI: the concierge, and where a conversation ends up", ()
 		const file = join(directory, "store.db");
 		try {
 			const first = await booted(file);
-			const opening = await first.app.get(SendMessageUseCase).execute("Meu nome é Gabriel. Guarde isso.");
-			await first.app.close();
+			const opening = await first.get(SendMessageUseCase).execute("Meu nome é Gabriel. Guarde isso.");
+			await first.close();
 
 			const restarted = await booted(file);
-			const answer = await restarted.app.get(SendMessageUseCase).execute("Qual é o meu nome?", opening.sessionId.value);
+			const answer = await restarted.get(SendMessageUseCase).execute("Qual é o meu nome?", opening.sessionId.value);
 
 			expect(answer.sessionId.value).toBe(opening.sessionId.value);
 			expect(answer.text).toContain("Gabriel");
@@ -98,27 +114,52 @@ describe.runIf(apiKey)("AI: the concierge, and where a conversation ends up", ()
  * The wording moves, so the comparison is the meaning: both answers are embedded and the
  * cosine between them is the assertion. It needs both keys and skips without either.
  */
-describe.runIf(apiKey && gemini)("AI: two models behind the same store", () => {
-	const stores: AiStore[] = [];
+describe.runIf(storeGate.present && geminiGate.present)("AI: two models behind the same store", () => {
+	beforeEach(breathe);
 
-	afterAll(async () => {
-		for (const store of stores) await store.app.close();
+	afterEach(async () => {
+		await bed?.close();
 	});
 
-	async function answerFrom(model: "openai" | "gemini"): Promise<string> {
-		if (apiKey === undefined || gemini === undefined) throw new Error("no api key");
-		const store = await bootAi(model === "openai" ? storeModel(apiKey) : geminiModel(gemini));
-		stores.push(store);
-		return (await store.app.get(SendMessageUseCase).execute(SAME_QUESTION)).text;
-	}
-
 	it("says close enough to the same thing on OpenAI and on Gemini", { timeout: 180_000 }, async () => {
-		if (gemini === undefined) throw new Error("no api key");
+		bed = await aiStore().boot();
+		const fromOpenAi = (await bed.get(SendMessageUseCase).execute(SAME_QUESTION)).text;
+		await bed.close();
 
-		const answers = [await answerFrom("openai"), await answerFrom("gemini")];
+		bed = await mixedStore()
+			.withModel(geminiModel())
+			.withModelFor("concierge", geminiModel())
+			.withModelFor("sales", geminiModel())
+			.withModelFor("warranty", geminiModel())
+			.withModelFor("billing", geminiModel())
+			.boot();
+		const fromGemini = (await bed.get(SendMessageUseCase).execute(SAME_QUESTION)).text;
 
-		expect(answers[0]?.length).toBeGreaterThan(0);
-		expect(answers[1]?.length).toBeGreaterThan(0);
-		expect(await closenessOf(String(answers[0]), String(answers[1]), gemini)).toBeGreaterThan(CLOSE_ENOUGH);
+		expect(fromOpenAi.length).toBeGreaterThan(0);
+		expect(fromGemini.length).toBeGreaterThan(0);
+		expect(await closenessOf(fromOpenAi, fromGemini)).toBeGreaterThan(CLOSE_ENOUGH);
+	});
+
+	/**
+	 * One provider deciding, another answering, in one conversation.
+	 *
+	 * A transfer resolves the model of the agent it lands on, so a session that changed
+	 * hands between two providers is the case where that resolution is the whole feature.
+	 */
+	it("hands a conversation from one provider to another, mid session", { timeout: 180_000 }, async () => {
+		bed = await mixedStore()
+			.withModel(geminiModel())
+			.withModelFor("concierge", geminiModel())
+			.withModelFor("sales", geminiModel())
+			.withModelFor("warranty", storeModel())
+			.withModelFor("billing", geminiModel())
+			.boot();
+
+		const result = await bed.get(SendMessageUseCase).execute("Meu controle chegou quebrado, o analógico está solto.");
+		const session = await bed.get(InspectSessionUseCase).execute(result.sessionId.value);
+
+		expect(bed.events).toHaveTransferredTo("warranty");
+		expect(session.activeAgent.value).toBe("warranty");
+		expect(result.text.length).toBeGreaterThan(0);
 	});
 });

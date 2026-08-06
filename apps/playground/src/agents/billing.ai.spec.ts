@@ -1,22 +1,16 @@
 import "reflect-metadata";
 import "@nestjs-adk/testing/matchers";
-import type { AgentResult } from "@nestjs-adk/core";
+import type { AdkTestBed } from "@nestjs-adk/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { OrderRepository } from "../aftersales/order.repository";
 import { ApproveToolCallUseCase } from "../chat/approve-tool-call.use-case";
 import { RejectToolCallUseCase } from "../chat/reject-tool-call.use-case";
-import { type AiStore, bootAi, breathe, storeKey, storeModel } from "./ai-suite.fixture";
+import { aiStore, breathe, judge, storeGate } from "./ai-suite.fixture";
 import { BillingAgent } from "./billing.agent";
 
-const apiKey = storeKey();
 const ORDER = "A-1042";
 
-/** The call a suspended run is waiting on, which is what a human answers about. */
-function pending(result: AgentResult): string {
-	const call = result.awaiting.at(0);
-	if (call === undefined) throw new Error("the run is not waiting for anything");
-	return call.callId.value;
-}
+let bed: AdkTestBed;
 
 /**
  * Money leaving, with a real model deciding to make it leave.
@@ -25,43 +19,40 @@ function pending(result: AgentResult): string {
  * store declares that way. What a fake cannot prove is that a provider asked to refund an
  * order actually calls it, which is the moment the policy has to be there.
  */
-describe.runIf(apiKey)("AI: billing, and the human in front of the money", () => {
-	let store: AiStore;
-
+describe.runIf(storeGate.present)("AI: billing, and the human in front of the money", () => {
 	beforeEach(breathe);
 
 	afterEach(async () => {
-		await store?.app.close();
+		await bed?.close();
 	});
 
-	async function suspended(): Promise<{ store: AiStore; run: AgentResult }> {
-		if (apiKey === undefined) throw new Error("no api key");
-		store = await bootAi(storeModel(apiKey));
-		const run = await store.app.get(BillingAgent).ask(`Devolve os 349 reais do pedido ${ORDER}.`);
-		return { store, run };
+	async function suspended() {
+		bed = await aiStore().boot();
+		const billing = bed.agent(BillingAgent);
+		return { billing, run: await billing.ask(`Devolve os 349 reais do pedido ${ORDER}.`) };
 	}
 
 	function orders(): OrderRepository {
-		return store.app.get(OrderRepository);
+		return bed.get(OrderRepository);
 	}
 
 	it("stops in front of the human before any money leaves", { timeout: 120_000 }, async () => {
 		const { run } = await suspended();
 
 		expect(run).toAwaitApproval("issue_refund");
-		expect(store.events.toolsRun).not.toContain("issue_refund");
+		expect(run).not.toHaveRunTool("issue_refund");
 		expect(orders().findById(ORDER)?.isRefunded).toBe(false);
 	});
 
 	it("lets the money leave once a human said yes, and records it", { timeout: 120_000 }, async () => {
 		const { run } = await suspended();
 
-		const resumed = await store.app
+		const resumed = await bed
 			.get(ApproveToolCallUseCase)
-			.execute(run.sessionId.value, pending(run), "gerente@nebula.test");
+			.execute(run.sessionId.value, run.pendingCall("issue_refund").callId.value, "gerente@nebula.test");
 
 		expect(resumed.status.name).toBe("completed");
-		expect(store.events.ran("issue_refund")).toBe(1);
+		expect(bed.events.ran("issue_refund")).toBe(1);
 		expect(orders().findById(ORDER)?.refundedCents).toBe(34_900);
 	});
 
@@ -75,24 +66,64 @@ describe.runIf(apiKey)("AI: billing, and the human in front of the money", () =>
 	it("keeps the money when a human said no, and the conversation carries on", { timeout: 120_000 }, async () => {
 		const { run } = await suspended();
 
-		const resumed = await store.app
+		const resumed = await bed
 			.get(RejectToolCallUseCase)
-			.execute(run.sessionId.value, pending(run), "fora da janela de sete dias", "gerente@nebula.test");
+			.execute(
+				run.sessionId.value,
+				run.pendingCall("issue_refund").callId.value,
+				"fora da janela de sete dias",
+				"gerente@nebula.test",
+			);
 
 		expect(resumed.status.name).toBe("completed");
-		expect(store.events.countOf("tool.approval-denied")).toBe(1);
+		expect(bed.events.denied("issue_refund")).toBe(1);
 		expect(orders().findById(ORDER)?.isRefunded).toBe(false);
 		expect(orders().findById(ORDER)?.refundedCents).toBe(0);
 		expect(resumed.text.length).toBeGreaterThan(0);
 	});
 
 	it("reads the order through its own tool before talking about it", { timeout: 120_000 }, async () => {
-		if (apiKey === undefined) throw new Error("no api key");
-		store = await bootAi(storeModel(apiKey));
+		bed = await aiStore().boot();
 
-		const result = await store.app.get(BillingAgent).ask(`Qual o valor e a situação do pedido ${ORDER}?`);
+		const run = await bed.agent(BillingAgent).ask(`Qual o valor e a situação do pedido ${ORDER}?`);
 
-		expect(store.events.toolsRun).toContain("find_order");
-		expect(result.text).toContain("349");
+		expect(run).toHaveRunTool("find_order");
+		expect(run.text).toContain("349");
+	});
+
+	/** The arguments are the assertion: a refund of the wrong amount is worse than no refund. */
+	it("asks to refund the amount the order actually carries", { timeout: 120_000 }, async () => {
+		const { run } = await suspended();
+
+		expect(run.callsTo("issue_refund").at(0)?.args).toMatchObject({ orderId: ORDER });
+	});
+
+	it("says no to an order nobody placed, without calling the refund", { timeout: 120_000 }, async () => {
+		bed = await aiStore().boot();
+
+		const run = await bed.agent(BillingAgent).ask("Qual a situação do pedido A-9999?");
+
+		expect(run).not.toHaveRunTool("issue_refund");
+		expect(run.status.name).toBe("completed");
+	});
+
+	it("answers the ceiling of a plan through the tool that knows it", { timeout: 120_000 }, async () => {
+		bed = await aiStore().boot();
+
+		const run = await bed.agent(BillingAgent).ask("Qual o teto de reembolso do plano gold?");
+
+		expect(run).toHaveRunTool("refund_limit");
+		expect(run.text).toContain("1437");
+	});
+
+	/** The wording moves every run, so the judge grades what the answer had to say. */
+	it("explains that a refund needs a human, judged rather than matched", { timeout: 120_000 }, async () => {
+		const { run } = await suspended();
+
+		const resumed = await bed
+			.get(RejectToolCallUseCase)
+			.execute(run.sessionId.value, run.pendingCall("issue_refund").callId.value, "fora da janela", "gerente");
+
+		await expect(resumed.text).toSatisfyRubric(judge(), "says the refund was not made, and gives a reason");
 	});
 });

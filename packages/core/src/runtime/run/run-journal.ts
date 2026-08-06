@@ -134,10 +134,11 @@ export class RunJournal {
 		decision: ApprovalDecision,
 		by?: string,
 		reason?: string,
+		toolName = "",
 	): SessionEvent {
 		const header = this.headerOf(started);
 		if (decision === "granted") return new ToolApprovalGranted(header, callId, by);
-		return new ToolApprovalDenied(header, callId, by, reason ?? "");
+		return new ToolApprovalDenied(header, callId, by, reason ?? "", toolName);
 	}
 
 	public result(started: StartedRun, outcome: ToolOutcome): ToolResultProduced {

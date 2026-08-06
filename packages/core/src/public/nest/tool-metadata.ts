@@ -37,6 +37,20 @@ export class ToolMetadata {
 		return declaration;
 	}
 
+	/**
+	 * Makes another class declare the same tool, without repeating the decorator.
+	 *
+	 * A stand in for a tool has to be a tool as far as discovery is concerned, and discovery
+	 * reads the class rather than the instance: a replacement registered as a bare value has
+	 * no class to read and disappears from the catalog silently. This is what a double uses
+	 * to keep the contract of the tool it replaces.
+	 */
+	public static copy(from: unknown, to: unknown): void {
+		const metadata: unknown = typeof from === "function" ? Reflect.getMetadata(TOOL_METADATA, from) : undefined;
+		if (metadata === undefined) throw new NotAToolClassError(ToolMetadata.candidateName(from));
+		Reflect.defineMetadata(TOOL_METADATA, metadata, Object(to));
+	}
+
 	private static isSchema(value: unknown): value is ZodType {
 		return typeof value === "object" && value !== null && typeof Reflect.get(value, "safeParse") === "function";
 	}

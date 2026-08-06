@@ -72,7 +72,7 @@ export class DecideApproval {
 				rehydrated.session.revision,
 				SessionEventBatch.of([
 					this.journal.started(started, definition.name, model.descriptor().identity),
-					this.journal.decision(started, callId, decision, by, reason),
+					this.journal.decision(started, callId, decision, by, reason, rehydrated.state.pendingTurn.find(callId)?.toolName),
 				]),
 				rehydrated.state,
 			),

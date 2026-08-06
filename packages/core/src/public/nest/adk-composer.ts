@@ -9,7 +9,7 @@ import type { ModelResolver } from "../../contracts/model-resolver";
 import type { SessionEventConsumer } from "../../contracts/session-event-consumer";
 import type { SessionStorage } from "../../contracts/session-storage";
 import type { LlmModel } from "../../domain/model/llm-model";
-import { RuntimeOptions } from "../../runtime/composition/runtime-options";
+import { RuntimeOptions, type RuntimeOptionsPatch } from "../../runtime/composition/runtime-options";
 import type { AdkRuntimeHost } from "../adk-runtime-host";
 import type { AdkModuleOptions } from "./adk-module-options";
 import { AgentBinder } from "./agent-binder";
@@ -42,6 +42,8 @@ export class AdkComposer {
 		private readonly extraConsumers: readonly SessionEventConsumer[] = [],
 		/** Absent means the options' own default model answers for undeclared agents. */
 		private readonly defaultModel?: LlmModel,
+		/** Runtime fields replaced by name after the application declared them. */
+		private readonly runtimePatch: RuntimeOptionsPatch = {},
 		private readonly scan: NestProviderScan = new NestProviderScan(),
 		private readonly scanner: NestAgentScanner = new NestAgentScanner(),
 		private readonly discovery: NestComponentDiscovery = new NestComponentDiscovery(),
@@ -56,12 +58,12 @@ export class AdkComposer {
 		return new AgentBinder(this.registry).bind(scanned);
 	}
 
-	/** The options' runtime, with the container's resolver and the appended consumers in place. */
+	/** The options' runtime, patched by name, with the container's resolver and appended consumers. */
 	private declaredRuntime(): RuntimeOptions {
-		const declared = this.options.runtime ?? new RuntimeOptions();
-		return declared.with({
+		const patched = (this.options.runtime ?? new RuntimeOptions()).with(this.runtimePatch);
+		return patched.with({
 			models: this.models,
-			consumers: [...declared.consumers, ...this.extraConsumers],
+			consumers: [...patched.consumers, ...this.extraConsumers],
 		});
 	}
 }

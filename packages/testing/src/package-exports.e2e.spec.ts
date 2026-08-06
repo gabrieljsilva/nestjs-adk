@@ -50,4 +50,57 @@ describe("@nestjs-adk/testing subpaths", () => {
 	it("keeps the root entry free of that side effect, so a scripted model costs nothing", () => {
 		expect(read("src/index.ts")).not.toContain("matchers");
 	});
+
+	/**
+	 * The surface a consumer writes a test against.
+	 *
+	 * A piece that exists and is not exported is a piece nobody can use, and that is not
+	 * something a type error catches: the package still builds, and the import fails at the
+	 * consumer.
+	 */
+	it("publishes everything a test is written with", () => {
+		const barrel = read("src/index.ts");
+
+		for (const symbol of [
+			"AdkTestBed",
+			"AdkTestBedBuilder",
+			"TestAgent",
+			"RecordedRun",
+			"RecordedToolCall",
+			"RunEvents",
+			"RunRecorder",
+			"RunTranscript",
+			"RoutingModelResolver",
+			"ScriptedModel",
+			"ScriptedTurn",
+			"ToolFake",
+			"AgentStub",
+			"RecordingModel",
+			"ApiKeyGate",
+			"TestImage",
+			"TestingEmbedder",
+			"LlmJudge",
+			"JudgeRubric",
+			"JudgeVerdict",
+		]) {
+			expect(barrel).toContain(`export { ${symbol} }`);
+		}
+	});
+
+	it("publishes every failure a test can be handed", () => {
+		const barrel = read("src/index.ts");
+
+		for (const error of [
+			"ScriptDeviationError",
+			"ScriptExhaustedError",
+			"ScriptMisuseError",
+			"ScriptNotConsumedError",
+			"NothingAwaitingError",
+			"MissingApiKeyError",
+			"UnknownTestAgentError",
+			"UnscriptedAgentError",
+		]) {
+			expect(barrel).toContain(`export { ${error} }`);
+		}
+	});
 });
