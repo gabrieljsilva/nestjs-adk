@@ -15,8 +15,8 @@ export function createTransport(
 	/**
 	 * Replaces the SDK's fetch for http and sse. `AdkMcpServer` passes the guarded fetch here, which
 	 * is what puts the target guard on every request of the connection, redirects included, not only
-	 * on the URL `open()` looked at. Boot config (`McpModule.forRoot`) passes nothing: that URL was
-	 * written by the developer, and the developer connects to their own network on purpose.
+	 * on the URL `open()` looked at. Omitted, the transport uses the SDK's own fetch and nothing is
+	 * guarded, which is why only a `stdio` connection, the one with no address, leaves it out.
 	 */
 	fetchImpl?: typeof fetch,
 ) {

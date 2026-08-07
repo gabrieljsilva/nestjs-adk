@@ -1,6 +1,7 @@
 import type { AgentFailoverPolicy } from "../../domain/agent/agent-failover-policy";
 import type { AdkCompactionPolicy } from "../../domain/context/adk-compaction-policy";
 import type { LlmModel } from "../../domain/model/llm-model";
+import type { RunLimits } from "../../domain/session/run-limits";
 
 /**
  * What `@Agent` declares.
@@ -38,4 +39,12 @@ export interface AgentOptions {
 	 * Without one, and without a module policy, nothing is ever compacted.
 	 */
 	compaction?: AdkCompactionPolicy;
+	/**
+	 * How far a run of this agent may go before the runtime stops it.
+	 *
+	 * Each limit declared here replaces the module's, field by field, and a field left out
+	 * keeps whatever the module decided. An agent that needs more round trips than the
+	 * default says so here rather than the application widening the ceiling for everyone.
+	 */
+	limits?: RunLimits;
 }

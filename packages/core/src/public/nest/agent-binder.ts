@@ -1,6 +1,7 @@
 import { AGENT_METADATA } from "../../adapters/nest/metadata-keys";
 import type { ScannedProvider } from "../../adapters/nest/scanned-provider";
 import { AdkAgent } from "./adk-agent";
+import type { AgentPrompting } from "./agent-prompting";
 import type { AgentRegistry } from "./agent-registry";
 
 /**
@@ -16,7 +17,14 @@ import type { AgentRegistry } from "./agent-registry";
  * second one is not missing anything.
  */
 export class AgentBinder {
-	public constructor(private readonly registry: AgentRegistry) {}
+	public constructor(
+		private readonly registry: AgentRegistry,
+		/**
+		 * Shared by every agent, which is what makes the file cache worth having: two agents
+		 * reading the same template read it once.
+		 */
+		private readonly prompting?: AgentPrompting,
+	) {}
 
 	/** Answers how many were bound, which is what a caller can assert on. */
 	public bind(providers: readonly ScannedProvider[]): number {
@@ -24,7 +32,7 @@ export class AgentBinder {
 		for (const provider of providers) {
 			const name = this.nameOf(provider);
 			if (name === undefined || !(provider.instance instanceof AdkAgent)) continue;
-			provider.instance.bindTo(this.registry.get(name));
+			provider.instance.bindTo(this.registry.get(name), this.prompting);
 			bound += 1;
 		}
 		return bound;

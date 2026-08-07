@@ -4,7 +4,7 @@
  * context alone, so nothing substitutes a default text here.
  */
 export class PromptInstructions {
-	private constructor(public readonly text: string) { }
+	private constructor(public readonly text: string) {}
 
 	public static from(text: string): PromptInstructions {
 		return new PromptInstructions(text.trim());

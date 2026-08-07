@@ -50,7 +50,14 @@ export class DelegateAgent {
 		const opened = new OpenedSession(rehydrated.session, rehydrated.state, false);
 
 		try {
-			const scope = this.scopes.create(parent, this.models.resolve(parent), started);
+			const scope = await this.scopes.create(
+				parent,
+				this.models.resolve(parent),
+				started,
+				undefined,
+				undefined,
+				rehydrated.session.owner,
+			);
 			const answers = await this.delegations.runAll(scope, opened, progress, [this.callOf(input)]);
 			return await this.results.answering(started, progress, answers.values().next().value ?? "");
 		} catch (error) {

@@ -3,6 +3,7 @@ import {
 	AdkModuleOptions,
 	EffectApprovalPolicy,
 	LiteLLMPricingSource,
+	RunLimits,
 	RuntimeOptions,
 	SqliteSessionStorage,
 	TokenThresholdCompactionPolicy,
@@ -46,6 +47,17 @@ export const geminiFlashLite = new GeminiModel(MODEL, { apiKey: GEMINI_API_KEY }
  */
 const COMPACTION = new TokenThresholdCompactionPolicy(24_000, 12_000, 4);
 
+/**
+ * What any conversation here may spend before the runtime stops it.
+ *
+ * No sector of this store needs eight round trips to answer, so a run that reaches them is
+ * a model looping rather than a customer being served, and stopping it is cheaper than the
+ * next call. A sector that genuinely runs longer declares its own in `@Agent`, which
+ * replaces this one rather than being capped by it: sales does, because comparing titles
+ * is one quote per title.
+ */
+const STORE_LIMITS = RunLimits.of(8);
+
 export const storeOptions = AdkModuleOptions.from({
 	defaultModel: geminiFlashLite,
 	storage: new SqliteSessionStorage(storeConnection),
@@ -54,6 +66,7 @@ export const storeOptions = AdkModuleOptions.from({
 		summarizer: new StoreSummarizer(geminiFlashLite),
 		compaction: COMPACTION,
 		pricing: new LiteLLMPricingSource(),
+		limits: STORE_LIMITS,
 	}),
 });
 

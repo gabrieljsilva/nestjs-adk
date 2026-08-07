@@ -30,8 +30,8 @@ export class AgentSwitch {
 		return transferred.at(-1)?.to;
 	}
 
-	public to(scope: RunScope, target: AgentName): RunScope {
+	public async to(scope: RunScope, target: AgentName): Promise<RunScope> {
 		const definition = this.catalog.findOrFail(target);
-		return this.scopes.switched(scope, definition, this.models.resolve(definition));
+		return await this.scopes.switched(scope, definition, this.models.resolve(definition));
 	}
 }

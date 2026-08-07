@@ -6,6 +6,7 @@ import { AgentName } from "../../../domain/agent/agent-name";
 import { Session } from "../../../domain/session/session";
 import { SessionMode } from "../../../domain/session/session-mode";
 import { SessionOwner } from "../../../domain/session/session-owner";
+import { SessionHeadCodec } from "../codec/session-head-codec";
 import { SessionRepository } from "./session-repository";
 import { SqliteConnection } from "./sqlite-connection";
 
@@ -13,7 +14,7 @@ const ID = SessionId.from("s-1");
 const NOW = Instant.fromIso("2026-01-01T00:00:00.000Z");
 
 function repository(): SessionRepository {
-	return new SessionRepository(new SqliteConnection());
+	return new SessionRepository(new SqliteConnection(), new SessionHeadCodec());
 }
 
 describe("SessionRepository", () => {

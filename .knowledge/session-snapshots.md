@@ -40,4 +40,4 @@ The read path was written first and lived a long time with no writer at all: `sa
 
 A read path fed only by test fixtures is not tested integration. When both halves exist, every test that commits and rehydrates exercises the round trip for free.
 
-Related: [[context-projection]], [[tool-approval]].
+Related: [[context-projection]], [[tool-approval]], [[storage-adapters]].

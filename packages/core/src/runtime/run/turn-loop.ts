@@ -108,7 +108,7 @@ export class TurnLoop extends DelegatedTurnLoop {
 			if (target !== undefined) {
 				transfers += 1;
 				if (transfers > MAX_TRANSFERS) throw new AgentMaxTransfersError(current.agent.value, MAX_TRANSFERS);
-				current = this.agents.to(current, target);
+				current = await this.agents.to(current, target);
 			}
 		}
 	}
@@ -144,7 +144,7 @@ export class TurnLoop extends DelegatedTurnLoop {
 				scope.model,
 				scope.catalog.declarations(),
 				undefined,
-				scope.skills.instructions(scope.definition.instructions),
+				scope.skills.instructions(scope.instructions),
 				scope.compaction,
 				measured?.usage,
 				measured?.characters,

@@ -81,9 +81,22 @@ describe("@nestjs-adk/testing subpaths", () => {
 			"LlmJudge",
 			"JudgeRubric",
 			"JudgeVerdict",
+			"SessionStorageContractSuite",
 		]) {
 			expect(barrel).toContain(`export { ${symbol} }`);
 		}
+	});
+
+	/**
+	 * The suite is only useful to somebody outside this repository, and it is only reachable
+	 * if it holds nothing the core keeps to itself. A deep import here would compile in the
+	 * monorepo and fail at an install, where the paths it reaches do not exist.
+	 */
+	it("writes the contract suite against the published core, like an adapter downstream", () => {
+		const suite = read("src/session-storage-contract-suite.ts");
+
+		expect(suite).toContain('from "@nestjs-adk/core"');
+		expect(suite).not.toMatch(/from "\.\.\/\.\./);
 	});
 
 	it("publishes every failure a test can be handed", () => {

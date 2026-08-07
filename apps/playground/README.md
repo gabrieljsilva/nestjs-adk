@@ -21,6 +21,18 @@ Customer support has four sectors, which is what makes transfer and delegation a
 
 Layers run one way: `controller` calls `use-case`, which calls `service`, which calls `repository`, which talks to SQLite. The agents' tools are providers that call use cases, so no business rule lives inside a tool.
 
+### The Nébula Club, which boots on its own
+
+`src/loyalty/` is a second application in the same repository, and it is separate on purpose. The four sectors declare their prompts in `@Agent({ prompt })` and are the comparison, so the club is where the other way is exercised: three desks whose prompt is built once per run by an overridden `prompt()`.
+
+| Desk | Agent | Where its prompt comes from |
+| --- | --- | --- |
+| Concierge | `club` | `club-concierge.md`, with the member's name, tier and points interpolated |
+| Rules | `club-rules` | `club-rules.md`, with no variables at all |
+| Guest | `club-guest` | a string the agent already holds, rendered with the session id |
+
+`clubOptions` points `prompts.dir` at `src/loyalty/prompts` through `import.meta.url`, which is the pattern to copy: a relative path would resolve against wherever the process was started. `club.e2e.spec.ts` covers all three, the failures each one can reach, and asserts with `toHaveStablePrefix` that a prompt varying only by a member's name still leaves a cacheable prefix.
+
 ## Three levels, and what each one answers
 
 Every level is driven from the repository root.
@@ -31,7 +43,7 @@ Every level is driven from the repository root.
 npm run test:playground
 ```
 
-46 files, 192 cases, no key and no network. Each layer is tested alone: repository against an in memory database, service and use case against fakes, controller against a fake use case.
+54 files, 228 cases, no key and no network. Each layer is tested alone: repository against an in memory database, service and use case against fakes, controller against a fake use case.
 
 `store-chat.e2e.spec.ts` is the one that boots the whole application with `Test.createTestingModule` and answers a conversation with `ScriptedModel` in place of a provider. It is where the paths that would be expensive to prove with a real model live: an approval refused, a tool that fails, an iteration limit, and compaction replacing turns with a summary.
 

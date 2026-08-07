@@ -57,8 +57,8 @@ export interface AdkMcpServerOptions {
 	 * endpoint or an internal Redis through your network (SSRF). Public targets must speak https
 	 * either way: a user's credential over cleartext to a third party has no legitimate case.
 	 * Set `true` only when this MCP server belongs to the operator's own network (a local dev
-	 * server, an internal corporate MCP). Boot config (`McpModule.forRoot`) has no guard at all:
-	 * that URL is the developer's own code.
+	 * server, an internal corporate MCP), which includes a server the module declares: where the
+	 * source was declared is not evidence about the URL, so the guard does not read it.
 	 */
 	allowPrivateNetwork?: boolean;
 }

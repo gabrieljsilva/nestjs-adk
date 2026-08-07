@@ -68,3 +68,48 @@ describe("ContextBlock", () => {
 		expect(ContextBlock.summary(new UserMessage("earlier"), R1).category).toBe(ContextCategory.SUMMARIES);
 	});
 });
+
+/**
+ * What compaction is allowed to touch is decided by `closed` and `pinned`, and a stored
+ * block has combinations no other named constructor produces.
+ */
+describe("ContextBlock.restore", () => {
+	it("brings a block back exactly as it was", () => {
+		const restored = ContextBlock.restore(ContextCategory.SUMMARIES, [new UserMessage("hi")], R1, R2, true, CALL, true);
+
+		expect(restored.category).toBe(ContextCategory.SUMMARIES);
+		expect(restored.firstRevision).toBe(R1);
+		expect(restored.lastRevision).toBe(R2);
+		expect(restored.callId).toBe(CALL);
+	});
+
+	it("keeps a pinned summary out of compaction's reach", () => {
+		const restored = ContextBlock.restore(
+			ContextCategory.SUMMARIES,
+			[new UserMessage("hi")],
+			R1,
+			R1,
+			true,
+			undefined,
+			true,
+		);
+
+		expect(restored.isRemovable).toBe(false);
+	});
+
+	it("keeps a call that never got its result open", () => {
+		const restored = ContextBlock.restore(ContextCategory.TOOL_RESULTS, [new UserMessage("hi")], R1, R1, false, CALL);
+
+		expect(restored.isOpen).toBe(true);
+		expect(restored.isRemovable).toBe(false);
+	});
+
+	it("copies the messages it was handed, so the caller's array cannot change it later", () => {
+		const messages = [new UserMessage("hi")];
+		const restored = ContextBlock.restore(ContextCategory.CONVERSATION, messages, R1, R1, true);
+
+		messages.push(new UserMessage("and this"));
+
+		expect(restored.messages).toHaveLength(1);
+	});
+});

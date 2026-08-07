@@ -67,6 +67,7 @@ export class AgentRunner {
 		return this.deciding.handle(input.sessionId, input.callId, "granted", {
 			by: input.approvedBy,
 			sources: input.sources,
+			signal: input.signal,
 		});
 	}
 
@@ -76,6 +77,7 @@ export class AgentRunner {
 			by: input.deniedBy,
 			reason: input.reason,
 			sources: input.sources,
+			signal: input.signal,
 		});
 	}
 }

@@ -15,6 +15,8 @@ export class RejectInput {
 		public readonly reason: string,
 		public readonly deniedBy?: string,
 		public readonly sources: readonly ToolSource[] = [],
+		/** The stop button of the turn this decision releases, which is a run of its own. */
+		public readonly signal?: AbortSignal,
 	) {}
 
 	public static of(
@@ -23,7 +25,8 @@ export class RejectInput {
 		reason: string,
 		deniedBy?: string,
 		sources: readonly ToolSource[] = [],
+		signal?: AbortSignal,
 	): RejectInput {
-		return new RejectInput(sessionId, callId, reason.trim(), deniedBy, sources);
+		return new RejectInput(sessionId, callId, reason.trim(), deniedBy, sources, signal);
 	}
 }

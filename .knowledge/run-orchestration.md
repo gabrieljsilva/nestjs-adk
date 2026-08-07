@@ -48,6 +48,14 @@ The order in `AskAgent` is the design, not an implementation detail:
 
 Moving step 2 after step 3 is the kind of change that looks like tidying and silently removes a guarantee. It is written here because the code cannot say it.
 
+## A run has one way to be stopped from outside
+
+`AgentRunFactory` is where a run's `RunCancellation` is born, and therefore the only place a caller's `AbortSignal` is chained onto it. `start` and `resume` both take one, so an approval, which is a run of its own minutes or days later, is as cancellable as the question that suspended.
+
+The tracker keeps `cancelAll` for the shutdown drain and gains no `cancel(runId)`. A run id only exists once the run has begun, and the stop button is usually pressed before the first chunk: a signal that already aborted cancels the run before it calls anything, which a lookup by id cannot express.
+
+A cancelled run ends by throwing, and `RunJournal.terminal` reads the cancellation to write `AgentRunCancelled` instead of `AgentRunFailed`. That distinction is the whole reason the signal goes here rather than being handled at the public surface: a caller that only stopped reading leaves a run that completed normally in the journal, which is a lie about what the provider was paid for.
+
 ## Tests build the assembly, not the pieces
 
 `NativeStackFixture` wires the whole native stack the way the composition wires it. A suite that assembles the pieces itself proves the pieces, and the assembly is where an ordering mistake actually lives.

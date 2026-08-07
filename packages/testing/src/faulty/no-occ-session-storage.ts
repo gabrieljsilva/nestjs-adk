@@ -1,6 +1,4 @@
-import { InMemorySessionStorage } from "../../../adapters/storage/in-memory-session-storage";
-import { AppendEventsCommand } from "../../../contracts/append-events-command";
-import type { AppendEventsResult } from "../../../contracts/append-events-result";
+import { AppendEventsCommand, type AppendEventsResult, InMemorySessionStorage } from "@nestjs-adk/core";
 
 /**
  * Breaks optimistic concurrency by writing at the current head whatever `expectedRevision` says, while still

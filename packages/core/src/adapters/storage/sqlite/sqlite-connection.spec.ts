@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { StoredRow } from "../codec/stored-row";
 import { SqliteConnection } from "./sqlite-connection";
-import { SqliteRow } from "./sqlite-row";
 
 describe("SqliteConnection", () => {
 	it("opens a database that already has the shape the adapter needs", () => {
@@ -8,7 +8,7 @@ describe("SqliteConnection", () => {
 
 		const tables = connection
 			.all("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
-			.map((row) => new SqliteRow(row).text("name"));
+			.map((row) => new StoredRow(row).text("name"));
 
 		expect(tables).toContain("sessions");
 		expect(tables).toContain("session_events");
@@ -30,7 +30,7 @@ describe("SqliteConnection", () => {
 			null,
 		);
 
-		expect(new SqliteRow(connection.first("SELECT * FROM sessions WHERE id = ?", "s-1")).text("id")).toBe("s-1");
+		expect(new StoredRow(connection.first("SELECT * FROM sessions WHERE id = ?", "s-1")).text("id")).toBe("s-1");
 		expect(connection.first("SELECT * FROM sessions WHERE id = ?", "nope")).toBeUndefined();
 		connection.close();
 	});

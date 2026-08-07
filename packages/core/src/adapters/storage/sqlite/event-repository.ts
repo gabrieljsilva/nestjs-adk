@@ -1,46 +1,40 @@
-import { AgentId } from "../../../common/identity/agent-id";
-import { AgentRunId } from "../../../common/identity/agent-run-id";
-import { CorrelationId } from "../../../common/identity/correlation-id";
-import { EventId } from "../../../common/identity/event-id";
 import type { SessionId } from "../../../common/identity/session-id";
 import { SessionRevision } from "../../../common/revision/session-revision";
-import { Instant } from "../../../common/time/instant";
-import { EventCorrelation } from "../../../domain/event/event-correlation";
-import { EventHeader } from "../../../domain/event/event-header";
 import type { SessionEvent } from "../../../domain/event/session-event";
-import type { SessionEventRegistry } from "../../../domain/event/session-event-registry";
 import { StoredSessionEvent } from "../../../domain/event/stored-session-event";
+import type { JournalCodec } from "../codec/journal-codec";
+import { StoredRow } from "../codec/stored-row";
 import type { SqliteConnection } from "./sqlite-connection";
-import { SqliteRow } from "./sqlite-row";
 
 /**
  * The journal itself: append only rows, read back in the order they were written.
  *
- * Events are stored encoded rather than as objects, and decoded through the same registry
- * the rest of the runtime uses. That is what makes a row written by an older build
- * readable: the codec and its upcasters own the shape, not this table.
+ * Events are stored encoded rather than as objects, and encoded by the same codec that is
+ * published for adapters outside this package. That is what makes a row written by an
+ * older build readable, and what keeps this table and a downstream one meaning the same
+ * thing: the codec and its upcasters own the shape, not this table.
  */
 export class EventRepository {
 	public constructor(
 		private readonly connection: SqliteConnection,
-		private readonly registry: SessionEventRegistry,
+		private readonly codec: JournalCodec,
 	) {}
 
 	public append(sessionId: SessionId, revision: SessionRevision, event: SessionEvent): void {
-		const codec = this.registry.codecFor(event.type);
+		const record = this.codec.encode(event);
 		this.connection.run(
 			"INSERT INTO session_events (session_id, revision, event_id, type, schema_version, occurred_at, run_id, agent_id, correlation_id, causation_id, payload) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 			sessionId.value,
 			revision.value,
-			event.id.value,
-			event.type,
-			event.schemaVersion.value,
-			event.occurredAt.toIso(),
-			event.correlation.runId.value,
-			event.correlation.agentId.value,
-			event.correlation.correlationId.value,
-			event.correlation.causationId?.value ?? null,
-			JSON.stringify(codec.encode(event)),
+			record.eventId,
+			record.type,
+			record.schemaVersion,
+			record.occurredAt,
+			record.runId,
+			record.agentId,
+			record.correlationId,
+			record.causationId ?? null,
+			JSON.stringify(record.payload),
 		);
 	}
 
@@ -51,7 +45,7 @@ export class EventRepository {
 				sessionId.value,
 				revision.value,
 			)
-			.map((row) => this.toStored(sessionId, new SqliteRow(row)));
+			.map((row) => this.toStored(sessionId, new StoredRow(row)));
 	}
 
 	/** What is already written under these event ids, which is how a retry recognizes itself. */
@@ -64,7 +58,7 @@ export class EventRepository {
 				sessionId.value,
 				...ids,
 			)
-			.map((row) => this.toStored(sessionId, new SqliteRow(row)));
+			.map((row) => this.toStored(sessionId, new StoredRow(row)));
 	}
 
 	/**
@@ -82,7 +76,7 @@ export class EventRepository {
 		);
 		const written = new Map<string, string>();
 		for (const found of rows) {
-			const row = new SqliteRow(found);
+			const row = new StoredRow(found);
 			written.set(row.text("event_id"), `${row.text("type")}:${row.text("payload")}`);
 		}
 		return written;
@@ -90,26 +84,25 @@ export class EventRepository {
 
 	/** The same fingerprint, taken from an event that has not been written yet. */
 	public fingerprintOf(event: SessionEvent): string {
-		return `${event.type}:${JSON.stringify(this.registry.codecFor(event.type).encode(event))}`;
+		return this.codec.fingerprintOf(event);
 	}
 
 	public deleteAll(sessionId: SessionId): void {
 		this.connection.run("DELETE FROM session_events WHERE session_id = ?", sessionId.value);
 	}
 
-	private toStored(sessionId: SessionId, row: SqliteRow): StoredSessionEvent {
-		const causation = row.optionalText("causation_id");
-		const header = new EventHeader(
-			EventId.from(row.text("event_id")),
-			Instant.fromIso(row.text("occurred_at")),
-			new EventCorrelation(
-				AgentRunId.from(row.text("run_id")),
-				AgentId.from(row.text("agent_id")),
-				CorrelationId.from(row.text("correlation_id")),
-				causation === undefined ? undefined : EventId.from(causation),
-			),
-		);
-		const event = this.registry.decode(row.text("type"), row.integer("schema_version"), row.json("payload"), header);
+	private toStored(sessionId: SessionId, row: StoredRow): StoredSessionEvent {
+		const event = this.codec.decode({
+			eventId: row.text("event_id"),
+			type: row.text("type"),
+			schemaVersion: row.integer("schema_version"),
+			occurredAt: row.text("occurred_at"),
+			runId: row.text("run_id"),
+			agentId: row.text("agent_id"),
+			correlationId: row.text("correlation_id"),
+			causationId: row.optionalText("causation_id"),
+			payload: row.json("payload"),
+		});
 		return new StoredSessionEvent(sessionId, SessionRevision.of(row.integer("revision")), event);
 	}
 }

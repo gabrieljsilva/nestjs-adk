@@ -1,90 +1,131 @@
 # @nestjs-adk/google
 
-The Google ADK engine for [`@nestjs-adk/core`](https://www.npmjs.com/package/@nestjs-adk/core).
+**Gemini for [nestjs-adk](https://www.npmjs.com/package/@nestjs-adk/core).**
 
-The core package defines how you write agents. This package makes them run. At runtime it translates your decorated NestJS classes into native objects from the [Google ADK](https://google.github.io/adk-docs/), so you get Google's production agent loop, tool calling, streaming and OpenTelemetry tracing, while your code stays pure NestJS.
-
-## Setup
+One model class and one embedder, both of them plain values you construct and hand to the module. Nothing here is a NestJS provider and nothing is registered: `GeminiModel` is an `LlmModel`, so wherever the core takes a model, this goes.
 
 ```bash
 npm i @nestjs-adk/core @nestjs-adk/google
 ```
 
-Pass the engine to the module and you are done:
+## The model
 
 ```ts
-import { AdkModule } from "@nestjs-adk/core";
-import { GoogleAdkEngine } from "@nestjs-adk/google";
+import { AdkModule, AdkModuleOptions } from "@nestjs-adk/core";
+import { GeminiModel } from "@nestjs-adk/google";
 
-AdkModule.forRoot({
-	engine: GoogleAdkEngine,
-	defaultModel: "gemini-2.5-flash",
-})
-```
-
-Authentication follows the ADK rules: set `GEMINI_API_KEY` in the environment for the Gemini API, or use Vertex AI credentials.
-
-## The Gemini model spec
-
-For simple cases a model string is enough. When you need Google specific options, use the `Gemini` class exported by this package:
-
-```ts
-import { Gemini } from "@nestjs-adk/google";
-
-defaultModel: new Gemini("gemini-2.5-flash", {
-	vertexai: true,
-	project: "my-project",
-	location: "us-central1",
+const flash = new GeminiModel("gemini-3.5-flash-lite", {
+	apiKey: process.env.GEMINI_API_KEY,
 	temperature: 0.2,
-	stopSequences: ["END"],
-	labels: { team: "growth" },
-	cache: { content: "cachedContents/abc" },
-	config: { thinkingConfig: { thinkingBudget: 0 } },
-})
+	maxOutputTokens: 512,
+});
+
+@Module({ imports: [AdkModule.forRoot(AdkModuleOptions.from({ defaultModel: flash }))] })
+export class AppModule {}
 ```
 
-Generation parameters (`temperature`, `topP`, `topK`, `maxOutputTokens`, the penalties and `stopSequences`) are first-class typed fields. `labels` are attached to every request for billing and cost tracking on Vertex. `cache` points the requests at an explicit cached content entry, and the cached token count then shows up in `run.usage.cachedTokens`. `config` remains a free passthrough of `GenerateContentConfig` for everything else, like thinking budgets and safety settings. When a parameter appears both typed and inside `config`, the typed field wins.
+The same object goes anywhere a model goes: `defaultModel`, `@Agent({ model })`, a failover chain, or the summarizer a compaction policy uses.
 
-The spec's configuration follows the spec everywhere: directly on an agent, as a failover target (each target keeps its own temperature and labels) and as the compaction summarizer.
-
-## Failover
-
-The `failover` declared on a model spec (see the core documentation) is executed here by the lib's own `FailoverLlm`, not by the ADK. Each attempt receives the request naming that attempt's own model, by construction, so the provider is always asked for a real model id.
+`apiKey` defaults to `GOOGLE_API_KEY` or `GEMINI_API_KEY` from the environment. The generation parameters are typed fields, so a typo fails to compile: `temperature`, `topP`, `topK`, `maxOutputTokens`, `stopSequences`, `frequencyPenalty`, `presencePenalty`. Anything this adapter does not model goes through `config`, which is where `safetySettings` and `thinkingConfig` live, and a typed field always wins over the same key inside `config`.
 
 ```ts
-defaultModel: new Gemini("gemini-2.5-flash", {
-	failover: [new OpenAiLike("gpt-4o-mini", { baseUrl: "https://openrouter.ai/api/v1" })],
-})
+new GeminiModel("gemini-3.5-flash-lite", {
+	apiKey,
+	config: { thinkingConfig: { thinkingLevel: "low" } },
+});
 ```
 
-When the current model fails before the first chunk of the response, the chain advances and the run continues. Every switch is emitted as a `model_rerouted` event and logged as a warning. `httpStatusOf()` is exported for failover policies that branch on the provider's HTTP status.
+## Vertex AI
 
-Other providers live in their own packages: this one is Gemini and Vertex AI, and nothing here knows another provider exists.
+Set `vertexai` and the adapter talks to Vertex instead of the Gemini API. `project` and `location` are required there, and `apiKey` is ignored in favour of the ambient credentials:
 
-## A conversation that arrives from another provider
+```ts
+new GeminiModel("gemini-3.5-pro", {
+	vertexai: true,
+	project: "nebula-prod",
+	location: "us-central1",
+	labels: { team: "support" },
+});
+```
 
-Gemini 3 signs the function calls it generates and refuses a turn whose calls come back unsigned. A conversation reaches Gemini already holding calls written elsewhere in three ways: a transfer into an agent that runs here, a resolver routing one hop here, and a failover that reroutes a turn to a Gemini model after another provider declined it. All three used to end in a 400 naming a tool.
+`labels` are for cost attribution and Vertex only; the Gemini API ignores them. `cachedContent` takes the handle of a cached content entry created outside this adapter.
 
-This adapter fills a call it cannot sign with `skip_thought_signature_validator`, the placeholder Google documents for "transferring a trace from a different model that does not include thought signatures". It applies to the turn being answered, to the call that opens each step, and never to a signature the provider itself gave.
+## The context window
 
-Google discourages synthesised call blocks and warns that the model reasons worse without the real signature. The trade is a possibly weaker answer instead of a dead run, and it is only made for a handover the application never asked about. A conversation that stays on one Gemini model is untouched.
+The runtime measures compaction against the window the model declares, so the adapter reports what it knows. When it cannot know, say so rather than letting it guess:
 
-## Tool declarations from external catalogs
+```ts
+new GeminiModel("gemini-3.5-flash-lite", { contextWindowTokens: 1_000_000, reservedOutputTokens: 8_000 });
+```
 
-A tool from an MCP server keeps the JSON Schema the server published, and this engine filters it down to what Gemini's declaration surface accepts (`toGeminiSchema()`, exported). It is a filter, not a translator: `anyOf`, `format`, `pattern` and friends survive verbatim; keywords the API refuses are dropped; `$ref` is inlined; and an array without `items` is repaired, because one broken declaration would otherwise answer 400 for the whole turn. Declared (`@Tool`) tools are unaffected: their Zod schema is handed to the ADK as before.
+`reservedOutputTokens` is held back out of the declared window for the answer. Without `contextWindowTokens` the model reports an unknown window, which the core reports through its context notice sink instead of compacting on a number nobody verified.
 
-## Native compaction
+## Embeddings
 
-When an agent declares a compaction policy (`context: contextPolicy({ compaction: ... })`), this engine applies it with the ADK's native context compactors and an LLM summarizer. Old turns are summarized when the history passes the token threshold, and recent turns are kept whole.
+`GeminiEmbedder` implements the core's `Embedder` port:
 
-The summarizer is a real model call, so it is not free: its tokens join `run.usage` and, with pricing configured in the core, it is billed under the summarizer's own model, on its own line in `run.cost.byModel`. Compaction is skipped during `explain()`, since the compactor runs before the model call is short-circuited and a dry run must not bill anything.
+```ts
+import { GeminiEmbedder } from "@nestjs-adk/google";
 
-## Capturing the context
+AdkModule.forRoot(
+	AdkModuleOptions.from({
+		defaultModel: flash,
+		embedder: new GeminiEmbedder("gemini-embedding-2", { apiKey }),
+	}),
+);
+```
 
-With `forRoot({ diagnostics: true })`, this engine records what every model call actually received. Capture sits at the point where the final request is assembled, so it works the same for a plain model id, a `Gemini` spec, an OpenAI-compatible endpoint, a failover target or a custom `AdkModel`. It is not tied to the scripted path.
+```ts
+@Injectable()
+export class SearchService {
+	public constructor(private readonly embedder: Embedder) {}
+}
+```
 
-The engine also implements `explain()`: it builds the request through the real native pipeline, including the ADK's own request processors and the hydrated history, then short-circuits before the provider. Serialization keeps the payload as it is, insertion order included, because that is what the provider caches on. See the testing package for the matchers that consume this.
+`outputDimensionality` truncates the vector, and `taskType` tells Google what the vector is for, which changes the embedding it produces. Google's `embedContent` does not report token usage, so an embedding priced through `PricedEmbedder` lands in `cost.unpriced` with a notice rather than having its tokens guessed from characters.
+
+## Failures, and how failover reads them
+
+The adapter never lets a Google error reach the runtime. `GeminiFailureMapper` turns each one into a `ModelFailure` the core declares, and that classification is what a failover policy decides on:
+
+| What Google answered | What the core sees |
+| --- | --- |
+| 429, quota exhausted | `RateLimitedFailure` |
+| deadline exceeded, socket timeout | `TimeoutFailure` |
+| 500, 503, connection refused | `UnavailableFailure` |
+| prompt over the model's window | `ContextExceededFailure` |
+| a safety filter stopped the answer | `SafetyBlockedFailure` |
+| a schema it will not take, a bad key, a model that does not exist | `InvalidRequestFailure` |
+| anything it cannot place | `UnknownFailure` |
+
+Only the first three answer `isTransient`. A refused request is the one failure a chain must not answer by trying the next model, since every model in the chain is sent the same thing, and `SequentialFailoverPolicy` stops on it.
+
+Two errors are this package's own, thrown rather than mapped, because they are a schema this adapter cannot send at all: `InvalidJsonSchemaError` and `EmptyEmbeddingError`. Both extend `AdkError` and carry a stable `code`, and each documents itself in its own JSDoc.
+
+## Your own transport
+
+Every call goes through `GenAiTransport`, which is the one seam between this adapter and Google's SDK. Replace it to route through a proxy, to record traffic, or to test without a network:
+
+```ts
+const recorded = new GeminiModel("gemini-3.5-flash-lite", { apiKey }, new RecordingTransport());
+```
+
+The mappers are exported for the same reason: `GeminiRequestMapper` turns a core `ModelRequest` into `GeminiRequest`, `GeminiStreamMapper` turns each `GeminiResponseChunk` back into a `ModelChunk`, and `GeminiFailureMapper` does the table above. Use them when you are building something adjacent; you do not need any of them to use the model.
+
+## API reference
+
+| Symbol | What it is for |
+| --- | --- |
+| `GeminiModel` | The model. Construct it and hand it to the core |
+| `GeminiOptions` | Everything it takes: key, Vertex, generation parameters, window, `config` |
+| `GeminiEmbedder`, `GeminiEmbeddingOptions` | The `Embedder` implementation and its options |
+| `GenAiTransport`, `GeminiTransport` | The one call this adapter makes, and the port behind it |
+| `GenAiClientFactory`, `GenAiClient`, `GenAiEmbeddingClient` | How the SDK client is built and what the adapter needs from it |
+| `GeminiRequestMapper`, `GeminiRequest` | A core request as Google receives it |
+| `GeminiStreamMapper`, `GeminiResponseChunk` | Google's stream as core chunks |
+| `GeminiFailureMapper` | A Google error as a `ModelFailure` |
+| `InvalidJsonSchemaError`, `EmptyEmbeddingError` | This package's own errors, both `AdkError` |
 
 ## Learn more
 
-The full documentation lives in [`@nestjs-adk/core`](https://www.npmjs.com/package/@nestjs-adk/core) and in the repository at [github.com/gabrieljsilva/nestjs-adk](https://github.com/gabrieljsilva/nestjs-adk).
+The full project lives at [github.com/gabrieljsilva/nestjs-adk](https://github.com/gabrieljsilva/nestjs-adk).

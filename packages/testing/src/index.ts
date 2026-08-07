@@ -30,3 +30,13 @@ export { ScriptNotConsumedError } from "./errors/script-not-consumed.error";
 export { NothingAwaitingError } from "./errors/nothing-awaiting.error";
 export { UnknownTestAgentError } from "./errors/unknown-test-agent.error";
 export { UnscriptedAgentError } from "./errors/unscripted-agent.error";
+
+/**
+ * The `SessionStorage` port contract, as cases any runner drives.
+ *
+ * It lives here and not in the core because measuring an adapter is testing: it belongs
+ * next to the test bed, and `node:assert` has no business in the entry point every
+ * application loads. It holds nothing an implementer could not hold, so a storage written
+ * downstream is measured by exactly the cases the ones in the core answer.
+ */
+export { SessionStorageContractSuite } from "./session-storage-contract-suite";

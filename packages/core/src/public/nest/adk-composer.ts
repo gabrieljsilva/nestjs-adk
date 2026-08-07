@@ -2,10 +2,12 @@ import { NestAgentScanner } from "../../adapters/nest/nest-agent-scanner";
 import { NestComponentDiscovery } from "../../adapters/nest/nest-component-discovery";
 import type { ContainerProvider } from "../../adapters/nest/nest-provider-scan";
 import { NestProviderScan } from "../../adapters/nest/nest-provider-scan";
+import { FileSystemPromptSource } from "../../adapters/prompt/file-system-prompt-source";
 import type { IdGenerator } from "../../common/identity/id-generator";
 import type { Clock } from "../../common/time/clock";
 import type { ArtifactStorage } from "../../contracts/artifact-storage";
 import type { ModelResolver } from "../../contracts/model-resolver";
+import type { PromptSource } from "../../contracts/prompt-source";
 import type { SessionEventConsumer } from "../../contracts/session-event-consumer";
 import type { SessionStorage } from "../../contracts/session-storage";
 import type { LlmModel } from "../../domain/model/llm-model";
@@ -13,7 +15,10 @@ import { RuntimeOptions, type RuntimeOptionsPatch } from "../../runtime/composit
 import type { AdkRuntimeHost } from "../adk-runtime-host";
 import type { AdkModuleOptions } from "./adk-module-options";
 import { AgentBinder } from "./agent-binder";
+import { AgentPromptScan } from "./agent-prompt-scan";
+import { AgentPrompting } from "./agent-prompting";
 import type { AgentRegistry } from "./agent-registry";
+import { ConflictingPromptOptionsError } from "./errors/conflicting-prompt-options.error";
 
 /**
  * Turns a finished container into a running runtime, in four steps.
@@ -47,15 +52,25 @@ export class AdkComposer {
 		private readonly scan: NestProviderScan = new NestProviderScan(),
 		private readonly scanner: NestAgentScanner = new NestAgentScanner(),
 		private readonly discovery: NestComponentDiscovery = new NestComponentDiscovery(),
+		private readonly prompts: AgentPromptScan = new AgentPromptScan(),
 	) {}
 
 	/** Answers how many agent classes were bound, which is what a caller can assert on. */
 	public async compose(providers: readonly ContainerProvider[]): Promise<number> {
 		const scanned = this.scan.read(providers);
-		const declared = this.discovery.discover(this.scanner.scan(scanned, this.defaultModel ?? this.options.defaultModel));
+		const discovered = this.scanner.scan(scanned, this.defaultModel ?? this.options.defaultModel);
+		const declared = this.discovery.discover(this.prompts.attach(discovered, scanned));
 
 		await this.host.start(declared, this.storage, this.artifacts, this.clock, this.ids, this.declaredRuntime());
-		return new AgentBinder(this.registry).bind(scanned);
+		return new AgentBinder(this.registry, new AgentPrompting(this.promptSource())).bind(scanned);
+	}
+
+	/** The application's own source, or files under the directory it named. */
+	private promptSource(): PromptSource {
+		const declared = this.options.promptSource;
+		const dir = this.options.prompts?.dir;
+		if (declared !== undefined && dir !== undefined) throw new ConflictingPromptOptionsError();
+		return declared ?? new FileSystemPromptSource(dir);
 	}
 
 	/** The options' runtime, patched by name, with the container's resolver and appended consumers. */

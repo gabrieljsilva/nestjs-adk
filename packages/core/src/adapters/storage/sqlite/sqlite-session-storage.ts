@@ -14,7 +14,7 @@ import { SessionNotFoundError } from "../../../domain/session/errors/session-not
 import { SessionRevisionConflictError } from "../../../domain/session/errors/session-revision-conflict.error";
 import type { Session } from "../../../domain/session/session";
 import type { SessionSnapshot } from "../../../domain/session/session-snapshot";
-import { SessionStateCodec } from "../../../domain/session/session-state-codec";
+import { StorageCodecs } from "../codec/storage-codecs";
 import { UnsupportedStorageFeatureError } from "./errors/unsupported-storage-feature.error";
 import { EventRepository } from "./event-repository";
 import { SessionRepository } from "./session-repository";
@@ -45,9 +45,12 @@ export class SqliteSessionStorage extends SessionStorage {
 		registry: SessionEventRegistry = SessionEventCodecs.registry(),
 	) {
 		super();
-		this.sessions = new SessionRepository(connection);
-		this.events = new EventRepository(connection, registry);
-		this.snapshots = new SnapshotRepository(connection, new SessionStateCodec());
+		// The same codecs an adapter outside this package is given, so a row here and a row
+		// downstream never drift into meaning two different things.
+		const codecs = StorageCodecs.standard(registry);
+		this.sessions = new SessionRepository(connection, codecs.head);
+		this.events = new EventRepository(connection, codecs.journal);
+		this.snapshots = new SnapshotRepository(connection, codecs.snapshot);
 	}
 
 	/** Opens a database file, or an in memory one when no path is given. */

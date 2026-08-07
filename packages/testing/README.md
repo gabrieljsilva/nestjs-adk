@@ -18,7 +18,7 @@ import "@nestjs-adk/testing/matchers";
 
 await using bed = await AdkTestBedBuilder.for({ imports: [AppModule] })
 	.withScript(BillingAgent, (script) =>
-		script.mockToolCall("find_order", { orderId: "A-1042" }).mockText("Custou 349 reais."),
+		script.mockToolCall("find_order", { orderId: "A-1042" }).mockText("That order cost 349 reais."),
 	)
 	.overriding(PaymentGateway, fakeGateway) // any token, straight through to NestJS
 	.boot();
@@ -48,7 +48,7 @@ Each agent gets its own script, so a transfer or a delegation can never consume 
 
 ```ts
 await AdkTestBedBuilder.for({ imports: [AppModule] })
-	.withScript(ConciergeAgent, (s) => s.mockToolCall("transfer_to_agent", { agentName: "warranty" }).mockText("Passei."))
+	.withScript(ConciergeAgent, (s) => s.mockToolCall("transfer_to_agent", { agentName: "warranty" }).mockText("Handing you to warranty."))
 	.withScript(WarrantyAgent, (s) => s.mockText("We will replace your controller."))
 	.boot();
 ```
@@ -168,7 +168,7 @@ expect(resumed).toHaveRunTool("issue_refund");
 const refund = ToolFake.replacing(IssueRefundTool).succeedsWith({ refunded: true });
 
 await using bed = await AdkTestBedBuilder.for({ imports: [AppModule] })
-	.withScript(BillingAgent, (s) => s.mockToolCall("issue_refund", { orderId: "A-1042" }).mockText("Feito."))
+	.withScript(BillingAgent, (s) => s.mockToolCall("issue_refund", { orderId: "A-1042" }).mockText("Refund issued."))
 	.replaceTool(IssueRefundTool, refund)
 	.boot();
 
@@ -254,10 +254,65 @@ Compare provider embeddings without repeating cosine calculations in the suite:
 expect(await embedder.embed(firstAnswer)).toBeSimilarTo(await embedder.embed(secondAnswer), 0.6);
 ```
 
-## Also in the box
+## Measuring a storage you wrote
 
-- `LlmJudge` and `JudgeRubric`, for grading prose that a string match cannot assert.
-- `TestingEmbedder`, deterministic vectors, so `toBeSemanticallyCloseTo` costs nothing.
-- `toBeSimilarTo`, for comparing two real or fake `EmbeddingVector` values without repeating cosine calculations.
-- `TestImage`, the smallest image with an unambiguous answer, for multimodal tests.
-- `RunTranscript`, the conversation printed as it happens.
+`SessionStorage` is a port an application implements when SQLite is not where its sessions belong. `SessionStorageContractSuite` is every promise that port makes, as cases:
+
+```ts
+import { SessionStorageContractSuite } from "@nestjs-adk/testing";
+
+const suite = new SessionStorageContractSuite();
+
+for (const contract of suite.cases(() => new PrismaSessionStorage(prisma))) {
+	it(contract.name, () => contract.run());
+}
+```
+
+The suite is data, not a test file: it yields `ContractCase` objects and asserts with `node:assert`, so vitest, jest and `node:test` all drive it. It reads your `capabilities()` and only demands what you claimed, so a storage honest about being ephemeral is not held to optimistic concurrency, while one claiming durable sessions answers for all four guarantees: a batch written whole or not at all, `expectedRevision` deciding who wins a race, contiguous revisions, and the same event id written twice written once.
+
+It is the same suite that measures `InMemorySessionStorage` and `SqliteSessionStorage`, which is the point. An adapter checked by tests written alongside it drifts from the contract as the contract grows, and the drift stays invisible until a session breaks in production.
+
+Everything it needs from `@nestjs-adk/core` is published there: the codecs, the records and the four errors the port has to throw. See the storage section of the core README.
+
+## API reference
+
+Everything the package exports. A name that is not here is not part of the public surface.
+
+### Booting and reaching a run
+
+| Symbol | What it is for |
+| --- | --- |
+| `AdkTestBedBuilder` | Builds the bed: `for(metadata)` or `from(builder)`, then `withScript`, `withModel`, `withModelFor`, `replaceTool`, `withRuntime`, `withConsumers`, `overriding`, `allowingUnscriptedModels`, `boot` |
+| `AdkTestBed` | What `boot` answers: `get`, `agent`, `script`, `tool`, `events`, `verify`, `close`. Disposable with `await using` |
+| `TestAgent` | One agent as a test drives it: `ask`, `stream`, `approve`, `reject`, `inspect`, `newSession`, `lastInstruction` |
+| `RecordedRun` | An `AgentResult` with the evidence attached: `toolCalls`, `toolsRun`, `toolsRequested`, `transfers`, `delegations`, `callsTo`, `pendingCall` |
+| `StreamedRun` | The same, plus the pieces the answer arrived in |
+| `RunEvents`, `RunRecorder` | This run's events alone, and the consumer that collects them |
+| `RecordedToolCall`, `ToolCallOutcome` | One tool call as it happened, and how it ended |
+| `RunTranscript` | The conversation printed as it happens |
+
+### Standing in for a model
+
+| Symbol | What it is for |
+| --- | --- |
+| `ScriptedModel` | Answers a queue instead of thinking. `mockText`, `mockDeltas`, `mockToolCall`, `mockFailure`, `strict`, and every `request` it was given |
+| `ScriptedTurn`, `ScriptedCall`, `TurnExpectation` | One queued turn, the call inside it, and the guard that refuses a request which drifted |
+| `RecordingModel`, `RecordedModelCall` | Wraps a real model and keeps the traffic, which is what makes a paid run readable afterwards |
+| `RoutingModelResolver` | Routes one agent to one model, so a mixed run is possible: a real provider deciding, scripts answering |
+| `TestingEmbedder` | Deterministic vectors, so a similarity assertion costs nothing |
+| `TestImage` | The smallest image with an unambiguous answer, for multimodal tests |
+
+### Standing in for the application's own pieces
+
+| Symbol | What it is for |
+| --- | --- |
+| `ToolFake`, `FakeToolCall` | Replaces what a tool does while keeping its name, schema, effect and identity, and records the calls |
+| `AgentStub`, `StubbedAsk`, `StubbedDecision` | Replaces a whole agent, for testing the caller rather than the agent |
+| `LlmJudge`, `JudgeRubric`, `JudgeVerdict` | Grading prose a string match cannot assert |
+| `SessionStorageContractSuite` | Every promise the `SessionStorage` port makes, as cases any runner drives |
+
+### Errors
+
+Every one extends `AdkError` and carries a stable `code`; each documents itself in its own JSDoc. `ScriptDeviationError`, `ScriptExhaustedError`, `ScriptMisuseError` and `ScriptNotConsumedError` are the four ways a script and a run disagree. `UnknownTestAgentError` and `UnscriptedAgentError` are refused boots: a name nobody declared, and an agent whose model the test did not choose. `NothingAwaitingError` is asking for a pending call when nothing is pending.
+
+Matchers live at `@nestjs-adk/testing/matchers` and are listed above.

@@ -5,15 +5,15 @@ import { SessionRevision } from "../../../common/revision/session-revision";
 import { AgentName } from "../../../domain/agent/agent-name";
 import { SessionSnapshot } from "../../../domain/session/session-snapshot";
 import { SessionState } from "../../../domain/session/session-state";
-import { SessionStateCodec } from "../../../domain/session/session-state-codec";
 import { StateValues } from "../../../domain/session/state-values";
+import { SnapshotCodec } from "../codec/snapshot-codec";
 import { SnapshotRepository } from "./snapshot-repository";
 import { SqliteConnection } from "./sqlite-connection";
 
 const ID = SessionId.from("s-1");
 
 function repository(): SnapshotRepository {
-	return new SnapshotRepository(new SqliteConnection(), new SessionStateCodec());
+	return new SnapshotRepository(new SqliteConnection(), new SnapshotCodec());
 }
 
 function snapshotOf(revision: number, agent: string): SessionSnapshot {

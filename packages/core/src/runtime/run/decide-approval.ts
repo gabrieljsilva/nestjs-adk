@@ -33,6 +33,8 @@ export interface ApprovalOptions {
 	reason?: string;
 	/** Sources opened for this run alone, on top of the module's. */
 	sources?: readonly ToolSource[];
+	/** The stop button of the turn this decision releases, which is a run of its own. */
+	signal?: AbortSignal;
 }
 
 /**
@@ -67,7 +69,7 @@ export class DecideApproval {
 		decision: ApprovalDecision,
 		options: ApprovalOptions = {},
 	): Promise<AgentResult> {
-		const { by, reason, sources: perRun = [] } = options;
+		const { by, reason, sources: perRun = [], signal } = options;
 		const rehydrated = await this.sessions.rehydrate(sessionId);
 		if (rehydrated.state.pendingTurn?.isAwaiting(callId) !== true) {
 			throw new ApprovalNotPendingError(sessionId.value, callId.value);
@@ -75,7 +77,7 @@ export class DecideApproval {
 
 		const definition = this.catalog.findOrFail(rehydrated.state.activeAgent ?? rehydrated.session.rootAgent);
 		const model = this.models.resolve(definition);
-		const started = this.runs.resume(sessionId, definition.name, rehydrated.state.pendingTurn.runId);
+		const started = this.runs.resume(sessionId, definition.name, rehydrated.state.pendingTurn.runId, signal);
 		const sources = new ToolSourceScope(this.sources, perRun);
 		const progress = new RunProgress(
 			await this.sessions.commit(
@@ -114,7 +116,7 @@ export class DecideApproval {
 		if (!turn.isDecided) return this.staySuspended(started, progress, turn);
 
 		const remote = await sources.open(session.id, started.run.id, started.cancellation.signal);
-		const scope = this.scopes.create(definition, model, started, remote);
+		const scope = await this.scopes.create(definition, model, started, remote, undefined, session.owner);
 		await this.commit(scope, progress, await this.executor.execute(scope, turn.calls, true));
 
 		await this.loop.run(scope, new OpenedSession(session, progress.state, false), progress);

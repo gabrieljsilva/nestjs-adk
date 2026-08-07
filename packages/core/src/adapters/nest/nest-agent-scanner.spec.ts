@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { SequentialFailoverPolicy } from "../../domain/agent/sequential-failover-policy";
 import { TokenThresholdCompactionPolicy } from "../../domain/context/token-threshold-compaction-policy";
+import { RunLimits } from "../../domain/session/run-limits";
 import { ScriptedModel } from "../../support/run/scripted-model.fixture";
 import { InvalidAgentMetadataError } from "./errors/invalid-agent-metadata.error";
 import { UnregisteredToolError } from "./errors/unregistered-tool.error";
@@ -189,6 +190,46 @@ describe("NestAgentScanner", () => {
 		const [agent] = new NestAgentScanner().scan(scanned(), MODEL);
 
 		expect(agent?.compaction).toBeUndefined();
+	});
+
+	it("takes the run limits an agent declared for itself", () => {
+		const own = RunLimits.of(4, 2);
+		class BoundedAgent {}
+		Reflect.defineMetadata(AGENT_METADATA, { name: "b", description: "d", limits: own }, BoundedAgent);
+
+		const [agent] = new NestAgentScanner().scan(
+			[new ScannedProvider("BoundedAgent", BoundedAgent, new BoundedAgent())],
+			MODEL,
+		);
+
+		expect(agent?.limits).toBe(own);
+	});
+
+	/** Absent leaves the agent on the module's ceiling, which is what a default is for. */
+	it("declares no limits for an agent that asked for none", () => {
+		const [agent] = new NestAgentScanner().scan(scanned(), MODEL);
+
+		expect(agent?.limits).toBeUndefined();
+	});
+
+	/**
+	 * Declared and wrong is not the same as absent: an agent whose limits the runtime
+	 * cannot read would silently run under the module's while the developer believes it
+	 * has a ceiling of its own.
+	 */
+	it("refuses limits that are not run limits, and says which agent", () => {
+		class BadLimitsAgent {}
+		Reflect.defineMetadata(
+			AGENT_METADATA,
+			{ name: "bl", description: "d", limits: { maxIterations: 4 } },
+			BadLimitsAgent,
+		);
+
+		const scan = () =>
+			new NestAgentScanner().scan([new ScannedProvider("BadLimitsAgent", BadLimitsAgent, new BadLimitsAgent())], MODEL);
+
+		expect(scan).toThrow(InvalidAgentMetadataError);
+		expect(scan).toThrow(/BadLimitsAgent.*limits/);
 	});
 
 	/**

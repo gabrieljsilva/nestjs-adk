@@ -20,7 +20,6 @@ import { SessionNotFoundError } from "../../../domain/session/errors/session-not
 import { SessionRevisionConflictError } from "../../../domain/session/errors/session-revision-conflict.error";
 import { Session } from "../../../domain/session/session";
 import { SessionMode } from "../../../domain/session/session-mode";
-import { SessionStorageContractSuite } from "../../../support/contract/session-storage-contract-suite";
 import { UnsupportedStorageFeatureError } from "./errors/unsupported-storage-feature.error";
 import { SqliteSessionStorage } from "./sqlite-session-storage";
 
@@ -56,14 +55,12 @@ function batchOf(...ids: readonly string[]): SessionEventBatch {
 	return SessionEventBatch.of(ids.map((id) => new SessionCreated(header(id), AGENT, undefined)));
 }
 
-describe("SqliteSessionStorage contract", () => {
-	for (const contractCase of new SessionStorageContractSuite().cases(() => new SqliteSessionStorage())) {
-		it(contractCase.name, async () => {
-			await expect(contractCase.run()).resolves.toBeUndefined();
-		});
-	}
-});
-
+/**
+ * The port contract is not checked here. It lives in `@nestjs-adk/testing`, where
+ * `SessionStorageContractSuite` runs it against this adapter and the in memory one
+ * together, so both are held to the same cases. What stays here is what only this
+ * adapter has to answer for: its capabilities, its file, and its SQL.
+ */
 describe("SqliteSessionStorage", () => {
 	it("declares durable sessions with snapshots and without checkpoints", () => {
 		const capabilities = new SqliteSessionStorage().capabilities();

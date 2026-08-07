@@ -126,4 +126,47 @@ describe("AgentHandle", () => {
 		expect(Reflect.get(Object(calls[0]?.payload), "from")).toBe(SUPPORT);
 		expect(Reflect.get(Object(calls[0]?.payload), "task")).toBe("find it");
 	});
+
+	/**
+	 * The stop button of whoever is asking. It reaches the run the same way a delegation
+	 * reaches its child, and it is the only way to end a run before the provider is done:
+	 * abandoning the stream stops the reading, never the generating.
+	 */
+	it("carries the signal a question was asked with into the command", async () => {
+		const { calls, handle } = spyingRuntime();
+		const controller = new AbortController();
+
+		await handle.ask("hi", { signal: controller.signal });
+
+		expect(Reflect.get(Object(calls[0]?.payload), "signal")).toBe(controller.signal);
+	});
+
+	it("carries no signal when a question passes none", async () => {
+		const { calls, handle } = spyingRuntime();
+
+		await handle.ask("hi", SESSION);
+
+		expect(Reflect.get(Object(calls[0]?.payload), "signal")).toBeUndefined();
+	});
+
+	it("watches a stream under the signal the caller passed", async () => {
+		const { calls, handle } = spyingRuntime();
+		const controller = new AbortController();
+
+		await handle.ask("hi", { signal: controller.signal, sessionId: SESSION });
+
+		expect(Reflect.get(Object(calls[0]?.payload), "signal")).toBe(controller.signal);
+	});
+
+	/** An approval runs a turn of its own, so the button has to work on that turn too. */
+	it("carries the signal a decision was made with", async () => {
+		const { calls, handle } = spyingRuntime();
+		const controller = new AbortController();
+
+		await handle.approve(SESSION, ToolCallId.from("c-1"), { by: "a-human", signal: controller.signal });
+		await handle.reject(SESSION, ToolCallId.from("c-2"), "no", { signal: controller.signal });
+
+		expect(Reflect.get(Object(calls[0]?.payload), "signal")).toBe(controller.signal);
+		expect(Reflect.get(Object(calls[1]?.payload), "signal")).toBe(controller.signal);
+	});
 });

@@ -2,6 +2,7 @@ import "reflect-metadata";
 import { describe, expect, it } from "vitest";
 import { AGENT_METADATA } from "../../adapters/nest/metadata-keys";
 import { ScannedProvider } from "../../adapters/nest/scanned-provider";
+import { PromptSource } from "../../contracts/prompt-source";
 import { AgentDefinition } from "../../domain/agent/agent-definition";
 import { AgentDescription } from "../../domain/agent/agent-description";
 import { AgentName } from "../../domain/agent/agent-name";
@@ -11,11 +12,24 @@ import { ScriptedModel } from "../../support/run/scripted-model.fixture";
 import type { StartedRuntime } from "../adk-runtime-host";
 import { AdkAgent } from "./adk-agent";
 import { AgentBinder } from "./agent-binder";
+import { AgentPrompting } from "./agent-prompting";
 import { AgentRegistry } from "./agent-registry";
 import { AgentNotBoundError } from "./errors/agent-not-bound.error";
 
-class SupportAgent extends AdkAgent {}
+/** Reaches the protected toolkit, which is what an overridden `prompt()` does. */
+class SupportAgent extends AdkAgent {
+	public reachPrompting(): AgentPrompting {
+		return this.prompting;
+	}
+}
+class BillingAgent extends SupportAgent {}
 class PlainService {}
+
+class EmptyPrompts extends PromptSource {
+	public async load(): Promise<string | undefined> {
+		return undefined;
+	}
+}
 
 function hostWith(...names: readonly string[]): StartedRuntime {
 	const model = new ScriptedModel("primary");
@@ -73,5 +87,30 @@ describe("AgentBinder", () => {
 		const instance = new SupportAgent();
 
 		await expect(instance.ask("hi")).rejects.toBeInstanceOf(AgentNotBoundError);
+	});
+
+	it("hands over the prompting toolkit alongside the handle", () => {
+		const registry = new AgentRegistry(hostWith("support"));
+		const instance = new SupportAgent();
+		const prompting = new AgentPrompting(new EmptyPrompts());
+
+		new AgentBinder(registry, prompting).bind([provider(SupportAgent, instance, "support")]);
+
+		expect(instance.reachPrompting()).toBe(prompting);
+	});
+
+	/** Two agents reading the same template read it once, which is the point of sharing it. */
+	it("hands every agent the same toolkit, so one file cache serves them all", () => {
+		const registry = new AgentRegistry(hostWith("support", "billing"));
+		const support = new SupportAgent();
+		const billing = new BillingAgent();
+		const prompting = new AgentPrompting(new EmptyPrompts());
+
+		new AgentBinder(registry, prompting).bind([
+			provider(SupportAgent, support, "support"),
+			provider(BillingAgent, billing, "billing"),
+		]);
+
+		expect(support.reachPrompting()).toBe(billing.reachPrompting());
 	});
 });

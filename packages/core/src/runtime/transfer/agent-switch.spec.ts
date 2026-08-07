@@ -95,7 +95,7 @@ function switchOver(...definitions: readonly AgentDefinition[]): AgentSwitch {
 }
 
 describe("AgentSwitch", () => {
-	it("finds the agent a committed batch handed the session to", () => {
+	it("finds the agent a committed batch handed the session to", async () => {
 		const batch = SessionEventBatch.of([
 			new SessionCreated(header("e-1"), SUPPORT, undefined),
 			new AgentTransferred(header("e-2"), SUPPORT, BILLING),
@@ -104,13 +104,13 @@ describe("AgentSwitch", () => {
 		expect(switchOver().requestedIn(batch)?.value).toBe("billing");
 	});
 
-	it("finds nobody in a batch that handed the session to nobody", () => {
+	it("finds nobody in a batch that handed the session to nobody", async () => {
 		const batch = SessionEventBatch.of([new SessionCreated(header("e-1"), SUPPORT, undefined)]);
 
 		expect(switchOver().requestedIn(batch)).toBeUndefined();
 	});
 
-	it("takes the last handover when a turn produced more than one", () => {
+	it("takes the last handover when a turn produced more than one", async () => {
 		const batch = SessionEventBatch.of([
 			new AgentTransferred(header("e-1"), SUPPORT, BILLING),
 			new AgentTransferred(header("e-2"), BILLING, SUPPORT),
@@ -119,15 +119,15 @@ describe("AgentSwitch", () => {
 		expect(switchOver().requestedIn(batch)?.value).toBe("support");
 	});
 
-	it("rebuilds the scope around the agent that received the session", () => {
+	it("rebuilds the scope around the agent that received the session", async () => {
 		const support = agent(SUPPORT, SUPPORT_MODEL, [toolNamed("lookup_order")]);
 		const billing = agent(BILLING, BILLING_MODEL, [toolNamed("issue_refund")]);
 		const scopes = new RunScopeFactory();
 		const catalog = AgentCatalog.of([new DeclaredAgent(support, "S"), new DeclaredAgent(billing, "B")]);
 		const agents = new AgentSwitch(catalog, new DeclaredModelResolver(), scopes);
-		const scope = scopes.create(support, SUPPORT_MODEL, startedRun());
+		const scope = await scopes.create(support, SUPPORT_MODEL, startedRun());
 
-		const switched = agents.to(scope, BILLING);
+		const switched = await agents.to(scope, BILLING);
 
 		expect(switched.agent.value).toBe("billing");
 		expect(switched.model).toBe(BILLING_MODEL);
@@ -135,15 +135,15 @@ describe("AgentSwitch", () => {
 		expect(switched.catalog.names).not.toContain("lookup_order");
 	});
 
-	it("keeps the run itself: same id, same limits and the same failure count", () => {
+	it("keeps the run itself: same id, same limits and the same failure count", async () => {
 		const support = agent(SUPPORT, SUPPORT_MODEL, [toolNamed("lookup_order")]);
 		const billing = agent(BILLING, BILLING_MODEL, [toolNamed("issue_refund")]);
 		const scopes = new RunScopeFactory();
 		const catalog = AgentCatalog.of([new DeclaredAgent(support, "S"), new DeclaredAgent(billing, "B")]);
 		const agents = new AgentSwitch(catalog, new DeclaredModelResolver(), scopes);
-		const scope = scopes.create(support, SUPPORT_MODEL, startedRun());
+		const scope = await scopes.create(support, SUPPORT_MODEL, startedRun());
 
-		const switched = agents.to(scope, BILLING);
+		const switched = await agents.to(scope, BILLING);
 
 		expect(switched.run.id.value).toBe(scope.run.id.value);
 		expect(switched.limits).toBe(scope.limits);

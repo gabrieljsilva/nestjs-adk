@@ -8,10 +8,9 @@ nestjs-adk was born to close that gap. It brings AI agents into the heart of Nes
 
 ```ts
 @Agent({
-	name: "support_agent",
-	description: "Customer support.",
-	model: "gemini-2.5-flash",
-	prompt: "You are the store's support agent.",
+	name: "support",
+	description: "Customer support: order status and returns.",
+	prompt: "You are the store's support agent. Answer in at most two sentences.",
 	tools: [LookupOrderTool],
 })
 export class SupportAgent extends AdkAgent {}
@@ -22,26 +21,26 @@ And to use it, you inject it like any other class:
 ```ts
 @Injectable()
 export class ChatService {
-	constructor(private readonly support: SupportAgent) {}
+	public constructor(private readonly support: SupportAgent) {}
 
-	async answer(sessionId: string, message: string) {
-		const { text } = await this.support.ask({ sessionId, message });
-		return text;
+	public async answer(sessionId: string, message: string): Promise<string> {
+		const result = await this.support.ask(message, { sessionId });
+		return result.text;
 	}
 }
 ```
 
-Under the hood, your agents run on a real agent engine. The first supported engine is the [Google ADK](https://google.github.io/adk-docs/), so you get a production agent loop, tool calling, sessions, streaming and OpenTelemetry tracing for free. The engine is a contract, so the framework is not locked to one vendor.
+The run loop is this library's own: turns, tool calls, transfers, delegation, approvals, compaction, cost. A provider package only translates one request and one stream, which is why adding a provider is a small class and not a port of the framework.
 
 ## Packages
 
 | Package | What it is |
 |---|---|
-| [`@nestjs-adk/core`](packages/core) | The framework itself. Decorators, module, contracts, sessions, prompts, models, human approval, structured output, cost tracking. Start here: the main documentation lives in this package. |
-| [`@nestjs-adk/google`](packages/google) | The Gemini adapter: transport, request and response mapping, error translation and model specs, for both the Gemini API and Vertex AI. |
-| [`@nestjs-adk/openai`](packages/openai) | OpenAI models over the official SDK, with a configurable `baseURL` that also reaches OpenRouter, Ollama, Groq, Together and vLLM. |
-| [`@nestjs-adk/mcp`](packages/mcp) | MCP client. Connects your agents to external MCP servers and turns their catalogs into agent tools. |
-| [`@nestjs-adk/testing`](packages/testing) | Testing utilities. A scripted fake LLM, stackable mocks, Vitest matchers and an LLM-as-judge helper. |
+| [`@nestjs-adk/core`](packages/core) | The framework itself: decorators, module, run loop, prompts, sessions, tools, approvals, context, cost. Start here, the full documentation lives in this package |
+| [`@nestjs-adk/google`](packages/google) | `GeminiModel` and `GeminiEmbedder`, for the Gemini API and Vertex AI |
+| [`@nestjs-adk/openai`](packages/openai) | `OpenAiModel`, which also reaches OpenRouter, Ollama, Groq, Together and vLLM through `baseURL` |
+| [`@nestjs-adk/mcp`](packages/mcp) | `AdkMcpServer`: an MCP server's catalog as tools an agent can call, with auth and an SSRF guard |
+| [`@nestjs-adk/testing`](packages/testing) | A scripted model, doubles over real tool instances, Vitest matchers and an LLM as judge |
 
 ## Getting started
 
@@ -49,7 +48,7 @@ Under the hood, your agents run on a real agent engine. The first supported engi
 npm i @nestjs-adk/core @nestjs-adk/google
 ```
 
-Then read the [`@nestjs-adk/core` documentation](packages/core). It walks through the whole framework in order: module setup, agents, tools, prompts, models, sessions, approvals, structured output, cost and testing.
+Then read the [`@nestjs-adk/core` documentation](packages/core). It walks through the framework in the order you build one: the module, the agent, tools, prompts, models, sessions, limits, context, approvals, streaming and cost. Every name the package exports is documented there, in the guide or in its API reference.
 
 A complete working app lives in [apps/playground](apps/playground), including smoke tests that talk to the real Gemini API.
 
@@ -82,7 +81,7 @@ Versioning and releases use [changesets](https://github.com/changesets/changeset
 
 nestjs-adk was built largely with [Claude Code](https://claude.com/claude-code), out of problems I ran into using Google ADK, Cline ADK and agents wired by hand: the run loop, cost, tool declaration, MCP registration, context and prompt management, skills as a first-class tool, event dispatch. Each of those was being solved from scratch every time, so the library turned them into one set of conventions.
 
-The core is mostly AI-written, and the tools I believe a good ADK must have are already in place. The current focus is bugs, code quality, performance and DX. DX drives the design, so expect several major releases with breaking changes, always following semver strictly. This is not an attempt to compete with Google ADK or Cline ADK: it is an agent toolkit that feels native to NestJS, on top of engines that already do the heavy lifting.
+The core is mostly AI-written, and the tools I believe a good ADK must have are already in place. The current focus is bugs, code quality, performance and DX. DX drives the design, so expect several major releases with breaking changes, always following semver strictly. This is not an attempt to compete with Google ADK or Cline ADK: it is an agent toolkit that feels native to NestJS.
 
 Experienced developers are very welcome to open the code and push back on it. The longer version is in the [core README](packages/core#about-this-project).
 

@@ -1,7 +1,10 @@
+import {
+	InMemorySessionStorage,
+	type SessionStorage,
+	SqliteSessionStorage,
+	StorageCapabilities,
+} from "@nestjs-adk/core";
 import { describe, expect, it } from "vitest";
-import { InMemorySessionStorage } from "../../adapters/storage/in-memory-session-storage";
-import type { SessionStorage } from "../../contracts/session-storage";
-import { StorageCapabilities } from "../../contracts/storage-capabilities";
 import { NoOccSessionStorage } from "./faulty/no-occ-session-storage";
 import { NonAtomicSessionStorage } from "./faulty/non-atomic-session-storage";
 import { NonContiguousSessionStorage } from "./faulty/non-contiguous-session-storage";
@@ -62,8 +65,18 @@ async function failingCases(create: () => SessionStorage): Promise<string[]> {
 	return failures;
 }
 
-describe("SessionStorage contract, against InMemorySessionStorage", () => {
-	for (const contractCase of suite.cases(() => new InMemorySessionStorage())) {
+/**
+ * Both adapters the library ships, measured here rather than each in its own package.
+ *
+ * The contract is one thing, so it runs in one place, against everything that claims to
+ * satisfy it. A copy of this loop living next to each adapter is how two adapters end up
+ * being held to two slightly different contracts.
+ */
+describe.each([
+	["InMemorySessionStorage", () => new InMemorySessionStorage()],
+	["SqliteSessionStorage", () => new SqliteSessionStorage()],
+] as const)("SessionStorage contract, against %s", (_name, create) => {
+	for (const contractCase of suite.cases(create)) {
 		it(contractCase.name, async () => {
 			await contractCase.run();
 		});

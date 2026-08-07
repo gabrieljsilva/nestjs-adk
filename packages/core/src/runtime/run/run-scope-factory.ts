@@ -1,7 +1,10 @@
 import type { AgentDefinition } from "../../domain/agent/agent-definition";
 import type { AdkCompactionPolicy } from "../../domain/context/adk-compaction-policy";
 import type { LlmModel } from "../../domain/model/llm-model";
+import { PromptContext } from "../../domain/prompt/prompt-context";
+import type { PromptInstructions } from "../../domain/prompt/prompt-instructions";
 import { RunLimits } from "../../domain/session/run-limits";
+import type { SessionOwner } from "../../domain/session/session-owner";
 import type { ToolDefinition } from "../../domain/tool/tool-definition";
 import { DelegateToAgentTool } from "../delegation/delegate-to-agent-tool";
 import { ActivateSkillTool } from "../skill/activate-skill-tool";
@@ -13,17 +16,27 @@ import { RunScope } from "./run-scope";
 import type { StartedRun } from "./started-run";
 
 /**
- * Resolves what a run is allowed to do, from three levels that each narrow the one above.
+ * Resolves what a run is allowed to do, from three levels that each replace the one above.
  *
  * It owns the things the runtime decides rather than the agent: the tools offered on the
- * runtime's own behalf, the widest limits any run may have, and what to do about a context
- * that grew. The agent narrows the limits and the call narrows them again, and a level
- * that declared nothing leaves the level above exactly as it was.
+ * runtime's own behalf, the limits a run defaults to, and what to do about a context that
+ * grew. The agent replaces the limits field by field and the call replaces them again, and
+ * a field nobody declared keeps whatever the level above it decided.
  *
- * Compaction resolves the same way with one difference: it replaces rather than narrows.
- * An agent that declared a policy runs under its own, and one that declared none runs
- * under the module's, because two policies deciding how much to keep would be one of them
- * shortening what the other just decided to hold on to.
+ * Replacing is not capping. An agent that declares more iterations than the module gets
+ * them, because a sector that genuinely runs longer is the reason the field exists: capping
+ * would leave the application raising the module's limit for every agent instead.
+ *
+ * Compaction resolves the same way, and there it is the whole policy that is replaced
+ * rather than a field: an agent that declared one runs under its own, and one that declared
+ * none runs under the module's, because two policies deciding how much to keep would be one
+ * of them shortening what the other just decided to hold on to.
+ *
+ * This is also where an agent's own `prompt()` is called, which is why every method here
+ * answers a promise. A scope is born exactly three times in a run's life, and each one is a
+ * different agent taking over, so resolving the prompt here means once per agent per run:
+ * the loop reads what was already decided instead of rebuilding the head of the model's
+ * prefix on every turn.
  */
 export class RunScopeFactory {
 	public constructor(
@@ -32,13 +45,14 @@ export class RunScopeFactory {
 		private readonly compaction?: AdkCompactionPolicy,
 	) {}
 
-	public create(
+	public async create(
 		definition: AgentDefinition,
 		model: LlmModel,
 		started: StartedRun,
 		remote: readonly ToolDefinition[] = [],
 		callLimits?: RunLimits,
-	): RunScope {
+		owner?: SessionOwner,
+	): Promise<RunScope> {
 		const skills = SkillCatalog.of(definition.skills);
 		const limits = this.limits.overriddenBy(definition.limits).overriddenBy(callLimits);
 		return new RunScope(
@@ -51,6 +65,8 @@ export class RunScopeFactory {
 			new ToolBreaker(limits),
 			remote,
 			this.compactionFor(definition),
+			owner,
+			await this.promptFor(definition, started, owner),
 		);
 	}
 
@@ -63,7 +79,7 @@ export class RunScopeFactory {
 	 * What the remote sources opened belongs to the run rather than to an agent, so it
 	 * travels across untouched.
 	 */
-	public switched(scope: RunScope, definition: AgentDefinition, model: LlmModel): RunScope {
+	public async switched(scope: RunScope, definition: AgentDefinition, model: LlmModel): Promise<RunScope> {
 		const skills = SkillCatalog.of(definition.skills);
 		return new RunScope(
 			definition,
@@ -75,6 +91,8 @@ export class RunScopeFactory {
 			scope.breaker,
 			scope.remote,
 			this.compactionFor(definition),
+			scope.owner,
+			await this.promptFor(definition, scope.started, scope.owner),
 		);
 	}
 
@@ -86,7 +104,12 @@ export class RunScopeFactory {
 	 * say nothing about how many the child needs. The breaker is new for the same reason, and
 	 * the run's remote tools travel across because a source belongs to the run.
 	 */
-	public delegated(parent: RunScope, child: StartedRun, definition: AgentDefinition, model: LlmModel): RunScope {
+	public async delegated(
+		parent: RunScope,
+		child: StartedRun,
+		definition: AgentDefinition,
+		model: LlmModel,
+	): Promise<RunScope> {
 		const skills = SkillCatalog.of(definition.skills);
 		const limits = this.limits.overriddenBy(definition.limits);
 		return new RunScope(
@@ -99,12 +122,34 @@ export class RunScopeFactory {
 			new ToolBreaker(limits),
 			parent.remote,
 			this.compactionFor(definition),
+			parent.owner,
+			await this.promptFor(definition, child, parent.owner),
 		);
 	}
 
 	/** The agent's own policy, or the module's, and never both narrowing each other. */
 	private compactionFor(definition: AgentDefinition): AdkCompactionPolicy | undefined {
 		return definition.compaction ?? this.compaction;
+	}
+
+	/**
+	 * What the agent built for this run, and nothing at all when it builds nothing.
+	 *
+	 * An agent with no builder is the common case and costs no call: the scope falls back to
+	 * the text the decorator declared. Whatever the builder throws travels out of here, which
+	 * ends the run before the model is asked anything, because an agent whose instruction
+	 * could not be assembled is not an agent that should answer.
+	 */
+	private async promptFor(
+		definition: AgentDefinition,
+		started: StartedRun,
+		owner?: SessionOwner,
+	): Promise<PromptInstructions | undefined> {
+		const builder = definition.promptBuilder;
+		if (builder === undefined) return undefined;
+		return await builder.build(
+			new PromptContext(started.run.sessionId, started.run.id, definition.name, owner, started.cancellation.signal),
+		);
 	}
 
 	/**

@@ -42,6 +42,15 @@ export class AgentRunCommand {
 		 * however it ends.
 		 */
 		public readonly sources: readonly ToolSource[] = [],
+		/**
+		 * The caller's stop button, for a run nobody is waiting for anymore.
+		 *
+		 * Aborting it cancels this run and everything it delegated, and the journal records
+		 * a cancellation rather than a failure. It is the only way to stop the work: a caller
+		 * that walks away from the stream stops reading, while the provider goes on generating
+		 * an answer nobody will see and billing for it.
+		 */
+		public readonly signal?: AbortSignal,
 	) {}
 
 	public get continuesSession(): boolean {

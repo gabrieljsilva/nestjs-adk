@@ -16,6 +16,8 @@ export class ApproveInput {
 		public readonly callId: ToolCallId,
 		public readonly approvedBy?: string,
 		public readonly sources: readonly ToolSource[] = [],
+		/** The stop button of the turn this decision releases, which is a run of its own. */
+		public readonly signal?: AbortSignal,
 	) {}
 
 	public static of(
@@ -23,7 +25,8 @@ export class ApproveInput {
 		callId: ToolCallId,
 		approvedBy?: string,
 		sources: readonly ToolSource[] = [],
+		signal?: AbortSignal,
 	): ApproveInput {
-		return new ApproveInput(sessionId, callId, approvedBy, sources);
+		return new ApproveInput(sessionId, callId, approvedBy, sources, signal);
 	}
 }

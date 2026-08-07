@@ -32,6 +32,26 @@ export class ContextBlock {
 		return new ContextBlock(ContextCategory.CONVERSATION, [message], revision, revision, true);
 	}
 
+	/**
+	 * A block read back from where it was stored, exactly as it was.
+	 *
+	 * The named constructors above each build one kind of block, and a stored one has
+	 * already been through them: a summary that was later pinned is a combination none of
+	 * them produces, and rebuilding it through the closest one would quietly hand
+	 * compaction something it was told to leave alone.
+	 */
+	public static restore(
+		category: ContextCategory,
+		messages: readonly ModelMessage[],
+		firstRevision: SessionRevision,
+		lastRevision: SessionRevision,
+		closed: boolean,
+		callId?: ToolCallId,
+		pinned = false,
+	): ContextBlock {
+		return new ContextBlock(category, [...messages], firstRevision, lastRevision, closed, callId, pinned);
+	}
+
 	public static summary(message: ModelMessage, revision: SessionRevision): ContextBlock {
 		return new ContextBlock(ContextCategory.SUMMARIES, [message], revision, revision, true);
 	}

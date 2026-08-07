@@ -65,7 +65,7 @@ function toolOf(name: string, handler: ToolHandler, effect = ToolEffect.WRITE): 
 	return new ToolDefinition(name, "does something", new AnySchema(), effect, handler);
 }
 
-function scopeOf(tools: readonly ToolDefinition[], skills: readonly SkillDefinition[] = []): RunScope {
+async function scopeOf(tools: readonly ToolDefinition[], skills: readonly SkillDefinition[] = []): Promise<RunScope> {
 	const tracker = new ActiveRunTracker();
 	const lifecycle = new RuntimeLifecycle(tracker, ShutdownOptions.waitIndefinitely(), clock);
 	const started = new AgentRunFactory(new SequenceIdGenerator("run"), clock, tracker, lifecycle).start(
@@ -73,7 +73,7 @@ function scopeOf(tools: readonly ToolDefinition[], skills: readonly SkillDefinit
 		NativeStackFixture.AGENT,
 	);
 	const definition = NativeStackFixture.definitionOf(model, undefined, tools, skills);
-	return new RunScopeFactory().create(definition, model, started, [], RunLimits.none());
+	return await new RunScopeFactory().create(definition, model, started, [], RunLimits.none());
 }
 
 function executorOf(): TurnExecutor {
@@ -106,7 +106,7 @@ function readOf(name: string, handler: ToolHandler): ToolDefinition {
 describe("TurnExecutor", () => {
 	it("runs the calls in the order the model asked for them, one at a time", async () => {
 		const order: string[] = [];
-		const scope = scopeOf([
+		const scope = await scopeOf([
 			toolOf("refund_order", new OrderedHandler(order, "refund")),
 			toolOf("close_order", new OrderedHandler(order, "close")),
 		]);
@@ -122,7 +122,7 @@ describe("TurnExecutor", () => {
 
 	it("records a result for every call, so none is left open in the journal", async () => {
 		const order: string[] = [];
-		const scope = scopeOf([
+		const scope = await scopeOf([
 			toolOf("refund_order", new OrderedHandler(order, "refund")),
 			toolOf("close_order", new OrderedHandler(order, "close")),
 		]);
@@ -138,7 +138,7 @@ describe("TurnExecutor", () => {
 
 	it("answers a refused call with the refusal, without running it", async () => {
 		const order: string[] = [];
-		const scope = scopeOf([toolOf("refund_order", new OrderedHandler(order, "refund"))]);
+		const scope = await scopeOf([toolOf("refund_order", new OrderedHandler(order, "refund"))]);
 
 		const batch = await executorOf().execute(
 			scope,
@@ -154,7 +154,7 @@ describe("TurnExecutor", () => {
 
 	it("journals the activation next to the result that carried the skill", async () => {
 		const legal = SkillDefinition.onDemand("legal", "The terms", "the very long terms");
-		const scope = scopeOf([toolOf("noop", new OrderedHandler([], "noop"))], [legal]);
+		const scope = await scopeOf([toolOf("noop", new OrderedHandler([], "noop"))], [legal]);
 
 		const batch = await executorOf().execute(
 			scope,
@@ -169,7 +169,7 @@ describe("TurnExecutor", () => {
 	});
 
 	it("journals no activation for a call that was not one", async () => {
-		const scope = scopeOf([toolOf("refund_order", new OrderedHandler([], "refund"))]);
+		const scope = await scopeOf([toolOf("refund_order", new OrderedHandler([], "refund"))]);
 
 		const batch = await executorOf().execute(scope, [new PendingCall(REFUND, "refund_order", {})], false);
 
@@ -184,7 +184,7 @@ describe("TurnExecutor overlap", () => {
 
 	it("runs consecutive reads at the same time", async () => {
 		const order: string[] = [];
-		const scope = scopeOf([
+		const scope = await scopeOf([
 			readOf("lookup_order", new OverlappingHandler(order, "one")),
 			readOf("lookup_customer", new OverlappingHandler(order, "two")),
 		]);
@@ -200,7 +200,7 @@ describe("TurnExecutor overlap", () => {
 
 	it("never overlaps a write with anything, in either direction", async () => {
 		const order: string[] = [];
-		const scope = scopeOf([
+		const scope = await scopeOf([
 			readOf("lookup_order", new OverlappingHandler(order, "read-before")),
 			toolOf("refund_order", new OverlappingHandler(order, "write")),
 			readOf("lookup_customer", new OverlappingHandler(order, "read-after")),
@@ -227,7 +227,7 @@ describe("TurnExecutor overlap", () => {
 	});
 
 	it("journals the results in the order the model asked, whatever order they finished in", async () => {
-		const scope = scopeOf([readOf("slow_lookup", new SlowHandler(20)), readOf("fast_lookup", new SlowHandler(1))]);
+		const scope = await scopeOf([readOf("slow_lookup", new SlowHandler(20)), readOf("fast_lookup", new SlowHandler(1))]);
 
 		const batch = await executorOf().execute(
 			scope,
@@ -241,7 +241,7 @@ describe("TurnExecutor overlap", () => {
 
 	it("runs a tool the catalog does not know on its own, because nobody can name its effect", async () => {
 		const order: string[] = [];
-		const scope = scopeOf([readOf("lookup_order", new OverlappingHandler(order, "known"))]);
+		const scope = await scopeOf([readOf("lookup_order", new OverlappingHandler(order, "known"))]);
 
 		const batch = await executorOf().execute(
 			scope,

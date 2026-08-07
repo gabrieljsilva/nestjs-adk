@@ -81,4 +81,24 @@ describe("SendMessageUseCase", () => {
 
 		expect((await messages.execute("hello")).text).toBe("answered");
 	});
+
+	/** The request going away has to reach the run, or the store pays for the rest of it. */
+	it("hands the caller's signal to the agent", async () => {
+		const concierge = new RecordingConcierge();
+		const messages = new SendMessageUseCase(concierge);
+		const controller = new AbortController();
+
+		await messages.execute("tell me everything", undefined, [], controller.signal);
+
+		expect(concierge.lastOptions.signal).toBe(controller.signal);
+	});
+
+	it("asks without one when nobody is waiting to cancel", async () => {
+		const concierge = new RecordingConcierge();
+		const messages = new SendMessageUseCase(concierge);
+
+		await messages.execute("hello");
+
+		expect(concierge.lastOptions.signal).toBeUndefined();
+	});
 });

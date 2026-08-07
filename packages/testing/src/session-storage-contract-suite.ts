@@ -1,33 +1,26 @@
 import { strict as assert } from "node:assert";
-import { ContentDigest } from "../../common/digest/content-digest";
-import { AgentId } from "../../common/identity/agent-id";
-import { AgentRunId } from "../../common/identity/agent-run-id";
-import { CorrelationId } from "../../common/identity/correlation-id";
-import { EventId } from "../../common/identity/event-id";
-import { SessionId } from "../../common/identity/session-id";
-import { SessionRevision } from "../../common/revision/session-revision";
-import { Instant } from "../../common/time/instant";
-import { AppendEventsCommand } from "../../contracts/append-events-command";
-import type { SessionStorage } from "../../contracts/session-storage";
-import { AgentName } from "../../domain/agent/agent-name";
-import { ContextCheckpoint } from "../../domain/context/context-checkpoint";
-import { ContextComposition } from "../../domain/context/context-composition";
-import { SessionCreated } from "../../domain/event/catalog/session-created";
-import { EventCorrelation } from "../../domain/event/event-correlation";
-import { EventHeader } from "../../domain/event/event-header";
-import type { SessionEvent } from "../../domain/event/session-event";
-import { SessionEventBatch } from "../../domain/event/session-event-batch";
-import type { StoredSessionEvent } from "../../domain/event/stored-session-event";
-import { JournalCorruptedError } from "../../domain/session/errors/journal-corrupted.error";
-import { SessionAlreadyExistsError } from "../../domain/session/errors/session-already-exists.error";
-import { SessionNotFoundError } from "../../domain/session/errors/session-not-found.error";
-import { SessionRevisionConflictError } from "../../domain/session/errors/session-revision-conflict.error";
-import { Session } from "../../domain/session/session";
-import { SessionMode } from "../../domain/session/session-mode";
-import { SessionSnapshot } from "../../domain/session/session-snapshot";
-import { SessionState } from "../../domain/session/session-state";
-import { ContractCase } from "./contract-case";
-import { ContractSuite } from "./contract-suite";
+import {
+	AgentName,
+	AppendEventsCommand,
+	type ContextCheckpoint,
+	ContractCase,
+	ContractSuite,
+	Instant,
+	JournalCorruptedError,
+	Session,
+	SessionAlreadyExistsError,
+	type SessionEvent,
+	SessionEventBatch,
+	SessionId,
+	SessionMode,
+	SessionNotFoundError,
+	SessionRevision,
+	SessionRevisionConflictError,
+	type SessionSnapshot,
+	type SessionStorage,
+	StorageCodecs,
+	type StoredSessionEvent,
+} from "@nestjs-adk/core";
 
 const AGENT = AgentName.from("support");
 const NOW = Instant.fromIso("2026-01-01T00:00:00.000Z");
@@ -45,6 +38,8 @@ const PROJECTOR_VERSION = 1;
  */
 export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 	public readonly port = "SessionStorage";
+
+	private readonly codecs = StorageCodecs.standard();
 
 	public cases(create: () => SessionStorage): ContractCase[] {
 		const capabilities = create().capabilities();
@@ -311,24 +306,32 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 		return Session.start(SessionId.from(sessionId), AGENT, SessionMode.EPHEMERAL, NOW);
 	}
 
-	/** A fresh instance every call, so two commands never share an event object by accident. */
-	private eventOf(eventId: string): SessionEvent {
-		const header = new EventHeader(
-			EventId.from(eventId),
-			NOW,
-			new EventCorrelation(AgentRunId.from("r-1"), AgentId.from("a-1"), CorrelationId.from("c-1")),
-		);
-		return new SessionCreated(header, AGENT, undefined);
+	/**
+	 * An event built the way an adapter gets one: out of a row.
+	 *
+	 * The suite deliberately holds nothing an implementer could not hold. Fabricating a
+	 * `SessionCreated` would need the event class and its header, neither of which leaves the
+	 * core, and a suite that needed them would be proving a port nobody outside can implement.
+	 * A row from an older schema version is upcast on the way through, so this keeps working
+	 * when the payload changes, which is exactly what a real journal does.
+	 */
+	private eventOf(eventId: string, rootAgent: string = AGENT.value): SessionEvent {
+		return this.codecs.journal.decode({
+			eventId,
+			type: "session.created",
+			schemaVersion: 1,
+			occurredAt: NOW.toIso(),
+			runId: "r-1",
+			agentId: "a-1",
+			correlationId: "c-1",
+			causationId: undefined,
+			payload: { rootAgent, owner: null },
+		});
 	}
 
 	/** The same id carrying something else, which is what a journal must never accept twice. */
 	private differentEventOf(eventId: string): SessionEvent {
-		const header = new EventHeader(
-			EventId.from(eventId),
-			NOW,
-			new EventCorrelation(AgentRunId.from("r-1"), AgentId.from("a-1"), CorrelationId.from("c-1")),
-		);
-		return new SessionCreated(header, AgentName.from("billing"), undefined);
+		return this.eventOf(eventId, "billing");
 	}
 
 	private commandOf(sessionId: string, expectedRevision: number, ...eventIds: string[]): AppendEventsCommand {
@@ -340,25 +343,28 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 	}
 
 	private snapshotOf(sessionId: string, revision: number): SessionSnapshot {
-		return new SessionSnapshot(
-			SessionId.from(sessionId),
-			SessionRevision.of(revision),
-			PROJECTOR_VERSION,
-			SessionState.initial(),
-			ContentDigest.of("sha-256", "contract-suite"),
-		);
+		return this.codecs.snapshot.decode({
+			sessionId,
+			revision,
+			projectorVersion: PROJECTOR_VERSION,
+			checksumAlgorithm: "sha-256",
+			checksumValue: "contract-suite",
+			state: { revision, values: [] },
+		});
 	}
 
 	private checkpointOf(sessionId: string, coveredRevision: number, strategyVersion: number): ContextCheckpoint {
-		return new ContextCheckpoint(
-			SessionId.from(sessionId),
-			SessionRevision.of(coveredRevision),
-			"contract-suite",
+		return this.codecs.checkpoint.decode({
+			sessionId,
+			coveredRevision,
+			strategy: "contract-suite",
 			strategyVersion,
-			ContentDigest.of("sha-256", "contract-suite"),
-			[],
-			ContextComposition.empty(),
-		);
+			prefixDigestAlgorithm: "sha-256",
+			prefixDigestValue: "contract-suite",
+			blocks: [],
+			composition: { sizes: [] },
+			key: `${sessionId}:${coveredRevision}:${strategyVersion}`,
+		});
 	}
 
 	private async journalOf(storage: SessionStorage, sessionId: string, afterRevision = 0): Promise<StoredSessionEvent[]> {

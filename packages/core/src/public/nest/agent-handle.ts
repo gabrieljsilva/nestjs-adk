@@ -10,6 +10,7 @@ import { AskInput } from "../../domain/session/ask-input";
 import { DelegateInput } from "../../domain/session/delegate-input";
 import { RejectInput } from "../../domain/session/reject-input";
 import type { SessionInspection } from "../../domain/session/session-inspection";
+import { SessionOwner } from "../../domain/session/session-owner";
 import type { RuntimeServices } from "../../runtime/composition/runtime-services";
 import { AgentRunCommand } from "../../runtime/run/agent-run-command";
 
@@ -32,6 +33,25 @@ export interface AskOptions {
 	 * one run. Nothing about it outlives the run, including when the run fails or is aborted.
 	 */
 	sources?: readonly ToolSource[];
+	/**
+	 * Who this conversation belongs to, as the application identifies its own users.
+	 *
+	 * It is recorded on the session, so it is read when the session is started and remembered
+	 * from then on: continuing a conversation keeps the owner it was opened with. An agent that
+	 * builds its prompt per run receives it, which is how the instruction reaches the data
+	 * about whoever is asking without any of it travelling through the message.
+	 */
+	owner?: string;
+	/**
+	 * The stop button of whoever is asking.
+	 *
+	 * Aborting it ends this run and everything it delegated, and the journal records a
+	 * cancellation rather than a failure. It is the only way to stop the work: walking away
+	 * from `stream` stops the reading, while the provider goes on generating an answer
+	 * nobody will read and billing for it. A signal that already aborted ends the run before
+	 * it calls anything, which is what makes the button work before the first chunk.
+	 */
+	signal?: AbortSignal;
 }
 
 /** Who decided, and what has to be open for the turn that follows to run. */
@@ -40,6 +60,8 @@ export interface DecisionOptions {
 	by?: string;
 	/** Sources for this run alone, since the suspended run's were closed when it suspended. */
 	sources?: readonly ToolSource[];
+	/** The stop button of the turn this decision releases, which is a run of its own. */
+	signal?: AbortSignal;
 }
 
 /**
@@ -92,7 +114,7 @@ export class AgentHandle {
 	): Promise<AgentResult> {
 		const decided = AgentHandle.decisionOf(options);
 		return this.runtime.runner.approve(
-			ApproveInput.of(AgentHandle.sessionOf(sessionId), callId, decided.by, decided.sources),
+			ApproveInput.of(AgentHandle.sessionOf(sessionId), callId, decided.by, decided.sources, decided.signal),
 		);
 	}
 
@@ -104,7 +126,7 @@ export class AgentHandle {
 	): Promise<AgentResult> {
 		const decided = AgentHandle.decisionOf(options);
 		return this.runtime.runner.reject(
-			RejectInput.of(AgentHandle.sessionOf(sessionId), callId, reason, decided.by, decided.sources),
+			RejectInput.of(AgentHandle.sessionOf(sessionId), callId, reason, decided.by, decided.sources, decided.signal),
 		);
 	}
 
@@ -126,10 +148,11 @@ export class AgentHandle {
 			AskInput.with(message, asked.media ?? [], sessionId),
 			undefined,
 			undefined,
-			undefined,
+			asked.owner === undefined ? undefined : SessionOwner.from(asked.owner),
 			undefined,
 			undefined,
 			asked.sources ?? [],
+			asked.signal,
 		);
 	}
 

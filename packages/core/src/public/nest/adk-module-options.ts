@@ -2,6 +2,7 @@ import type { IdGenerator } from "../../common/identity/id-generator";
 import type { Clock } from "../../common/time/clock";
 import type { ArtifactStorage } from "../../contracts/artifact-storage";
 import type { Embedder } from "../../contracts/embedder";
+import type { PromptSource } from "../../contracts/prompt-source";
 import type { SessionStorage } from "../../contracts/session-storage";
 import type { LlmModel } from "../../domain/model/llm-model";
 import type { RuntimeOptions } from "../../runtime/composition/runtime-options";
@@ -17,6 +18,16 @@ export interface AdkModuleOptionsInput {
 	runtime?: RuntimeOptions;
 	/** Reachable by injecting `Embedder`. Without one, only code that embeds ever notices. */
 	embedder?: Embedder;
+	/** Where the built in filesystem source looks for a prompt named without a path. */
+	prompts?: PromptFileOptions;
+	/** Replaces the filesystem source entirely, for prompts that live somewhere else. */
+	promptSource?: PromptSource;
+}
+
+/** How the default prompt source finds a file, for an application that keeps them elsewhere. */
+export interface PromptFileOptions {
+	/** Resolved from the working directory when relative. Defaults to `./prompts`. */
+	dir: string;
 }
 
 /** The fields a caller may name; one left out keeps whatever the options already hold. */
@@ -45,6 +56,15 @@ export class AdkModuleOptions {
 		public readonly runtime?: RuntimeOptions,
 		/** Reachable by injecting `Embedder`. Without one, only code that embeds ever notices. */
 		public readonly embedder?: Embedder,
+		/** Where the built in filesystem source looks for a prompt named without a path. */
+		public readonly prompts?: PromptFileOptions,
+		/**
+		 * Replaces the filesystem source entirely, for prompts that live somewhere else.
+		 *
+		 * Declaring this and `prompts` together is refused: `prompts` configures the source this
+		 * one replaces, so keeping both would leave a directory declared that nothing reads.
+		 */
+		public readonly promptSource?: PromptSource,
 	) {}
 
 	/** Options built from names instead of positions. */
@@ -57,6 +77,8 @@ export class AdkModuleOptions {
 			input.ids,
 			input.runtime,
 			input.embedder,
+			input.prompts,
+			input.promptSource,
 		);
 	}
 
@@ -70,6 +92,8 @@ export class AdkModuleOptions {
 			patch.ids ?? this.ids,
 			patch.runtime ?? this.runtime,
 			patch.embedder ?? this.embedder,
+			patch.prompts ?? this.prompts,
+			patch.promptSource ?? this.promptSource,
 		);
 	}
 }

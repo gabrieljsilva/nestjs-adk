@@ -65,7 +65,7 @@ export class AskAgent {
 		const existing = command.input.sessionId === undefined ? undefined : await this.opener.open(command, sessionId);
 		const entry = existing === undefined ? called : this.ownerOf(existing, called);
 
-		const started = this.runs.start(sessionId, entry.name);
+		const started = this.runs.start(sessionId, entry.name, command.signal);
 		const sources = new ToolSourceScope(this.sources, command.sources);
 		try {
 			// Both edges are checked before the session is touched, so a handover nobody declared
@@ -137,7 +137,7 @@ export class AskAgent {
 	): Promise<AgentResult> {
 		try {
 			const remote = await sources.open(opened.session.id, started.run.id, started.cancellation.signal);
-			const scope = this.scopes.create(definition, model, started, remote, command.limits);
+			const scope = await this.scopes.create(definition, model, started, remote, command.limits, opened.session.owner);
 			await this.reportUnauthorized(scope, progress, sources);
 			await this.loop.run(scope, opened, progress, observers);
 			return await this.results.after(started, progress);

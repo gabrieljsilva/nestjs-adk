@@ -10,6 +10,9 @@ import { RunCancellation } from "../lifecycle/run-cancellation";
 import type { RuntimeLifecycle } from "../lifecycle/runtime-lifecycle";
 import { StartedRun } from "./started-run";
 
+/** What the journal records as the reason, which is not the same ending as a shutdown. */
+const CALLER_ABORTED = "the caller aborted the run";
+
 /**
  * Creates one run per command, without a container scope.
  *
@@ -25,7 +28,7 @@ export class AgentRunFactory {
 		private readonly lifecycle: RuntimeLifecycle,
 	) {}
 
-	public start(sessionId: SessionId, agent: AgentName): StartedRun {
+	public start(sessionId: SessionId, agent: AgentName, signal?: AbortSignal): StartedRun {
 		this.lifecycle.assertAcceptsCommands();
 
 		const run = AgentRun.start(
@@ -35,7 +38,7 @@ export class AgentRunFactory {
 			this.clock.now(),
 			CorrelationId.from(this.ids.next()),
 		);
-		const cancellation = new RunCancellation();
+		const cancellation = this.cancellationFor(signal);
 		this.tracker.track(run.id, cancellation);
 		return new StartedRun(run, cancellation);
 	}
@@ -62,7 +65,7 @@ export class AgentRunFactory {
 	}
 
 	/** Continues a run that was suspended, under a new id that points back at the old one. */
-	public resume(sessionId: SessionId, agent: AgentName, resumedRunId: AgentRunId): StartedRun {
+	public resume(sessionId: SessionId, agent: AgentName, resumedRunId: AgentRunId, signal?: AbortSignal): StartedRun {
 		this.lifecycle.assertAcceptsCommands();
 
 		const run = AgentRun.resumingFrom(
@@ -73,12 +76,28 @@ export class AgentRunFactory {
 			CorrelationId.from(this.ids.next()),
 			resumedRunId,
 		);
-		const cancellation = new RunCancellation();
+		const cancellation = this.cancellationFor(signal);
 		this.tracker.track(run.id, cancellation);
 		return new StartedRun(run, cancellation);
 	}
 
 	public finish(run: AgentRun): void {
 		this.tracker.release(run.id);
+	}
+
+	/**
+	 * The run's own cancellation, wired to the caller's signal when there is one.
+	 *
+	 * A signal that already aborted cancels the run before it does anything, because the
+	 * stop button is usually pressed while the answer is still being waited for, which is
+	 * before the run exists. This is the only way a caller ends a run: abandoning a stream
+	 * stops the reading and never the generating, so the provider bills the rest anyway.
+	 */
+	private cancellationFor(signal?: AbortSignal): RunCancellation {
+		const cancellation = new RunCancellation();
+		if (signal === undefined) return cancellation;
+		signal.addEventListener("abort", () => cancellation.cancel(CALLER_ABORTED), { once: true });
+		if (signal.aborted) cancellation.cancel(CALLER_ABORTED);
+		return cancellation;
 	}
 }

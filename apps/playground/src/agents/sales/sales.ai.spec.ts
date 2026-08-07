@@ -294,4 +294,41 @@ describe("AI: sales, tools and the answer they produce", () => {
 
 		expect(fresh.sessionId.value).not.toBe(first.sessionId.value);
 	});
+
+	/**
+	 * The one thing a fake cannot answer about cancellation.
+	 *
+	 * A fake proves the runtime ends the run and journals it, which the offline suite does.
+	 * What only a real provider proves is the half after that: that the signal reaches the
+	 * SDK and the request in flight is actually dropped. Before the signal existed, breaking
+	 * out of this loop stopped the reading and nothing else, and the tokens for the rest of
+	 * the answer were generated and billed to a customer who had already walked away.
+	 *
+	 * It is the cheapest case in this file: it abandons the answer after the second chunk.
+	 */
+	it("stops a real answer in flight when the customer walks away", { timeout: 120_000 }, async () => {
+		const connection = new SqliteConnection();
+		const controller = new AbortController();
+		await using bed = await AdkTestBedBuilder.from(Test.createTestingModule({ imports: [AppModule] }))
+			.overriding(StoreDatabase, new StoreDatabase(connection))
+			.overriding(SessionStorage, new SqliteSessionStorage(connection))
+			.withModel(openAILuna)
+			.withConsumers(new RunTranscript())
+			.boot();
+
+		const streaming = bed.get(SalesAgent).stream("List every PS5 game you sell, one sentence about each.", {
+			signal: controller.signal,
+		});
+		const read = async () => {
+			let chunks = 0;
+			for await (const _chunk of streaming) {
+				chunks += 1;
+				if (chunks === 2) controller.abort();
+			}
+		};
+
+		await expect(read()).rejects.toThrow();
+		expect(bed.events.countOf("run.cancelled")).toBe(1);
+		expect(bed.events.countOf("run.completed")).toBe(0);
+	});
 });

@@ -1,4 +1,4 @@
-import { AdkAgent, Agent, Skill } from "@nestjs-adk/core";
+import { AdkAgent, Agent, RunLimits, Skill } from "@nestjs-adk/core";
 import { QuoteGameTool } from "../../catalog/tools/quote-game.tool";
 import { SearchGamesTool } from "../../catalog/tools/search-games.tool";
 
@@ -18,6 +18,10 @@ Every number you mention must come from a tool: never calculate it yourself.
 When the customer asks to compare games, quote each one.
 Answer in English using at most two sentences, always stating the amount in Brazilian reais.`,
 	tools: [SearchGamesTool, QuoteGameTool],
+	// A comparison is one search plus one quote per title, so this sector runs longer than
+	// the rest of the store and says so here instead of the store raising the ceiling for
+	// everyone. What an agent declares replaces the module's, field by field.
+	limits: RunLimits.of(16),
 })
 export class SalesAgent extends AdkAgent {
 	/** Always composed: how the sector answers is not something to look up. */

@@ -3,6 +3,7 @@ import { SequentialFailoverPolicy } from "../../domain/agent/sequential-failover
 import type { AdkCompactionPolicy } from "../../domain/context/adk-compaction-policy";
 import type { LlmModel } from "../../domain/model/llm-model";
 import { PromptInstructions } from "../../domain/prompt/prompt-instructions";
+import { RunLimits } from "../../domain/session/run-limits";
 import type { SkillDefinition } from "../../domain/skill/skill-definition";
 import type { ToolDefinition } from "../../domain/tool/tool-definition";
 import { InvalidAgentMetadataError } from "./errors/invalid-agent-metadata.error";
@@ -64,6 +65,7 @@ export class NestAgentScanner {
 			model: this.modelOf(metadata, defaultModel, provider.name),
 			failover: this.failoverOf(metadata, provider.name),
 			compaction: this.compactionOf(metadata, provider.name),
+			limits: this.limitsOf(metadata, provider.name),
 			instructions: this.instructionsOf(metadata, provider.name),
 			transfers: Reflect.getMetadata(TRANSFERS_TO_METADATA, provider.type),
 			delegations: Reflect.getMetadata(DELEGATES_TO_METADATA, provider.type),
@@ -131,6 +133,17 @@ export class NestAgentScanner {
 
 	private isCompaction(value: unknown): value is AdkCompactionPolicy {
 		return typeof value === "object" && value !== null && typeof Reflect.get(value, "decide") === "function";
+	}
+
+	/** Absent means the agent runs under the module's ceiling, which may itself be absent. */
+	private limitsOf(metadata: unknown, providerName: string): RunLimits | undefined {
+		const declared = this.declaredField(metadata, "limits");
+		if (declared === undefined) return undefined;
+		if (declared instanceof RunLimits) return declared;
+		throw new InvalidAgentMetadataError(
+			providerName,
+			"limits is not run limits. @Agent takes a RunLimits instance, built with RunLimits.of.",
+		);
 	}
 
 	private instructionsOf(metadata: unknown, providerName: string): PromptInstructions | undefined {

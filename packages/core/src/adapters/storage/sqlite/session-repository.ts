@@ -1,14 +1,8 @@
-import { SessionId } from "../../../common/identity/session-id";
-import { SessionRevision } from "../../../common/revision/session-revision";
-import { Instant } from "../../../common/time/instant";
-import { AgentName } from "../../../domain/agent/agent-name";
-import { Session } from "../../../domain/session/session";
-import { SessionMode } from "../../../domain/session/session-mode";
-import { SessionOwner } from "../../../domain/session/session-owner";
-import { SessionStatus } from "../../../domain/session/session-status";
-import { UnreadableStoredValueError } from "./errors/unreadable-stored-value.error";
+import type { SessionId } from "../../../common/identity/session-id";
+import type { Session } from "../../../domain/session/session";
+import type { SessionHeadCodec } from "../codec/session-head-codec";
+import { StoredRow } from "../codec/stored-row";
 import type { SqliteConnection } from "./sqlite-connection";
-import { SqliteRow } from "./sqlite-row";
 
 /**
  * The heads of conversations, and nothing about what was said in them.
@@ -19,34 +13,39 @@ import { SqliteRow } from "./sqlite-row";
  * about a session and not about a table.
  */
 export class SessionRepository {
-	public constructor(private readonly connection: SqliteConnection) {}
+	public constructor(
+		private readonly connection: SqliteConnection,
+		private readonly codec: SessionHeadCodec,
+	) {}
 
 	public insert(session: Session): void {
+		const record = this.codec.encode(session);
 		this.connection.run(
 			"INSERT INTO sessions (id, root_agent, mode, status, revision, created_at, updated_at, owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-			session.id.value,
-			session.rootAgent.value,
-			session.mode.toString(),
-			session.status.toString(),
-			session.revision.value,
-			session.createdAt.toIso(),
-			session.updatedAt.toIso(),
-			session.owner?.value ?? null,
+			record.id,
+			record.rootAgent,
+			record.mode,
+			record.status,
+			record.revision,
+			record.createdAt,
+			record.updatedAt,
+			record.owner ?? null,
 		);
 	}
 
 	public find(sessionId: SessionId): Session | undefined {
 		const row = this.connection.first("SELECT * FROM sessions WHERE id = ?", sessionId.value);
-		return row === undefined ? undefined : this.toSession(new SqliteRow(row));
+		return row === undefined ? undefined : this.toSession(new StoredRow(row));
 	}
 
 	public advance(session: Session): void {
+		const record = this.codec.encode(session);
 		this.connection.run(
 			"UPDATE sessions SET revision = ?, updated_at = ?, status = ? WHERE id = ?",
-			session.revision.value,
-			session.updatedAt.toIso(),
-			session.status.toString(),
-			session.id.value,
+			record.revision,
+			record.updatedAt,
+			record.status,
+			record.id,
 		);
 	}
 
@@ -54,29 +53,16 @@ export class SessionRepository {
 		this.connection.run("DELETE FROM sessions WHERE id = ?", sessionId.value);
 	}
 
-	private toSession(row: SqliteRow): Session {
-		const owner = row.optionalText("owner");
-		return Session.restore(
-			SessionId.from(row.text("id")),
-			AgentName.from(row.text("root_agent")),
-			this.modeOf(row.text("mode")),
-			this.statusOf(row.text("status")),
-			SessionRevision.of(row.integer("revision")),
-			Instant.fromIso(row.text("created_at")),
-			Instant.fromIso(row.text("updated_at")),
-			owner === undefined ? undefined : SessionOwner.from(owner),
-		);
-	}
-
-	private modeOf(value: string): SessionMode {
-		const mode = SessionMode.of(value);
-		if (mode === undefined) throw new UnreadableStoredValueError("mode", value);
-		return mode;
-	}
-
-	private statusOf(value: string): SessionStatus {
-		const status = SessionStatus.of(value);
-		if (status === undefined) throw new UnreadableStoredValueError("status", value);
-		return status;
+	private toSession(row: StoredRow): Session {
+		return this.codec.decode({
+			id: row.text("id"),
+			rootAgent: row.text("root_agent"),
+			mode: row.text("mode"),
+			status: row.text("status"),
+			revision: row.integer("revision"),
+			createdAt: row.text("created_at"),
+			updatedAt: row.text("updated_at"),
+			owner: row.optionalText("owner"),
+		});
 	}
 }

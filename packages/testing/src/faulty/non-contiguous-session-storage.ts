@@ -1,8 +1,10 @@
-import { InMemorySessionStorage } from "../../../adapters/storage/in-memory-session-storage";
-import { SessionRevision } from "../../../common/revision/session-revision";
-import type { AppendEventsCommand } from "../../../contracts/append-events-command";
-import { AppendEventsResult } from "../../../contracts/append-events-result";
-import { StoredSessionEvent } from "../../../domain/event/stored-session-event";
+import {
+	type AppendEventsCommand,
+	AppendEventsResult,
+	InMemorySessionStorage,
+	SessionRevision,
+	StoredSessionEvent,
+} from "@nestjs-adk/core";
 
 /** How much this storage moves the revision per event, instead of the single step a gapless journal requires. */
 const REVISION_STEP = 2;

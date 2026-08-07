@@ -1,5 +1,6 @@
 import type { AdkCompactionPolicy } from "../context/adk-compaction-policy";
 import type { LlmModel } from "../model/llm-model";
+import type { PromptBuilder } from "../prompt/prompt-builder";
 import type { PromptInstructions } from "../prompt/prompt-instructions";
 import type { RunLimits } from "../session/run-limits";
 import type { SkillDefinition } from "../skill/skill-definition";
@@ -30,6 +31,14 @@ export class AgentDefinition {
 		public readonly policies: AgentExecutionPolicies,
 		public readonly tools: readonly ToolDefinition[] = [],
 		public readonly skills: readonly SkillDefinition[] = [],
+		/**
+		 * Builds the prompt once per run, for an agent whose instruction depends on data.
+		 *
+		 * It is the alternative to `instructions` and never a second one alongside it: an agent
+		 * that declared both is refused where the two declarations are read, so anything holding
+		 * a definition can treat a builder as the whole answer.
+		 */
+		public readonly promptBuilder?: PromptBuilder,
 	) {}
 
 	public static of(
@@ -40,9 +49,10 @@ export class AgentDefinition {
 		policies: AgentExecutionPolicies = AgentExecutionPolicies.none(),
 		tools: readonly ToolDefinition[] = [],
 		skills: readonly SkillDefinition[] = [],
+		promptBuilder?: PromptBuilder,
 	): AgentDefinition {
 		if (model === undefined) throw new MissingAgentModelError(name.value);
-		return new AgentDefinition(name, description, model, instructions, policies, [...tools], [...skills]);
+		return new AgentDefinition(name, description, model, instructions, policies, [...tools], [...skills], promptBuilder);
 	}
 
 	public get failover(): AgentFailoverPolicy | undefined {

@@ -25,6 +25,7 @@ import { AppModule } from "./app.module";
 import { Attachment } from "./chat/attachment";
 import { InspectSessionUseCase } from "./chat/inspect-session.use-case";
 import { SendMessageUseCase } from "./chat/send-message.use-case";
+import { SlowAnswer } from "./chat/slow-answer.fixture";
 import { StoreDatabase } from "./shared/store-database";
 
 /** Says what it replaced, so a test can find the summary among the messages without a provider. */
@@ -275,17 +276,96 @@ describe("the store, end to end", () => {
 			.overriding(StoreDatabase, new StoreDatabase(connection))
 			.overriding(SessionStorage, new SqliteSessionStorage(connection))
 			.withScript(ConciergeAgent, (script) => script.mockText("not called"))
+			.withScript(SalesAgent, (script) => script.mockText("not called"))
+			.withScript(WarrantyAgent, (script) => script.mockText("not called"))
+			.withScript(BillingAgent, (script) => {
+				for (let turn = 0; turn < 5; turn += 1) script.mockToolCall("find_order", { orderId: "A-1042" });
+			})
+			.withRuntime({ limits: RunLimits.of(2) })
+			.boot();
+
+		await expect(bed.agent(BillingAgent).ask("check that order again, and again")).rejects.toBeInstanceOf(
+			AgentMaxIterationsError,
+		);
+	});
+
+	/**
+	 * The other half of the same rule, and the reason billing is the one above: sales
+	 * declares a ceiling of its own in `@Agent`, and what an agent declares replaces the
+	 * module's rather than being capped by it. A sector that genuinely runs longer says so
+	 * where it is written, instead of the store raising the limit for everyone.
+	 */
+	it("lets a sector that declared its own ceiling run past the store's", async () => {
+		const connection = new SqliteConnection();
+		await using bed = await AdkTestBedBuilder.from(Test.createTestingModule({ imports: [AppModule] }))
+			.overriding(StoreDatabase, new StoreDatabase(connection))
+			.overriding(SessionStorage, new SqliteSessionStorage(connection))
+			.withScript(ConciergeAgent, (script) => script.mockText("not called"))
 			.withScript(SalesAgent, (script) => {
 				for (let turn = 0; turn < 5; turn += 1) script.mockToolCall("search_games", { term: "ps5" });
+				script.mockText("Found them all.");
 			})
 			.withScript(WarrantyAgent, (script) => script.mockText("not called"))
 			.withScript(BillingAgent, (script) => script.mockText("not called"))
 			.withRuntime({ limits: RunLimits.of(2) })
 			.boot();
 
-		await expect(bed.agent(SalesAgent).ask("list everything, again and again")).rejects.toBeInstanceOf(
-			AgentMaxIterationsError,
-		);
+		const run = await bed.agent(SalesAgent).ask("compare every PS5 game you have");
+
+		expect(run.text).toBe("Found them all.");
+		expect(bed.events.ran("search_games")).toBe(5);
+	});
+
+	/**
+	 * The customer closing the tab, from the request down to the journal.
+	 *
+	 * Without the signal reaching the run, the best the application could do was stop
+	 * reading: the provider went on generating an answer nobody would see, the store paid
+	 * for it, and the journal closed the run as if it had been answered.
+	 */
+	describe("a customer who gave up waiting", () => {
+		it("stops the answer where it was, and records that somebody stopped it", async () => {
+			const connection = new SqliteConnection();
+			const controller = new AbortController();
+			const model = new SlowAnswer(() => controller.abort());
+			await using bed = await AdkTestBedBuilder.from(Test.createTestingModule({ imports: [AppModule] }))
+				.overriding(StoreDatabase, new StoreDatabase(connection))
+				.overriding(SessionStorage, new SqliteSessionStorage(connection))
+				.withModelFor(ConciergeAgent, model)
+				.withScript(SalesAgent, (script) => script.mockText("not called"))
+				.withScript(WarrantyAgent, (script) => script.mockText("not called"))
+				.withScript(BillingAgent, (script) => script.mockText("not called"))
+				.boot();
+
+			const asking = bed
+				.get(SendMessageUseCase)
+				.execute("tell me about every game you sell", undefined, [], controller.signal);
+
+			await expect(asking).rejects.toThrow();
+			expect(model.answeredEverything).toBe(false);
+			// The strings a consumer reads off a published event, which is all an application has.
+			expect(bed.events.countOf("run.cancelled")).toBe(1);
+			expect(bed.events.countOf("run.completed")).toBe(0);
+			expect(bed.events.countOf("run.failed")).toBe(0);
+		});
+
+		it("answers the whole thing when nobody gives up", async () => {
+			const connection = new SqliteConnection();
+			const model = new SlowAnswer();
+			await using bed = await AdkTestBedBuilder.from(Test.createTestingModule({ imports: [AppModule] }))
+				.overriding(StoreDatabase, new StoreDatabase(connection))
+				.overriding(SessionStorage, new SqliteSessionStorage(connection))
+				.withModelFor(ConciergeAgent, model)
+				.withScript(SalesAgent, (script) => script.mockText("not called"))
+				.withScript(WarrantyAgent, (script) => script.mockText("not called"))
+				.withScript(BillingAgent, (script) => script.mockText("not called"))
+				.boot();
+
+			const run = await bed.get(SendMessageUseCase).execute("tell me about every game you sell");
+
+			expect(model.answeredEverything).toBe(true);
+			expect(run.status.name).toBe("completed");
+		});
 	});
 
 	it("refuses a photo when the model behind the store cannot look at one", async () => {

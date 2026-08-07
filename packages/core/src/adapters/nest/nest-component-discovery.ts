@@ -8,7 +8,9 @@ import { AgentTransferPolicy } from "../../domain/agent/agent-transfer-policy";
 import { DeclaredAgent } from "../../domain/agent/declared-agent";
 import type { AdkCompactionPolicy } from "../../domain/context/adk-compaction-policy";
 import type { LlmModel } from "../../domain/model/llm-model";
+import type { PromptBuilder } from "../../domain/prompt/prompt-builder";
 import type { PromptInstructions } from "../../domain/prompt/prompt-instructions";
+import type { RunLimits } from "../../domain/session/run-limits";
 import type { SkillDefinition } from "../../domain/skill/skill-definition";
 import type { ToolDefinition } from "../../domain/tool/tool-definition";
 import { AgentMetadata } from "./agent-metadata";
@@ -21,9 +23,13 @@ export interface DiscoveredProvider {
 	readonly metadata: unknown;
 	readonly model: LlmModel | undefined;
 	readonly instructions?: PromptInstructions;
+	/** Set for an agent that builds its prompt per run, which is the alternative to `instructions`. */
+	readonly promptBuilder?: PromptBuilder;
 	readonly failover?: AgentFailoverPolicy;
 	/** Absent leaves the agent on the module's policy, which may itself be absent. */
 	readonly compaction?: AdkCompactionPolicy;
+	/** Absent leaves the agent on the module's ceiling, which may itself be absent. */
+	readonly limits?: RunLimits;
 	/** The `@TransfersTo` payload, still unvalidated: reflect metadata is `unknown` by definition. */
 	readonly transfers?: unknown;
 	/** The `@DelegatesTo` payload, unvalidated for the same reason. */
@@ -56,12 +62,13 @@ export class NestComponentDiscovery {
 			AgentExecutionPolicies.of(
 				provider.failover,
 				provider.compaction,
-				undefined,
+				provider.limits,
 				this.transferOf(provider),
 				this.delegationOf(provider),
 			),
 			provider.tools ?? [],
 			provider.skills ?? [],
+			provider.promptBuilder,
 		);
 		return new DeclaredAgent(definition, provider.providerName);
 	}

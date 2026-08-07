@@ -30,3 +30,13 @@ describe("ContextCategory", () => {
 		expect(String(ContextCategory.TOOL_RESULTS)).toBe("tool-results");
 	});
 });
+
+describe("ContextCategory.of", () => {
+	it("answers with the one instance a stored key denotes", () => {
+		expect(ContextCategory.of("conversation")).toBe(ContextCategory.CONVERSATION);
+	});
+
+	it("answers with nothing for a key no version of this runtime wrote", () => {
+		expect(ContextCategory.of("invented")).toBeUndefined();
+	});
+});

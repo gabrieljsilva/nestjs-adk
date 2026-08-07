@@ -17,6 +17,11 @@ export class ContextCategory {
 
 	private constructor(public readonly key: string) {}
 
+	/** The one instance a stored key denotes, since `equals` and every lookup compare on it. */
+	public static of(key: string): ContextCategory | undefined {
+		return ContextCategory.all().find((category) => category.key === key);
+	}
+
 	/** In prompt order: what the model reads first comes first. */
 	public static all(): readonly ContextCategory[] {
 		return [

@@ -4,7 +4,7 @@
 
 NestJS developers already know how to build good software: classes, modules, providers and dependency injection. nestjs-adk brings AI agents into that same world. An agent is a class with a decorator. A tool is a provider. Everything is injected, validated and tested like the rest of your app.
 
-This package is the framework itself. It gives you the decorators, the module, the run loop and all the contracts. To actually talk to an LLM you also install an engine, and the first supported engine is the Google ADK:
+This package is the framework: the decorators, the module, the run loop and every contract. To talk to a real model you also install a provider package:
 
 ```bash
 npm i @nestjs-adk/core @nestjs-adk/google
@@ -12,125 +12,130 @@ npm i @nestjs-adk/core @nestjs-adk/google
 
 ## Your first agent
 
-Start by registering the module once, in your root module. This is where you choose the engine and the default model:
+Register the module once, in your root module. This is where the default model lives:
 
 ```ts
-import { AdkModule } from "@nestjs-adk/core";
-import { GoogleAdkEngine } from "@nestjs-adk/google";
+import { AdkModule, AdkModuleOptions } from "@nestjs-adk/core";
+import { GeminiModel } from "@nestjs-adk/google";
+
+const flash = new GeminiModel("gemini-3.5-flash-lite", { apiKey: process.env.GEMINI_API_KEY });
 
 @Module({
-	imports: [
-		AdkModule.forRoot({
-			engine: GoogleAdkEngine,
-			defaultModel: "gemini-2.5-flash",
-		}),
-	],
+	imports: [AdkModule.forRoot(AdkModuleOptions.from({ defaultModel: flash }))],
 	providers: [SupportAgent, LookupOrderTool, OrdersService, ChatService],
 })
 export class AppModule {}
 ```
 
-Now create the agent. It is a class that extends `AdkAgent` and is described by the `@Agent` decorator:
+Now the agent. It is a class described by `@Agent`, and extending `AdkAgent` is what lets you inject it and ask it something:
 
 ```ts
-import { Agent, AdkAgent } from "@nestjs-adk/core";
+import { AdkAgent, Agent } from "@nestjs-adk/core";
 
 @Agent({
-	name: "support_agent",
-	description: "Customer support.",
-	prompt: "You are the store's support agent.",
+	name: "support",
+	description: "Customer support: order status and returns.",
+	prompt: "You are the store's support agent. Answer in at most two sentences.",
 	tools: [LookupOrderTool],
 })
 export class SupportAgent extends AdkAgent {}
 ```
 
-Notice that the agent went into `providers` like any other class. There is no special registration step. If you forget to register a tool, a prompt class or a sub-agent, the app fails at startup with an error that points at the missing class, so configuration mistakes never reach runtime.
+The agent went into `providers` like any other class. There is no separate registration step, and a mistake in the wiring fails at boot naming the provider rather than surfacing on a request: a tool nobody registered, a transfer target that is not an agent, a provider the container cannot hand a single instance of.
 
-To use the agent, inject it. The instance itself is the handle:
+To use it, inject it. The instance is the handle:
 
 ```ts
 @Injectable()
 export class ChatService {
-	constructor(private readonly support: SupportAgent) {}
+	public constructor(private readonly support: SupportAgent) {}
 
-	async answer(sessionId: string, message: string) {
-		const { text } = await this.support.ask({ sessionId, message });
-		return text;
+	public async answer(sessionId: string, message: string): Promise<string> {
+		const result = await this.support.ask(message, { sessionId });
+		return result.text;
 	}
 }
 ```
 
-`ask()` runs the agent and returns the final result. `stream.ask()` gives you the same run as events, one by one, while the agent works. Later in this document you will also meet `approve()` and `reject()`, used for human approval; each verb exists in both flavors, aggregated at the top level and streaming under `stream`.
+`ask` returns an `AgentResult`: the text, the session and run ids, the status, anything waiting for a human, and what the run cost. `stream` runs the same thing and yields the pieces as they arrive. `approve` and `reject` answer a run that stopped in front of a person, and `delegate` hands one task to a specialist.
+
+An agent that already extends something else is reached by name instead:
+
+```ts
+const support = this.registry.get("support"); // AgentRegistry, injected
+```
 
 That is the whole mental model: configure the module once, register classes as providers, inject the agent and call it.
 
 ## Tools
 
-A tool is something the model can decide to call. In nestjs-adk a shared tool is a class that extends `AdkTool`. The Zod schema plays two roles at the same time: it tells the model what arguments exist, and it types the input for you:
+A tool is something the model can decide to call. A shared tool is a class that extends `AdkTool`. The Zod schema does two jobs at once: it tells the model what arguments exist, and it types the input for you.
 
 ```ts
-import { Tool, AdkTool, type ToolContext } from "@nestjs-adk/core";
+import { AdkTool, Tool, type ToolContext } from "@nestjs-adk/core";
 import { z } from "zod";
 
 const schema = z.object({ city: z.string().describe("City name") });
 
 @Tool({ name: "get_weather", description: "Current weather.", schema })
 export class GetWeatherTool extends AdkTool<typeof schema> {
-	constructor(private readonly weather: WeatherService) {
+	public constructor(private readonly weather: WeatherService) {
 		super();
 	}
 
-	execute(input: z.infer<typeof schema>, ctx: ToolContext) {
+	public execute(input: z.infer<typeof schema>, context: ToolContext): unknown {
 		return this.weather.fetch(input.city);
 	}
 }
 ```
 
-The tool is a normal provider, so it can inject services, repositories or anything else. Whatever `execute` returns goes back to the model, as long as it is serializable.
+The tool is a normal provider, so it injects services, repositories and anything else. Whatever `execute` returns goes back to the model, as long as it is serializable.
 
-The `execute` method receives two very different things. The `input` comes from the model: it decided the values based on the schema. The `ctx` comes from your application: it carries `userId`, custom `attributes` and the session `state` that you passed to `ask()`. This separation matters for security. Sensitive data like a tenant id should never be part of the schema, because the model could invent it. Pass it through `ctx` instead, where the model cannot touch it.
+The two arguments come from different places. `input` comes from the model, which chose the values from the schema, and it is parsed before `execute` runs: `.default()` applies, coercions happen, and keys the model invented are dropped. `context` comes from the runtime and carries `sessionId`, `runId`, `agent`, `callId` and `signal`.
 
-The input is parsed with the schema before `execute` runs, so `z.infer` describes what you actually get: `.default()` applies, coercions happen, and keys the model invented are dropped. That last one is the security half of the separation above: telling you to keep a tenant id out of the schema would mean little if the model could smuggle one in anyway and a `{ ...input }` spread carried it into your query.
+Nothing sensitive should be in the schema, because the model would be the one filling it in. A tenant id belongs to a repository the tool injects, keyed by something the runtime knows, and never to an argument the model can write. That is also why the parse drops undeclared keys: telling you to keep a tenant id out of the schema would mean little if a `{ ...input }` spread could carry a smuggled one into your query.
 
-When a tool belongs to a single agent, you can skip the class and declare it as a method on the agent itself:
+When a tool belongs to a single agent, skip the class and declare a method:
 
 ```ts
-@Agent({ name: "support_agent", description: "Customer support.", prompt: "..." })
+@Agent({ name: "support", description: "Customer support.", prompt: "..." })
 export class SupportAgent extends AdkAgent {
-	constructor(private readonly orders: OrdersService) {
+	public constructor(private readonly orders: OrdersService) {
 		super();
 	}
 
 	@Tool({ description: "Looks up an order by id.", schema: orderSchema })
-	lookupOrder(input: z.infer<typeof orderSchema>) {
+	public lookupOrder(input: z.infer<typeof orderSchema>): unknown {
 		return this.orders.find(input.orderId);
 	}
 }
 ```
 
-## Attachments
+The name defaults to the method name. Everything else works the same.
 
-Some tools return things the model should look at rather than read. An image, a PDF, a scanned invoice. Returning those as a normal result does not work: a function response is JSON, so base64 inside it arrives as characters the model counts but cannot see.
+## Results the model has to look at
 
-Wrap the parts in `toolContent` and they travel through the provider's content channel instead:
+Some tools answer with something to be seen rather than read: an image, a PDF, a scanned invoice. Returning it as a normal result does not work, because a tool result is JSON and base64 inside it arrives as characters the model counts but cannot see.
+
+Answer a `ToolOutput` instead, and the parts travel through the provider's own media channel:
 
 ```ts
-import { Tool, AdkTool, toolContent } from "@nestjs-adk/core";
+import { AdkTool, MediaPart, Tool, ToolOutput } from "@nestjs-adk/core";
 
-@Tool({ name: "view_attachment", description: "Loads an attachment.", schema })
-export class ViewAttachmentTool extends AdkTool<typeof schema> {
-	async execute(input: z.infer<typeof schema>) {
+@Tool({ name: "read_invoice", description: "Loads an invoice.", schema })
+export class ReadInvoiceTool extends AdkTool<typeof schema> {
+	public async execute(input: z.infer<typeof schema>): Promise<ToolOutput> {
 		const file = await this.files.get(input.name);
-		return toolContent([{ data: { mimeType: file.mimeType, base64: file.base64 } }]);
+		return ToolOutput.with({ name: file.name }, [MediaPart.image(file.mimeType, file.base64)]);
 	}
 }
 ```
 
-The attachment reaches the model in the same turn, with the user's question already in context. That ordering is the point. A description written when the file was uploaded answers "what colour is the shirt?" only if somebody guessed that question in advance, and "how many buttons?" is already lost. Letting the model look at the file when it is asked costs one call instead of two, and the tokens land in `run.cost` like everything else.
+`ToolOutput.of(data)` is the plain form and `with(data, media)` is this one. The data still reaches the model as the tool's result; the media arrives alongside it.
 
-Each part is routed by its mime type. Images, audio, video and PDF go inline as bytes. Text-like formats (`text/*`, JSON, CSV, XML, YAML) are decoded, so the model gets characters instead of base64. Anything else is described rather than sent: a spreadsheet is the honest case, since XLSX is a zip and no model reads it. Convert those to CSV before returning them.
+The attachment reaches the model in the same turn, with the question already in context, and that ordering is the point. A description written when the file was uploaded answers "what colour is the shirt?" only if somebody guessed the question in advance, and "how many buttons?" is already lost. Letting the model look when it is asked costs one call instead of two, and those tokens land in `result.cost` like every other.
 
-The payload never enters the session history. It is injected into the request being built and discarded with it, so a conversation with twenty attachments does not carry all twenty into every later turn. The model calls the tool again if it needs another look.
+A model that never declared media input fails the call saying so rather than answering about nothing. The payload never enters the session history either: it is injected into the request being built and discarded with it, so a conversation with twenty attachments does not carry all twenty into every later turn. The model calls the tool again if it needs another look.
 
 ## Tools that arrive per run
 
@@ -160,9 +165,13 @@ Both are opened, the module's first, and both are closed when the run ends: whet
 
 ```ts
 export abstract class ToolSource {
-	abstract readonly name: string;
-	abstract open(sessionId: SessionId, runId: AgentRunId, signal?: AbortSignal): Promise<readonly ToolDefinition[]>;
-	abstract close(runId: AgentRunId): Promise<void>;
+	public abstract readonly name: string;
+	public abstract open(
+		sessionId: SessionId,
+		runId: AgentRunId,
+		signal?: AbortSignal,
+	): Promise<readonly ToolDefinition[]>;
+	public abstract close(runId: AgentRunId): Promise<void>;
 }
 ```
 
@@ -175,7 +184,7 @@ await this.assistant.approve(sessionId, callId, {
 });
 ```
 
-Two failures are expected and neither ends the run. Throw `ToolSourceUnavailableError` when the source is unreachable: its tools are absent and the conversation continues with what is left. Throw `ToolSourceAuthError` when the user has to authorize again: the run journals a `tool.source-reauth-required` event naming the source, which is what an application turns into a reconnect button. The distinction matters because reconnecting fixes one and not the other.
+Two failures are expected and neither ends the run. Throw `ToolSourceUnavailableError` when the source is unreachable: its tools are absent and the conversation continues with what is left. Throw `ToolSourceAuthError` when the user has to authorize again: the run journals a reauth event naming the source, which is what an application turns into a reconnect button. The distinction matters because reconnecting fixes one and not the other.
 
 Omitting `sources` is harmless: the agent runs with what it declares and nothing else. Forgetting it costs you tools, never someone else's.
 
@@ -183,351 +192,485 @@ Omitting `sources` is harmless: the agent runs with what it declares and nothing
 
 ## Skills
 
-Skills are blocks of domain knowledge written as text. They exist so your prompt does not grow into one giant string. A skill can be a class that extends `AdkSkill` with the `@Skill` decorator, or a method on the agent.
+Skills are blocks of domain knowledge written as text. They exist so a prompt does not grow into one giant string. A skill is a method on the agent, decorated with `@Skill`:
 
-Each skill has a mode. With `mode: "always"` the content is included in the instruction on every run. The default mode is on demand: the agent only sees a catalog with the skill names and descriptions, plus a `load_skill` tool it can call when it decides it needs the full content. This keeps the context small while still making the knowledge available.
+```ts
+@Agent({ name: "sales", description: "Sales department.", prompt: "..." })
+export class SalesAgent extends AdkAgent {
+	@Skill({ name: "tone", description: "How the salesperson talks.", mode: "always" })
+	public tone(): string {
+		return "Be direct and state the price with two decimal places.";
+	}
+
+	@Skill({ name: "club_policy", description: "Club and volume discount rules." })
+	public clubPolicy(): string {
+		return "A 10% discount applies from three copies of the same game.";
+	}
+}
+```
+
+`mode: "always"` puts the content in the instruction on every run, after the prompt, in the order the skills were declared. The default mode is on demand: the model sees only the names and descriptions, plus an `activate_skill` tool it calls when it decides it needs the content. That keeps the context small while the knowledge stays available.
+
+A skill is read once, at boot, and never per run. It is fixed text by design: the thing that varies per run is the prompt.
 
 ## Prompts
 
-There are two ways to give an agent its instruction, and they are separate fields so the intent is always clear.
+There are two ways to give an agent its instruction. Pick one per agent: declaring both fails at startup, because a precedence rule would leave one of them looking configured while the model never sees it.
 
-The first way is directly on the decorator. Use `prompt` for literal text and `promptFile` for a markdown file:
+The first is a fixed text on the decorator:
 
 ```ts
-@Agent({ name: "support", prompt: "You are the store's support agent." })
-
-@Agent({ name: "support", promptFile: "agents/support/main.prompt.md" })
-
-@Agent({ name: "support", promptFile: "./prompts/main.prompt.md" })
+@Agent({ name: "support", description: "...", prompt: "You are the store's support agent." })
+export class SupportAgent extends AdkAgent {}
 ```
 
-A plain `promptFile` path is resolved from the prompts directory that you configure in `forRoot({ prompts: { dir } })`. A path that starts with `./` is resolved relative to the agent's own file. Files are read once and cached in memory.
-
-The second way is a builder class, for prompts that need logic or data. Extend `AdkPrompt`, register it as a provider and point the `prompt` field at the class:
+The second is a `prompt()` method on the agent. Use it when the instruction depends on data. Your agent is an ordinary NestJS provider, so whatever knows that data is a constructor argument:
 
 ```ts
-@Injectable()
-class SupportPrompt extends AdkPrompt {
-	constructor(private readonly config: SupportConfig) {
+@Agent({ name: "support", description: "..." })
+export class SupportAgent extends AdkAgent {
+	public constructor(private readonly customers: FindCustomerUseCase) {
 		super();
 	}
 
-	build(ctx: PromptContext) {
-		return this.fromFile("agents/support/main.prompt.md", {
-			tone: this.config.tone,
-			plan: ctx.state.get("plan"),
+	protected override async prompt(context: PromptContext): Promise<string> {
+		const customer = this.customers.execute(context.owner?.value ?? "");
+		return this.prompting.renderFromFileOrFail("support.md", {
+			name: customer.name,
+			plan: customer.plan,
 		});
 	}
 }
-
-@Agent({ name: "support", prompt: SupportPrompt })
 ```
 
-The builder has full dependency injection and receives the run context, so it can read the state and the attributes you passed to `ask()`. The `fromFile` helper reads a cached template and fills `{{var}}` placeholders.
-
-Setting both `prompt` and `promptFile` on the same agent is an error at startup. One agent, one source of instruction.
-
-The final instruction is always composed in the same order: the prompt, then the `always` skills, then the on demand catalog. Because the order is stable, the prefix of your requests stays identical between runs, which lets the provider cache it.
-
-## Models
-
-The `model` field on `@Agent` and the `defaultModel` on `forRoot` accept a string, a model spec class or your own model implementation. Specs are small objects that only carry configuration. The engine turns them into real clients:
+The method receives a `PromptContext`: the session id, the run id, the agent about to answer, the session's `owner` and the signal that stops the run. The owner is the key you look your own data up by, and you set it when the conversation starts:
 
 ```ts
-model: "gemini-2.5-flash"
-
-model: new Gemini("gemini-2.5-flash", { temperature: 0.2, topP: 0.9, stopSequences: ["END"] })
-
-model: new OpenAiLike("gpt-4o-mini", { baseUrl, apiKeyEnv })
-
-model: new Gemini("gemini-2.5-flash", {
-	temperature: 0.1,
-	failover: [new OpenAiLike("gpt-4o-mini", { baseUrl: "https://openrouter.ai/api/v1" })],
-})
+await support.ask("where is my order?", { owner: user.email });
 ```
 
-The universal generation parameters (`temperature`, `topP`, `topK`, `maxOutputTokens`, `frequencyPenalty`, `presencePenalty` and `stopSequences`) are first-class typed fields, so a typo fails to compile. Provider-specific options still go through each spec's escape hatch (`config` on `Gemini`), and when both declare the same parameter, the typed field wins. A spec's configuration applies wherever the spec is used: as the agent's model, as a failover target or as the compaction summarizer.
+Putting the customer's data in the system prompt rather than in the message is the point. Text in the message is text the model has been told to treat as somebody else's words, and a name pasted into it is a place where a user can try to give instructions. Text in the system prompt is instruction.
 
-`OpenAiLike` covers every provider that speaks the OpenAI API, which includes OpenAI itself, OpenRouter, Ollama and many others. `Gemini` lives in `@nestjs-adk/google` and adds Vertex AI options, billing labels and explicit content caching.
+### Three ways to get the text
 
-Failover is a property of the model itself, not a separate concept. The array form walks the list in declared order when the current model fails before the first chunk of the response, for example with a 429. When the decision needs logic, `failover` accepts a function instead:
+`this.prompting` gives you:
 
 ```ts
-model: new Gemini("gemini-2.5-flash", {
-	failover: (error, { currentModel, failures }) => {
-		if (httpStatusOf(error) === 400) return undefined; // will fail the same everywhere: give up
-		if (failures.length === 0) return new Gemini("gemini-2.5-flash"); // one retry of the primary
-		return new OpenAiLike("gpt-4o-mini"); // then degrade
-	},
-})
+this.prompting.render(template, vars); // text you already have
+this.prompting.renderFromFile(path, vars); // undefined when there is no such prompt
+this.prompting.renderFromFileOrFail(path, vars); // throws PromptNotFoundError instead
 ```
 
-The function receives the raw error and a meta object: `currentModel` is the id that just failed and `failures` are the previous attempts, oldest first. Return the next target (a spec, a model id, a custom `AdkModel` or its DI class), or `undefined` to give up, which surfaces as `ModelsExhaustedError` carrying every failure. Returning the same model is a legitimate retry; a hard ceiling stops a policy that never gives up from running on your bill. The error stays raw because providers disagree on shapes; `httpStatusOf()` (from `@nestjs-adk/google`) reads the status from the SDK errors the built-in specs produce and answers `undefined` for shapes it does not know.
+`render` needs no file and no source at all, so a prompt kept in your database is just a row you read and then render. Prefer `renderFromFileOrFail` for files: an agent answering without the instruction it was written around is worse than one that fails naming the missing file.
 
-Three rules the executor enforces regardless of policy: a failure after the first chunk never fails over (part of the answer already reached the consumer), an aborted request never fails over, and the chain is flat: a target that declares failover of its own is refused at boot. Every switch is reported as a `model_rerouted` event, so failovers are never silent. Declaring `failover` on your `defaultModel` gives the whole app resilience in one place.
+### Variables
 
-If the failover decision needs a service (a feature flag, provider health), build the spec in `forRootAsync`'s `useFactory` and capture the service in the closure: dependency injection enters where the spec is constructed, and the spec stays plain data.
+`{{name}}` is optional and renders as nothing when nothing filled it. `{{{name}}}` is required, and a prompt missing one throws `MissingPromptVariablesError` naming every missing key at once. `null` counts as missing for both, so a column nobody filled reads the same as an argument nobody passed.
 
-### Restricting options per model
+### Where the files live
 
-Some models reject parameters that their siblings accept (reasoning models often pin `temperature`). `createModelSpec` narrows a spec's options at compile time from a map you own, since the framework deliberately does not track per-model capabilities:
+By default a plain name is read from `./prompts`. Point that somewhere else with `prompts.dir`, and build the path from the file that owns the prompts so it does not depend on where the process was started:
 
 ```ts
-const MyGemini = createModelSpec(Gemini)<{
-	"gemini-2.5-flash-lite": Omit<GeminiOptions, "temperature">;
-}>();
-
-new MyGemini("gemini-2.5-flash-lite", { temperature: 0.2 }); // compile error
-new MyGemini("gemini-2.5-pro", { temperature: 0.2 }); // model outside the map → full options
+AdkModule.forRoot(
+	AdkModuleOptions.from({
+		defaultModel,
+		prompts: { dir: join(dirname(fileURLToPath(import.meta.url)), "prompts") },
+	}),
+);
 ```
 
-It is type-only: at runtime `MyGemini` **is** `Gemini`, with zero extra behavior.
+An absolute path is used as it is, and a path starting with `./` or `../` is resolved from the working directory. Each file is read once and served from memory afterwards.
 
-### Your own model (AdkModel)
+### Prompts that do not live on disk
 
-When the framework does not know your provider (an internal proxy, a provider without an OpenAI-compatible API, a plain HTTP call), you implement the model yourself. A model is a provider like any other: extend `AdkModel`, implement `generate()` and reference the class in `@Agent({ model })` or as a failover target:
+To keep them anywhere else, implement `PromptSource` and pass it as `promptSource`. Your agents do not change: they pass a name, never a location, so the same `renderFromFileOrFail("support.md")` reads a bucket or a table depending only on what the module declared. The connection stays inside the source.
 
 ```ts
-@Injectable()
-export class ClaudeViaProxy extends AdkModel {
-	readonly model = "claude-sonnet-5";
+export class GcsPrompts extends PromptSource {
+	// Nothing above this port caches, so the source does. It stores the read rather than the
+	// result, so runs starting at once share one download.
+	private readonly cache = new PromptFileCache();
 
-	constructor(private readonly http: ProxyClient) {
+	public constructor(
+		private readonly storage: Storage,
+		private readonly bucket: string,
+	) {
 		super();
 	}
 
-	async *generate(request: ModelRequest, opts?: GenerateOptions): AsyncIterable<ModelResponse> {
-		const stream = await this.http.stream(toClaude(request), { signal: opts?.signal });
-		for await (const chunk of stream) {
-			if (chunk.type === "text") yield { parts: [{ text: chunk.delta }] };
-			if (chunk.type === "tool_use") yield { parts: [{ toolCall: { name: chunk.name, args: chunk.input } }] };
-		}
-		yield { usage: { promptTokens: stream.usage.in, outputTokens: stream.usage.out } };
+	public async load(name: string): Promise<string | undefined> {
+		return await this.cache.through(name, async () => {
+			const [body] = await this.storage.bucket(this.bucket).file(`prompts/${name}`).download();
+			return body.toString("utf8");
+		});
+	}
+
+	/** Ends up in the PromptNotFoundError message, so name the object and not just the file. */
+	public override describe(name: string): string {
+		return `gs://${this.bucket}/prompts/${name}`;
+	}
+}
+
+AdkModule.forRoot(AdkModuleOptions.from({ defaultModel, promptSource: new GcsPrompts(storage, "prompts") }));
+```
+
+Three things are yours rather than the library's, and a remote source needs all three:
+
+- **Caching.** A prompt is resolved once per agent per run, so a source that reads the network every time puts a round trip in front of every conversation. `PromptFileCache` is exported for exactly this.
+- **Failure.** Whatever `load` throws ends the run. That is deliberate: an agent answering without the instruction it was written around is worse than a run that says why it stopped. If you would rather degrade than fail, answer a bundled or stale copy inside `load` instead of throwing.
+- **Construction.** `promptSource` takes an instance, not a provider token, so it is built before the NestJS container exists, like `storage` and `pricing`. Whatever it depends on you build by hand alongside it.
+
+Returning `undefined` from `load` is a normal answer, not a failure: `renderFromFile` answers `undefined` in turn and `renderFromFileOrFail` is the one that throws.
+
+`promptSource` and `prompts.dir` cannot be declared together, because `prompts.dir` configures the source that the other one replaces.
+
+### What a variable costs
+
+A prompt built per run is a prompt the provider cannot cache. The system prompt is the head of the prefix, so anything that changes there invalidates everything after it. Measured on this project's own paid tests: 3031 of 3751 prompt tokens came back cached, which was 68% of that run's input bill.
+
+So keep the variable part small and stable within a session. A customer name is fine. A timestamp is not. This is also why the method is called once per agent per run, before the first turn, and never once per turn.
+
+The final instruction is always composed in the same order: the prompt, then the `always` skills, then the on demand catalog. Because the order is stable, the rest of your prefix stays identical between runs.
+
+## Models
+
+A model is an object, not a string. Provider packages ship one class each, and you construct it with the options that provider understands:
+
+```ts
+import { GeminiModel } from "@nestjs-adk/google";
+import { OpenAiModel } from "@nestjs-adk/openai";
+
+const flash = new GeminiModel("gemini-3.5-flash-lite", { apiKey, temperature: 0.2, maxOutputTokens: 512 });
+const luna = new OpenAiModel("gpt-5.6-luna", { apiKey, body: { reasoning_effort: "none" } });
+```
+
+`defaultModel` on the module answers for every agent that declared none. An agent that wants its own passes it in the decorator:
+
+```ts
+@Agent({ name: "reporter", description: "Builds reports.", model: luna })
+```
+
+`OpenAiModel` covers every provider that speaks the OpenAI API, which includes OpenAI itself, OpenRouter, Ollama and many others, through its `baseUrl`. `GeminiModel` adds the Vertex options.
+
+To route by something the model cannot know (load, cost, a feature flag), implement `ModelResolver` and declare it as `runtime.models`. It is asked once per run, before the first turn, so one run never changes model halfway through by accident.
+
+### Failover
+
+A list of models is a chain walked in order when the current one fails before answering:
+
+```ts
+@Agent({ name: "support", description: "...", failover: [flash, luna] })
+```
+
+When the decision needs logic, implement `AgentFailoverPolicy`:
+
+```ts
+export class GiveUpOnBadRequests extends AgentFailoverPolicy {
+	public async next(failure: ModelFailure, context: FailoverContext): Promise<LlmModel | undefined> {
+		if (failure.isInvalidRequest) return undefined; // every model refuses the same request
+		return context.attempts.length === 0 ? flash : luna; // one retry, then degrade
 	}
 }
 ```
 
-The `ModelRequest` arrives ready, with the composed instruction, conversation history and tool declarations, and you only translate it to your provider's wire format. On the way back the engine aggregates your chunks: every `text` part is a delta, `toolCall`s accumulate, `usage` and `finishReason` are last-one-wins. Tool calling, streaming, sessions, structured output and human approval work exactly as with the built-in specs. If you forget to register the class as a provider, the app fails at boot pointing at it.
+`ModelFailure` is data, not an exception: `RateLimitedFailure`, `TimeoutFailure`, `UnavailableFailure`, `ContextExceededFailure`, `SafetyBlockedFailure`, `InvalidRequestFailure` and `UnknownFailure`, each answering `isTransient` and `isInvalidRequest`. A provider adapter classifies its own errors into these, which is why the decision reads the same whoever failed.
 
-Two contracts to respect. Instances are resolved once at boot and shared by every run, so keep the class a stateless singleton: `REQUEST`/`TRANSIENT` scopes are rejected at boot, and anything per-request belongs inside `generate()`, derived from the request. And honor `opts.signal` by stopping your upstream call when it fires; the engine stops consuming your chunks either way. Live (bidirectional audio/video) connections are not supported for custom models.
+`SequentialFailoverPolicy` is the built-in walk, and it stops on a refused request: every model in the chain is sent the same thing, so paying for four models to refuse it is not resilience. Two rules hold regardless of policy: a failure after the first chunk never fails over, because part of the answer already reached the consumer, and an aborted request never fails over. When the policy runs out, the run throws `ModelsExhaustedError` carrying every failure it collected.
+
+Each call is billed under the model that served it, so a reroute shows up on its own line in `result.cost.byModel`.
+
+### Restricting options per model
+
+Some models reject parameters their siblings accept, and reasoning models often pin `temperature`. `createModelSpec` narrows the options at compile time from a map you own, since the library deliberately does not track per-model capabilities:
+
+```ts
+const MyGemini = createModelSpec(GeminiModel)<{
+	"gemini-3.5-flash-lite": Omit<GeminiOptions, "temperature">;
+}>();
+
+new MyGemini("gemini-3.5-flash-lite", { temperature: 0.2 }); // compile error
+new MyGemini("gemini-3.5-pro", { temperature: 0.2 }); // outside the map, full options
+```
+
+It is type-only: at runtime `MyGemini` **is** `GeminiModel`, with no extra behaviour.
+
+### Your own model
+
+When no provider package fits (an internal proxy, a provider without an OpenAI-compatible API, a plain HTTP call), extend `LlmModel`. Two methods: what the model is, and how it answers.
+
+```ts
+export class ClaudeViaProxy extends LlmModel {
+	public constructor(private readonly http: ProxyClient) {
+		super();
+	}
+
+	public descriptor(): ModelDescriptor {
+		return new ModelDescriptor(
+			ModelIdentity.of("acme", "claude-sonnet-5"),
+			ModelContextWindow.of(200_000, 8_000),
+			ModelCapabilities.of([
+				[ModelCapability.TOOLS, true],
+				[ModelCapability.MEDIA_INPUT, true],
+			]),
+		);
+	}
+
+	public async *generate(request: ModelRequest, signal?: AbortSignal): AsyncIterable<ModelChunk> {
+		const stream = await this.http.stream(toClaude(request), { signal });
+		for await (const piece of stream) {
+			if (piece.type === "text") yield ModelChunk.text(piece.delta);
+			if (piece.type === "tool_use") {
+				yield ModelChunk.toolCall(new ToolCallDelta(piece.index, piece.json, piece.id, piece.name));
+			}
+		}
+		yield ModelChunk.usage(ModelUsage.of(stream.usage.in, stream.usage.out, stream.usage.cached));
+		yield ModelChunk.finish("stop");
+	}
+}
+```
+
+The `ModelRequest` arrives ready, with the composed instruction, the conversation as `ModelMessage`s and the tool declarations, and you translate it to your provider's wire format. On the way back the runtime aggregates your chunks: text is a delta, tool calls accumulate by index, usage and finish reason are last one wins.
+
+The descriptor is not decoration. The context window is what compaction measures against, and the capabilities are what the runtime checks before it accepts an attachment or offers tools: a model that never declared `MEDIA_INPUT` fails a question carrying an image instead of paying for a call that answers about nothing. `UnknownContextWindow` is the honest answer when you do not know the size; the runtime reports it rather than guessing.
+
+Honour `signal` by stopping your upstream call when it fires. Keep the class stateless: one instance is shared by every run, and anything per request belongs inside `generate`, derived from the request.
 
 ## Sessions
 
-Pass a `sessionId` to `ask()` and the conversation becomes persistent. The agent remembers previous turns because the framework stores every event and replays the history into the model's context on each run. Without a `sessionId` the session is ephemeral and nothing is kept.
-
-Storage goes through the `SessionStore` contract. The default implementation keeps everything in memory, which is perfect for development. For production you implement the contract with your own database and pass the class to `forRoot({ session })`. The store is the single source of truth: engines read from it and write to it, and never keep a private copy of the history.
-
-## Validating the session state
-
-The session state is a shared bag. Your code writes to it, tools write to it, and it can arrive from outside through a stored session. By default nothing checks those values, so a malformed value can travel all the way into your database layer. If you want a guarantee, declare a schema on the agent:
+Pass a `sessionId` and the conversation continues; leave it out and a new one starts. Every run is journaled as events, and the history is replayed into the model's context on the next one.
 
 ```ts
-const reportState = z.object({ tenantId: z.string().min(1), count: z.number() });
-
-@Agent({ name: "reporter", description: "Builds reports.", state: reportState, ... })
-class ReporterAgent extends AdkAgent {}
+const first = await support.ask("where is my order?", { owner: user.email });
+const second = await support.ask("and the other one?", first.sessionId);
 ```
 
-From that moment the framework validates the declared keys at every border. When a run starts, the state coming from `ask()` and from the stored session is checked before any call to the model, so an invalid value fails fast with an `AgentStateInvalidError` and costs zero tokens. When a tool writes with `ctx.state.set`, the write is checked at that moment. Keys that the schema does not declare keep flowing freely, which matters for pipelines where one agent writes its output for the next one.
-
-Inside a tool you can also demand a value instead of hoping it is there:
+Storage goes through `SessionStorage`. `InMemorySessionStorage` is the default and is right for development and tests. `SqliteSessionStorage` is shipped for a single process, and for anything else you implement the port:
 
 ```ts
-execute(input, ctx: ToolContext<z.infer<typeof reportState>>) {
-	const tenantId = ctx.state.require("tenantId"); // typed as string, throws AgentStateMissingError if absent
+AdkModule.forRoot(
+	AdkModuleOptions.from({
+		defaultModel,
+		storage: new SqliteSessionStorage(new SqliteConnection("store.db")),
+	}),
+);
+```
+
+The journal is the source of truth. Snapshots exist only to avoid replaying a long conversation from the first event, are always disposable, and are governed by `runtime.snapshots` (`SnapshotPolicy`). A port that cannot do everything says so through `StorageCapabilities` rather than failing halfway.
+
+### Writing a storage of your own
+
+Everything an adapter needs is published, and it is codecs rather than parts. Each one turns a domain object into a record of plain values and back, so an adapter moves rows and never builds an event, a header, a projected state or a compacted block by hand:
+
+```ts
+import { SessionStorage, StorageCodecs, StoredSessionEvent } from "@nestjs-adk/core";
+
+class PrismaSessionStorage extends SessionStorage {
+	private readonly codecs = StorageCodecs.standard();
+
+	public async *readEvents(sessionId: SessionId, after: SessionRevision) {
+		for await (const row of this.cursorOf(sessionId, after)) {
+			yield new StoredSessionEvent(sessionId, SessionRevision.of(row.revision), this.codecs.journal.decode(row));
+		}
+	}
 }
 ```
 
-The generic on `ToolContext` is an annotation you choose, because the same tool can serve many agents. Typing it gives you autocomplete and typed reads. If a tool serves two agents, annotate it with the union of the two state types and TypeScript will only let you touch the keys both agents share.
+`decode` takes the row your driver handed back, whichever shape it is in: a JSON column that arrived parsed and one that arrived as text are both accepted. What comes back is the event class the runtime decides on, which is the part that cannot be approximated. A plain object with the right fields passes every check in the runtime without matching one, and the conversation reads back as empty instead of failing.
 
-One note about errors: `AgentStateInvalidError` exposes the raw Zod issues in `error.issues`. Decide what your application logs, because in Zod v4 the issues can include the rejected value.
+Four codecs cover the four collections: `journal`, `snapshot`, `head` and `checkpoint`. `journal.fingerprintOf` is how a retried batch is told from an event id that came back carrying something else, which is what idempotent append means. The errors the port is expected to throw ship here too: `SessionNotFoundError`, `SessionAlreadyExistsError`, `SessionRevisionConflictError` and `JournalCorruptedError`.
+
+Then prove it, with the same cases the adapters here answer. The suite lives in `@nestjs-adk/testing`, because measuring an adapter is testing:
+
+```ts
+import { SessionStorageContractSuite } from "@nestjs-adk/testing";
+
+const suite = new SessionStorageContractSuite();
+for (const contract of suite.cases(() => new PrismaSessionStorage(prisma))) {
+	it(contract.name, () => contract.run());
+}
+```
+
+The suite is data, not a test file, so vitest, jest and `node:test` all drive it. It reads your `capabilities()` and only demands what you claimed: a storage honest about being ephemeral is not held to optimistic concurrency, and one claiming durability is held to all four guarantees. It is written against this package's published API and nothing else, which is the same constraint your adapter is under.
+
+`inspect` answers where a conversation stands without running anything:
+
+```ts
+const inspection = await support.inspect(sessionId);
+inspection.isAwaitingApproval;
+inspection.approval.awaiting; // the calls a human still has to answer
+```
 
 ## Capping the loop
 
-A lost model can call tools forever, and a broken tool can fail forever while the model retries. Both burn tokens. The framework ships two optional caps:
+A lost model can call tools forever, and a broken tool can fail forever while the model retries. Both burn tokens. `RunLimits` caps three things:
 
 ```ts
-@Agent({ name: "reporter", maxIterations: 16, maxConsecutiveToolFailures: 2, ... })
+AdkModule.forRoot(
+	AdkModuleOptions.from({
+		defaultModel,
+		runtime: RuntimeOptions.from({ limits: RunLimits.of(16, 2) }),
+	}),
+);
 ```
 
-`maxIterations` limits the model and tool round trips in a single run. Passing the cap aborts the run with an `AgentMaxIterationsError` that carries the aggregated token usage and the last requested tool, so you know what the loop cost before it died. `maxConsecutiveToolFailures` is a circuit breaker per tool: when the same tool fails that many times in a row the run aborts with a `ToolRepeatedFailureError`, without waiting for the bigger cap. A success resets the count.
+`maxIterations` is how many model and tool round trips one run may take; past it the run throws `AgentMaxIterationsError`. `maxConsecutiveToolFailures` is a breaker per tool: the same tool failing that many times in a row throws `ToolRepeatedFailureError` without waiting for the bigger cap, and a success resets the count.
 
-Both are off unless you set them. You can define module wide defaults with `forRoot({ defaults: { maxIterations: 16 } })`, override them per agent in the decorator, and override both per call in `ask()`. The call wins over the agent, and the agent wins over the module. Because the per call override wins, build your `RunInput` in your own code and never from a raw external payload.
+`maxInvalidArgs` is the third and the only one always on, defaulting to `2`. It counts how many times the model may call a tool with arguments the schema rejects. The first mistakes go back to the model as a result it can act on, because the model wrote the argument and usually fixes it next call, while throwing would kill a run over a missing field. Past the limit the run throws `ToolInvalidArgsError`. It only counts for declared tools: a tool from an external catalog carries the server's own schema, and a bad call comes back from the server as an error the model reacts to.
 
-`maxInvalidArgs` follows the same resolution but is the one cap that is always on, defaulting to `2`. It counts how many times the model may call a tool with arguments the schema rejects: the first mistakes go back to the model as a result it can act on, and past the limit the run aborts with a `ToolInvalidArgsError`. Returning them rather than throwing is deliberate: the model wrote the argument and usually fixes it on the next call, while an exception would kill the run over a missing field. The cap exists because a schema the model cannot satisfy would otherwise retry on your bill forever. Set `maxInvalidArgs: 0` to abort on the first invalid call. It only counts for declared (`@Tool`) tools: a tool from an external catalog (MCP) carries the server's own JSON Schema, nothing rejects its arguments locally, and a bad call comes back from the server as a tool error the model reacts to.
+Three levels declare them, and each replaces the one above it field by field: the module, then the agent in `@Agent`, then the call. A field a level left out keeps whatever the level above decided, so an agent that only needs more round trips says only that.
 
-These caps protect every run, because there is only one way a run happens: the loop the runtime owns.
+```ts
+@Agent({
+	name: "sales",
+	description: "Catalog, prices and quotes.",
+	limits: RunLimits.of(16),
+})
+export class SalesAgent extends AdkAgent {}
+```
+
+Replacing is not narrowing: an agent that declares `16` runs under `16` even when the module said `8`. A sector that genuinely needs more round trips is the reason the field exists, and making it a ceiling would leave the application raising the module limit for everyone instead.
 
 ## Keeping the context small
 
-Long conversations and big tool results eat your context window. The framework handles both cases for you.
+Long conversations and big tool results both eat the window, and each has its own answer.
 
-When a tool returns a very large result, above 20 thousand characters, the framework stores the full content as an artifact and gives the model a short summary plus a `read_artifact` tool. The model can read the full content when it really needs it. You can turn this off for a specific tool with `offload: false`.
+A tool result above 20 thousand characters is stored as an artifact, and the model gets a short summary plus a `read_artifact` tool it can call when it really needs the whole thing. `runtime.offload` decides the threshold: `OffloadPolicy.byDefault()`, `above(n)` or `disabled()`. `read_artifact` works on anything in `ArtifactStorage`, not only offloaded results, so an upload saved there can be pulled in on demand: text comes back as a normal result, binary comes back as media.
 
-`read_artifact` works on anything in the `ArtifactStore`, not just offloaded results. Save an upload there and the model can pull it in on demand: text comes back as a normal result, binary comes back as [an attachment](#attachments). Which one you get follows the artifact's `encoding`; leave it unset and the mime type decides, since offloaded results are text and uploaded files are base64.
-
-For long histories there is compaction. Configure a policy and old turns get summarized by an LLM when the history passes a token threshold:
+For long histories there is compaction. Declare a policy and the oldest closed exchanges are replaced by a summary once the conversation passes a threshold:
 
 ```ts
-context: contextPolicy({
-	compaction: { maxTokens: 50_000, keepRecent: 5 },
-})
+runtime: RuntimeOptions.from({
+	compaction: new TokenThresholdCompactionPolicy(24_000, 12_000, 4),
+	summarizer: new StoreSummarizer(flash),
+});
 ```
 
-You can set the policy globally in `forRoot` and override it per agent.
+The numbers are the ceiling that triggers it, the size to compact down to, and how many recent exchanges are never touched. The ceiling is measured against what the provider reported, so a conversation nobody has had is never compacted. Without a `ContextSummarizer` the same conversation simply forgets, which is why declaring one matters more than the thresholds: a customer who gave their order number ten turns ago should not have to give it again.
 
-## Seeing the context
+An agent may declare its own `compaction`, and like limits it replaces the module's rather than narrowing it. Here it is the whole policy that is replaced and not a field: two policies deciding how much to keep would be one of them shortening what the other just decided to hold on to.
 
-Most providers discount tokens whose prefix they have already seen. That discount depends on the beginning of your context staying byte-for-byte identical between calls, which is why the instruction is assembled from the stable parts to the volatile ones. A timestamp in the prompt or a tool catalog in shifting order breaks it silently: same answers, bigger bill.
+## Transfer and delegation
 
-Turn on diagnostics to capture what actually reaches the provider:
+Two agents can work on one conversation, and the difference is who owns it afterwards.
+
+A **transfer** hands the conversation over. Whoever received it answers from then on, including on the next question:
 
 ```ts
-AdkModule.forRoot({ engine: GoogleAdkEngine, diagnostics: true })
+@Agent({ name: "concierge", description: "Triage." })
+@TransfersTo(SalesAgent, WarrantyAgent)
+export class ConciergeAgent extends AdkAgent {}
 ```
 
-With it on, every model call is captured as a `ContextSnapshot` split into `systemInstruction`, `toolDeclarations` and `contents`. The testing package turns those into assertions.
-
-Keep it off in production. A snapshot holds the full prompt and the whole conversation, it is kept for as long as the `RunResult` lives, and a run that throws keeps its context attached to the `Error`, which is exactly the object crash reporters hang on to. The flag is opt-in and announces itself in the boot log for that reason; only the module can turn it on, so a `capture` field arriving in a request body does nothing.
-
-You can also inspect the context without spending anything:
+A **delegation** asks somebody one question and keeps the conversation where it is. The answer comes back as the result of the call that asked for it:
 
 ```ts
-const snapshots = await app.get(AgentRunner).explain(SupportAgent, { message: "hi" });
+@Agent({ name: "warranty", description: "Returns and warranties." })
+@DelegatesTo(BillingAgent)
+export class WarrantyAgent extends AdkAgent {}
 ```
 
-`explain()` runs the real assembly pipeline (instruction, tool declarations, hydrated history) and stops right before the provider call. It is a debugging tool: it returns the system prompt and, given a `sessionId`, that session's conversation in plain text. Do not put it behind an endpoint that reaches end users.
+Both give the model a tool (`transfer_to_agent`, `delegate_to_agent`) restricted to the targets you declared, and both are also available from code: `agent.delegate(sessionId, to, task)` runs one through the same edges and the same events. A target nobody declared is refused, at boot when it is not an agent at all and at run time when the edge does not exist.
+
+A delegated run is a run of its own: its own model, tools, context and limits, resolved from scratch for the child. It writes to the same journal, its cost joins the parent's total once with the child's model listed separately, and neither agent reads the other's conversation. A chain three deep is refused, and so is a session handed back and forth more than eight times.
 
 ## Human approval
 
-Some actions should not run without a person saying yes. The tool declares what it does to the world, with `effect`:
+Some actions should not run without a person saying yes. The tool declares what it does to the world:
 
 ```ts
-@Tool({ name: "refund", description: "Refunds an order.", schema, effect: "destructive" })
+@Tool({ name: "issue_refund", description: "Refunds an order.", schema, effect: "destructive" })
 ```
 
-The scale is ordered: `read` (only observes), `write` (changes state the same API can undo) and `destructive` (no undo: deleting, but also sending an email or charging a card). A tool that does not declare an `effect` counts as `write`. Tools that arrive from a source (MCP) carry their own effect, derived from the server's annotations; an unannotated one counts as `destructive`.
+The scale is ordered: `read` observes, `write` changes state the same API can undo, and `destructive` has no undo, which covers deleting but also sending an email or charging a card. A tool that declares no effect counts as `write`. A tool that arrived from a source carries the server's own annotation, and an unannotated one counts as `destructive`.
 
-What pauses is policy, decided per run. The value reads as "from this level up, pause":
+What pauses is policy, declared once for the runtime:
 
 ```ts
-// default: read and write run on their own, destructive pauses
-await agent.ask({ message });
-
-// stricter: only read runs on its own; write and destructive pause
-await agent.ask({ message, approval: "write" });
-
-// nothing pauses in this run
-await agent.ask({ message, approval: "none" });
+runtime: RuntimeOptions.from({ approvals: EffectApprovalPolicy.from(ToolEffect.DESTRUCTIVE) });
 ```
 
-The module can set a different default with `forRoot({ defaults: { approval: "write" } })`; the call wins over the module. Because the per call value wins, build your `RunInput` in your own code and never from a raw external payload: an `approval: "none"` that arrives from outside is exactly the kind of input this policy exists to stop.
+It reads as "from this level up, pause". `EffectApprovalPolicy.never()` is the default and pauses nothing. Implement `AdkApprovalPolicy` when the decision needs more than the effect.
 
-When the model calls a tool at or above the policy's level, the tool does not execute. The run pauses and returns `status: "pending_approval"` with the pending call id. Your application shows this to a human, and then:
+When the model calls a tool at or above that level, the tool does not run. The run suspends and comes back with the call waiting:
 
 ```ts
-await agent.approve({ sessionId, callId }); // executes the tool and resumes the run
-await agent.reject({ sessionId, callId, reason }); // skips the tool and tells the model why
+const result = await support.ask("refund order A-1042", { sessionId });
+result.isAwaitingApproval; // true
+result.awaiting[0]?.callId; // what a human is answering about
 ```
 
-Both calls return a normal run result, so the conversation continues naturally after the decision. The resumed turn also exists in streaming form, under the same namespace as everything else:
+Your application shows that to a person, and then:
 
 ```ts
-for await (const event of agent.stream.approve({ sessionId, callId })) { /* ... */ }
+await support.approve(sessionId, callId, { by: "gabriel" }); // runs the tool, resumes the run
+await support.reject(sessionId, callId, "outside the window", { by: "gabriel" }); // tells the model why
 ```
 
-The first event of an approval, in both flavors, is a `tool_result` carrying the ORIGINAL `callId` and the executed tool's real result (in `RunResult.events` too). That is what lets your UI replace the row it drew as "awaiting approval" instead of showing it forever, and it arrives in band: the events after it are the resumed run, streaming like any other turn, through the same billing and persistence path.
+Both return an ordinary `AgentResult`, so the conversation carries on. A turn holding two calls stays suspended until both are answered: running half of it would put an effect in the world nobody finished agreeing to.
 
-A paused tool that came from a source needs `sources` on `approve()` again, the same way `ask()` received them: the library keeps no credentials and the original connection is closed, so whoever resumes reopens the source.
+The decision is a new run, minutes or days later and possibly in another process. Nothing is held in memory between the two: the pending call lives in the journal, and the runtime keeps no credentials. That is why a held call that came from a source needs `sources` declared again on the decision, and why short-lived credentials belong inside the tool rather than carried across the pause.
 
-An approval can be answered minutes or days later, in another process, so the run's state is frozen with the pending action and restored on `approve()`. It has to be: the `state` you pass to `ask()` is per call and never persisted (only what a tool writes during the run is), so without freezing it a tool holding for permission would resume with no scope, and act with no owner. The frozen state layers under whatever the session learned since, and rides along into the rest of the resumed turn.
+## Streaming
 
-It is persisted with the pending action, in your `SessionStore`, so keep credentials out of `state` if that is not somewhere they belong. `ctx.attributes` is never persisted and never frozen, which cuts both ways: a secret passed there does not reach your store, and it does not reach the approved call either. Fetch short-lived credentials inside the tool rather than carrying them across the pause.
-
-## Structured output
-
-When you need data instead of prose, declare an output schema:
+`stream` runs exactly what `ask` runs and hands you the pieces on the way past. The result is the generator's return value, not one of the chunks:
 
 ```ts
-@Agent({ name: "reporter", description: "Builds reports.", output: reportSchema, outputKey: "report" })
-class ReporterAgent extends AdkAgent<typeof reportSchema> {}
+const run = support.stream("where is my order?", { sessionId });
 
-const run = await reporter.ask({ message });
-run.output; // typed and validated
+for await (const chunk of run) {
+	if (chunk.isText) process.stdout.write(chunk.text ?? "");
+}
+
+const result = (await run.next()).value; // the AgentResult, same as ask would answer
 ```
 
-The result is parsed and validated with the schema. If the model produces something that does not match, you get an `OutputValidationError` instead of silently wrong data. The optional `outputKey` also writes the validated output into the session state, which is useful to pass data between agents in a pipeline.
+A `for await` alone discards the return value, which is the one trap here. `ModelChunk` also carries tool calls, usage and the finish reason, so a UI can show a tool running rather than a pause.
 
-## Sub-agents and workflows
+Token counts and cost are unaffected by streaming: usage is reported once per turn either way.
 
-An agent can delegate to other agents. With `subAgents: [OtherAgent]` the model itself decides when to transfer the conversation. When you want deterministic control instead, declare a workflow:
+## Stopping a run
+
+Breaking out of a stream stops the reading and nothing else. The provider goes on generating an answer nobody will see, and you are billed for it. `signal` is what ends the work:
 
 ```ts
-@WorkflowAgent({ name: "etl", mode: "sequential", agents: [ExtractAgent, SummarizeAgent] })
-class EtlWorkflow extends AdkWorkflow {}
+const controller = new AbortController();
+request.on("close", () => controller.abort());
+
+const result = await support.ask("where is my order?", { sessionId, signal: controller.signal });
 ```
 
-Modes are `sequential`, `parallel` and `loop`. A workflow is also an agent: you inject the class and call `ask()` or `stream.ask()` on the instance, exactly like before.
+It reaches the model call and every tool the run invokes, and it takes anything the run delegated with it. The run ends by throwing, and the journal records `run.cancelled` rather than `run.failed` or `run.completed`, so a stopped run is distinguishable from a broken one when you read the history back.
 
-## Streaming, events and errors
+A signal that has already aborted ends the run before it calls anything, which is what makes the button work in the moment it is usually pressed: before the first chunk arrives. `approve` and `reject` take one too, since a released turn is a run of its own.
 
-`stream.ask()` yields a normalized event loop: `run_start`, `tool_call`, `tool_result`, `llm_response`, `agent_transfer`, `model_rerouted`, `approval_required` and `final`. Every event carries a `raw` field with the original payload from the provider, so no information is lost. `ask()` consumes the same loop and aggregates it into a `RunResult` with `text`, `usage`, `events`, `status`, `cost` when pricing is configured, and, when declared, `output`.
+## Watching a run
 
-Errors are not events. They throw as typed classes that extend `AdkError` and carry a `code`. Configuration problems throw at startup and point at the class that caused them. Runtime problems throw classes like `AiEmptyResponseError`, `OutputValidationError`, `ToolExecutionError`, `ModelsExhaustedError`, `AgentStateInvalidError` and `AgentMaxIterationsError`, so you can catch exactly what you care about.
-
-### Token streaming
-
-By default the model answers per turn: one `llm_response` when the turn completes. To push text to a UI as it is produced, turn streaming on:
+A consumer is told about everything that happened, in order, after it was committed:
 
 ```ts
-AdkModule.forRoot({ engine: GoogleAdkEngine, streaming: true })
-```
+export class RunAudit extends SessionEventConsumer {
+	public readonly name = "audit";
 
-Or per call, which overrides the module setting: `agent.stream.ask({ message, streaming: true })`.
-
-With it on, the same turn also emits incremental `llm_response` events flagged `partial: true`. The provider still sends the aggregated response at the end, so **appending every `llm_response.text` would duplicate the answer**.
-
-Consuming only the partials is the other trap, and the quieter one: with streaming off, or with the provider falling back to a non-streaming path mid-run, no partial ever arrives and the user is left staring at nothing. Treat the aggregated response as a fallback rather than as noise: hold it, and use it only if the turn produced no partials:
-
-```ts
-let streamed = false;
-let aggregated = "";
-
-for await (const event of agent.stream.ask({ message: "where is my order?" })) {
-	if (event.type !== "llm_response") continue;
-	if (event.partial) {
-		streamed = true;
-		process.stdout.write(event.text ?? "");
-	} else {
-		aggregated = event.text ?? "";
+	public async consume(event: PublishedEvent): Promise<void> {
+		await this.log.write(event.type, event.payload);
 	}
 }
 
-if (!streamed) process.stdout.write(aggregated); // streaming off, or provider fell back
+runtime: RuntimeOptions.from({ consumers: [new RunAudit()] });
 ```
 
-To exercise both paths in tests, the `deltas([...])` turn of `ScriptedEngine` emits the partials and the aggregated response exactly as a provider does. Asserting against an engine that emits only one of the two proves nothing about either bug.
+Events are the journal, so a consumer sees what was recorded rather than what was intended. A consumer that throws does not take the run with it, and `consumerNotices` is where those failures are reported. `contextNotices` does the same for a context whose size nobody could measure.
 
-`ask()` is unaffected either way: it aggregates the turn and returns the complete text. Token counts are reported once, on the turn's final response, so streaming does not change `usage` or `cost`.
-
-## Logs
-
-Turn on run logs in the module:
+To see what a run would send without paying for it, ask the agent to explain it:
 
 ```ts
-AdkModule.forRoot({ engine: GoogleAdkEngine, logging: "debug" })
+const contexts = await support.explain("where is my order?", { sessionId });
+contexts[0]?.instruction; // the composed system prompt
+contexts[0]?.messages; // the conversation as the model would receive it
 ```
 
-Logs go through the normal Nest `Logger` with the context `Adk:<agent_name>`. Levels are cumulative. `"info"` (or `true`) logs the start and the end of each run with duration and token usage. `"debug"` adds tool calls, tool results and transfers to sub-agents. `"verbose"` adds intermediate model responses and stops truncating payloads. Reroutes and approval pauses are always logged as warnings.
-
-```
-run start session=smoke-1 user=u1 message=What's the status of my order 123?
-tool call lookup_order args={"orderId":"123"}
-tool result lookup_order result={"id":"123","status":"shipped"}
-run done in 1389ms text=Your order 123 has shipped. | tokens in=772 out=41 total=813
-```
-
-Token usage is also on every result, per model, as `result.cost.byModel[n].usage`, next to what those tokens cost.
+`explain` runs the real assembly, stops in front of the provider call and answers a `ContextSnapshot` per call it would have made. It is a debugging tool and it holds the whole prompt, so keep it away from an endpoint end users can reach.
 
 ## Cost
 
@@ -636,9 +779,213 @@ const { vector, cost } = await priced.embed(text);
 
 That only produces a number when the provider reports usage, which today most do not: Google's `embedContent` answers a `billableCharacterCount` and only on Enterprise, and nothing there counts tokens. An embedder that can report extends `MeteredEmbedder` and answers `embedMetered`. One that cannot lands in `cost.unpriced` with a notice, because estimating tokens from characters would put a number in a report that no invoice will match.
 
+## Without NestJS
+
+The runtime does not depend on the container. `AdkRuntimeHost` composes it from agents you built yourself, which is how the provider packages test against a real model:
+
+```ts
+const host = new AdkRuntimeHost();
+const started = await host.start([declaredAgent], storage, artifacts, clock, ids, runtimeOptions);
+const result = await started.runtime.runner.ask(new AgentRunCommand(AgentName.from("support"), askInput));
+await host.stop();
+```
+
+This is the low level surface: no decorators, no discovery, and you assemble the `AgentDefinition` yourself. Reach for it when you are embedding the runtime somewhere NestJS is not, and use the module everywhere else.
+
+## Errors
+
+Everything the library throws extends `AdkError` and carries a stable `code` for a catch block or a log, independent of the message. Each class documents itself in its own JSDoc, with the facts a handler needs exposed as readonly fields; your editor is the reference.
+
+Two rules worth knowing. A configuration mistake throws at boot, naming the provider that caused it, so it never reaches a request. And a failure the runtime can decide about is not an error at all: a rate limited model is a `ModelFailure`, which is data a failover policy reads, and it only becomes `ModelsExhaustedError` when the decisions run out.
+
+What exists, by subsystem:
+
+| Subsystem | Errors |
+| --- | --- |
+| Boot and wiring | `UnusableComponentError`, `UnregisteredToolError`, `NotAnAgentClassError`, `NotAToolClassError`, `AgentNotBoundError`, `AmbiguousAgentPromptError`, `ConflictingPromptOptionsError`, `EmbedderNotDeclaredError`, `HostNotStartedError` |
+| Agents and routing | `ModelsExhaustedError`, `TransferNotDeclaredError`, `DelegationNotDeclaredError`, `UnknownTransferTargetError`, `UnknownDelegationTargetError`, `DelegationSuspendedError`, `AgentMaxTransfersError`, `AgentMaxDelegationDepthError` |
+| Runs and limits | `AgentMaxIterationsError`, `InvalidRunLimitError`, `ApprovalNotPendingError` |
+| Models and media | `ModelCallFailedError`, `EmptyModelResponseError`, `UnsupportedCapabilityError`, `UnsupportedMediaTypeError`, `MalformedMediaError`, `MediaTooLargeError`, `MalformedToolCallError`, `InvalidStructuredOutputError` |
+| Tools | `ToolNotFoundError`, `ToolInvalidArgsError`, `ToolRepeatedFailureError`, `ToolApprovalRequiredError`, `ToolSourceUnavailableError`, `ToolSourceAuthError` |
+| Prompts | `PromptNotFoundError`, `MissingPromptVariablesError`, `PromptFileUnreadableError` |
+| Context and artifacts | `InvalidCompactionThresholdError`, `ArtifactNotFoundError`, `TamperedArtifactReferenceError`, `AttachmentNotStoredError` |
+| Skills | `DuplicateSkillNameError` |
+| Cost and pricing | `NegativeAmountError`, `CatalogUnreachableError`, `MalformedCatalogError` |
+| Embeddings | `EmptyVectorError`, `IncompatibleVectorsError` |
+| Diagnostics | `NotEnoughRunsError` |
+
 ## Testing
 
-Testing deserves its own package. [`@nestjs-adk/testing`](https://www.npmjs.com/package/@nestjs-adk/testing) gives you a scripted fake LLM, stackable mocks over the real agent instance, Vitest matchers and an LLM-as-judge helper. Your test setup stays plain `@nestjs/testing`.
+Testing deserves its own package. [`@nestjs-adk/testing`](https://www.npmjs.com/package/@nestjs-adk/testing) gives you a scripted fake model, doubles over the real tool instances, Vitest matchers and an LLM-as-judge helper. Your test setup stays plain `@nestjs/testing`.
+
+## API reference
+
+Everything the package exports, and nothing else: a name that is not here is not part of the public surface. Errors are in the table above.
+
+### Declaring an application
+
+| Symbol | What it is for |
+| --- | --- |
+| `AdkModule` | The one module to import. `forRoot(options)` |
+| `AdkModuleOptions`, `AdkModuleOptionsInput`, `AdkModuleOptionsPatch` | What the module takes: model, storage, artifacts, clock, ids, runtime, embedder, prompts |
+| `PromptFileOptions` | The `prompts` field: which directory the default source reads |
+| `RuntimeOptions`, `RuntimeOptionsPatch` | What the runtime takes: limits, approvals, consumers, sources, pricing, compaction, snapshots, shutdown |
+| `ShutdownOptions` | How long a shutdown waits for runs in flight |
+| `SnapshotPolicy` | How often the journal is snapshotted |
+| `ADK_OPTIONS`, `ADK_DEFAULT_MODEL`, `ADK_EVENT_CONSUMERS`, `ADK_RUNTIME_PATCH` | Tokens to override when a test or an application replaces one piece |
+
+### Declaring an agent
+
+| Symbol | What it is for |
+| --- | --- |
+| `Agent`, `AgentOptions` | The decorator that makes a class an agent: `name`, `description`, `prompt`, `tools`, `model`, `failover`, `compaction`, `limits` |
+| `AdkAgent` | Extend it to inject the agent as itself and to override `prompt()` |
+| `Tool`, `ToolOptions`, `ToolDecorator`, `ToolClass` | The decorator, on a class or on an agent method |
+| `AdkTool` | Extend it for a shared tool, typed by its Zod schema |
+| `Skill`, `SkillOptions`, `SkillMode` | Knowledge as text, always composed or loaded on demand |
+| `TransfersTo`, `DelegatesTo` | The edges an agent may hand a conversation or a task across |
+| `AgentTarget`, `AgentClass` | What those decorators accept, including a lazy reference |
+| `AgentMetadata`, `ToolMetadata` | Reads back what a decorator declared, for tooling |
+
+### Running an agent
+
+| Symbol | What it is for |
+| --- | --- |
+| `AgentRegistry` | Reaches an agent by name, for a class that extends something else |
+| `AgentHandle` | One agent as an application holds it: `ask`, `stream`, `approve`, `reject`, `delegate`, `inspect`, `explain` |
+| `AskOptions` | `sessionId`, `media`, `sources`, `owner`, `signal` |
+| `DecisionOptions` | `by`, `sources` and `signal`, for an approval or a rejection |
+| `AgentResult` | What a run answered: text, ids, status, awaiting, cost |
+| `AgentRunStatus` | Completed, suspended, failed |
+| `PendingCall` | A call waiting for a human |
+| `SessionInspection` | Where a conversation stands, without running anything |
+| `SessionId`, `AgentRunId`, `ToolCallId`, `AgentName` | The identities that appear in every result and event |
+| `SessionMode`, `SessionOwner`, `SessionRevision` | Ephemeral or durable, who owns it, and where its journal is |
+| `RunLimits` | Iterations, consecutive tool failures, invalid arguments |
+
+### Prompts
+
+| Symbol | What it is for |
+| --- | --- |
+| `PromptContext` | What `prompt()` receives: session, run, agent, owner, signal |
+| `AgentPrompting` | `render`, `renderFromFile`, `renderFromFileOrFail`, reached as `this.prompting` |
+| `PromptSource` | Implement it to serve prompts from anywhere |
+| `FileSystemPromptSource` | The default: `.md` files from a directory |
+| `PromptFileReader`, `FsPromptFileReader` | The one call the filesystem source makes, and its real implementation |
+| `PromptFileCache` | One read per file, shared between concurrent runs. Reuse it in your own source |
+| `PromptTemplate` | `{{optional}}` and `{{{required}}}` interpolation on its own |
+| `PromptInstructions` | The composed instruction a request carries |
+| `PromptBuilder`, `MethodPromptBuilder`, `AgentPromptScan` | How the runtime reaches an overridden `prompt()` |
+
+### Models
+
+| Symbol | What it is for |
+| --- | --- |
+| `LlmModel` | Extend it to add a provider of your own |
+| `ModelDescriptor`, `ModelIdentity`, `ModelCapabilities`, `ModelCapability` | What a model is and what it can do |
+| `ContextWindow`, `ModelContextWindow`, `UnknownContextWindow` | The size compaction measures against |
+| `ModelRequest`, `ModelMessage`, `UserMessage`, `AssistantMessage`, `ToolCallMessage`, `ToolResultMessage` | The turn as an adapter receives it |
+| `MediaPart`, `MediaLimits` | Something the model looks at, and what a provider accepts |
+| `ToolDeclaration` | A tool as the provider is told about it |
+| `ModelChunk`, `ToolCallDelta`, `ModelResponse`, `ModelUsage`, `TokenCount` | What an adapter yields on the way back |
+| `ModelSpec`, `TypedModelSpec`, `createModelSpec` | Narrowing a provider's options per model, at compile time |
+| `ModelResolver` | Decide which model answers a run, by something the model cannot know |
+| `ModelExecutor` | The one call site of a model, with failover applied |
+| `ModelFailure` and `RateLimitedFailure`, `TimeoutFailure`, `UnavailableFailure`, `ContextExceededFailure`, `SafetyBlockedFailure`, `InvalidRequestFailure`, `UnknownFailure` | A failure as data, for a policy to decide on |
+| `AgentFailoverPolicy`, `SequentialFailoverPolicy`, `FailoverContext`, `ModelReroute` | What to try next, and what happened when it was tried |
+
+### Tools
+
+| Symbol | What it is for |
+| --- | --- |
+| `ToolContext` | What a tool is told about the run calling it |
+| `ToolOutput` | An answer that carries media alongside the data |
+| `ToolEffect` | `read`, `write`, `destructive` |
+| `AdkApprovalPolicy`, `EffectApprovalPolicy` | What pauses in front of a human |
+| `ToolInvocation` | The call a policy decides about |
+| `ToolSource` | Tools that only exist at run time |
+| `ToolDefinition`, `ToolHandler` | What a source builds, and the code behind it |
+| `ToolSchema`, `ZodToolSchema`, `JsonSchemaToolSchema` | Arguments described to the model and validated on the way in |
+| `ParsedArguments` | What a schema answers: the arguments, or why they were refused |
+
+### Sessions, storage and events
+
+| Symbol | What it is for |
+| --- | --- |
+| `SessionStorage`, `StorageCapabilities` | Where the journal lives, and what a port can do |
+| `InMemorySessionStorage`, `SqliteSessionStorage`, `SqliteConnection` | The two the library ships |
+| `ArtifactStorage`, `InMemoryArtifactStorage` | Where a large result or an upload lives |
+| `OffloadPolicy` | When a result becomes an artifact instead of a message |
+| `SessionEventConsumer`, `PublishedEvent` | Being told what happened, after it was committed |
+| `ConsumerNoticeSink` | Where a consumer's own failure is reported |
+| `ChunkSink` | Watching the pieces of a turn as they arrive |
+| `Clock`, `SystemClock`, `Instant`, `IdGenerator`, `RandomIdGenerator` | The two things a runtime cannot invent for itself |
+| `Secret` | A value that must not print itself in a log |
+
+Implementing `SessionStorage` or `ArtifactStorage` means naming what their methods pass around, so those types are public too: `AppendEventsCommand` and `AppendEventsResult` for an append, `StoredSessionEvent` for what comes back, `Session` and `SessionSnapshot` for the head of a conversation and its disposable summary, `ContextCheckpoint` for what compaction leaves behind, and `ArtifactId`, `ArtifactContent` and `ArtifactReference` for a stored artifact. `ConsumerFailed` and `ContextWindowUnknown` are what the two notice sinks receive.
+
+Writing a `SessionStorage` needs more than the names in its signatures, and the rest is published here for the same reason `PromptFileCache` is: implementing a port is something an application does.
+
+| Symbol | What it is for |
+| --- | --- |
+| `StorageCodecs` | The four codecs as one thing: `journal`, `snapshot`, `head`, `checkpoint` |
+| `JournalCodec` | An event as a row and back, with `fingerprintOf` for idempotent append |
+| `SnapshotCodec`, `SessionHeadCodec`, `CheckpointCodec` | The other three collections a storage keeps |
+| `ModelMessageCodec` | One message of a compacted context, if you store blocks yourself |
+| `JournalRecord`, `SnapshotRecord`, `SessionHeadRecord`, `CheckpointRecord` | What each codec answers: plain values a column can hold |
+| `StoredRow` | Reads a driver's row and says which column broke, instead of failing later |
+| `SessionNotFoundError`, `SessionAlreadyExistsError`, `SessionRevisionConflictError`, `JournalCorruptedError` | The endings the port is required to produce |
+| `UnreadableStoredValueError`, `InvalidStoredRowError` | A row this build cannot read, named by column |
+| `SessionEventBatch`, `SessionEvent`, `SessionEventRegistry`, `SessionEventCodecs` | What an append carries, and the registry an application with its own upcasters hands over |
+| `ContractSuite`, `ContractCase` | A port contract as data, which is what `SessionStorageContractSuite` is built from |
+
+`SessionStorageContractSuite` itself is in `@nestjs-adk/testing`, next to the test bed.
+
+### Context
+
+| Symbol | What it is for |
+| --- | --- |
+| `AdkCompactionPolicy`, `TokenThresholdCompactionPolicy` | When a conversation is shortened |
+| `ContextBudget`, `CompactionDecision` | What a policy is told, and what it answers |
+| `CompactionStrategy`, `ContextProjection` | How it is shortened, if you replace the default, and what it works on |
+| `ContextSummarizer` | What the removed turns are replaced by |
+| `ContextBlock` | The unit a summarizer is handed |
+| `ContextNoticeSink` via `RuntimeOptions.contextNotices` | Where an unmeasurable window is reported |
+| `ContextSnapshot`, `ContextSegment` | What `explain` answers, and its parts |
+| `PrefixComparator` | Compares two snapshots, which is how prefix stability is measured |
+| `RunObservers` | Plugging a chunk sink and a context capture into one run |
+
+### Cost
+
+| Symbol | What it is for |
+| --- | --- |
+| `RunCost`, `ModelCost`, `CostBreakdown` | What a run cost, per model, split by input, output and cached |
+| `UsdAmount`, `TokenRate` | Exact money, and a price per token |
+| `ModelPrice`, `PriceBand` | The rates a source answers with, and a rate that changes past a context size |
+| `PricingSource` | Where prices come from |
+| `LiteLLMPricingSource`, `LiteLlmPricingOptions` | The community catalog, read at runtime |
+| `CatalogTransport`, `HttpCatalogTransport`, `LiteLlmCatalogProjection` | How that catalog is fetched and read |
+| `PricingNoticeSink`, `ModelUnpriced`, `UnpricedReason` | Why something was left out of a total |
+
+### Embeddings
+
+| Symbol | What it is for |
+| --- | --- |
+| `Embedder` | The port, with no default: bring your own provider |
+| `MeteredEmbedder`, `MeteredEmbedding` | An embedder that can report what it billed, and what it answers |
+| `PricedEmbedder` | Prices an embedding through the same source a run uses |
+| `EmbeddingVector`, `Similarity` | A vector, and cosine similarity over two |
+| `UndeclaredEmbedder` | What is injected when none was declared, so only code that embeds fails |
+
+### Embedding the runtime
+
+| Symbol | What it is for |
+| --- | --- |
+| `AdkRuntimeHost`, `StartedRuntime`, `RuntimeServices` | Composing the runtime without a container |
+| `AgentRunCommand` | One run, resolved, for that path |
+| `AgentDefinition`, `AgentDescription` | An agent as the runtime knows it, which you assemble yourself there |
+| `StructuredOutputValidator`, `JsonStructuredOutputValidator` | The seam a request's output schema is validated through |
+| `AdkError` | The base of every error the library throws |
 
 ## Learn more
 
@@ -654,6 +1001,6 @@ So even though the core is mostly AI-written, the pieces I believe a good ADK mu
 
 DX is what drives every decision here. The clearer this library is to an AI reading it, the faster anyone ships good agents with it, and that is the whole bet. It also means breaking changes: expect several major releases, each one following semver strictly, whenever a change makes the framework easier to understand.
 
-This is not an attempt to compete with Google ADK or Cline ADK. The goal is narrower: an agent toolkit that feels native to NestJS, on top of the engines that already do the heavy lifting.
+This is not an attempt to compete with Google ADK or Cline ADK. The goal is narrower: an agent toolkit that feels native to NestJS.
 
 If you are an experienced developer, open the code and tell me where it is wrong. Issues and PRs about design, naming, patterns and the conventions that should guide maintenance are the most valuable contribution this project can get.

@@ -31,13 +31,13 @@ function startedRun(): StartedRun {
 	);
 }
 
-function scopeOf(): RunScope {
-	return new RunScopeFactory().create(definition, model, startedRun(), [], RunLimits.none());
+async function scopeOf(): Promise<RunScope> {
+	return await new RunScopeFactory().create(definition, model, startedRun(), [], RunLimits.none());
 }
 
 describe("RunScope", () => {
-	it("answers the agent, the run and the session without anyone reaching through it", () => {
-		const scope = scopeOf();
+	it("answers the agent, the run and the session without anyone reaching through it", async () => {
+		const scope = await scopeOf();
 
 		expect(scope.agent.value).toBe(NativeStackFixture.AGENT.value);
 		expect(scope.sessionId.value).toBe(SESSION.value);
@@ -45,19 +45,19 @@ describe("RunScope", () => {
 		expect(scope.definition).toBe(definition);
 	});
 
-	it("carries the catalog, the skills and the breaker that belong to this run alone", () => {
-		const scope = scopeOf();
+	it("carries the catalog, the skills and the breaker that belong to this run alone", async () => {
+		const scope = await scopeOf();
 
 		expect(scope.catalog).toBeInstanceOf(ToolCatalog);
 		expect(scope.skills).toBeInstanceOf(SkillCatalog);
 		expect(scope.breaker).toBeInstanceOf(ToolBreaker);
 	});
 
-	it("gives each run its own breaker, so a tool failing in one never stops another", () => {
-		expect(scopeOf().breaker).not.toBe(scopeOf().breaker);
+	it("gives each run its own breaker, so a tool failing in one never stops another", async () => {
+		expect((await scopeOf()).breaker).not.toBe((await scopeOf()).breaker);
 	});
 
-	it("hands out the signal that stops the run, which every call it makes has to obey", () => {
-		expect(scopeOf().signal).toBeDefined();
+	it("hands out the signal that stops the run, which every call it makes has to obey", async () => {
+		expect((await scopeOf()).signal).toBeDefined();
 	});
 });

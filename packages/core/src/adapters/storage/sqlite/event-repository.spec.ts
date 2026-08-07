@@ -11,7 +11,7 @@ import { SessionCreated } from "../../../domain/event/catalog/session-created";
 import { UserMessageReceived } from "../../../domain/event/catalog/user-message-received";
 import { EventCorrelation } from "../../../domain/event/event-correlation";
 import { EventHeader } from "../../../domain/event/event-header";
-import { SessionEventCodecs } from "../../../domain/event/session-event-codecs";
+import { JournalCodec } from "../codec/journal-codec";
 import { EventRepository } from "./event-repository";
 import { SqliteConnection } from "./sqlite-connection";
 
@@ -32,7 +32,7 @@ function header(id: string, causedBy?: string): EventHeader {
 }
 
 function repository(): EventRepository {
-	return new EventRepository(new SqliteConnection(), SessionEventCodecs.registry());
+	return new EventRepository(new SqliteConnection(), new JournalCodec());
 }
 
 describe("EventRepository", () => {
