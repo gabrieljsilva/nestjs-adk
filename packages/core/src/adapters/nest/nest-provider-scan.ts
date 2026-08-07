@@ -5,12 +5,14 @@ import { ScannedProvider } from "./scanned-provider";
 /**
  * One provider of the container, as this reads it.
  *
- * Declared as the four things it uses rather than as NestJS's own wrapper: the scan is a
+ * Declared as the five things it uses rather than as NestJS's own wrapper: the scan is a
  * rule about what a component has to be, and a rule that can only be tested by building a
  * container is a rule nobody tests.
  */
 export interface ContainerProvider {
 	readonly name: unknown;
+	/** What the module registered the provider under, which is what an agent lists in `tools`. */
+	readonly token: unknown;
 	readonly metatype: unknown;
 	readonly instance: unknown;
 	isDependencyTreeStatic(): boolean;
@@ -24,18 +26,37 @@ export interface ContainerProvider {
  * each provider first and only later constructs the real object, replacing what was there,
  * so anything captured earlier is a shell that never receives its dependencies.
  *
- * Only classes that declared something are kept. Everything else in the container is an
- * ordinary provider that has nothing to do with a run.
+ * Only providers whose declaration can be read are kept. Everything else in the container is
+ * an ordinary provider that has nothing to do with a run.
  */
 export class NestProviderScan {
 	public read(providers: readonly ContainerProvider[]): ScannedProvider[] {
 		const scanned: ScannedProvider[] = [];
 		for (const provider of providers) {
-			const type = provider.metatype;
-			if (typeof type !== "function" || !NestProviderScan.declaresComponent(type)) continue;
-			scanned.push(new ScannedProvider(String(provider.name), type, NestProviderScan.instanceOf(provider)));
+			const carrier = NestProviderScan.carrierOf(provider);
+			if (carrier === undefined) continue;
+			scanned.push(new ScannedProvider(String(provider.name), carrier, NestProviderScan.instanceOf(provider)));
 		}
 		return scanned;
+	}
+
+	/**
+	 * The class whose decorators describe this provider, which is not always the class NestJS built.
+	 *
+	 * An agent lists its tools by injection token, and the token is the one thing an override
+	 * never rewrites. The metatype is: `useValue` leaves none at all, `useClass` puts the
+	 * replacement class there, `useFactory` an anonymous function. Reading the declaration off
+	 * the token is what lets a test stand something in for a tool without the tool leaving the
+	 * catalog, silently, on a boot that reports success.
+	 *
+	 * The metatype answers second, for the component registered under a token of its own:
+	 * `{ provide: SHIP_ORDER, useClass: ShipOrderTool }` puts a symbol where the decorators are not.
+	 */
+	private static carrierOf(provider: ContainerProvider): object | undefined {
+		for (const candidate of [provider.token, provider.metatype]) {
+			if (typeof candidate === "function" && NestProviderScan.declaresComponent(candidate)) return candidate;
+		}
+		return undefined;
 	}
 
 	private static instanceOf(provider: ContainerProvider): object {

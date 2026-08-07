@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AgentRunId } from "../../common/identity/agent-run-id";
+import { ToolCallId } from "../../common/identity/tool-call-id";
 import { AgentFailoverPolicy } from "../../domain/agent/agent-failover-policy";
 import { AgentName } from "../../domain/agent/agent-name";
 import { ModelsExhaustedError } from "../../domain/agent/errors/models-exhausted.error";
@@ -17,6 +18,8 @@ import { ModelIdentity } from "../../domain/model/model-identity";
 import { ModelRequest } from "../../domain/model/model-request";
 import { ModelUsage } from "../../domain/model/model-usage";
 import { RateLimitedFailure } from "../../domain/model/rate-limited-failure";
+import { ToolCallMessage } from "../../domain/model/tool-call-message";
+import { ToolResultMessage } from "../../domain/model/tool-result-message";
 import { UnavailableFailure } from "../../domain/model/unavailable-failure";
 import { UnknownFailure } from "../../domain/model/unknown-failure";
 import { UserMessage } from "../../domain/model/user-message";
@@ -30,6 +33,7 @@ const request = new ModelRequest([new UserMessage("hi")]);
 /** Answers a script, or fails in a way an adapter would have classified. */
 class ScriptedModel extends LlmModel {
 	public calls = 0;
+	public readonly requests: ModelRequest[] = [];
 
 	public constructor(
 		public readonly name: string,
@@ -48,8 +52,9 @@ class ScriptedModel extends LlmModel {
 		);
 	}
 
-	public async *generate(): AsyncIterable<ModelChunk> {
+	public async *generate(request: ModelRequest): AsyncIterable<ModelChunk> {
 		this.calls += 1;
+		this.requests.push(request);
 		let emitted = 0;
 		for (const chunk of this.chunks) {
 			if (this.failure !== undefined && emitted === this.failAfterChunks) {
@@ -132,6 +137,31 @@ describe("ModelRunner", () => {
 		expect(outcome.servedBy.toString()).toBe("acme/fallback");
 		expect(primary.calls).toBe(1);
 		expect(fallback.calls).toBe(1);
+	});
+
+	/**
+	 * What the next model is handed, which is the half of a reroute nothing else asserts.
+	 *
+	 * The chain re-sends the request as it stands, so the model that takes over reads a
+	 * conversation another provider wrote, tool calls included. That is a feature, since the
+	 * point is to answer the same question; it is also why a call carrying provider specific
+	 * data has to survive the crossing, and an adapter that refuses one turns a rescue into a
+	 * dead run. Whoever changes this line has to change [[cross-provider-history]] with it.
+	 */
+	it("hands the next model the same request, tool calls and all", async () => {
+		const inherited = new ModelRequest([
+			new UserMessage("cade o pedido A-1?"),
+			new ToolCallMessage(ToolCallId.from("c-1"), "find_order", { orderId: "A-1" }),
+			new ToolResultMessage(ToolCallId.from("c-1"), "find_order", { status: "shipped" }, false),
+		]);
+		const primary = new ScriptedModel("primary", [], new RateLimitedFailure("slow down"));
+		const fallback = new ScriptedModel("fallback", [ModelChunk.text("shipped"), ModelChunk.finish("stop")]);
+
+		await runner.run(new ModelRunCommand(RUN, AGENT, primary, inherited, new SequentialFailoverPolicy([fallback])));
+
+		expect(fallback.requests.at(0)).toBe(inherited);
+		expect(fallback.requests.at(0)?.messages.at(1)).toBeInstanceOf(ToolCallMessage);
+		expect((fallback.requests.at(0)?.messages.at(1) as ToolCallMessage).signature).toBeUndefined();
 	});
 
 	it("records the reroute, with both models, the failure and the attempt", async () => {

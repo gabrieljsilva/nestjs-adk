@@ -8,7 +8,8 @@ import { NotAToolClassError } from "./errors/not-a-tool-class.error";
  * A double that stands in for a tool needs the name the model calls, the description the
  * model reads and the schema that parses the input, and all three live in the decorator.
  * Reading them here is what lets a fake inherit the contract of the class it replaces
- * instead of restating it.
+ * instead of restating it. The class it replaces is the one the container was given as a
+ * token, which is what discovery reads too: see [[tool-doubles]].
  */
 export class ToolMetadata {
 	private constructor(
@@ -35,20 +36,6 @@ export class ToolMetadata {
 		const declaration = ToolMetadata.find(type);
 		if (declaration === undefined) throw new NotAToolClassError(ToolMetadata.candidateName(type));
 		return declaration;
-	}
-
-	/**
-	 * Makes another class declare the same tool, without repeating the decorator.
-	 *
-	 * A stand in for a tool has to be a tool as far as discovery is concerned, and discovery
-	 * reads the class rather than the instance: a replacement registered as a bare value has
-	 * no class to read and disappears from the catalog silently. This is what a double uses
-	 * to keep the contract of the tool it replaces.
-	 */
-	public static copy(from: unknown, to: unknown): void {
-		const metadata: unknown = typeof from === "function" ? Reflect.getMetadata(TOOL_METADATA, from) : undefined;
-		if (metadata === undefined) throw new NotAToolClassError(ToolMetadata.candidateName(from));
-		Reflect.defineMetadata(TOOL_METADATA, metadata, Object(to));
 	}
 
 	private static isSchema(value: unknown): value is ZodType {

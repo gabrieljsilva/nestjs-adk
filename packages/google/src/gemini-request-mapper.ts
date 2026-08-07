@@ -9,8 +9,18 @@ import {
 	UserMessage,
 } from "@nestjs-adk/core";
 import { InvalidJsonSchemaError } from "./errors/invalid-json-schema.error";
+import { signsFunctionCalls } from "./gemini-generation";
 import type { GeminiOptions } from "./gemini-options";
 import { GeminiRequest } from "./gemini-request";
+
+/**
+ * What Google documents for a function call it did not write, and the only way to send one.
+ *
+ * It is a wire value and nothing else: it never reaches the journal, a domain message or
+ * another provider, because a stored signature that is really a placeholder would be
+ * indistinguishable from one the provider actually gave.
+ */
+const UNSIGNED = "skip_thought_signature_validator";
 
 /**
  * Turns a neutral request into a Gemini generate call.
@@ -24,7 +34,59 @@ import { GeminiRequest } from "./gemini-request";
  */
 export class GeminiRequestMapper {
 	public toRequest(model: string, request: ModelRequest, options: GeminiOptions = {}): GeminiRequest {
-		return new GeminiRequest(model, this.contentsOf(request), this.configOf(request, options));
+		const contents = this.signedOf(model, this.contentsOf(request));
+		return new GeminiRequest(model, contents, this.configOf(request, options));
+	}
+
+	/**
+	 * A call written by another provider reaches Gemini 3 with the placeholder Google documents.
+	 *
+	 * A conversation does not always stay on one model. It changes hands on a transfer to an
+	 * agent that runs somewhere else, and it changes underneath itself when a failover reroutes
+	 * a turn to the next model in the chain. Either way the history handed over holds calls
+	 * nobody signed, and Gemini 3 answers 400 naming a tool, which reads like a broken schema
+	 * and is really a provider boundary.
+	 *
+	 * So the request says what is true: this call did not come from here. Google discourages
+	 * synthesised calls and warns the model reasons worse without the real signature, which is
+	 * the trade being made. It is worth making for a handover the application never asked
+	 * about, and it is never made for calls Gemini itself signed.
+	 */
+	private signedOf(model: string, contents: Content[]): Content[] {
+		if (!signsFunctionCalls(model)) return contents;
+		const opened = this.currentTurnAt(contents);
+		return contents.map((content, at) => (at > opened ? this.signedTurn(content) : content));
+	}
+
+	/**
+	 * Where the turn being answered starts, which is the only stretch Gemini validates.
+	 *
+	 * It walks the history newest to oldest for the last user turn carrying ordinary content,
+	 * and everything after that is the current turn. A turn made only of function responses
+	 * does not open one: it is an answer to a call inside the turn. When nothing qualifies the
+	 * whole history is the current turn, which is the reading that errs toward sending a
+	 * placeholder rather than toward a 400.
+	 */
+	private currentTurnAt(contents: Content[]): number {
+		for (let at = contents.length - 1; at >= 0; at -= 1) {
+			const content = contents[at];
+			if (content?.role === "user" && !this.carries(content, "functionResponse")) return at;
+		}
+		return -1;
+	}
+
+	/** Only the call that opens a step is validated, so a parallel call after it is left alone. */
+	private signedTurn(content: Content): Content {
+		const parts = content.parts ?? [];
+		const opens = parts.findIndex((part) => Reflect.get(part, "functionCall") !== undefined);
+		const first = parts[opens];
+		if (content.role !== "model" || first === undefined || Reflect.get(first, "thoughtSignature") !== undefined) {
+			return content;
+		}
+		return {
+			...content,
+			parts: parts.map((part, at) => (at === opens ? { ...part, thoughtSignature: UNSIGNED } : part)),
+		};
 	}
 
 	/**

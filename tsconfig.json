@@ -2,7 +2,7 @@
 	"compilerOptions": {
 		"module": "ESNext",
 		"target": "ES2022",
-		"lib": ["ES2022"],
+		"lib": ["ES2022", "ESNext.Disposable"],
 		"declaration": true,
 		"removeComments": true,
 		"experimentalDecorators": true,

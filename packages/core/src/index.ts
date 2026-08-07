@@ -85,6 +85,7 @@ export { AdkRuntimeHost } from "./public/adk-runtime-host";
 export type { StartedRuntime } from "./public/adk-runtime-host";
 export { HostNotStartedError } from "./public/errors/host-not-started.error";
 export { UnusableComponentError } from "./adapters/nest/errors/unusable-component.error";
+export { UnregisteredToolError } from "./adapters/nest/errors/unregistered-tool.error";
 export {
 	AdkModule,
 	ADK_OPTIONS,
@@ -104,6 +105,7 @@ export { AdkModuleOptions } from "./public/nest/adk-module-options";
 export type { AdkModuleOptionsInput, AdkModuleOptionsPatch } from "./public/nest/adk-module-options";
 export { AgentMetadata } from "./public/nest/agent-metadata";
 export { ToolMetadata } from "./public/nest/tool-metadata";
+export type { AgentClass, AgentTarget } from "./public/nest/agent-target";
 export { NotAnAgentClassError } from "./public/nest/errors/not-an-agent-class.error";
 export { NotAToolClassError } from "./public/nest/errors/not-a-tool-class.error";
 export { AgentRegistry } from "./public/nest/agent-registry";

@@ -28,12 +28,13 @@ A row marked `target` describes a decision the code has not reached yet. It is s
 | `pattern` | [[tool-approval]] | How a run stops in front of a human, what it stores while it waits, and what runs when the answer arrives |
 | `pattern` | [[run-orchestration]] | How a command becomes a run, which class owns which decision, and why the public surface holds none of them |
 | `pattern` | [[session-snapshots]] | Why a snapshot is always disposable, when the runtime writes one, and what invalidates every snapshot at once |
-| `pattern` | [[agent-transfer]] | How a session changes hands, why the edges are declared by name, and what a handover deliberately does not change |
-| `convention` | [[agent-suites]] | What the real-provider tests are for, why they are tiny, and which Gemini model can actually finish a tool loop |
+| `pattern` | [[agent-transfer]] | How a session changes hands, how an edge is declared and when it is resolved, and what a handover deliberately does not change |
+| `convention` | [[agent-suites]] | Where the real-provider tests live, why they run through the example application, and what a Gemini model can actually finish |
 | `pattern` | [[agent-delegation]] | How one agent has another answer a single task, why neither reads the other's conversation, and where the runtime's only dependency cycle lives |
 | `pattern` | [[multimodal-input]] | How an image reaches a model, why the journal never holds one, and what a tool result cannot carry |
 | `pattern` | [[tool-declaration]] | What a shared tool extends, how one schema types both forms of a tool, and why the method form has its own descriptor type |
 | `pitfall` | [[nest-composition-timing]] | Why the runtime is composed in a lifecycle hook and never in a provider, and what NestJS does to an instance captured too early |
 | `pattern` | [[test-bed]] | How a test replaces the model of one agent, what a run is asserted on, and why the bed refuses to boot |
-| `pitfall` | [[tool-doubles]] | Why overrideProvider removes a tool instead of replacing it, and what to replace instead |
+| `pattern` | [[tool-doubles]] | How a substituted tool keeps its declaration, what a double has to preserve, and when a listed tool fails the boot |
+| `pitfall` | [[cross-provider-history]] | What breaks when a history written by one model is replayed to another, and where the adapter compensates |
 

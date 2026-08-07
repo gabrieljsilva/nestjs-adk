@@ -7,6 +7,8 @@ import { type ContainerProvider, NestProviderScan } from "./nest-provider-scan";
 class SupportAgent {}
 class LookupTool {}
 class OrdersService {}
+/** What a double registered through `useClass` looks like: no decorators of its own. */
+class LookupToolDouble {}
 
 Reflect.defineMetadata(AGENT_METADATA, { name: "support" }, SupportAgent);
 Reflect.defineMetadata(TOOL_METADATA, { name: "lookup_order" }, LookupTool);
@@ -14,10 +16,16 @@ Reflect.defineMetadata(TOOL_METADATA, { name: "lookup_order" }, LookupTool);
 function provider(type: unknown, instance: unknown, isStatic = true): ContainerProvider {
 	return {
 		name: typeof type === "function" ? type.name : String(type),
+		token: type,
 		metatype: type,
 		instance,
 		isDependencyTreeStatic: () => isStatic,
 	};
+}
+
+/** A provider NestJS registered under one thing and serves with another. */
+function overridden(token: unknown, metatype: unknown, instance: unknown): ContainerProvider {
+	return { ...provider(token, instance), metatype };
 }
 
 describe("NestProviderScan", () => {
@@ -55,5 +63,51 @@ describe("NestProviderScan", () => {
 
 	it("refuses a component the container has not built, instead of composing around it", () => {
 		expect(() => new NestProviderScan().read([provider(LookupTool, undefined)])).toThrow(UnusableComponentError);
+	});
+
+	/**
+	 * The three shapes a substitution takes, and what each leaves behind.
+	 *
+	 * NestJS rewrites the metatype every time: a value leaves none, a class leaves the
+	 * replacement, a factory leaves an anonymous function. Reading the declaration off the
+	 * metatype is therefore reading whatever the override happened to put there, which is why
+	 * the token answers first: it is the only part of a provider an override never touches.
+	 */
+	it("reads the declaration off the token, so a substituted component keeps it", () => {
+		const value = { execute: () => "stubbed" };
+		const built = new LookupToolDouble();
+
+		const scanned = new NestProviderScan().read([
+			overridden(LookupTool, null, value),
+			overridden(SupportAgent, LookupToolDouble, built),
+		]);
+
+		expect(scanned.map((entry) => entry.type)).toEqual([LookupTool, SupportAgent]);
+		expect(scanned.map((entry) => entry.instance)).toEqual([value, built]);
+	});
+
+	/** The instance is still whatever the container serves: only the declaration comes from the token. */
+	it("keeps the instance the override put there, next to the declaration it replaced", () => {
+		const double = { execute: () => "stubbed" };
+
+		const scanned = new NestProviderScan().read([overridden(LookupTool, LookupToolDouble, double)]);
+
+		expect(scanned.at(0)?.type).toBe(LookupTool);
+		expect(scanned.at(0)?.instance).toBe(double);
+	});
+
+	/** A component registered under a token of its own declares itself through the metatype. */
+	it("falls back to the metatype when the token is not a class", () => {
+		const tool = new LookupTool();
+
+		const scanned = new NestProviderScan().read([overridden("LOOKUP_TOOL", LookupTool, tool)]);
+
+		expect(scanned.map((entry) => entry.type)).toEqual([LookupTool]);
+	});
+
+	it("ignores a substituted provider that declared nothing on either side", () => {
+		const scanned = new NestProviderScan().read([overridden(OrdersService, LookupToolDouble, {})]);
+
+		expect(scanned).toEqual([]);
 	});
 });

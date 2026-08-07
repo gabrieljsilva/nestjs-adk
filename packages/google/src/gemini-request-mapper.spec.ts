@@ -118,6 +118,38 @@ describe("GeminiRequestMapper", () => {
 		expect(() => mapper.toRequest("gemini-2.5-flash", request)).toThrow(InvalidJsonSchemaError);
 	});
 
+	/** The three shapes that are objects to `typeof` and are not schemas, each named as itself. */
+	it("says which kind of thing it was given instead of a schema", () => {
+		const of = (parameters: unknown) => new ModelRequest([], [new ToolDeclaration("refund", "refunds", parameters)]);
+
+		expect(() => mapper.toRequest("gemini-2.5-flash", of(null))).toThrow(/null/);
+		expect(() => mapper.toRequest("gemini-2.5-flash", of([{ type: "object" }]))).toThrow(/array/);
+		expect(() => mapper.toRequest("gemini-2.5-flash", of(42))).toThrow(/number/);
+	});
+
+	/**
+	 * Structured output is a config field, not a message.
+	 *
+	 * Gemini takes the schema through `responseJsonSchema` and needs the mime type set with it:
+	 * one without the other answers prose that the runtime then fails to parse.
+	 */
+	it("asks for structured output through the config, mime type and schema together", () => {
+		const schema = { type: "object", properties: { total: { type: "number" } }, required: ["total"] };
+		const request = new ModelRequest([new UserMessage("quanto?")], [], undefined, schema);
+
+		const config = mapper.toRequest("gemini-2.5-flash", request).config;
+
+		expect(config.responseMimeType).toBe("application/json");
+		expect(config.responseJsonSchema).toBe(schema);
+	});
+
+	it("leaves both fields out when nothing asked for a shape", () => {
+		const config = mapper.toRequest("gemini-2.5-flash", new ModelRequest([new UserMessage("oi")])).config;
+
+		expect(config.responseMimeType).toBeUndefined();
+		expect(config.responseJsonSchema).toBeUndefined();
+	});
+
 	it("maps the generation options", () => {
 		const mapped = mapper.toRequest("gemini-2.5-flash", new ModelRequest([]), {
 			temperature: 0.2,
@@ -170,10 +202,17 @@ describe("GeminiRequestMapper", () => {
 		expect(Reflect.get(Object(Reflect.get(Object(part), "functionCall")), "name")).toBe("stock_of");
 	});
 
+	/**
+	 * A generation that validates nothing is sent nothing extra.
+	 *
+	 * The field only exists where it is asked for. On 3.x an unsigned call in the current turn
+	 * is filled in with the documented placeholder instead, which is a different rule and has
+	 * its own cases below.
+	 */
 	it("omits the field entirely for a call that never carried one", () => {
 		const request = new ModelRequest([new ToolCallMessage(ToolCallId.from("c-1"), "stock_of", { sku: "SKU-9" })]);
 
-		const part = new GeminiRequestMapper().toRequest("gemini-3.5-flash-lite", request).contents[0]?.parts?.[0];
+		const part = new GeminiRequestMapper().toRequest("gemini-2.5-flash", request).contents[0]?.parts?.[0];
 
 		expect(Object.keys(Object(part))).toEqual(["functionCall"]);
 	});
@@ -260,5 +299,99 @@ describe("GeminiRequestMapper", () => {
 		]);
 
 		expect(mapper.toRequest("gemini-3.5-flash-lite", request).contents).toHaveLength(3);
+	});
+
+	/**
+	 * A conversation that changed provider mid turn, which is what a transfer and a failover
+	 * both produce. The call is real and nobody here can sign it, so the request says so with
+	 * the placeholder Google documents for exactly this case.
+	 */
+	describe("a call another provider wrote", () => {
+		function handedOver(): ModelRequest {
+			return new ModelRequest([
+				new UserMessage("meu controle chegou quebrado"),
+				new ToolCallMessage(CALL, "transfer_to_agent", { agentName: "warranty" }),
+				new ToolResultMessage(CALL, "transfer_to_agent", { transferred: true }, false),
+			]);
+		}
+
+		function signatureAt(contents: readonly unknown[], at: number, part = 0): unknown {
+			return Reflect.get(Object(Reflect.get(Object(contents[at]), "parts")), String(part))?.thoughtSignature;
+		}
+
+		it("reaches Gemini 3 with the placeholder instead of failing the run", () => {
+			const contents = mapper.toRequest("gemini-3.5-flash-lite", handedOver()).contents;
+
+			expect(signatureAt(contents, 1)).toBe("skip_thought_signature_validator");
+		});
+
+		it("is left as it arrived on a model that signs nothing", () => {
+			const contents = mapper.toRequest("gemini-2.5-flash", handedOver()).contents;
+
+			expect(signatureAt(contents, 1)).toBeUndefined();
+		});
+
+		it("keeps the signature the provider gave, which is the one it wants back", () => {
+			const request = new ModelRequest([
+				new UserMessage("quanto custou o A-1?"),
+				new ToolCallMessage(CALL, "find_order", { orderId: "A-1" }, "opaque-token"),
+			]);
+
+			expect(signatureAt(mapper.toRequest("gemini-3.5-flash-lite", request).contents, 1)).toBe("opaque-token");
+		});
+
+		/** Only the call that opens a step is validated, so signing the rest is noise. */
+		it("leaves a parallel call in the same answer unsigned", () => {
+			const request = new ModelRequest([
+				new UserMessage("compare A-1 e o limite do plano"),
+				new ToolCallMessage(CALL, "find_order", { orderId: "A-1" }, "opaque-token"),
+				new ToolResultMessage(CALL, "find_order", { total: 349 }, false),
+				new ToolCallMessage(ToolCallId.from("c-2"), "refund_limit", { plan: "gold" }),
+			]);
+
+			const contents = mapper.toRequest("gemini-3.5-flash-lite", request).contents;
+
+			expect(signatureAt(contents, 1, 0)).toBe("opaque-token");
+			expect(signatureAt(contents, 1, 1)).toBeUndefined();
+		});
+
+		/**
+		 * Gemini validates the turn being answered and nothing before it. Signing a call the
+		 * conversation moved past would put a placeholder where the provider's own signature
+		 * still sits in its history, for no gain.
+		 */
+		it("leaves a call from a turn the conversation already finished alone", () => {
+			const request = new ModelRequest([
+				new UserMessage("quanto custou o A-1?"),
+				new ToolCallMessage(CALL, "find_order", { orderId: "A-1" }),
+				new ToolResultMessage(CALL, "find_order", { total: 349 }, false),
+				new AssistantMessage("custou 349 reais"),
+				new UserMessage("e o A-2?"),
+			]);
+
+			expect(signatureAt(mapper.toRequest("gemini-3.5-flash-lite", request).contents, 1)).toBeUndefined();
+		});
+
+		/** A history that never carried a user turn is all current turn, which is the safe reading. */
+		it("signs a call that opens a history with no user turn at all", () => {
+			const request = new ModelRequest([new ToolCallMessage(CALL, "find_order", { orderId: "A-1" })]);
+
+			expect(signatureAt(mapper.toRequest("gemini-3.5-flash-lite", request).contents, 0)).toBe(
+				"skip_thought_signature_validator",
+			);
+		});
+
+		it("does not mistake a turn of function responses for the start of a new one", () => {
+			const request = new ModelRequest([
+				new UserMessage("meu controle chegou quebrado"),
+				new ToolCallMessage(CALL, "transfer_to_agent", { agentName: "warranty" }),
+				new ToolResultMessage(CALL, "transfer_to_agent", { transferred: true }, false),
+				new ToolCallMessage(ToolCallId.from("c-2"), "open_ticket", { orderId: "A-1" }),
+			]);
+
+			const contents = mapper.toRequest("gemini-3.5-flash-lite", request).contents;
+
+			expect(signatureAt(contents, 3)).toBe("skip_thought_signature_validator");
+		});
 	});
 });

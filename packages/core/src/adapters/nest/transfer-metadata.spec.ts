@@ -1,5 +1,7 @@
+import "reflect-metadata";
 import { describe, expect, it } from "vitest";
 import { InvalidAgentMetadataError } from "./errors/invalid-agent-metadata.error";
+import { AGENT_METADATA } from "./metadata-keys";
 import { TransferMetadata } from "./transfer-metadata";
 
 describe("TransferMetadata", () => {
@@ -15,10 +17,14 @@ describe("TransferMetadata", () => {
 		expect(() => TransferMetadata.from("billing", "SupportAgent")).toThrow(InvalidAgentMetadataError);
 	});
 
-	it("refuses classes, which is the mistake somebody migrating from subAgents makes", () => {
+	it("resolves a class and a reference to one down to the names the catalog knows", () => {
 		class BillingAgent {}
+		Reflect.defineMetadata(AGENT_METADATA, { name: "billing", description: "Handles money." }, BillingAgent);
 
-		expect(() => TransferMetadata.from([BillingAgent], "SupportAgent")).toThrow(/agent names, not classes/);
+		expect(TransferMetadata.from([BillingAgent, () => BillingAgent], "SupportAgent").targets).toEqual([
+			"billing",
+			"billing",
+		]);
 	});
 
 	it("names the provider that declared the wrong thing", () => {

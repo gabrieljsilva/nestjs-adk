@@ -1,4 +1,12 @@
-import { AgentResult, AgentRunId, AgentRunStatus, PendingCall, SessionId, ToolCallId } from "@nestjs-adk/core";
+import {
+	AgentResult,
+	AgentRunId,
+	AgentRunStatus,
+	EmbeddingVector,
+	PendingCall,
+	SessionId,
+	ToolCallId,
+} from "@nestjs-adk/core";
 import { describe, expect, it } from "vitest";
 import { JudgeRubric } from "./judge-rubric";
 import { LlmJudge } from "./llm-judge";
@@ -111,6 +119,23 @@ describe("toBeSemanticallyCloseTo", () => {
 		const loose = await adkMatchers.toBeSemanticallyCloseTo("refund the order", "refund the order today", 0.5);
 
 		expect(loose.pass).toBe(true);
+	});
+});
+
+describe("toBeSimilarTo", () => {
+	it("compares embeddings by cosine similarity", () => {
+		expect(adkMatchers.toBeSimilarTo(EmbeddingVector.of([1, 0]), EmbeddingVector.of([0.9, 0.1])).pass).toBe(true);
+		expect(adkMatchers.toBeSimilarTo(EmbeddingVector.of([1, 0]), EmbeddingVector.of([0, 1])).pass).toBe(false);
+	});
+
+	it("accepts the threshold at the assertion site", () => {
+		const result = adkMatchers.toBeSimilarTo(EmbeddingVector.of([1, 0]), EmbeddingVector.of([0.5, 0.5]), 0.7);
+
+		expect(result.pass).toBe(true);
+	});
+
+	it("is registered on expect", () => {
+		expect(EmbeddingVector.of([1, 0])).toBeSimilarTo(EmbeddingVector.of([1, 0]));
 	});
 });
 

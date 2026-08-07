@@ -1,6 +1,6 @@
 import type { AgentResult } from "@nestjs-adk/core";
 import { Injectable } from "@nestjs/common";
-import { ConciergeAgent } from "../agents/concierge.agent";
+import { ConciergeAgent } from "../agents/concierge/concierge.agent";
 import type { Attachment } from "./attachment";
 
 /**

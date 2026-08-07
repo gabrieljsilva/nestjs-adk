@@ -56,7 +56,13 @@ class SupportAgent extends AdkAgent {
 
 /** What the container hands over: the class, the instance it built, and its scope. */
 function provider(type: object, instance: object, isStatic = true): ContainerProvider {
-	return { name: Reflect.get(type, "name"), metatype: type, instance, isDependencyTreeStatic: () => isStatic };
+	return {
+		name: Reflect.get(type, "name"),
+		token: type,
+		metatype: type,
+		instance,
+		isDependencyTreeStatic: () => isStatic,
+	};
 }
 
 function contextOf(): ToolContext {

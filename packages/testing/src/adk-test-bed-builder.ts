@@ -103,11 +103,12 @@ export class AdkTestBedBuilder {
 	 * Replaces what a tool does, keeping the tool the application declared.
 	 *
 	 * The double is put on the instance the container built rather than registered in its
-	 * place, and that is not a detail. Discovery reads a provider's class, and an agent lists
-	 * its tools by class: a replacement registered as a value has no class to read, and one
-	 * registered as another class no longer matches what the agent listed. Either way the
-	 * tool leaves the catalog and nobody is told. Replacing the method keeps the name, the
-	 * schema, the effect and the identity, so only the behaviour changes.
+	 * place, which keeps the name, the schema, the effect and the identity, so only the
+	 * behaviour changes, and lets the fake record what the tool was called with.
+	 *
+	 * `overrideProvider` answers the same need and works in every form, since discovery reads
+	 * a component's declaration off the injection token. Prefer this one for the recording;
+	 * reach for the builder when the double needs dependencies of its own.
 	 */
 	public replaceTool(type: unknown, fake: ToolFake): this {
 		ToolMetadata.findOrFail(type);

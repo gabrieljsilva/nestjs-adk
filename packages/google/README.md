@@ -61,6 +61,14 @@ When the current model fails before the first chunk of the response, the chain a
 
 Other providers live in their own packages: this one is Gemini and Vertex AI, and nothing here knows another provider exists.
 
+## A conversation that arrives from another provider
+
+Gemini 3 signs the function calls it generates and refuses a turn whose calls come back unsigned. A conversation reaches Gemini already holding calls written elsewhere in three ways: a transfer into an agent that runs here, a resolver routing one hop here, and a failover that reroutes a turn to a Gemini model after another provider declined it. All three used to end in a 400 naming a tool.
+
+This adapter fills a call it cannot sign with `skip_thought_signature_validator`, the placeholder Google documents for "transferring a trace from a different model that does not include thought signatures". It applies to the turn being answered, to the call that opens each step, and never to a signature the provider itself gave.
+
+Google discourages synthesised call blocks and warns that the model reasons worse without the real signature. The trade is a possibly weaker answer instead of a dead run, and it is only made for a handover the application never asked about. A conversation that stays on one Gemini model is untouched.
+
 ## Tool declarations from external catalogs
 
 A tool from an MCP server keeps the JSON Schema the server published, and this engine filters it down to what Gemini's declaration surface accepts (`toGeminiSchema()`, exported). It is a filter, not a translator: `anyOf`, `format`, `pattern` and friends survive verbatim; keywords the API refuses are dropped; `$ref` is inlined; and an array without `items` is repaired, because one broken declaration would otherwise answer 400 for the whole turn. Declared (`@Tool`) tools are unaffected: their Zod schema is handed to the ADK as before.

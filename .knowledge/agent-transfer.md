@@ -1,6 +1,6 @@
 ---
 title: Agent transfer
-description: How a session changes hands, why the edges are declared by name, and what a handover deliberately does not change
+description: How a session changes hands, how an edge is declared and when it is resolved, and what a handover deliberately does not change
 type: pattern
 tags: [core, agents, sessions, transfer]
 ---
@@ -9,9 +9,38 @@ A conversation can end up belonging to a different agent than the one it started
 
 ## Edges are declared, directed and closed
 
-`@TransfersTo("billing", "escalation")` names the agents this one may hand a session to. Nothing else is reachable. There is no implicit edge back to whoever transferred here, because the way back is a decision the receiving agent has to make on purpose.
+`@TransfersTo(BillingAgent, EscalationAgent)` declares the agents this one may hand a session to. Nothing else is reachable. There is no implicit edge back to whoever transferred here, because the way back is a decision the receiving agent has to make on purpose.
 
-Targets are names, not classes. Two agents that hand work to each other would be a circular import as classes, and the runtime resolves against a catalog keyed by name anyway. A name that matches no registered agent fails at boot with `UnknownTransferTargetError`, not halfway through somebody's conversation.
+## An edge is declared as a class and resolved at the scan
+
+Name the class. Renaming the agent then follows on its own, the editor finds the declaration, and a target that does not exist fails the build instead of the boot.
+
+Two agents that reach each other cannot name each other directly: a decorator runs while its own class is being defined, so the other end is still `undefined` at that moment. Pass a function there and it is called later, which is the shape an ORM uses for a relation that points back.
+
+```ts
+@TransfersTo(() => BillingAgent)   // billing transfers back to this one
+```
+
+That is why resolution lives in `AgentTargets` and not in the decorator: the decorator only stores what it was given. `TransferMetadata.from` turns it into names during the scan, in `onModuleInit`, when every module has finished loading. Resolving in the decorator would make the function worth nothing.
+
+A plain name still works, and is the only form for an agent whose class this module does not import. It is also what travels on the wire, since the model transfers by calling `transfer_to_agent` with a name.
+
+Whichever form is used, the target still has to be a registered provider. A class proves the agent exists, not that anybody registered it, so a target that reaches no registered agent fails at boot with `UnknownTransferTargetError`, not halfway through somebody's conversation. A class without `@Agent` fails earlier still, with `InvalidAgentMetadataError` naming the class.
+
+## The session remembers who owns it
+
+A handover outlives the turn it happened in. `AgentTransferred` moves ownership, `StateProjector` reads it back into `SessionState.activeAgent`, and the next question on that session is answered by the owner:
+
+```ts
+await concierge.ask("meu controle quebrou");                 // transfers to warranty
+await concierge.ask("e o prazo?", { sessionId });            // warranty answers
+```
+
+Which handle the application called only decides anything when there is no session yet, and then it decides the root. Answering as the agent the caller named instead would let any code walk around the declared graph by holding a different handle, and would leave the owner recorded in the session disagreeing with the agent that just spoke, which is what a resumed approval reads.
+
+Ownership is derived, not stored twice: the journal is the truth, the snapshot is a cache, and `StateProjector.VERSION` throws every snapshot away when the rule changes. See [[session-snapshots]].
+
+To move the session from code, use `AgentRunCommand.transferTo`, which goes through the same gate as the model's. Reaching for a different handle is not a way around it.
 
 ## Two ways in, one gate
 

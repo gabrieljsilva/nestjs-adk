@@ -1,4 +1,4 @@
-import { AgentResult, AgentRunStatus, Similarity } from "@nestjs-adk/core";
+import { AgentResult, AgentRunStatus, EmbeddingVector, Similarity } from "@nestjs-adk/core";
 import { expect } from "vitest";
 import { JudgeRubric } from "./judge-rubric";
 import type { LlmJudge } from "./llm-judge";
@@ -8,9 +8,6 @@ import { ScriptedModel } from "./scripted-model";
 import { TestAgent } from "./test-agent";
 import { TestingEmbedder } from "./testing-embedder";
 import { ToolFake } from "./tool-fake";
-
-/** Close enough to count as the same answer, when the caller did not say. */
-const DEFAULT_CLOSENESS = 0.8;
 
 const embedder = new TestingEmbedder();
 const similarity = new Similarity();
@@ -181,11 +178,7 @@ export const adkMatchers = {
 	 * The comparison is the deterministic embedder, so it costs no call and reruns the same:
 	 * it catches a rewording, not a paraphrase that shares no words.
 	 */
-	async toBeSemanticallyCloseTo(
-		received: unknown,
-		expected: string,
-		minimum: number = DEFAULT_CLOSENESS,
-	): Promise<MatcherResult> {
+	async toBeSemanticallyCloseTo(received: unknown, expected: string, minimum = 0.8): Promise<MatcherResult> {
 		if (typeof received !== "string") {
 			return { pass: false, message: () => "toBeSemanticallyCloseTo expects a string." };
 		}
@@ -193,6 +186,18 @@ export const adkMatchers = {
 		return {
 			pass: score >= minimum,
 			message: () => `expected a similarity of at least ${minimum} with "${expected}", and it scored ${score.toFixed(2)}.`,
+		};
+	},
+
+	/** Compares two embeddings without making a test know how cosine similarity is calculated. */
+	toBeSimilarTo(received: unknown, expected: EmbeddingVector, minimum = 0.8): MatcherResult {
+		if (!(received instanceof EmbeddingVector) || !(expected instanceof EmbeddingVector)) {
+			return { pass: false, message: () => "toBeSimilarTo expects two EmbeddingVector instances." };
+		}
+		const score = similarity.cosine(received, expected);
+		return {
+			pass: score >= minimum,
+			message: () => `expected a cosine similarity of at least ${minimum}, and it scored ${score.toFixed(2)}.`,
 		};
 	},
 
@@ -226,6 +231,7 @@ declare module "vitest" {
 		toHaveBeenCalledWithArgs(args: Record<string, unknown>): T;
 		toBeFullyPlayed(): T;
 		toBeSemanticallyCloseTo(expected: string, minimum?: number): Promise<T>;
+		toBeSimilarTo(expected: EmbeddingVector, minimum?: number): T;
 		toSatisfyRubric(judge: LlmJudge, criteria: string | JudgeRubric): Promise<T>;
 	}
 

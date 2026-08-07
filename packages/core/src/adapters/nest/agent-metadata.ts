@@ -18,7 +18,7 @@ export class AgentMetadata {
 		if (Reflect.get(value, "subAgents") !== undefined) {
 			throw new InvalidAgentMetadataError(
 				providerName,
-				"subAgents is no longer part of @Agent: declare the handovers this agent may make with @TransfersTo('other-agent') instead.",
+				"subAgents is no longer part of @Agent: declare the handovers this agent may make with @TransfersTo(OtherAgent) instead.",
 			);
 		}
 		const name = Reflect.get(value, "name");

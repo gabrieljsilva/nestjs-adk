@@ -1,6 +1,6 @@
 import { type AgentResult, ToolCallId } from "@nestjs-adk/core";
 import { Injectable } from "@nestjs/common";
-import { ConciergeAgent } from "../agents/concierge.agent";
+import { ConciergeAgent } from "../agents/concierge/concierge.agent";
 
 /**
  * The human saying yes to a tool that was waiting for one.

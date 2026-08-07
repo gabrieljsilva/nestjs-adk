@@ -1,5 +1,5 @@
 import { Clock, Instant } from "@nestjs-adk/core";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { StoreDatabase } from "../shared/store-database";
 import { OrderRepository } from "./order.repository";
 import { OrderService } from "./order.service";
@@ -13,22 +13,23 @@ class FixedClock extends Clock {
 	}
 }
 
-let useCase: RefundLimitUseCase;
-
-beforeEach(() => {
-	const orders = new OrderRepository(new StoreDatabase());
-	useCase = new RefundLimitUseCase(
-		new RefundService(new OrderService(orders), orders, new RefundPolicy(), new FixedClock()),
-	);
-});
-
 describe("RefundLimitUseCase", () => {
 	it("answers the ceiling of the plan in cents", () => {
+		const orders = new OrderRepository(new StoreDatabase());
+		const useCase = new RefundLimitUseCase(
+			new RefundService(new OrderService(orders), orders, new RefundPolicy(), new FixedClock()),
+		);
+
 		expect(useCase.execute("gold")).toBe(143_700);
 		expect(useCase.execute("silver")).toBe(47_500);
 	});
 
 	it("answers the smallest ceiling for a plan nobody sells", () => {
+		const orders = new OrderRepository(new StoreDatabase());
+		const useCase = new RefundLimitUseCase(
+			new RefundService(new OrderService(orders), orders, new RefundPolicy(), new FixedClock()),
+		);
+
 		expect(useCase.execute("platinum")).toBe(9_900);
 	});
 });

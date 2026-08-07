@@ -16,30 +16,87 @@ const LIMIT = 220;
  */
 export class RunTranscript extends SessionEventConsumer {
 	public readonly name = "run-transcript";
+	private readonly agentsByRun = new Map<string, string>();
+	private readonly toolsByCall = new Map<string, string>();
+	private readonly delegatedRuns = new Map<string, string>();
 
 	public constructor(private readonly print: (line: string) => void = console.log) {
 		super();
 	}
 
 	public async consume(event: PublishedEvent): Promise<void> {
+		this.remember(event);
 		const line = this.lineOf(event);
 		if (line !== undefined) this.print(line);
 	}
 
 	private lineOf(event: PublishedEvent): string | undefined {
 		const payload = event.payload;
-		if (event.type === "session.user-message-received") return `  › ${this.textIn(payload, "text")}`;
-		if (event.type === "run.assistant-message-produced") return `  ‹ ${this.textIn(payload, "text")}`;
+		const agent = this.agentOf(event);
+		if (event.type === "session.user-message-received") {
+			const delegated = this.delegatedRuns.get(event.correlation.runId.value);
+			return delegated === undefined
+				? `  › ${this.textIn(payload, "text")}`
+				: `  ⤳ ${delegated}: ${this.textIn(payload, "text")}`;
+		}
+		if (event.type === "run.assistant-message-produced") {
+			const text = this.textIn(payload, "text");
+			return text.length === 0 ? undefined : `  ‹ ${agent}: ${text}`;
+		}
 		if (event.type === "tool.call-requested") {
-			return `  ⚙ ${this.textIn(payload, "toolName")}(${this.shorten(JSON.stringify(payload.args ?? {}))})`;
+			return `  ⚙ ${agent}: ${this.textIn(payload, "toolName")}(${this.shorten(JSON.stringify(payload.args ?? {}))})`;
 		}
 		if (event.type === "tool.result-produced") {
-			return `  ↩ ${this.textIn(payload, "toolName")} ${this.shorten(JSON.stringify(payload.output ?? {}))}`;
+			return `  ↩ ${agent}: ${this.textIn(payload, "toolName")} ${this.shorten(JSON.stringify(payload.output ?? {}))}`;
 		}
-		if (event.type === "tool.approval-requested") return `  ⏸ waiting for a human: ${this.textIn(payload, "toolName")}`;
-		if (event.type === "agent.transferred") return `  → ${this.textIn(payload, "to")}`;
-		if (event.type === "delegation.started") return `  ⤳ ${this.textIn(payload, "toAgent")}`;
+		if (event.type === "tool.approval-requested") {
+			return `  ⏸ ${this.textIn(payload, "toolName")}`;
+		}
+		if (event.type === "tool.approval-granted") {
+			return `  ✓ ${this.toolOf(payload)}${this.personIn(payload, "approvedBy")}`;
+		}
+		if (event.type === "tool.approval-denied") {
+			return `  × ${this.toolOf(payload)}${this.personIn(payload, "deniedBy")}: ${this.textIn(payload, "reason")}`;
+		}
+		if (event.type === "agent.transferred") {
+			return `  → ${this.textIn(payload, "from")} → ${this.textIn(payload, "to")}`;
+		}
+		if (event.type === "delegation.started") {
+			return `  ⤳ ${agent} → ${this.textIn(payload, "toAgent")}`;
+		}
 		return undefined;
+	}
+
+	private remember(event: PublishedEvent): void {
+		if (event.type === "run.started") {
+			this.agentsByRun.set(event.correlation.runId.value, this.textIn(event.payload, "agent"));
+		}
+		if (event.type === "tool.call-requested") {
+			this.toolsByCall.set(this.textIn(event.payload, "callId"), this.textIn(event.payload, "toolName"));
+		}
+		if (event.type === "delegation.started") {
+			const childRunId = event.payload.childRunId;
+			const toAgent = event.payload.toAgent;
+			if (typeof childRunId === "string" && typeof toAgent === "string") {
+				this.delegatedRuns.set(childRunId, toAgent);
+			}
+		}
+	}
+
+	private agentOf(event: PublishedEvent): string {
+		return this.agentsByRun.get(event.correlation.runId.value) ?? "unknown";
+	}
+
+	private toolOf(payload: Readonly<Record<string, unknown>>): string {
+		const named = payload.toolName;
+		if (typeof named === "string" && named.length > 0) return named;
+		const callId = payload.callId;
+		return typeof callId === "string" ? (this.toolsByCall.get(callId) ?? "unknown tool") : "unknown tool";
+	}
+
+	private personIn(payload: Readonly<Record<string, unknown>>, field: string): string {
+		const person = payload[field];
+		return typeof person !== "string" || person.length === 0 ? "" : ` by ${person}`;
 	}
 
 	private textIn(payload: Readonly<Record<string, unknown>>, field: string): string {

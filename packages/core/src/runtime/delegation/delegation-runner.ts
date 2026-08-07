@@ -3,6 +3,7 @@ import type { AgentDefinition } from "../../domain/agent/agent-definition";
 import { AgentName } from "../../domain/agent/agent-name";
 import { DelegationNotDeclaredError } from "../../domain/agent/errors/delegation-not-declared.error";
 import { SessionEventBatch } from "../../domain/event/session-event-batch";
+import type { LlmModel } from "../../domain/model/llm-model";
 import { AgentMaxDelegationDepthError } from "../../domain/session/errors/agent-max-delegation-depth.error";
 import type { PendingCall } from "../../domain/session/pending-call";
 import type { AgentCatalog } from "../catalog/agent-catalog";
@@ -93,10 +94,13 @@ export class DelegationRunner {
 		const target = this.targetOf(scope.definition, AgentName.from(agentName));
 		if (scope.run.depth >= MAX_DEPTH) throw new AgentMaxDelegationDepthError(scope.agent.value, MAX_DEPTH);
 
+		// Resolved once and carried: a resolver that answers by load, cost or time may answer
+		// twice differently, and journaling one model while another serves the turn makes the
+		// record of what happened disagree with what happened.
 		const model = this.models.resolve(target);
 		const child = this.runs.delegate(scope.started, target.name, scope.run.correlationId);
 		try {
-			const childProgress = await this.open(scope, child, opened, progress, target, task);
+			const childProgress = await this.open(scope, child, opened, progress, target, model, task);
 			await this.loopOrFail().run(this.scopes.delegated(scope, child, target, model), opened, childProgress);
 			if (childProgress.isSuspended) {
 				throw new DelegationSuspendedError(scope.agent.value, target.name.value);
@@ -122,9 +126,9 @@ export class DelegationRunner {
 		opened: OpenedSession,
 		progress: RunProgress,
 		target: AgentDefinition,
+		model: LlmModel,
 		task: string,
 	): Promise<RunProgress> {
-		const model = this.models.resolve(target);
 		const state = await this.sessions.commit(
 			opened.session.id,
 			progress.state.revision,

@@ -11,16 +11,16 @@ async function drain(model: RecordingModel, request: ModelRequest): Promise<Mode
 
 describe("RecordingModel", () => {
 	it("answers exactly what the model underneath answered", async () => {
-		const recording = new RecordingModel(new ScriptedModel().mockText("resposta"));
+		const recording = new RecordingModel(new ScriptedModel().mockText("answer"));
 
-		const chunks = await drain(recording, new ModelRequest([new UserMessage("oi")]));
+		const chunks = await drain(recording, new ModelRequest([new UserMessage("hi")]));
 
-		expect(chunks.map((chunk) => chunk.textDelta).join("")).toBe("resposta");
+		expect(chunks.map((chunk) => chunk.textDelta).join("")).toBe("answer");
 	});
 
 	it("keeps what was sent and everything that came back", async () => {
-		const recording = new RecordingModel(new ScriptedModel().mockText("resposta"));
-		const request = new ModelRequest([new UserMessage("oi")]);
+		const recording = new RecordingModel(new ScriptedModel().mockText("answer"));
+		const request = new ModelRequest([new UserMessage("hi")]);
 
 		await drain(recording, request);
 
@@ -30,7 +30,7 @@ describe("RecordingModel", () => {
 	});
 
 	it("records one entry per call, in order", async () => {
-		const recording = new RecordingModel(new ScriptedModel().mockText("primeira").mockText("segunda"));
+		const recording = new RecordingModel(new ScriptedModel().mockText("first").mockText("second"));
 
 		await drain(recording, new ModelRequest([new UserMessage("1")]));
 		await drain(recording, new ModelRequest([new UserMessage("2")]));
@@ -45,12 +45,12 @@ describe("RecordingModel", () => {
 	});
 
 	it("exports the traffic as something a file can hold", async () => {
-		const recording = new RecordingModel(new ScriptedModel().mockText("resposta"));
-		await drain(recording, new ModelRequest([new UserMessage("oi")]));
+		const recording = new RecordingModel(new ScriptedModel().mockText("answer"));
+		await drain(recording, new ModelRequest([new UserMessage("hi")]));
 
 		const exported = JSON.parse(JSON.stringify(recording));
 
 		expect(exported.calls).toHaveLength(1);
-		expect(JSON.stringify(exported)).toContain("resposta");
+		expect(JSON.stringify(exported)).toContain("answer");
 	});
 });

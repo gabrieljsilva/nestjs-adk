@@ -5,6 +5,8 @@ import type { LlmModel } from "../../domain/model/llm-model";
 import { PromptInstructions } from "../../domain/prompt/prompt-instructions";
 import type { SkillDefinition } from "../../domain/skill/skill-definition";
 import type { ToolDefinition } from "../../domain/tool/tool-definition";
+import { InvalidAgentMetadataError } from "./errors/invalid-agent-metadata.error";
+import { UnregisteredToolError } from "./errors/unregistered-tool.error";
 import {
 	AGENT_METADATA,
 	DELEGATES_TO_METADATA,
@@ -59,35 +61,60 @@ export class NestAgentScanner {
 		return {
 			providerName: provider.name,
 			metadata,
-			model: this.modelOf(metadata, defaultModel),
-			failover: this.failoverOf(metadata),
-			compaction: this.compactionOf(metadata),
-			instructions: this.instructionsOf(metadata),
+			model: this.modelOf(metadata, defaultModel, provider.name),
+			failover: this.failoverOf(metadata, provider.name),
+			compaction: this.compactionOf(metadata, provider.name),
+			instructions: this.instructionsOf(metadata, provider.name),
 			transfers: Reflect.getMetadata(TRANSFERS_TO_METADATA, provider.type),
 			delegations: Reflect.getMetadata(DELEGATES_TO_METADATA, provider.type),
-			tools: [...this.declaredTools(metadata, shared), ...this.ownTools(provider)],
+			tools: [...this.declaredTools(metadata, shared, provider.name), ...this.ownTools(provider)],
 			skills: this.ownSkills(provider),
 		};
 	}
 
-	private modelOf(metadata: unknown, defaultModel: LlmModel): LlmModel {
-		const declared = typeof metadata === "object" && metadata !== null ? Reflect.get(metadata, "model") : undefined;
-		return this.isModel(declared) ? declared : defaultModel;
+	/**
+	 * What the decorator wrote under this key, and nothing when it wrote nothing.
+	 *
+	 * The difference between the two is the whole rule for every optional field below. Absent
+	 * means the agent asked for the default and gets it. Present and wrong means the developer
+	 * declared something and would otherwise be handed the default anyway, believing they had
+	 * configured the agent, which is the failure this reader exists to make loud.
+	 */
+	private declaredField(metadata: unknown, key: string): unknown {
+		return typeof metadata === "object" && metadata !== null ? Reflect.get(metadata, key) : undefined;
 	}
 
-	/** An agent may hand the module a model instance; anything else falls back to the default. */
+	private modelOf(metadata: unknown, defaultModel: LlmModel, providerName: string): LlmModel {
+		const declared = this.declaredField(metadata, "model");
+		if (declared === undefined) return defaultModel;
+		if (this.isModel(declared)) return declared;
+		throw new InvalidAgentMetadataError(
+			providerName,
+			"model is not a model. @Agent takes an LlmModel instance, not the name of one.",
+		);
+	}
+
+	/** An agent may hand the module a model instance, which is anything that can generate. */
 	private isModel(value: unknown): value is LlmModel {
 		return typeof value === "object" && value !== null && typeof Reflect.get(value, "generate") === "function";
 	}
 
-	/** A list of models becomes a sequential walk; a policy stays itself; anything else is none. */
-	private failoverOf(metadata: unknown): AgentFailoverPolicy | undefined {
-		const declared = typeof metadata === "object" && metadata !== null ? Reflect.get(metadata, "failover") : undefined;
-		if (Array.isArray(declared)) {
-			const models = declared.filter((entry): entry is LlmModel => this.isModel(entry));
-			return models.length > 0 && models.length === declared.length ? new SequentialFailoverPolicy(models) : undefined;
+	/** A list of models becomes a sequential walk, and a policy stays itself. */
+	private failoverOf(metadata: unknown, providerName: string): AgentFailoverPolicy | undefined {
+		const declared = this.declaredField(metadata, "failover");
+		if (declared === undefined) return undefined;
+		if (this.isFailoverPolicy(declared)) return declared;
+		if (!Array.isArray(declared)) {
+			throw new InvalidAgentMetadataError(providerName, "failover is neither a list of models nor a policy.");
 		}
-		return this.isFailoverPolicy(declared) ? declared : undefined;
+		if (declared.length === 0) {
+			throw new InvalidAgentMetadataError(providerName, "failover is an empty list. Leave it out to declare none.");
+		}
+		const wrong = declared.findIndex((entry) => !this.isModel(entry));
+		if (wrong >= 0) {
+			throw new InvalidAgentMetadataError(providerName, `failover entry ${wrong} is not a model.`);
+		}
+		return new SequentialFailoverPolicy(declared as LlmModel[]);
 	}
 
 	private isFailoverPolicy(value: unknown): value is AgentFailoverPolicy {
@@ -95,29 +122,56 @@ export class NestAgentScanner {
 	}
 
 	/** Absent means the module's policy answers for this agent, which may itself be absent. */
-	private compactionOf(metadata: unknown): AdkCompactionPolicy | undefined {
-		const declared = typeof metadata === "object" && metadata !== null ? Reflect.get(metadata, "compaction") : undefined;
-		return this.isCompaction(declared) ? declared : undefined;
+	private compactionOf(metadata: unknown, providerName: string): AdkCompactionPolicy | undefined {
+		const declared = this.declaredField(metadata, "compaction");
+		if (declared === undefined) return undefined;
+		if (this.isCompaction(declared)) return declared;
+		throw new InvalidAgentMetadataError(providerName, "compaction cannot decide anything: it has no decide method.");
 	}
 
 	private isCompaction(value: unknown): value is AdkCompactionPolicy {
 		return typeof value === "object" && value !== null && typeof Reflect.get(value, "decide") === "function";
 	}
 
-	private instructionsOf(metadata: unknown): PromptInstructions | undefined {
-		const prompt = typeof metadata === "object" && metadata !== null ? Reflect.get(metadata, "prompt") : undefined;
-		return typeof prompt === "string" ? PromptInstructions.from(prompt) : undefined;
+	private instructionsOf(metadata: unknown, providerName: string): PromptInstructions | undefined {
+		const prompt = this.declaredField(metadata, "prompt");
+		if (prompt === undefined) return undefined;
+		if (typeof prompt === "string") return PromptInstructions.from(prompt);
+		throw new InvalidAgentMetadataError(providerName, "prompt is not a string.");
 	}
 
-	private declaredTools(metadata: unknown, shared: Map<unknown, ToolDefinition>): readonly ToolDefinition[] {
-		const declared = typeof metadata === "object" && metadata !== null ? Reflect.get(metadata, "tools") : undefined;
-		if (!Array.isArray(declared)) return [];
-		const found: ToolDefinition[] = [];
-		for (const entry of declared) {
+	/**
+	 * A listed tool that resolves to nothing is a boot failure, not a shorter list.
+	 *
+	 * The lookup is by the token the agent wrote, so an overridden provider still answers here:
+	 * what does not answer is a tool nobody registered, and dropping it would hand the model an
+	 * agent quietly missing the one thing it was built to do.
+	 */
+	private declaredTools(
+		metadata: unknown,
+		shared: Map<unknown, ToolDefinition>,
+		providerName: string,
+	): readonly ToolDefinition[] {
+		const declared = this.declaredField(metadata, "tools");
+		if (declared === undefined) return [];
+		if (!Array.isArray(declared)) throw new InvalidAgentMetadataError(providerName, "tools is not a list.");
+		return declared.map((entry) => {
 			const tool = shared.get(entry);
-			if (tool !== undefined) found.push(tool);
-		}
-		return found;
+			if (tool === undefined) {
+				throw new UnregisteredToolError(
+					providerName,
+					this.nameOf(entry),
+					[...shared.values()].map((registered) => registered.name),
+				);
+			}
+			return tool;
+		});
+	}
+
+	/** A class is named by its own name, and anything else by what it prints as. */
+	private nameOf(entry: unknown): string {
+		const declared = typeof entry === "function" ? Reflect.get(entry, "name") : undefined;
+		return typeof declared === "string" && declared.length > 0 ? declared : String(entry);
 	}
 
 	private ownTools(provider: ScannedProvider): readonly ToolDefinition[] {

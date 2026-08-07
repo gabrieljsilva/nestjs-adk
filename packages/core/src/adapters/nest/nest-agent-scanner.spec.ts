@@ -4,6 +4,8 @@ import { z } from "zod";
 import { SequentialFailoverPolicy } from "../../domain/agent/sequential-failover-policy";
 import { TokenThresholdCompactionPolicy } from "../../domain/context/token-threshold-compaction-policy";
 import { ScriptedModel } from "../../support/run/scripted-model.fixture";
+import { InvalidAgentMetadataError } from "./errors/invalid-agent-metadata.error";
+import { UnregisteredToolError } from "./errors/unregistered-tool.error";
 import {
 	AGENT_METADATA,
 	DELEGATES_TO_METADATA,
@@ -80,6 +82,62 @@ describe("NestAgentScanner", () => {
 		expect(agent?.tools?.map((tool) => tool.name)).toEqual(["lookup_order", "refund"]);
 	});
 
+	/**
+	 * A listed tool nobody registered used to leave a shorter list and no complaint.
+	 *
+	 * The agent still boots, still answers, and is simply missing the tool it exists to call,
+	 * which surfaces as a model that will not do its job rather than as a wiring mistake. The
+	 * usual cause is a class in `tools` and not in `providers`, so the message names both what
+	 * was asked for and what the container actually declared.
+	 */
+	it("refuses an agent that lists a tool the container never declared", () => {
+		const orphan = [new ScannedProvider("SupportAgent", SupportAgent, new SupportAgent())];
+
+		expect(() => new NestAgentScanner().scan(orphan, MODEL)).toThrow(UnregisteredToolError);
+		expect(() => new NestAgentScanner().scan(orphan, MODEL)).toThrow(/SupportAgent lists LookupTool/);
+	});
+
+	it("names the tools it did find, which is where the missing one was expected to be", () => {
+		const orphan = [new ScannedProvider("SupportAgent", SupportAgent, new SupportAgent())];
+
+		expect(() => new NestAgentScanner().scan(orphan, MODEL)).toThrow(/Registered tools: none/);
+	});
+
+	/**
+	 * The half of the message that helps: a tool that IS registered, listed next to the one
+	 * that is not. The usual cause is a class in `tools` and not in `providers`, and seeing
+	 * what did resolve is what tells the reader which of the two mistakes they made.
+	 */
+	it("lists the tools that did resolve, so the missing one stands out among them", () => {
+		class OtherAgent {}
+		Reflect.defineMetadata(
+			AGENT_METADATA,
+			{ name: "other", description: "Lists a stranger.", tools: [PlainService] },
+			OtherAgent,
+		);
+		const providers = [
+			new ScannedProvider("LookupTool", LookupTool, new LookupTool()),
+			new ScannedProvider("OtherAgent", OtherAgent, new OtherAgent()),
+		];
+
+		expect(() => new NestAgentScanner().scan(providers, MODEL)).toThrow(/Registered tools: lookup_order/);
+		expect(() => new NestAgentScanner().scan(providers, MODEL)).toThrow(/lists PlainService/);
+	});
+
+	/** A name where a class belongs: the mistake of reading `tools` as the names the model calls. */
+	it("refuses a tool listed by name instead of by class, and prints the name", () => {
+		class NamingAgent {}
+		Reflect.defineMetadata(
+			AGENT_METADATA,
+			{ name: "naming", description: "Lists a string.", tools: ["lookup_order"] },
+			NamingAgent,
+		);
+
+		expect(() =>
+			new NestAgentScanner().scan([new ScannedProvider("NamingAgent", NamingAgent, new NamingAgent())], MODEL),
+		).toThrow(/lists lookup_order among its tools/);
+	});
+
 	it("reads a skill declared on the agent", () => {
 		const [agent] = new NestAgentScanner().scan(scanned(), MODEL);
 
@@ -133,16 +191,23 @@ describe("NestAgentScanner", () => {
 		expect(agent?.compaction).toBeUndefined();
 	});
 
-	it("ignores a compaction that cannot decide anything", () => {
+	/**
+	 * Declared and wrong is not the same as absent, and the difference is the whole rule.
+	 *
+	 * An agent that says nothing about compaction gets the module's policy, which is what the
+	 * default is for. An agent that declares one the runtime cannot use would get the same
+	 * thing, silently, while the developer believes the agent is configured. That is the case
+	 * worth a boot failure: nothing downstream can tell the two apart.
+	 */
+	it("refuses a compaction that cannot decide anything", () => {
 		class BrokenAgent {}
 		Reflect.defineMetadata(AGENT_METADATA, { name: "b", description: "d", compaction: { limit: 10 } }, BrokenAgent);
 
-		const [agent] = new NestAgentScanner().scan(
-			[new ScannedProvider("BrokenAgent", BrokenAgent, new BrokenAgent())],
-			MODEL,
-		);
+		const scan = () =>
+			new NestAgentScanner().scan([new ScannedProvider("BrokenAgent", BrokenAgent, new BrokenAgent())], MODEL);
 
-		expect(agent?.compaction).toBeUndefined();
+		expect(scan).toThrow(InvalidAgentMetadataError);
+		expect(scan).toThrow(/BrokenAgent.*compaction cannot decide anything/);
 	});
 
 	it("turns the declared prompt into instructions", () => {
@@ -180,19 +245,59 @@ describe("NestAgentScanner", () => {
 		expect(agent?.failover).toBe(policy);
 	});
 
-	it("declares no failover when the list carries something that is not a model", () => {
+	/** One bad entry used to cancel the whole chain, so a typo left the agent with no failover. */
+	it("refuses a failover list carrying something that is not a model, and says which entry", () => {
 		class BrokenFailoverAgent {}
 		Reflect.defineMetadata(
 			AGENT_METADATA,
-			{ name: "bf", description: "d", failover: [{ notAModel: true }] },
+			{ name: "bf", description: "d", failover: [MODEL, { notAModel: true }] },
 			BrokenFailoverAgent,
 		);
 
-		const [agent] = new NestAgentScanner().scan(
-			[new ScannedProvider("BrokenFailoverAgent", BrokenFailoverAgent, new BrokenFailoverAgent())],
-			MODEL,
-		);
+		const scan = () =>
+			new NestAgentScanner().scan(
+				[new ScannedProvider("BrokenFailoverAgent", BrokenFailoverAgent, new BrokenFailoverAgent())],
+				MODEL,
+			);
 
+		expect(scan).toThrow(InvalidAgentMetadataError);
+		expect(scan).toThrow(/failover entry 1 is not a model/);
+	});
+
+	it("refuses a model that is the name of one instead of one", () => {
+		class NamedModelAgent {}
+		Reflect.defineMetadata(AGENT_METADATA, { name: "nm", description: "d", model: "gpt-5.6-luna" }, NamedModelAgent);
+
+		const scan = () =>
+			new NestAgentScanner().scan([new ScannedProvider("NamedModelAgent", NamedModelAgent, new NamedModelAgent())], MODEL);
+
+		expect(scan).toThrow(/model is not a model/);
+	});
+
+	it("refuses a prompt that is not a string", () => {
+		class NumericPromptAgent {}
+		Reflect.defineMetadata(AGENT_METADATA, { name: "np", description: "d", prompt: 42 }, NumericPromptAgent);
+
+		const scan = () =>
+			new NestAgentScanner().scan(
+				[new ScannedProvider("NumericPromptAgent", NumericPromptAgent, new NumericPromptAgent())],
+				MODEL,
+			);
+
+		expect(scan).toThrow(/prompt is not a string/);
+	});
+
+	/** The other half of the rule: saying nothing still means the default, for every field. */
+	it("leaves an agent that declared none of the optional fields on the defaults", () => {
+		class BareAgent {}
+		Reflect.defineMetadata(AGENT_METADATA, { name: "bare", description: "d" }, BareAgent);
+
+		const [agent] = new NestAgentScanner().scan([new ScannedProvider("BareAgent", BareAgent, new BareAgent())], MODEL);
+
+		expect(agent?.model).toBe(MODEL);
 		expect(agent?.failover).toBeUndefined();
+		expect(agent?.compaction).toBeUndefined();
+		expect(agent?.instructions).toBeUndefined();
+		expect(agent?.tools).toEqual([]);
 	});
 });

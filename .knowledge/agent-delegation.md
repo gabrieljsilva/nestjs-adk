@@ -7,6 +7,8 @@ tags: [core, agents, sessions, delegation]
 
 Delegation is an agent asking a specialist one question and carrying on with the answer. It is the opposite of a transfer, and one sentence separates them: **a delegation never changes the active agent of the session**.
 
+`@DelegatesTo(ResearcherAgent)` declares the edge, in the same three forms and with the same resolution as a transfer: see [[agent-transfer]].
+
 ## A delegation is a run
 
 The child has its own agent, model, tools, context and budget. What makes it a delegation rather than a second conversation is that it happens inside the parent's run, writes to the same journal, and hands its answer back as the result of the call that asked for it.

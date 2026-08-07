@@ -74,6 +74,11 @@ export class AdkTestBed {
 		await this.module.close();
 	}
 
+	/** Lets a test own the bed lexically with `await using`, including cleanup after failures. */
+	public async [Symbol.asyncDispose](): Promise<void> {
+		await this.close();
+	}
+
 	private readonly agents = new Map<string, TestAgent>();
 
 	/** A class carries its declared name in metadata; a string is already the name. */

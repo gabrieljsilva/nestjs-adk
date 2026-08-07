@@ -76,7 +76,6 @@ describe("@nestjs-adk/testing subpaths", () => {
 			"ToolFake",
 			"AgentStub",
 			"RecordingModel",
-			"ApiKeyGate",
 			"TestImage",
 			"TestingEmbedder",
 			"LlmJudge",
@@ -96,7 +95,6 @@ describe("@nestjs-adk/testing subpaths", () => {
 			"ScriptMisuseError",
 			"ScriptNotConsumedError",
 			"NothingAwaitingError",
-			"MissingApiKeyError",
 			"UnknownTestAgentError",
 			"UnscriptedAgentError",
 		]) {

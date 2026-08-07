@@ -40,7 +40,7 @@ const STUB_RUN = "stub-run";
  */
 export class AgentStub {
 	private readonly answers: AgentResult[] = [];
-	private fallback: AgentResult = AgentStub.completed("respondido");
+	private fallback: AgentResult = AgentStub.completed("answered");
 
 	public readonly asks: StubbedAsk[] = [];
 	public readonly decisions: StubbedDecision[] = [];

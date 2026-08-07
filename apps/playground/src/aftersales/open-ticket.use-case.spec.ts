@@ -1,5 +1,5 @@
 import { Clock, IdGenerator, Instant } from "@nestjs-adk/core";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { StoreDatabase } from "../shared/store-database";
 import { OrderNotFoundError } from "./errors/order-not-found.error";
 import { OpenTicketUseCase } from "./open-ticket.use-case";
@@ -21,30 +21,37 @@ class FixedClock extends Clock {
 	}
 }
 
-let useCase: OpenTicketUseCase;
-
-beforeEach(() => {
-	const database = new StoreDatabase();
-	const orders = new OrderRepository(database);
-	orders.save(Order.of("A-1042", "Ana", "Controle", 34_900, "gold", "2026-08-03T12:00:00.000Z", "delivered"));
-	const tickets = new TicketService(
-		new OrderService(orders),
-		new TicketRepository(database),
-		new FixedIds(),
-		new FixedClock(),
-	);
-	useCase = new OpenTicketUseCase(tickets);
-});
-
 describe("OpenTicketUseCase", () => {
 	it("opens the ticket and answers it", () => {
-		const ticket = useCase.execute("A-1042", "quebrado", "session-9");
+		const database = new StoreDatabase();
+		const orders = new OrderRepository(database);
+		orders.save(Order.of("A-1042", "Ana", "Controller", 34_900, "gold", "2026-08-03T12:00:00.000Z", "delivered"));
+		const tickets = new TicketService(
+			new OrderService(orders),
+			new TicketRepository(database),
+			new FixedIds(),
+			new FixedClock(),
+		);
+		const useCase = new OpenTicketUseCase(tickets);
+
+		const ticket = useCase.execute("A-1042", "broken", "session-9");
 
 		expect(ticket.id).toBe("T-1");
 		expect(ticket.sessionId).toBe("session-9");
 	});
 
 	it("passes the refusal through", () => {
-		expect(() => useCase.execute("A-9", "quebrado")).toThrow(OrderNotFoundError);
+		const database = new StoreDatabase();
+		const orders = new OrderRepository(database);
+		orders.save(Order.of("A-1042", "Ana", "Controller", 34_900, "gold", "2026-08-03T12:00:00.000Z", "delivered"));
+		const tickets = new TicketService(
+			new OrderService(orders),
+			new TicketRepository(database),
+			new FixedIds(),
+			new FixedClock(),
+		);
+		const useCase = new OpenTicketUseCase(tickets);
+
+		expect(() => useCase.execute("A-9", "broken")).toThrow(OrderNotFoundError);
 	});
 });

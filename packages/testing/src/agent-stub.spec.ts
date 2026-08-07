@@ -4,33 +4,33 @@ import { AgentStub } from "./agent-stub";
 
 describe("AgentStub", () => {
 	it("answers the same words until a queued answer says otherwise", async () => {
-		const stub = new AgentStub().answersWith("respondido");
+		const stub = new AgentStub().answersWith("answered");
 
-		expect((await stub.ask("oi")).text).toBe("respondido");
-		expect((await stub.ask("de novo")).text).toBe("respondido");
+		expect((await stub.ask("hi")).text).toBe("answered");
+		expect((await stub.ask("again")).text).toBe("answered");
 	});
 
 	it("takes queued answers in order, then falls back", async () => {
-		const stub = new AgentStub().answersWith("padrão").thenAnswers("primeira").thenAnswers("segunda");
+		const stub = new AgentStub().answersWith("default").thenAnswers("first").thenAnswers("second");
 
-		expect((await stub.ask("1")).text).toBe("primeira");
-		expect((await stub.ask("2")).text).toBe("segunda");
-		expect((await stub.ask("3")).text).toBe("padrão");
+		expect((await stub.ask("1")).text).toBe("first");
+		expect((await stub.ask("2")).text).toBe("second");
+		expect((await stub.ask("3")).text).toBe("default");
 	});
 
 	it("records what the caller handed it, unchanged", async () => {
 		const stub = new AgentStub();
 
-		await stub.ask("meu controle chegou quebrado", { sessionId: "session-9" });
+		await stub.ask("my controller arrived broken", { sessionId: "session-9" });
 
-		expect(stub.asks.map((ask) => ask.message)).toEqual(["meu controle chegou quebrado"]);
+		expect(stub.asks.map((ask) => ask.message)).toEqual(["my controller arrived broken"]);
 		expect(stub.lastOptions.sessionId).toBe("session-9");
 	});
 
 	it("answers empty options for a question that carried none", async () => {
 		const stub = new AgentStub();
 
-		await stub.ask("oi");
+		await stub.ask("hi");
 
 		expect(stub.lastOptions).toEqual({});
 	});
@@ -38,7 +38,7 @@ describe("AgentStub", () => {
 	it("answers empty options for a question that carried only a session id", async () => {
 		const stub = new AgentStub();
 
-		await stub.ask("oi", SessionId.from("session-1"));
+		await stub.ask("hi", SessionId.from("session-1"));
 
 		expect(stub.lastOptions).toEqual({});
 	});
@@ -46,7 +46,7 @@ describe("AgentStub", () => {
 	it("hands back a run that stopped in front of a human", async () => {
 		const stub = new AgentStub().answersWith(AgentStub.awaiting("issue_refund", { orderId: "A-1042" }));
 
-		const result = await stub.ask("devolve");
+		const result = await stub.ask("refund it");
 
 		expect(result.status.equals(AgentRunStatus.SUSPENDED)).toBe(true);
 		expect(result.awaiting.at(0)?.toolName).toBe("issue_refund");
@@ -56,17 +56,17 @@ describe("AgentStub", () => {
 	it("records a decision with everything the caller passed", async () => {
 		const stub = new AgentStub();
 
-		await stub.approve("session-1", ToolCallId.from("call-1"), "gerente@nebula.test");
-		await stub.reject("session-1", ToolCallId.from("call-2"), "fora da janela", "gerente@nebula.test");
+		await stub.approve("session-1", ToolCallId.from("call-1"), "manager@nebula.test");
+		await stub.reject("session-1", ToolCallId.from("call-2"), "outside the window", "manager@nebula.test");
 
 		expect(stub.decisions).toEqual([
-			{ kind: "approve", sessionId: "session-1", callId: "call-1", by: "gerente@nebula.test" },
+			{ kind: "approve", sessionId: "session-1", callId: "call-1", by: "manager@nebula.test" },
 			{
 				kind: "reject",
 				sessionId: "session-1",
 				callId: "call-2",
-				reason: "fora da janela",
-				by: "gerente@nebula.test",
+				reason: "outside the window",
+				by: "manager@nebula.test",
 			},
 		]);
 	});

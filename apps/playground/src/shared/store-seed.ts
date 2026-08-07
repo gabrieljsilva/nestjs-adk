@@ -20,12 +20,12 @@ const OLD_DAYS = 40;
  * model made up.
  */
 const SHELF: readonly Game[] = [
-	Game.of("elden-ring-nightreign", "Elden Ring Nightreign", "ps5", "acao", 27_990, true),
+	Game.of("elden-ring-nightreign", "Elden Ring Nightreign", "ps5", "action", 27_990, true),
 	Game.of("hollow-knight-silksong", "Hollow Knight Silksong", "switch", "metroidvania", 8_490, true),
-	Game.of("gran-turismo-8", "Gran Turismo 8", "ps5", "corrida", 34_990, false),
+	Game.of("gran-turismo-8", "Gran Turismo 8", "ps5", "racing", 34_990, false),
 	Game.of("halo-forge", "Halo Forge", "xbox", "tiro", 19_990, true),
-	Game.of("stardew-valley", "Stardew Valley", "pc", "simulacao", 2_490, true),
-	Game.of("ea-fc-27", "EA FC 27", "ps5", "esporte", 29_990, false),
+	Game.of("stardew-valley", "Stardew Valley", "pc", "simulation", 2_490, true),
+	Game.of("ea-fc-27", "EA FC 27", "ps5", "sports", 29_990, false),
 ];
 
 /**
@@ -58,7 +58,7 @@ export class StoreSeed implements OnModuleInit {
 			Order.of(
 				"A-1042",
 				"Ana Ribeiro",
-				"Controle sem fio DualSense Nitro",
+				"DualSense Nitro Wireless Controller",
 				34_900,
 				"gold",
 				this.daysAgo(RECENT_DAYS),

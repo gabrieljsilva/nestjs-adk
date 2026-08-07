@@ -2,23 +2,17 @@ import { describe, expect, it } from "vitest";
 import { Attachment } from "./attachment";
 import { InvalidAttachmentError } from "./errors/invalid-attachment.error";
 
-const PHOTO = "https://files.example.test/controle-quebrado.jpg";
-const RECEIPT = "https://files.example.test/nota.pdf";
-
-/** One red pixel, PNG, base64: the smallest thing a provider still decodes. */
-const RED_PIXEL = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
-
 describe("Attachment", () => {
 	it("keeps where the file is and what it is", () => {
-		const attachment = Attachment.of(PHOTO, "image/jpeg");
+		const attachment = Attachment.of("https://files.example.test/broken-controller.jpg", "image/jpeg");
 
-		expect(attachment.url).toBe(PHOTO);
+		expect(attachment.url).toBe("https://files.example.test/broken-controller.jpg");
 		expect(attachment.mediaType).toBe("image/jpeg");
 		expect(attachment.isImage).toBe(true);
 	});
 
 	it("knows a file that is not a picture", () => {
-		expect(Attachment.of(RECEIPT, "application/pdf").isImage).toBe(false);
+		expect(Attachment.of("https://files.example.test/invoice.pdf", "application/pdf").isImage).toBe(false);
 	});
 
 	it("refuses an address the store cannot fetch", () => {
@@ -27,14 +21,16 @@ describe("Attachment", () => {
 	});
 
 	it("refuses something that is not a media type", () => {
-		expect(() => Attachment.of(PHOTO, "jpeg")).toThrow(InvalidAttachmentError);
-		expect(() => Attachment.of(PHOTO, "")).toThrow(InvalidAttachmentError);
+		expect(() => Attachment.of("https://files.example.test/broken-controller.jpg", "jpeg")).toThrow(
+			InvalidAttachmentError,
+		);
+		expect(() => Attachment.of("https://files.example.test/broken-controller.jpg", "")).toThrow(InvalidAttachmentError);
 	});
 
 	it("reads a list of attachments out of a request body", () => {
 		const list = Attachment.listFrom([
-			{ url: PHOTO, mediaType: "image/jpeg" },
-			{ url: RECEIPT, mediaType: "application/pdf" },
+			{ url: "https://files.example.test/broken-controller.jpg", mediaType: "image/jpeg" },
+			{ url: "https://files.example.test/invoice.pdf", mediaType: "application/pdf" },
 		]);
 
 		expect(list).toHaveLength(2);
@@ -47,8 +43,10 @@ describe("Attachment", () => {
 	});
 
 	it("refuses a body that says it has attachments and does not", () => {
-		expect(() => Attachment.listFrom("uma foto")).toThrow(InvalidAttachmentError);
-		expect(() => Attachment.listFrom([{ url: PHOTO }])).toThrow(InvalidAttachmentError);
+		expect(() => Attachment.listFrom("a photo")).toThrow(InvalidAttachmentError);
+		expect(() => Attachment.listFrom([{ url: "https://files.example.test/broken-controller.jpg" }])).toThrow(
+			InvalidAttachmentError,
+		);
 		expect(() => Attachment.listFrom([{ mediaType: "image/jpeg" }])).toThrow(InvalidAttachmentError);
 	});
 
@@ -60,7 +58,10 @@ describe("Attachment", () => {
 	 * need.
 	 */
 	it("takes the bytes themselves, with no address behind them", () => {
-		const attachment = Attachment.bytes(RED_PIXEL, "image/png");
+		const attachment = Attachment.bytes(
+			"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+			"image/png",
+		);
 
 		expect(attachment.isHosted).toBe(false);
 		expect(attachment.url).toBeUndefined();
@@ -69,21 +70,41 @@ describe("Attachment", () => {
 
 	it("refuses bytes that are not there", () => {
 		expect(() => Attachment.bytes("", "image/png")).toThrow(InvalidAttachmentError);
-		expect(() => Attachment.bytes(RED_PIXEL, "png")).toThrow(InvalidAttachmentError);
+		expect(() =>
+			Attachment.bytes(
+				"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+				"png",
+			),
+		).toThrow(InvalidAttachmentError);
 	});
 
 	it("reads bytes out of a request body, alongside an address in the same list", () => {
 		const list = Attachment.listFrom([
-			{ url: PHOTO, mediaType: "image/jpeg" },
-			{ base64: RED_PIXEL, mediaType: "image/png" },
+			{ url: "https://files.example.test/broken-controller.jpg", mediaType: "image/jpeg" },
+			{
+				base64: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+				mediaType: "image/png",
+			},
 		]);
 
 		expect(list.map((attachment) => attachment.isHosted)).toEqual([true, false]);
 	});
 
 	it("hands the runtime a link for an address and an image for bytes", () => {
-		expect(Attachment.of(PHOTO, "image/jpeg").toMediaPart().url).toBe(PHOTO);
-		expect(Attachment.bytes(RED_PIXEL, "image/png").toMediaPart().url).toBeUndefined();
-		expect(Attachment.bytes(RED_PIXEL, "image/png").toMediaPart().mediaType).toBe("image/png");
+		expect(Attachment.of("https://files.example.test/broken-controller.jpg", "image/jpeg").toMediaPart().url).toBe(
+			"https://files.example.test/broken-controller.jpg",
+		);
+		expect(
+			Attachment.bytes(
+				"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+				"image/png",
+			).toMediaPart().url,
+		).toBeUndefined();
+		expect(
+			Attachment.bytes(
+				"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+				"image/png",
+			).toMediaPart().mediaType,
+		).toBe("image/png");
 	});
 });

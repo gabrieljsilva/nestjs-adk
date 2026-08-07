@@ -9,9 +9,9 @@ import {
 } from "@nestjs-adk/core";
 
 const INSTRUCTIONS = [
-	"Você resume o começo de uma conversa de atendimento que precisa ser encurtada.",
-	"Guarde o que o cliente pediu, os números que apareceram (pedidos, valores, planos) e o que já foi decidido.",
-	"Escreva em no máximo quatro frases, em português, sem saudação e sem oferecer ajuda.",
+	"You summarize the beginning of a customer service conversation that needs to be shortened.",
+	"Keep what the customer requested, every number mentioned (orders, amounts, plans), and what has already been decided.",
+	"Write at most four sentences in English, without a greeting or an offer to help.",
 ].join(" ");
 
 /** What a dropped turn looks like when it is handed to the model as text. */
@@ -47,7 +47,7 @@ export class StoreSummarizer extends ContextSummarizer {
 
 	private requestFor(conversation: string): ModelRequest {
 		return new ModelRequest(
-			[new UserMessage(`Resuma esta conversa:\n\n${conversation}`)],
+			[new UserMessage(`Summarize this conversation:\n\n${conversation}`)],
 			[],
 			PromptInstructions.from(INSTRUCTIONS),
 		);

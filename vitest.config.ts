@@ -2,6 +2,8 @@ import { resolve } from "node:path";
 import swc from "unplugin-swc";
 import { defineConfig } from "vitest/config";
 
+process.loadEnvFile(resolve(__dirname, ".env"));
+
 export default defineConfig({
 	resolve: {
 		alias: {
@@ -57,13 +59,10 @@ export default defineConfig({
 				test: {
 					name: "playground:agents",
 					include: ["apps/playground/**/*.ai.spec.ts"],
+					disableConsoleIntercept: true,
 					// One file at a time: these talk to a real provider on one key, and four suites
 					// at once spend the per minute quota on rate limit errors instead of on answers.
 					fileParallelism: false,
-					// A 429 is the provider saying "later", not the code being wrong. One retry, after
-					// the pause the suite already takes between cases, is what turns it back into an
-					// answer. Anything that fails twice failed for a reason worth reading.
-					retry: 1,
 				},
 			},
 		],

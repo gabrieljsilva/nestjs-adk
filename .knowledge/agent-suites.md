@@ -43,11 +43,13 @@ Three findings, each of which cost a red suite before it was understood. They li
 
 **A parallel call is streamed unsigned.** Asked for two tools at once, the provider sends one call per chunk and puts the `thoughtSignature` on the first one only. Sent back as two turns, the unsigned one is a 400 naming the tool. The adapter folds an unsigned call into the signed answer before it, which is the shape the provider documents.
 
-**A session cannot be transferred into a Gemini agent.** Measured: with the concierge on OpenAI and the warranty sector on `gemini-3.5-flash-lite`, the transfer lands and the next call is a 400: "Function call is missing a thought_signature in functionCall parts ... `transfer_to_agent`". The call that moved the conversation was written by another provider and has no signature Gemini will accept, and the agent it landed on reads a journal that contains it. The run fails with `ModelsExhaustedError` carrying that message.
+**A call written by another provider needs a placeholder signature.** Measured before the adapter handled it: with the concierge on OpenAI and the warranty sector on `gemini-3.5-flash-lite`, the transfer landed and the next call was a 400, "Function call is missing a thought_signature in functionCall parts ... `transfer_to_agent`", and the run died with `ModelsExhaustedError`. The call that moved the conversation was written elsewhere and had no signature Gemini would accept.
 
-Delegation crosses providers cleanly, and the difference is the context: a delegate is handed a task and starts from nothing, so nothing another provider wrote reaches it. That is the shape `concierge.ai.spec.ts` uses for the cross provider case.
+The adapter now fills those in with the dummy signature Google documents for this exact case, scoped to the turn being answered, which is the only stretch Gemini validates. See [[cross-provider-history]] for what that costs and where the rule lives. The same fix covers a failover that reroutes a turn from one provider to another, which is the more common way a conversation changes model.
 
-The other direction is a different problem rather than a fix: asked about a broken product, `gemini-3.5-flash-lite` as the concierge answers in prose instead of reaching for `transfer_to_agent` at all.
+Delegation was already clean, and the difference is the context: a delegate is handed a task and starts from nothing, so nothing another provider wrote reaches it. That is still the shape `concierge.ai.spec.ts` uses for the cross provider case, because it costs one call less.
+
+The other direction is a different problem and not fixed: asked about a broken product, `gemini-3.5-flash-lite` as the concierge answers in prose instead of reaching for `transfer_to_agent` at all.
 
 **The index counts calls in an answer, not in a chunk.** Both parallel calls arrive as part zero of their own chunk, so an index counted per chunk collides and the executor concatenates their arguments into one call: `{"orderId":"A-1042"}{"plan":"gold"}`.
 

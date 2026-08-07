@@ -46,22 +46,22 @@ function says(text: string): Queue {
  */
 function scriptedBed(scripts: { billing?: Queue; warranty?: Queue; concierge?: Queue } = {}): AdkTestBedBuilder {
 	return AdkTestBedBuilder.for(storeModule())
-		.withScript(BillingAgent, scripts.billing ?? says("pronto"))
-		.withScript(WarrantyAgent, scripts.warranty ?? says("garantia de 90 dias"))
-		.withScript(ConciergeAgent, scripts.concierge ?? says("olá"));
+		.withScript(BillingAgent, scripts.billing ?? says("done"))
+		.withScript(WarrantyAgent, scripts.warranty ?? says("90-day warranty"))
+		.withScript(ConciergeAgent, scripts.concierge ?? says("hello"));
 }
 
 describe("AdkTestBed, over the application it booted", () => {
 	it("answers a question through the agent the application declared", async () => {
 		bed = await AdkTestBedBuilder.for(storeModule())
 			.withScript(BillingAgent, (script) =>
-				script.mockToolCall("find_order", { orderId: ORDER }).mockText("O pedido custou 349 reais."),
+				script.mockToolCall("find_order", { orderId: ORDER }).mockText("The order cost 349 reais."),
 			)
 			.withScript(WarrantyAgent, (script) => script.mockText("ok"))
 			.withScript(ConciergeAgent, (script) => script.mockText("ok"))
 			.boot();
 
-		const run = await bed.agent(BillingAgent).ask(`Quanto custou o pedido ${ORDER}?`);
+		const run = await bed.agent(BillingAgent).ask(`How much did order ${ORDER} cost?`);
 
 		expect(run.text).toContain("349");
 		expect(run.toolsRun).toEqual(["find_order"]);
@@ -70,12 +70,12 @@ describe("AdkTestBed, over the application it booted", () => {
 	it("carries the evidence of the run it answered, not of every run in the suite", async () => {
 		bed = await scriptedBed({
 			billing: (script) =>
-				script.mockToolCall("find_order", { orderId: ORDER }).mockText("pronto").mockText("segunda resposta"),
+				script.mockToolCall("find_order", { orderId: ORDER }).mockText("done").mockText("second response"),
 		}).boot();
 		const billing = bed.agent(BillingAgent);
 
-		const first = await billing.ask("primeira");
-		const second = await billing.newSession().ask("segunda");
+		const first = await billing.ask("first");
+		const second = await billing.newSession().ask("second");
 
 		expect(first.toolsRun).toEqual(["find_order"]);
 		expect(second.toolsRun).toEqual([]);
@@ -84,13 +84,13 @@ describe("AdkTestBed, over the application it booted", () => {
 
 	it("keeps one conversation across questions, and opens another when told to", async () => {
 		bed = await scriptedBed({
-			concierge: (script) => script.mockText("olá").mockText("de novo").mockText("nova conversa"),
+			concierge: (script) => script.mockText("hello").mockText("again").mockText("new conversation"),
 		}).boot();
 		const concierge = bed.agent(ConciergeAgent);
 
-		const first = await concierge.ask("oi");
-		const second = await concierge.ask("de novo");
-		const third = await concierge.newSession().ask("outra");
+		const first = await concierge.ask("hi");
+		const second = await concierge.ask("again");
+		const third = await concierge.newSession().ask("another");
 
 		expect(second.sessionId.value).toBe(first.sessionId.value);
 		expect(third.sessionId.value).not.toBe(first.sessionId.value);
@@ -103,12 +103,12 @@ describe("AdkTestBed, over the application it booted", () => {
 	});
 
 	it("records a run a use case started, which the test never asked for itself", async () => {
-		bed = await scriptedBed({ concierge: says("respondido pelo concierge") }).boot();
+		bed = await scriptedBed({ concierge: says("answered by the concierge") }).boot();
 
-		const answer = await bed.get(SendMessageUseCase).execute("oi");
+		const answer = await bed.get(SendMessageUseCase).execute("hi");
 
-		expect(answer).toBe("respondido pelo concierge");
-		expect(bed.events.assistantMessages).toContain("respondido pelo concierge");
+		expect(answer).toBe("answered by the concierge");
+		expect(bed.events.assistantMessages).toContain("answered by the concierge");
 	});
 });
 
@@ -116,10 +116,10 @@ describe("AdkTestBed, holding money in front of a human", () => {
 	async function suspended() {
 		bed = await scriptedBed({
 			billing: (script) =>
-				script.mockToolCall("issue_refund", { orderId: ORDER, amountBrl: 349 }).mockText("Reembolso feito."),
+				script.mockToolCall("issue_refund", { orderId: ORDER, amountBrl: 349 }).mockText("Refund completed."),
 		}).boot();
 		const billing = bed.agent(BillingAgent);
-		return { billing, run: await billing.ask(`Devolve os 349 reais do pedido ${ORDER}.`) };
+		return { billing, run: await billing.ask(`Refund the 349 reais from order ${ORDER}.`) };
 	}
 
 	it("stops before the money leaves, with the call it is waiting on", async () => {
@@ -134,7 +134,7 @@ describe("AdkTestBed, holding money in front of a human", () => {
 	it("lets the money leave once a human said yes, named by tool rather than by call id", async () => {
 		const { billing } = await suspended();
 
-		const resumed = await billing.approve("issue_refund", "gerente@nebula.test");
+		const resumed = await billing.approve("issue_refund", "manager@nebula.test");
 
 		expect(resumed.status.name).toBe("completed");
 		expect(resumed.toolsRun).toContain("issue_refund");
@@ -144,7 +144,7 @@ describe("AdkTestBed, holding money in front of a human", () => {
 	it("keeps the money when a human said no, and the conversation carries on", async () => {
 		const { billing } = await suspended();
 
-		const resumed = await billing.reject("fora da janela de sete dias");
+		const resumed = await billing.reject("outside the seven-day window");
 
 		expect(resumed.status.name).toBe("completed");
 		expect(resumed.events.denied("issue_refund")).toBe(1);
@@ -154,7 +154,7 @@ describe("AdkTestBed, holding money in front of a human", () => {
 	it("fails clearly when a decision is asked for on a run waiting for nothing", async () => {
 		bed = await scriptedBed().boot();
 		const billing = bed.agent(BillingAgent);
-		await billing.ask("oi");
+		await billing.ask("hi");
 
 		await expect(billing.approve()).rejects.toThrow(/not waiting/);
 	});
@@ -164,13 +164,13 @@ describe("AdkTestBed, mixing models across agents", () => {
 	it("routes one agent to its own script, transfer included", async () => {
 		bed = await AdkTestBedBuilder.for(storeModule())
 			.withScript(ConciergeAgent, (script) =>
-				script.mockToolCall("transfer_to_agent", { agentName: "warranty" }).mockText("passei para a garantia"),
+				script.mockToolCall("transfer_to_agent", { agentName: "warranty" }).mockText("transferred to warranty"),
 			)
-			.withScript(WarrantyAgent, (script) => script.mockText("cobrimos o reparo"))
-			.withScript(BillingAgent, (script) => script.mockText("não deveria falar"))
+			.withScript(WarrantyAgent, (script) => script.mockText("we cover the repair"))
+			.withScript(BillingAgent, (script) => script.mockText("should not speak"))
 			.boot();
 
-		const run = await bed.agent(ConciergeAgent).ask("meu produto quebrou");
+		const run = await bed.agent(ConciergeAgent).ask("my product broke");
 
 		expect(run.transfers).toContain("warranty");
 		expect(bed.script(BillingAgent)?.requests).toHaveLength(0);
@@ -180,14 +180,14 @@ describe("AdkTestBed, mixing models across agents", () => {
 		bed = await AdkTestBedBuilder.for(storeModule())
 			.withScript(ConciergeAgent, (script) =>
 				script
-					.mockToolCall("delegate_to_agent", { agentName: "billing", task: "qual o teto do plano gold?" })
-					.mockText("o teto é 1437 reais"),
+					.mockToolCall("delegate_to_agent", { agentName: "billing", task: "what is the gold plan limit?" })
+					.mockText("the limit is 1437 reais"),
 			)
-			.withScript(BillingAgent, (script) => script.mockText("o teto do gold é 1437 reais"))
-			.withScript(WarrantyAgent, (script) => script.mockText("não deveria falar"))
+			.withScript(BillingAgent, (script) => script.mockText("the gold limit is 1437 reais"))
+			.withScript(WarrantyAgent, (script) => script.mockText("should not speak"))
 			.boot();
 
-		const run = await bed.agent(ConciergeAgent).ask("qual o teto do plano gold?");
+		const run = await bed.agent(ConciergeAgent).ask("what is the gold plan limit?");
 
 		expect(run.delegations).toContain("billing");
 		expect(bed.script(BillingAgent)?.requests).toHaveLength(1);
@@ -196,12 +196,12 @@ describe("AdkTestBed, mixing models across agents", () => {
 
 	it("leaves an agent nobody routed on what the application resolved for it", async () => {
 		bed = await AdkTestBedBuilder.for(storeModule())
-			.withModel(new ScriptedModel("fallback").mockText("do fallback"))
-			.withScript(BillingAgent, (script) => script.mockText("do script"))
+			.withModel(new ScriptedModel("fallback").mockText("from fallback"))
+			.withScript(BillingAgent, (script) => script.mockText("from script"))
 			.boot();
 
-		expect((await bed.agent(BillingAgent).ask("oi")).text).toBe("do script");
-		expect((await bed.agent(WarrantyAgent).ask("oi")).text).toBe("do fallback");
+		expect((await bed.agent(BillingAgent).ask("hi")).text).toBe("from script");
+		expect((await bed.agent(WarrantyAgent).ask("hi")).text).toBe("from fallback");
 	});
 });
 
@@ -245,13 +245,13 @@ describe("AdkTestBed, over a script that failed to describe the run", () => {
 	it("fails naming the agent when a run asks for a turn nobody queued", async () => {
 		bed = await scriptedBed({ billing: (script) => script.mockToolCall("find_order", { orderId: ORDER }) }).boot();
 
-		await expect(bed.agent(BillingAgent).ask("oi")).rejects.toThrow(ScriptExhaustedError);
+		await expect(bed.agent(BillingAgent).ask("hi")).rejects.toThrow(ScriptExhaustedError);
 	});
 
 	it("fails when a queued turn was never played", async () => {
-		bed = await scriptedBed({ billing: (script) => script.mockText("primeira").mockText("segunda") }).boot();
+		bed = await scriptedBed({ billing: (script) => script.mockText("first").mockText("second") }).boot();
 
-		await bed.agent(BillingAgent).ask("oi");
+		await bed.agent(BillingAgent).ask("hi");
 
 		expect(() => bed.verify()).toThrow(ScriptNotConsumedError);
 	});
@@ -259,9 +259,9 @@ describe("AdkTestBed, over a script that failed to describe the run", () => {
 	it("passes verification once every queued turn was played", async () => {
 		bed = await scriptedBed().boot();
 
-		await bed.agent(BillingAgent).ask("oi");
-		await bed.agent(WarrantyAgent).ask("oi");
-		await bed.agent(ConciergeAgent).ask("oi");
+		await bed.agent(BillingAgent).ask("hi");
+		await bed.agent(WarrantyAgent).ask("hi");
+		await bed.agent(ConciergeAgent).ask("hi");
 
 		expect(() => bed.verify()).not.toThrow();
 	});
@@ -271,12 +271,12 @@ describe("AdkTestBed, replacing what a tool does", () => {
 	it("calls the double instead of the tool, and keeps what the model chose", async () => {
 		const refund = ToolFake.replacing(IssueRefundTool).succeedsWith({ refunded: true });
 		bed = await scriptedBed({
-			billing: (script) => script.mockToolCall("issue_refund", { orderId: ORDER, amountBrl: 349 }).mockText("feito"),
+			billing: (script) => script.mockToolCall("issue_refund", { orderId: ORDER, amountBrl: 349 }).mockText("completed"),
 		})
 			.replaceTool(IssueRefundTool, refund)
 			.boot();
 
-		await bed.agent(BillingAgent).ask("devolve");
+		await bed.agent(BillingAgent).ask("refund it");
 		await bed.agent(BillingAgent).approve("issue_refund");
 
 		expect(refund.lastArgs()).toEqual({ orderId: ORDER, amountBrl: 349 });
@@ -285,24 +285,24 @@ describe("AdkTestBed, replacing what a tool does", () => {
 
 	it("answers the arguments of the real tool from the run itself, with no double at all", async () => {
 		bed = await scriptedBed({
-			billing: (script) => script.mockToolCall("find_order", { orderId: ORDER }).mockText("pronto"),
+			billing: (script) => script.mockToolCall("find_order", { orderId: ORDER }).mockText("done"),
 		}).boot();
 
-		const run = await bed.agent(BillingAgent).ask("procura");
+		const run = await bed.agent(BillingAgent).ask("find it");
 
 		expect(run.callsTo("find_order").at(0)?.args).toEqual({ orderId: ORDER });
 		expect(run.callsTo("find_order").at(0)?.output).toEqual({ orderId: ORDER, totalBrl: 349 });
 	});
 
 	it("hands the run a failure the tool raised, rather than ending it", async () => {
-		const broken = ToolFake.replacing(FindOrderTool).failsWith(new Error("índice fora do ar"));
+		const broken = ToolFake.replacing(FindOrderTool).failsWith(new Error("index is unavailable"));
 		bed = await scriptedBed({
-			billing: (script) => script.mockToolCall("find_order", { orderId: ORDER }).mockText("desculpe"),
+			billing: (script) => script.mockToolCall("find_order", { orderId: ORDER }).mockText("sorry"),
 		})
 			.replaceTool(FindOrderTool, broken)
 			.boot();
 
-		const run = await bed.agent(BillingAgent).ask("procura");
+		const run = await bed.agent(BillingAgent).ask("find it");
 
 		expect(run.status.name).toBe("completed");
 		expect(run.callsTo("find_order").at(0)?.outcome).toBe("failed");
@@ -332,12 +332,12 @@ describe("AdkTestBed, over what the application declared", () => {
 
 	it("replaces runtime fields by name, leaving the approval policy the application declared", async () => {
 		bed = await scriptedBed({
-			billing: (script) => script.mockToolCall("issue_refund", { orderId: ORDER, amountBrl: 349 }).mockText("feito"),
+			billing: (script) => script.mockToolCall("issue_refund", { orderId: ORDER, amountBrl: 349 }).mockText("completed"),
 		})
 			.withRuntime({ limits: RunLimits.of(2) })
 			.boot();
 
-		const run = await bed.agent(BillingAgent).ask("devolve");
+		const run = await bed.agent(BillingAgent).ask("refund it");
 
 		expect(run.status.name).toBe("suspended");
 	});

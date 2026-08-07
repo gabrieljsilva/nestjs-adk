@@ -55,8 +55,14 @@ export class AskAgent {
 	) {}
 
 	public async handle(command: AgentRunCommand, observers: RunObservers = RunObservers.none()): Promise<AgentResult> {
-		const entry = this.catalog.findOrFail(command.agent);
+		const called = this.catalog.findOrFail(command.agent);
 		const sessionId = command.input.sessionId ?? SessionId.from(this.ids.next());
+
+		// Continuing a conversation reads it first, because the session is what knows who owns
+		// it now. The read writes nothing, so a command a draining runtime is about to refuse
+		// still creates nothing; a conversation that does not exist yet is not read at all.
+		const existing = command.input.sessionId === undefined ? undefined : await this.opener.open(command, sessionId);
+		const entry = existing === undefined ? called : this.ownerOf(existing, called);
 
 		const started = this.runs.start(sessionId, entry.name);
 		const sources = new ToolSourceScope(this.sources);
@@ -67,7 +73,7 @@ export class AskAgent {
 			const model = command.model ?? this.models.resolve(definition);
 			this.assertCanSee(command, model);
 
-			const opened = await this.opener.open(command, sessionId);
+			const opened = existing ?? (await this.opener.open(command, sessionId));
 			const from = command.transferTo === undefined ? undefined : entry.name;
 			const attached = await this.attachments.store(opened.session.id, command.input.attachments);
 			const progress = new RunProgress(
@@ -83,6 +89,23 @@ export class AskAgent {
 			await sources.close(started.run.id);
 			this.runs.finish(started.run);
 		}
+	}
+
+	/**
+	 * The agent this session belongs to, which is not always the one the caller reached for.
+	 *
+	 * A transfer moves ownership and the session is what remembers, so continuing a conversation
+	 * lands on whoever owns it now. The handle an application called only decides anything when
+	 * there is no session yet, and then it decides the root.
+	 *
+	 * This is what makes a handover mean something after the turn it happened in. Answering as
+	 * the agent the caller named would let any code walk around the declared graph by holding a
+	 * different handle, and would leave the owner recorded in the session disagreeing with the
+	 * agent that just spoke, which is what a resumed approval reads.
+	 */
+	private ownerOf(opened: OpenedSession, called: AgentDefinition): AgentDefinition {
+		const owner = opened.state.activeAgent ?? opened.session.rootAgent;
+		return owner.equals(called.name) ? called : this.catalog.findOrFail(owner);
 	}
 
 	/**

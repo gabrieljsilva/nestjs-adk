@@ -1,5 +1,5 @@
 import { Clock, IdGenerator, Instant } from "@nestjs-adk/core";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { StoreDatabase } from "../shared/store-database";
 import { OrderNotFoundError } from "./errors/order-not-found.error";
 import { Order } from "./order";
@@ -23,23 +23,19 @@ class FixedClock extends Clock {
 	}
 }
 
-let tickets: TicketService;
-
-beforeEach(() => {
-	const database = new StoreDatabase();
-	const orders = new OrderRepository(database);
-	orders.save(Order.of("A-1042", "Ana", "Controle", 34_900, "gold", "2026-08-03T12:00:00.000Z", "delivered"));
-	tickets = new TicketService(
-		new OrderService(orders),
-		new TicketRepository(database),
-		new CountingIds(),
-		new FixedClock(),
-	);
-});
-
 describe("TicketService", () => {
 	it("opens a ticket against the order, stamped with the time it was opened", () => {
-		const ticket = tickets.open("A-1042", "controle chegou quebrado");
+		const database = new StoreDatabase();
+		const orders = new OrderRepository(database);
+		orders.save(Order.of("A-1042", "Ana", "Controller", 34_900, "gold", "2026-08-03T12:00:00.000Z", "delivered"));
+		const tickets = new TicketService(
+			new OrderService(orders),
+			new TicketRepository(database),
+			new CountingIds(),
+			new FixedClock(),
+		);
+
+		const ticket = tickets.open("A-1042", "the controller arrived broken");
 
 		expect(ticket.id).toBe("T-1");
 		expect(ticket.orderId).toBe("A-1042");
@@ -47,16 +43,46 @@ describe("TicketService", () => {
 	});
 
 	it("points at the conversation the complaint came out of", () => {
-		expect(tickets.open("A-1042", "quebrado", "session-9").sessionId).toBe("session-9");
+		const database = new StoreDatabase();
+		const orders = new OrderRepository(database);
+		orders.save(Order.of("A-1042", "Ana", "Controller", 34_900, "gold", "2026-08-03T12:00:00.000Z", "delivered"));
+		const tickets = new TicketService(
+			new OrderService(orders),
+			new TicketRepository(database),
+			new CountingIds(),
+			new FixedClock(),
+		);
+
+		expect(tickets.open("A-1042", "broken", "session-9").sessionId).toBe("session-9");
 	});
 
 	it("stores what it opened", () => {
-		tickets.open("A-1042", "quebrado", "session-9");
+		const database = new StoreDatabase();
+		const orders = new OrderRepository(database);
+		orders.save(Order.of("A-1042", "Ana", "Controller", 34_900, "gold", "2026-08-03T12:00:00.000Z", "delivered"));
+		const tickets = new TicketService(
+			new OrderService(orders),
+			new TicketRepository(database),
+			new CountingIds(),
+			new FixedClock(),
+		);
+
+		tickets.open("A-1042", "broken", "session-9");
 
 		expect(tickets.of("A-1042")).toHaveLength(1);
 	});
 
 	it("refuses to open a ticket against an order that does not exist", () => {
-		expect(() => tickets.open("A-9", "quebrado")).toThrow(OrderNotFoundError);
+		const database = new StoreDatabase();
+		const orders = new OrderRepository(database);
+		orders.save(Order.of("A-1042", "Ana", "Controller", 34_900, "gold", "2026-08-03T12:00:00.000Z", "delivered"));
+		const tickets = new TicketService(
+			new OrderService(orders),
+			new TicketRepository(database),
+			new CountingIds(),
+			new FixedClock(),
+		);
+
+		expect(() => tickets.open("A-9", "broken")).toThrow(OrderNotFoundError);
 	});
 });

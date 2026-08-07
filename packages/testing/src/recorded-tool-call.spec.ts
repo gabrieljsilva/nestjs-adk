@@ -26,19 +26,19 @@ describe("RecordedToolCall", () => {
 	});
 
 	it("carries the reason a human gave for refusing", () => {
-		const denied = CALL.deniedBecause("fora da janela de sete dias");
+		const denied = CALL.deniedBecause("outside the seven-day window");
 
 		expect(denied.outcome).toBe("denied");
-		expect(denied.deniedReason).toBe("fora da janela de sete dias");
+		expect(denied.deniedReason).toBe("outside the seven-day window");
 		expect(denied.hasRun).toBe(false);
 	});
 
 	/** A refusal travels back to the model as a result, and a refused call is still refused. */
 	it("stays refused when the refusal comes back as a result", () => {
-		const answered = CALL.deniedBecause("não").settledWith({ denied: true }, false);
+		const answered = CALL.deniedBecause("no").settledWith({ denied: true }, false);
 
 		expect(answered.outcome).toBe("denied");
-		expect(answered.deniedReason).toBe("não");
+		expect(answered.deniedReason).toBe("no");
 	});
 
 	it("keeps the identity of the call through every step", () => {

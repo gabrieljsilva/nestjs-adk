@@ -70,8 +70,8 @@ export class BillingAgent extends AdkAgent {}
 export class WarrantyAgent extends AdkAgent {}
 
 @Agent({ name: "concierge", description: "Greets and routes.", prompt: "Route when it is not yours." })
-@TransfersTo("warranty")
-@DelegatesTo("billing")
+@TransfersTo(WarrantyAgent)
+@DelegatesTo(BillingAgent)
 export class ConciergeAgent extends AdkAgent {}
 
 /** A caller of the agent, which is what a use case is from the runtime's side. */

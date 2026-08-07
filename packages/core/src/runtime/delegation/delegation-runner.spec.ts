@@ -3,6 +3,7 @@ import { InMemorySessionStorage } from "../../adapters/storage/in-memory-session
 import { CorrelationId } from "../../common/identity/correlation-id";
 import { SessionId } from "../../common/identity/session-id";
 import { ToolCallId } from "../../common/identity/tool-call-id";
+import { SessionRevision } from "../../common/revision/session-revision";
 import { Instant } from "../../common/time/instant";
 import { ModelResolver } from "../../contracts/model-resolver";
 import { AgentDefinition } from "../../domain/agent/agent-definition";
@@ -72,7 +73,17 @@ function agent(name: AgentName, delegation: AgentDelegationPolicy = AgentDelegat
 	);
 }
 
-function stack(support: AgentDefinition) {
+/** Answers a different model every call, which is what a resolver routing by load or cost does. */
+class AlternatingResolver extends ModelResolver {
+	public calls = 0;
+
+	public resolve(): LlmModel {
+		this.calls += 1;
+		return new ScriptedModel(`model-${this.calls}`);
+	}
+}
+
+function stack(support: AgentDefinition, models: ModelResolver = new FixedResolver()) {
 	const storage = new InMemorySessionStorage();
 	const clock = new FakeClock(NOW);
 	const ids = new SequenceIdGenerator("id");
@@ -86,7 +97,7 @@ function stack(support: AgentDefinition) {
 	const runs = new AgentRunFactory(ids, clock, tracker, lifecycle);
 	const scopes = new RunScopeFactory();
 	const journal = new RunJournal(new RunEventFactory(ids, clock));
-	const runner = new DelegationRunner(catalog, new FixedResolver(), runs, scopes, journal, sessions);
+	const runner = new DelegationRunner(catalog, models, runs, scopes, journal, sessions);
 	return { storage, clock, sessions, runs, scopes, runner, support };
 }
 
@@ -112,6 +123,31 @@ describe("DelegationRunner", () => {
 		const answers = await built.runner.runAll(scope, opened, new RunProgress(opened.state), [delegateCall("researcher")]);
 
 		expect(answers.get("d-1")).toBe("the window is 30 days");
+	});
+
+	/**
+	 * The journal has to name the model that answered, not another one the resolver would give.
+	 *
+	 * A resolver is a port, so it is allowed to decide by load, cost or time of day, and asking
+	 * it twice is asking two different questions. Resolving once and carrying the answer is what
+	 * keeps the record of the delegation and the delegation itself the same event.
+	 */
+	it("journals the model that served the child, not a second answer from the resolver", async () => {
+		const resolver = new AlternatingResolver();
+		const declared = agent(SUPPORT, AgentDelegationPolicy.to([RESEARCHER]));
+		const built = stack(declared, resolver);
+		built.runner.uses(new AnsweringLoop());
+		const opened = await openedSession(built.sessions);
+		const started = built.runs.start(SESSION, SUPPORT);
+		const scope = built.scopes.create(declared, MODEL, started);
+
+		await built.runner.runAll(scope, opened, new RunProgress(opened.state), [delegateCall("researcher")]);
+
+		const written: unknown[] = [];
+		for await (const event of built.storage.readEvents(SESSION, SessionRevision.initial())) written.push(event);
+
+		expect(resolver.calls).toBe(1);
+		expect(JSON.stringify(written)).toContain("model-1");
 	});
 
 	it("leaves calls that are not delegations alone", async () => {

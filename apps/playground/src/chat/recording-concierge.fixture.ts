@@ -7,7 +7,7 @@ import {
 	type SessionInspection,
 	type ToolCallId,
 } from "@nestjs-adk/core";
-import { ConciergeAgent } from "../agents/concierge.agent";
+import { ConciergeAgent } from "../agents/concierge/concierge.agent";
 
 const SESSION = "session-1";
 
@@ -28,7 +28,7 @@ export class RecordingConcierge extends ConciergeAgent {
 	public override async ask(message: string, options?: AskOptions | SessionId): Promise<AgentResult> {
 		this.asked.push(message);
 		this.options.push(options);
-		return this.answer("respondido");
+		return this.answer("answered");
 	}
 
 	public override async approve(
@@ -37,7 +37,7 @@ export class RecordingConcierge extends ConciergeAgent {
 		approvedBy?: string,
 	): Promise<AgentResult> {
 		this.decided.push(`approve:${String(sessionId)}:${callId.value}:${approvedBy ?? ""}`);
-		return this.answer("aprovado");
+		return this.answer("approved");
 	}
 
 	public override async reject(
@@ -47,7 +47,7 @@ export class RecordingConcierge extends ConciergeAgent {
 		deniedBy?: string,
 	): Promise<AgentResult> {
 		this.decided.push(`reject:${String(sessionId)}:${callId.value}:${reason}:${deniedBy ?? ""}`);
-		return this.answer("recusado");
+		return this.answer("rejected");
 	}
 
 	public override async inspect(sessionId: SessionId | string): Promise<SessionInspection> {
