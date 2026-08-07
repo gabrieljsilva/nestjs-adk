@@ -16,13 +16,20 @@ import type { ToolDefinition } from "../../domain/tool/tool-definition";
  * A source that will not authorize does not stop the run. It is reported and left out,
  * and the model works with the tools that did open, which is a smaller conversation
  * rather than no conversation.
+ *
+ * The module's sources and the run's are summed, module first, and that order is what a
+ * caller sees: two sources offering the same tool name leave the module's declaration
+ * first in the list, so a run cannot quietly shadow a tool the application declared.
  */
 export class ToolSourceScope {
 	private readonly opened: ToolSource[] = [];
 	private readonly refused: ToolSourceAuthError[] = [];
 	private readonly unreachable: ToolSourceUnavailableError[] = [];
+	private readonly sources: readonly ToolSource[];
 
-	public constructor(private readonly sources: readonly ToolSource[] = []) {}
+	public constructor(declared: readonly ToolSource[] = [], perRun: readonly ToolSource[] = []) {
+		this.sources = [...declared, ...perRun];
+	}
 
 	/** Everything the sources offered, in the order the sources were declared. */
 	public async open(sessionId: SessionId, runId: AgentRunId, signal?: AbortSignal): Promise<readonly ToolDefinition[]> {

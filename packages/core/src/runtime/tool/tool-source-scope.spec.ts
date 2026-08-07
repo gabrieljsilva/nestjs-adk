@@ -137,6 +137,34 @@ describe("ToolSourceScope", () => {
 		await expect(new ToolSourceScope([new BrokenSource()]).open(SESSION, RUN)).rejects.toBeInstanceOf(TypeError);
 	});
 
+	it("opens the module's sources and the run's, module first", async () => {
+		const declared = new OpeningSource("mcp");
+		const perRun = new OpeningSource("user");
+		const scope = new ToolSourceScope([declared], [perRun]);
+
+		const tools = await scope.open(SESSION, RUN);
+
+		expect(tools.map((tool) => tool.name)).toEqual(["mcp_tool", "user_tool"]);
+	});
+
+	/** A run's source is a connection with somebody's credential: it closes with the run. */
+	it("closes a run's own source the same way it closes the module's", async () => {
+		const declared = new OpeningSource("mcp");
+		const perRun = new OpeningSource("user");
+		const scope = new ToolSourceScope([declared], [perRun]);
+		await scope.open(SESSION, RUN);
+
+		await scope.close(RUN);
+
+		expect([declared.closes, perRun.closes]).toEqual([1, 1]);
+	});
+
+	it("opens only the module's when a run declares none", async () => {
+		const declared = new OpeningSource("mcp");
+
+		expect((await new ToolSourceScope([declared]).open(SESSION, RUN)).map((tool) => tool.name)).toEqual(["mcp_tool"]);
+	});
+
 	it("closes the rest even when one source refuses to close", async () => {
 		class StuckSource extends OpeningSource {
 			public async close(): Promise<void> {

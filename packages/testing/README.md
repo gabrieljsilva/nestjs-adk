@@ -131,7 +131,22 @@ import "@nestjs-adk/testing/matchers";
 | `toHaveBeenCalledWithArgs(args)` | a `ToolFake` was called with these |
 | `toBeFullyPlayed()` | every queued turn was played |
 | `toBeSemanticallyCloseTo(text, min?)` | close enough in meaning, with no provider call |
+| `toHaveStablePrefix(threshold)` | two or more context snapshots share this exact opening ratio |
 | `toSatisfyRubric(judge, criteria)` | a model graded the answer |
+
+The stable-prefix matcher measures the text assembled by the runtime, independently of the
+provider cache accounting. Explain two fresh runs, then compare one model call from each:
+
+```ts
+const agent = bed.get(SalesAgent);
+const first = await agent.explain("price order A-1042");
+const second = await agent.explain("price order A-77");
+
+expect([first[0], second[0]]).toHaveStablePrefix(0.9);
+```
+
+The ratio uses the largest context as its denominator. On failure, the assertion names the
+segment, character offset and excerpts where the prompts stopped matching.
 
 ## Approvals
 

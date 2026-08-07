@@ -38,3 +38,5 @@ A row marked `target` describes a decision the code has not reached yet. It is s
 | `pattern` | [[tool-doubles]] | How a substituted tool keeps its declaration, what a double has to preserve, and when a listed tool fails the boot |
 | `pitfall` | [[cross-provider-history]] | What breaks when a history written by one model is replayed to another, and where the adapter compensates |
 
+| `pitfall` | [[money-precision]] | Why an amount is an integer count of pico dollars in a bigint, and where the single lossy step is allowed to be |
+| `pattern` | [[run-pricing]] | Where a call is collected, when it is priced, and why nothing about a bill can fail a run |

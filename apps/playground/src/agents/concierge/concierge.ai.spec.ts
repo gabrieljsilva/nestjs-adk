@@ -202,6 +202,21 @@ describe("AI: two models behind the same store", () => {
 		expect(run).toHaveTransferredTo("warranty");
 		expect(run).toHaveStatus("completed");
 		expect(run.text.length).toBeGreaterThan(0);
+
+		/**
+		 * The bill of a run that crossed providers, from one catalog.
+		 *
+		 * Each turn is billed to whoever served it, so a run that changed hands has two entries
+		 * and neither total is the other's. A single entry here would mean the cost was
+		 * attributed to the agent's declared model instead of the model that answered, which is
+		 * the mistake that makes a rerouted or handed over run bill at the wrong rate.
+		 */
+		expect(run.cost.byModel.map((model) => model.model.toString()).sort()).toEqual([
+			"google/gemini-3.5-flash-lite",
+			"openai/gpt-5.6-luna",
+		]);
+		expect(run.cost.isComplete).toBe(true);
+		expect(run.cost.calls).toBeGreaterThan(1);
 	});
 
 	/**

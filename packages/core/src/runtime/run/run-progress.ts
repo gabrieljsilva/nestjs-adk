@@ -1,3 +1,4 @@
+import type { BilledCall } from "../../domain/cost/billed-call";
 import type { SessionState } from "../../domain/session/session-state";
 
 /**
@@ -14,6 +15,7 @@ import type { SessionState } from "../../domain/session/session-state";
 export class RunProgress {
 	private text = "";
 	private waiting = false;
+	private readonly calls: BilledCall[] = [];
 
 	public constructor(private current: SessionState) {}
 
@@ -32,6 +34,22 @@ export class RunProgress {
 
 	public said(text: string): void {
 		this.text = text;
+	}
+
+	/**
+	 * One more call somebody will be invoiced for.
+	 *
+	 * Calls are collected and not priced, because pricing is I/O and this happens inside the turn
+	 * loop. A delegation hands its child's calls up the same way, which is how a parent's total
+	 * includes work another agent did without counting it twice.
+	 */
+	public charged(...calls: readonly BilledCall[]): void {
+		this.calls.push(...calls);
+	}
+
+	/** Every call this run is answerable for, its own and its delegations'. */
+	public get billed(): readonly BilledCall[] {
+		return this.calls;
 	}
 
 	/** The run stopped to wait for a human, which is an ending and not a pause. */

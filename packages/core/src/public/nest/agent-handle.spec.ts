@@ -1,12 +1,26 @@
 import { describe, expect, it } from "vitest";
 import { SessionId } from "../../common/identity/session-id";
 import { ToolCallId } from "../../common/identity/tool-call-id";
+import { ToolSource } from "../../contracts/tool-source";
 import { AgentName } from "../../domain/agent/agent-name";
+import type { ToolDefinition } from "../../domain/tool/tool-definition";
 import type { RuntimeServices } from "../../runtime/composition/runtime-services";
 import { AgentHandle } from "./agent-handle";
 
 const SUPPORT = AgentName.from("support");
 const SESSION = SessionId.from("s-1");
+
+class SilentSource extends ToolSource {
+	public readonly name = "silent";
+
+	public async open(): Promise<readonly ToolDefinition[]> {
+		return [];
+	}
+
+	public async close(): Promise<void> {
+		return undefined;
+	}
+}
 
 /** Records what the handle asked the runtime for, which is all the handle decides. */
 function spyingRuntime() {
@@ -74,6 +88,34 @@ describe("AgentHandle", () => {
 
 		expect(calls.map((call) => call.verb)).toEqual(["approve", "reject"]);
 		expect(Reflect.get(Object(calls[1]?.payload), "reason")).toBe("no");
+	});
+
+	/** A source declared on the call belongs to the run, so the command is what carries it. */
+	it("carries the sources a question declared into the command", async () => {
+		const { calls, handle } = spyingRuntime();
+		const source = new SilentSource();
+
+		await handle.ask("hi", { sources: [source] });
+
+		expect(Reflect.get(Object(calls[0]?.payload), "sources")).toEqual([source]);
+	});
+
+	it("carries no sources when a question declares none", async () => {
+		const { calls, handle } = spyingRuntime();
+
+		await handle.ask("hi", SESSION);
+
+		expect(Reflect.get(Object(calls[0]?.payload), "sources")).toEqual([]);
+	});
+
+	it("carries the sources a decision declared, since the suspended run closed its own", async () => {
+		const { calls, handle } = spyingRuntime();
+		const source = new SilentSource();
+
+		await handle.approve(SESSION, ToolCallId.from("c-1"), { by: "a-human", sources: [source] });
+
+		expect(Reflect.get(Object(calls[0]?.payload), "sources")).toEqual([source]);
+		expect(Reflect.get(Object(calls[0]?.payload), "approvedBy")).toBe("a-human");
 	});
 
 	it("delegates from itself, so the edges checked are its own", async () => {

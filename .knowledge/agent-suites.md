@@ -55,6 +55,18 @@ The other direction is a different problem and not fixed: asked about a broken p
 
 The older finding still holds for anyone on 2.5: `gemini-2.5-flash-lite` answered a plain question reliably and, on the turn **after a function response**, returned an empty candidate with `finishReason: STOP` and zero output tokens, three out of three. The runtime is right to fail that run with `EmptyModelResponseError`.
 
+## What the paid suite proves about pricing
+
+The store declares `LiteLLMPricingSource`, so every paid boot reads the real catalog once. Three cases assert on it:
+
+`sales.ai.spec.ts` asserts `run.cost.isComplete`. That one boolean is the only thing a fake catalog cannot answer: it goes false if the download failed, if the payload stopped being a catalog, if upstream renamed `input_cost_per_token`, or if `gpt-5.6-luna` left the table. `concierge.ai.spec.ts` asserts that a run which crossed providers has two entries in `byModel`, which is the attribution a single-provider run cannot prove.
+
+The third audits the arithmetic part by part against the rates the source answered: fresh input times the input rate, output times the output rate, cached times the cache rate, and the three summing to the total. It carries a long preamble and asks twice in one session because OpenAI caches automatically only above about a thousand prompt tokens, which the store's own prompt never reaches, so without that the cached part is always zero and a third of the arithmetic goes unproven against a real bill. Measured once by hand: 3751 prompt tokens of which 3031 were cached, 44 output, which is 720 x 200000 + 44 x 1200000 + 3031 x 20000 pico, and the runtime reported exactly that. Whether the cache engages is the provider's call, so the discount is asserted only when it did.
+
+None of them pins an amount. The rates are community data upstream owns and may change any day, so asserting a number would make the suite red for something that is not a bug. What is asserted is that a real answer produced a real price, exact and in dollars.
+
+The embedder is deliberately not asserted here. `gemini-embedding-2` is in the catalog with a real rate, but `embedContent` reports no token count, so the call lands in `unpriced` with `no-usage`. That is proved offline in `priced-embedder.spec.ts`. A paid case asserting it would go red the day Google starts reporting tokens, which is good news, and a suite that turns good news red stops being read.
+
 ## Keeping the bill small
 
 - `maxOutputTokens` is capped at a couple of hundred: enough for a sentence or a tool call.

@@ -64,11 +64,18 @@ export class AgentRunner {
 
 	/** Lets a held turn run, under a new run that points back at the suspended one. */
 	public async approve(input: ApproveInput): Promise<AgentResult> {
-		return this.deciding.handle(input.sessionId, input.callId, "granted", input.approvedBy);
+		return this.deciding.handle(input.sessionId, input.callId, "granted", {
+			by: input.approvedBy,
+			sources: input.sources,
+		});
 	}
 
 	/** Refuses a held call and tells the model so, which is a result like any other. */
 	public async reject(input: RejectInput): Promise<AgentResult> {
-		return this.deciding.handle(input.sessionId, input.callId, "denied", input.deniedBy, input.reason);
+		return this.deciding.handle(input.sessionId, input.callId, "denied", {
+			by: input.deniedBy,
+			reason: input.reason,
+			sources: input.sources,
+		});
 	}
 }

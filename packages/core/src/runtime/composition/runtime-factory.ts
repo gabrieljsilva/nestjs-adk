@@ -15,6 +15,8 @@ import { ContextProjector } from "../context/context-projector";
 import { ContextWindowNotifier } from "../context/context-window-notifier";
 import { OldestFirstCompactionStrategy } from "../context/oldest-first-compaction-strategy";
 import { StablePrefixDigest } from "../context/stable-prefix-digest";
+import { CostCalculator } from "../cost/cost-calculator";
+import { RunCostReporter } from "../cost/run-cost-reporter";
 import { DelegationRunner } from "../delegation/delegation-runner";
 import { EventPublisher } from "../event/event-publisher";
 import { ActiveRunTracker } from "../lifecycle/active-run-tracker";
@@ -30,6 +32,7 @@ import { DelegateAgent } from "../run/delegate-agent";
 import { ExplainAgent } from "../run/explain-agent";
 import { RunEventFactory } from "../run/run-event-factory";
 import { RunJournal } from "../run/run-journal";
+import { RunResultFactory } from "../run/run-result-factory";
 import { RunScopeFactory } from "../run/run-scope-factory";
 import { RunSettler } from "../run/run-settler";
 import { SessionOpener } from "../run/session-opener";
@@ -85,6 +88,9 @@ export class RuntimeFactory {
 		const journal = new RunJournal(new RunEventFactory(ids, clock));
 		const scopes = new RunScopeFactory([readArtifact], options.limits, options.compaction);
 		const settler = new RunSettler(sessions, journal);
+		const results = new RunResultFactory(
+			new RunCostReporter(new CostCalculator(), options.pricing, options.pricingNotices),
+		);
 		const turns = new TurnExecutor(new ToolExecutor(offloader, options.approvals, attachments), journal);
 		const delegations = new DelegationRunner(catalog, resolver, runs, scopes, journal, sessions);
 		const loop = new TurnLoop(
@@ -112,14 +118,27 @@ export class RuntimeFactory {
 			new TransferGate(catalog),
 			ids,
 			attachments,
+			results,
 			options.sources,
 		);
 		const runner = new AgentRunner(
 			asking,
-			new DecideApproval(catalog, resolver, sessions, runs, scopes, journal, turns, loop, settler, options.sources),
+			new DecideApproval(
+				catalog,
+				resolver,
+				sessions,
+				runs,
+				scopes,
+				journal,
+				turns,
+				loop,
+				settler,
+				results,
+				options.sources,
+			),
 			new StreamAgent(asking),
 			new ExplainAgent(asking),
-			new DelegateAgent(catalog, resolver, sessions, runs, scopes, delegations, settler),
+			new DelegateAgent(catalog, resolver, sessions, runs, scopes, delegations, settler, results),
 		);
 
 		try {

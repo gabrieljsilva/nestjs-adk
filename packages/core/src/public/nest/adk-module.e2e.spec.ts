@@ -6,16 +6,20 @@ import { z } from "zod";
 import { UnregisteredToolError } from "../../adapters/nest/errors/unregistered-tool.error";
 import { UnusableComponentError } from "../../adapters/nest/errors/unusable-component.error";
 import { ModelResolver } from "../../contracts/model-resolver";
+import { PricingSource } from "../../contracts/pricing-source";
 import { SessionEventConsumer } from "../../contracts/session-event-consumer";
 import type { AgentDefinition } from "../../domain/agent/agent-definition";
+import { ModelPrice } from "../../domain/cost/model-price";
+import { TokenRate } from "../../domain/cost/token-rate";
 import type { PublishedEvent } from "../../domain/event/published-event";
 import type { LlmModel } from "../../domain/model/llm-model";
+import { ModelIdentity } from "../../domain/model/model-identity";
 import { FakeClock } from "../../support/fake-clock";
 import { RecordingModel } from "../../support/nest/recording-model.fixture";
 import { ToolCallingModel } from "../../support/nest/tool-calling-model.fixture";
 import { SequenceIdGenerator } from "../../support/sequence-id-generator";
 import { AdkAgent } from "./adk-agent";
-import { ADK_DEFAULT_MODEL, ADK_EVENT_CONSUMERS, AdkModule } from "./adk-module";
+import { ADK_DEFAULT_MODEL, ADK_EVENT_CONSUMERS, ADK_RUNTIME_PATCH, AdkModule } from "./adk-module";
 import { AdkModuleOptions } from "./adk-module-options";
 import { AdkTool } from "./adk-tool";
 import { AgentRegistry } from "./agent-registry";
@@ -529,5 +533,34 @@ describe("AdkModule over the native runtime", () => {
 				.compile()
 				.then((module) => module.init()),
 		).rejects.toThrow(UnusableComponentError);
+	});
+
+	/** The cost of a run reaches the application through the same handle its answer does. */
+	it("answers what the run cost, priced by the source the module declared", async () => {
+		class KnowsThePrimary extends PricingSource {
+			public async priceOf(model: ModelIdentity): Promise<ModelPrice | undefined> {
+				return model.model === "primary"
+					? ModelPrice.of(TokenRate.fromUsdPerToken(1e-7), TokenRate.fromUsdPerToken(4e-7))
+					: undefined;
+			}
+		}
+		const booted = await bootWith(new RecordingModel("hello"), (builder) =>
+			builder.overrideProvider(ADK_RUNTIME_PATCH).useValue({ pricing: new KnowsThePrimary() }),
+		);
+
+		const result = await booted.get(AgentRegistry).get("support").ask("hi");
+
+		// The recording model reports 50 in and 5 out on every turn.
+		expect(result.cost.total.toString()).toBe("0.000007");
+		expect(result.cost.isComplete).toBe(true);
+	});
+
+	it("answers a zero cost that is marked as unpriced when no source was declared", async () => {
+		const booted = await bootWith(new RecordingModel("hello"));
+
+		const result = await booted.get(AgentRegistry).get("support").ask("hi");
+
+		expect(result.cost.total.isZero).toBe(true);
+		expect(result.cost.isComplete).toBe(false);
 	});
 });

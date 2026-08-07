@@ -1,3 +1,4 @@
+import type { ToolSource } from "../../contracts/tool-source";
 import type { AgentName } from "../../domain/agent/agent-name";
 import type { LlmModel } from "../../domain/model/llm-model";
 import type { AskInput } from "../../domain/session/ask-input";
@@ -32,6 +33,15 @@ export class AgentRunCommand {
 		 * session anywhere would make the edges a suggestion.
 		 */
 		public readonly transferTo?: AgentName,
+		/**
+		 * Tool sources opened for this run alone, on top of the module's.
+		 *
+		 * A source is a connection with a credential behind it, and the credential often belongs
+		 * to whoever is asking rather than to the application. Declaring it here keeps one user's
+		 * connection inside one run: it opens when the run starts and closes when it ends,
+		 * however it ends.
+		 */
+		public readonly sources: readonly ToolSource[] = [],
 	) {}
 
 	public get continuesSession(): boolean {

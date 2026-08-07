@@ -11,7 +11,9 @@ import { InMemoryArtifactStorage } from "../../adapters/storage/in-memory-artifa
 import { InMemorySessionStorage } from "../../adapters/storage/in-memory-session-storage";
 import { IdGenerator } from "../../common/identity/id-generator";
 import { Clock } from "../../common/time/clock";
+import { SystemClock } from "../../common/time/system-clock";
 import { ArtifactStorage } from "../../contracts/artifact-storage";
+import { Embedder } from "../../contracts/embedder";
 import { ModelResolver } from "../../contracts/model-resolver";
 import type { SessionEventConsumer } from "../../contracts/session-event-consumer";
 import { SessionStorage } from "../../contracts/session-storage";
@@ -23,7 +25,7 @@ import { AdkComposer } from "./adk-composer";
 import { AdkModuleOptions } from "./adk-module-options";
 import { AgentRegistry } from "./agent-registry";
 import { RandomIdGenerator } from "./random-id-generator";
-import { SystemClock } from "./system-clock";
+import { UndeclaredEmbedder } from "./undeclared-embedder";
 
 /** The token an application injects to reach what the module built. */
 export const ADK_OPTIONS = Symbol.for("adk:module-options");
@@ -86,7 +88,16 @@ export class AdkModule implements OnModuleInit, OnApplicationShutdown {
 			module: AdkModule,
 			imports: [DiscoveryModule],
 			providers: [...AdkModule.providersFor(options)],
-			exports: [AgentRegistry, AdkRuntimeHost, SessionStorage, ArtifactStorage, Clock, IdGenerator, ModelResolver],
+			exports: [
+				AgentRegistry,
+				AdkRuntimeHost,
+				SessionStorage,
+				ArtifactStorage,
+				Clock,
+				IdGenerator,
+				ModelResolver,
+				Embedder,
+			],
 		};
 	}
 
@@ -135,6 +146,11 @@ export class AdkModule implements OnModuleInit, OnApplicationShutdown {
 				useFactory: (declared: AdkModuleOptions, ids: IdGenerator) =>
 					declared.artifacts ?? new InMemoryArtifactStorage(ids),
 				inject: [ADK_OPTIONS, IdGenerator],
+			},
+			{
+				provide: Embedder,
+				useFactory: (declared: AdkModuleOptions) => declared.embedder ?? new UndeclaredEmbedder(),
+				inject: [ADK_OPTIONS],
 			},
 			{
 				provide: ModelResolver,

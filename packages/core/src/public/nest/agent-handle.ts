@@ -1,5 +1,6 @@
 import { SessionId } from "../../common/identity/session-id";
 import type { ToolCallId } from "../../common/identity/tool-call-id";
+import type { ToolSource } from "../../contracts/tool-source";
 import type { AgentName } from "../../domain/agent/agent-name";
 import type { MediaPart } from "../../domain/model/media-part";
 import type { ModelChunk } from "../../domain/model/model-chunk";
@@ -24,6 +25,21 @@ export interface AskOptions {
 	sessionId?: SessionId | string;
 	/** What the model should look at, in the order it should see it. */
 	media?: readonly MediaPart[];
+	/**
+	 * Tool sources for this run alone, opened on top of the module's and closed with it.
+	 *
+	 * This is where a source that belongs to whoever is asking goes: one user's connection,
+	 * one run. Nothing about it outlives the run, including when the run fails or is aborted.
+	 */
+	sources?: readonly ToolSource[];
+}
+
+/** Who decided, and what has to be open for the turn that follows to run. */
+export interface DecisionOptions {
+	/** Who agreed or refused, recorded in the journal next to the decision. */
+	by?: string;
+	/** Sources for this run alone, since the suspended run's were closed when it suspended. */
+	sources?: readonly ToolSource[];
 }
 
 /**
@@ -63,17 +79,33 @@ export class AgentHandle {
 		return this.runtime.sessions.handle(AgentHandle.sessionOf(sessionId));
 	}
 
-	public async approve(sessionId: SessionId | string, callId: ToolCallId, approvedBy?: string): Promise<AgentResult> {
-		return this.runtime.runner.approve(ApproveInput.of(AgentHandle.sessionOf(sessionId), callId, approvedBy));
+	/**
+	 * Lets a held call run.
+	 *
+	 * The sources are declared again because this is a new run: whatever the suspended run had
+	 * open was closed when it suspended, and a tool that came from a source needs it open now.
+	 */
+	public async approve(
+		sessionId: SessionId | string,
+		callId: ToolCallId,
+		options: DecisionOptions | string = {},
+	): Promise<AgentResult> {
+		const decided = AgentHandle.decisionOf(options);
+		return this.runtime.runner.approve(
+			ApproveInput.of(AgentHandle.sessionOf(sessionId), callId, decided.by, decided.sources),
+		);
 	}
 
 	public async reject(
 		sessionId: SessionId | string,
 		callId: ToolCallId,
 		reason: string,
-		deniedBy?: string,
+		options: DecisionOptions | string = {},
 	): Promise<AgentResult> {
-		return this.runtime.runner.reject(RejectInput.of(AgentHandle.sessionOf(sessionId), callId, reason, deniedBy));
+		const decided = AgentHandle.decisionOf(options);
+		return this.runtime.runner.reject(
+			RejectInput.of(AgentHandle.sessionOf(sessionId), callId, reason, decided.by, decided.sources),
+		);
 	}
 
 	/** Hands one task to a specialist this agent declared, keeping the conversation here. */
@@ -89,12 +121,26 @@ export class AgentHandle {
 	private commandOf(message: string, options?: AskOptions | SessionId): AgentRunCommand {
 		const asked = AgentHandle.optionsOf(options);
 		const sessionId = asked.sessionId === undefined ? undefined : AgentHandle.sessionOf(asked.sessionId);
-		return new AgentRunCommand(this.name, AskInput.with(message, asked.media ?? [], sessionId));
+		return new AgentRunCommand(
+			this.name,
+			AskInput.with(message, asked.media ?? [], sessionId),
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			asked.sources ?? [],
+		);
 	}
 
 	private static optionsOf(options?: AskOptions | SessionId): AskOptions {
 		if (options === undefined) return {};
 		return options instanceof SessionId ? { sessionId: options } : options;
+	}
+
+	/** The name alone is the common case, so it is still accepted where the options object goes. */
+	private static decisionOf(options: DecisionOptions | string): DecisionOptions {
+		return typeof options === "string" ? { by: options } : options;
 	}
 
 	private static sessionOf(sessionId: SessionId | string): SessionId {

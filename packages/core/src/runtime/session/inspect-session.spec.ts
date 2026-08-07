@@ -86,7 +86,7 @@ describe("InspectSession", () => {
 	it("says nobody is waiting once the decision released the turn", async () => {
 		const stack = suspendingStack();
 		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("refund order 42")));
-		await stack.deciding.handle(suspended.sessionId, REFUND, "granted", "gabriel");
+		await stack.deciding.handle(suspended.sessionId, REFUND, "granted", { by: "gabriel" });
 
 		const inspection = await new InspectSession(stack.sessions).handle(suspended.sessionId);
 

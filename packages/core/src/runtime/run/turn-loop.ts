@@ -1,4 +1,5 @@
 import type { PreparedModelContext } from "../../domain/context/prepared-model-context";
+import { BilledCall } from "../../domain/cost/billed-call";
 import type { SessionEventBatch } from "../../domain/event/session-event-batch";
 import { EmptyModelResponseError } from "../../domain/model/errors/empty-model-response.error";
 import type { ModelChunk } from "../../domain/model/model-chunk";
@@ -79,6 +80,8 @@ export class TurnLoop extends DelegatedTurnLoop {
 				progress,
 				this.journal.turn(current.started, outcome, prepared.composition.characters, calls.length === 0 && !empty),
 			);
+			// Billed to whoever served it, which after a reroute is not the model the agent declared.
+			progress.charged(new BilledCall(outcome.servedBy, outcome.response.usage));
 
 			// The usage is journaled first: what the provider charged for happened, whatever it answered.
 			if (empty) throw new EmptyModelResponseError(current.agent.value, outcome.servedBy.toString());

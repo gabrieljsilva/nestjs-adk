@@ -1,6 +1,7 @@
 import type { IdGenerator } from "../../common/identity/id-generator";
 import type { Clock } from "../../common/time/clock";
 import type { ArtifactStorage } from "../../contracts/artifact-storage";
+import type { Embedder } from "../../contracts/embedder";
 import type { SessionStorage } from "../../contracts/session-storage";
 import type { LlmModel } from "../../domain/model/llm-model";
 import type { RuntimeOptions } from "../../runtime/composition/runtime-options";
@@ -14,6 +15,8 @@ export interface AdkModuleOptionsInput {
 	clock?: Clock;
 	ids?: IdGenerator;
 	runtime?: RuntimeOptions;
+	/** Reachable by injecting `Embedder`. Without one, only code that embeds ever notices. */
+	embedder?: Embedder;
 }
 
 /** The fields a caller may name; one left out keeps whatever the options already hold. */
@@ -40,6 +43,8 @@ export class AdkModuleOptions {
 		public readonly ids?: IdGenerator,
 		/** Everything the runtime itself takes: approval policy, limits, consumers, snapshots. */
 		public readonly runtime?: RuntimeOptions,
+		/** Reachable by injecting `Embedder`. Without one, only code that embeds ever notices. */
+		public readonly embedder?: Embedder,
 	) {}
 
 	/** Options built from names instead of positions. */
@@ -51,6 +56,7 @@ export class AdkModuleOptions {
 			input.clock,
 			input.ids,
 			input.runtime,
+			input.embedder,
 		);
 	}
 
@@ -63,6 +69,7 @@ export class AdkModuleOptions {
 			patch.clock ?? this.clock,
 			patch.ids ?? this.ids,
 			patch.runtime ?? this.runtime,
+			patch.embedder ?? this.embedder,
 		);
 	}
 }

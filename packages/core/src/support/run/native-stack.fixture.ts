@@ -4,6 +4,8 @@ import type { SessionId } from "../../common/identity/session-id";
 import { SessionRevision } from "../../common/revision/session-revision";
 import { Instant } from "../../common/time/instant";
 import { ModelResolver } from "../../contracts/model-resolver";
+import type { PricingNoticeSink } from "../../contracts/pricing-notice-sink";
+import type { PricingSource } from "../../contracts/pricing-source";
 import type { ToolSource } from "../../contracts/tool-source";
 import { AgentDefinition } from "../../domain/agent/agent-definition";
 import { AgentDescription } from "../../domain/agent/agent-description";
@@ -27,6 +29,8 @@ import { ContextProjector } from "../../runtime/context/context-projector";
 import { ContextWindowNotifier } from "../../runtime/context/context-window-notifier";
 import { OldestFirstCompactionStrategy } from "../../runtime/context/oldest-first-compaction-strategy";
 import { StablePrefixDigest } from "../../runtime/context/stable-prefix-digest";
+import { CostCalculator } from "../../runtime/cost/cost-calculator";
+import { RunCostReporter } from "../../runtime/cost/run-cost-reporter";
 import { DelegationRunner } from "../../runtime/delegation/delegation-runner";
 import { ActiveRunTracker } from "../../runtime/lifecycle/active-run-tracker";
 import { RuntimeLifecycle } from "../../runtime/lifecycle/runtime-lifecycle";
@@ -41,6 +45,7 @@ import { DelegateAgent } from "../../runtime/run/delegate-agent";
 import { ExplainAgent } from "../../runtime/run/explain-agent";
 import { RunEventFactory } from "../../runtime/run/run-event-factory";
 import { RunJournal } from "../../runtime/run/run-journal";
+import { RunResultFactory } from "../../runtime/run/run-result-factory";
 import { RunScopeFactory } from "../../runtime/run/run-scope-factory";
 import { RunSettler } from "../../runtime/run/run-settler";
 import { SessionOpener } from "../../runtime/run/session-opener";
@@ -91,6 +96,8 @@ export class NativeStackFixture {
 		definition: AgentDefinition = NativeStackFixture.definitionOf(model),
 		approvals: AdkApprovalPolicy = EffectApprovalPolicy.never(),
 		sources: readonly ToolSource[] = [],
+		pricing?: PricingSource,
+		pricingNotices?: PricingNoticeSink,
 	) {
 		this.sessions = new SessionManager(this.storage);
 		const measurer = new ContextMeasurer();
@@ -109,6 +116,7 @@ export class NativeStackFixture {
 		const resolver = new FixedModelResolver(model);
 		const scopes = new RunScopeFactory();
 		const settler = new RunSettler(this.sessions, journal);
+		const results = new RunResultFactory(new RunCostReporter(new CostCalculator(), pricing, pricingNotices));
 		const executor = new TurnExecutor(
 			new ToolExecutor(new ArtifactOffloader(this.artifacts), approvals, new AttachmentStore(this.artifacts)),
 			journal,
@@ -139,6 +147,7 @@ export class NativeStackFixture {
 			new TransferGate(catalog),
 			this.ids,
 			new AttachmentStore(this.artifacts),
+			results,
 			sources,
 		);
 		this.deciding = new DecideApproval(
@@ -151,6 +160,7 @@ export class NativeStackFixture {
 			executor,
 			loop,
 			settler,
+			results,
 			sources,
 		);
 		this.runner = new AgentRunner(
@@ -158,7 +168,7 @@ export class NativeStackFixture {
 			this.deciding,
 			new StreamAgent(this.asking),
 			new ExplainAgent(this.asking),
-			new DelegateAgent(catalog, resolver, this.sessions, runs, scopes, delegations, settler),
+			new DelegateAgent(catalog, resolver, this.sessions, runs, scopes, delegations, settler, results),
 		);
 	}
 

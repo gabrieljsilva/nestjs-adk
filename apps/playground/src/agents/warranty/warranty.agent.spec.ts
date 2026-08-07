@@ -1,3 +1,4 @@
+import "@nestjs-adk/testing/matchers";
 import {
 	AdkAgent,
 	AgentName,
@@ -6,9 +7,13 @@ import {
 	IdGenerator,
 	Instant,
 	SessionId,
+	SessionStorage,
+	SqliteConnection,
+	SqliteSessionStorage,
 	ToolCallId,
 	ToolContext,
 } from "@nestjs-adk/core";
+import { AdkTestBedBuilder, ScriptedModel } from "@nestjs-adk/testing";
 import { Test } from "@nestjs/testing";
 import { describe, expect, it } from "vitest";
 import { TicketRepository } from "../../aftersales/ticket.repository";
@@ -144,5 +149,23 @@ describe("WarrantyAgent", () => {
 		const agent = module.get(WarrantyAgent);
 		expect(agent.warrantyPolicy()).toContain("photo");
 		expect(agent.warrantyPolicy()).not.toContain("receipt");
+	});
+
+	it("keeps a cacheable prefix across fresh runs", async () => {
+		const connection = new SqliteConnection();
+		const model = new ScriptedModel("warranty-prefix").strict().mockText("first").mockText("second");
+		await using bed = await AdkTestBedBuilder.from(Test.createTestingModule({ imports: [AppModule] }))
+			.overriding(StoreDatabase, new StoreDatabase(connection))
+			.overriding(SessionStorage, new SqliteSessionStorage(connection))
+			.withModel(model)
+			.boot();
+		const agent = bed.get(WarrantyAgent);
+
+		const [firstContext] = await agent.explain("How long is the warranty?");
+		const [secondContext] = await agent.explain("My controller has a defective button.");
+
+		expect(firstContext).toBeDefined();
+		expect(secondContext).toBeDefined();
+		expect([firstContext, secondContext]).toHaveStablePrefix(0.8);
 	});
 });

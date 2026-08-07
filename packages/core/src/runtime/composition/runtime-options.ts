@@ -2,6 +2,8 @@ import type { ConsumerNoticeSink } from "../../contracts/consumer-notice-sink";
 import type { ContextNoticeSink } from "../../contracts/context-notice-sink";
 import type { ContextSummarizer } from "../../contracts/context-summarizer";
 import type { ModelResolver } from "../../contracts/model-resolver";
+import type { PricingNoticeSink } from "../../contracts/pricing-notice-sink";
+import type { PricingSource } from "../../contracts/pricing-source";
 import type { SessionEventConsumer } from "../../contracts/session-event-consumer";
 import type { ToolSource } from "../../contracts/tool-source";
 import { OffloadPolicy } from "../../domain/artifact/offload-policy";
@@ -30,6 +32,8 @@ export interface RuntimeOptionsPatch {
 	contextNotices?: ContextNoticeSink;
 	consumerNotices?: ConsumerNoticeSink;
 	compaction?: AdkCompactionPolicy;
+	pricing?: PricingSource;
+	pricingNotices?: PricingNoticeSink;
 }
 
 /**
@@ -55,6 +59,9 @@ export class RuntimeOptions {
 		public readonly consumerNotices?: ConsumerNoticeSink,
 		/** What every agent that declared none runs under; one that declared its own keeps it. */
 		public readonly compaction?: AdkCompactionPolicy,
+		/** One source for the whole runtime. Without it every run answers a cost of zero and says so. */
+		public readonly pricing?: PricingSource,
+		public readonly pricingNotices?: PricingNoticeSink,
 	) {}
 
 	/** Options built from names instead of positions, with the same defaults as declaring none. */
@@ -82,6 +89,8 @@ export class RuntimeOptions {
 			patch.contextNotices ?? this.contextNotices,
 			patch.consumerNotices ?? this.consumerNotices,
 			patch.compaction ?? this.compaction,
+			patch.pricing ?? this.pricing,
+			patch.pricingNotices ?? this.pricingNotices,
 		);
 	}
 }

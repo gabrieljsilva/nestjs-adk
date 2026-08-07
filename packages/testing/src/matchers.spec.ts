@@ -1,8 +1,12 @@
 import {
+	AgentName,
 	AgentResult,
 	AgentRunId,
 	AgentRunStatus,
+	ContextSegment,
+	ContextSnapshot,
 	EmbeddingVector,
+	ModelIdentity,
 	PendingCall,
 	SessionId,
 	ToolCallId,
@@ -18,6 +22,13 @@ import { ToolFake } from "./tool-fake";
 const SESSION = SessionId.from("s-1");
 const RUN = AgentRunId.from("r-1");
 const CALL = ToolCallId.from("c-1");
+
+function contextOf(instructions: string, conversation: string): ContextSnapshot {
+	return new ContextSnapshot(AgentName.from("support"), ModelIdentity.of("test", "model"), [
+		new ContextSegment(ContextSegment.INSTRUCTIONS, instructions),
+		new ContextSegment(ContextSegment.CONVERSATION, conversation),
+	]);
+}
 
 function suspendedOn(tool: string): AgentResult {
 	return new AgentResult(SESSION, RUN, AgentRunStatus.SUSPENDED, "", [new PendingCall(CALL, tool, {})]);
@@ -136,6 +147,41 @@ describe("toBeSimilarTo", () => {
 
 	it("is registered on expect", () => {
 		expect(EmbeddingVector.of([1, 0])).toBeSimilarTo(EmbeddingVector.of([1, 0]));
+	});
+});
+
+describe("toHaveStablePrefix", () => {
+	it("measures the common opening against the largest context", () => {
+		const first = contextOf("stable", "one");
+		const second = contextOf("stable", "two longer");
+
+		expect(adkMatchers.toHaveStablePrefix([first, second], 0.35).pass).toBe(true);
+		expect(adkMatchers.toHaveStablePrefix([first, second], 0.4).pass).toBe(false);
+	});
+
+	it("points to the segment and text where the contexts diverged", () => {
+		const result = adkMatchers.toHaveStablePrefix(
+			[contextOf("be brief at 10:00", "hello"), contextOf("be brief at 11:00", "hello")],
+			0.9,
+		);
+
+		expect(result.pass).toBe(false);
+		expect(result.message()).toContain("instructions");
+		expect(result.message()).toContain("0:00");
+		expect(result.message()).toContain("1:00");
+	});
+
+	it("requires two snapshots and an explicit valid threshold", () => {
+		const snapshot = contextOf("stable", "hello");
+
+		expect(adkMatchers.toHaveStablePrefix([snapshot], 0.8).message()).toContain("at least two");
+		expect(adkMatchers.toHaveStablePrefix([snapshot, snapshot], 2).message()).toContain("between 0 and 1");
+	});
+
+	it("is registered on expect", () => {
+		const snapshot = contextOf("stable", "hello");
+
+		expect([snapshot, snapshot]).toHaveStablePrefix(1);
 	});
 });
 

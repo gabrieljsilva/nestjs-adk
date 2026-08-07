@@ -1,7 +1,8 @@
-import { AdkAgent, Clock, Instant } from "@nestjs-adk/core";
-import { Test, type TestingModuleBuilder } from "@nestjs/testing";
+import "@nestjs-adk/testing/matchers";
+import { AdkAgent, Clock, Instant, SessionStorage, SqliteConnection, SqliteSessionStorage } from "@nestjs-adk/core";
+import { AdkTestBedBuilder, ScriptedModel } from "@nestjs-adk/testing";
+import { Test } from "@nestjs/testing";
 import { describe, expect, it } from "vitest";
-import { OrderRepository } from "../../aftersales/order.repository";
 import { AppModule } from "../../app.module";
 import { StoreDatabase } from "../../shared/store-database";
 import { StoreSeed } from "../../shared/store-seed";
@@ -75,5 +76,23 @@ describe("BillingAgent", () => {
 		module.get(StoreSeed).apply();
 		const agent = module.get(BillingAgent);
 		expect(Reflect.get(Object(agent.refundLimit({ plan: "platinum" })), "limitBrl")).toBe(99);
+	});
+
+	it("keeps a cacheable prefix across fresh runs", async () => {
+		const connection = new SqliteConnection();
+		const model = new ScriptedModel("billing-prefix").strict().mockText("first").mockText("second");
+		await using bed = await AdkTestBedBuilder.from(Test.createTestingModule({ imports: [AppModule] }))
+			.overriding(StoreDatabase, new StoreDatabase(connection))
+			.overriding(SessionStorage, new SqliteSessionStorage(connection))
+			.withModel(model)
+			.boot();
+		const agent = bed.get(BillingAgent);
+
+		const [firstContext] = await agent.explain("What is the status of order A-1042?");
+		const [secondContext] = await agent.explain("What is the refund limit for the gold plan?");
+
+		expect(firstContext).toBeDefined();
+		expect(secondContext).toBeDefined();
+		expect([firstContext, secondContext]).toHaveStablePrefix(0.8);
 	});
 });

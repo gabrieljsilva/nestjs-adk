@@ -102,6 +102,8 @@ export class DelegationRunner {
 		try {
 			const childProgress = await this.open(scope, child, opened, progress, target, model, task);
 			await this.loopOrFail().run(this.scopes.delegated(scope, child, target, model), opened, childProgress);
+			// Before the suspension check: what the child spent was spent, whichever way it ended.
+			progress.charged(...childProgress.billed);
 			if (childProgress.isSuspended) {
 				throw new DelegationSuspendedError(scope.agent.value, target.name.value);
 			}

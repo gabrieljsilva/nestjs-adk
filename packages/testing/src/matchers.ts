@@ -1,4 +1,11 @@
-import { AgentResult, AgentRunStatus, EmbeddingVector, Similarity } from "@nestjs-adk/core";
+import {
+	AgentResult,
+	AgentRunStatus,
+	ContextSnapshot,
+	EmbeddingVector,
+	PrefixComparator,
+	Similarity,
+} from "@nestjs-adk/core";
 import { expect } from "vitest";
 import { JudgeRubric } from "./judge-rubric";
 import type { LlmJudge } from "./llm-judge";
@@ -201,6 +208,46 @@ export const adkMatchers = {
 		};
 	},
 
+	/**
+	 * Two or more model contexts kept the requested fraction of their opening byte identical.
+	 *
+	 * Pass one snapshot from each run. Unlike provider cache usage, this compares the text the
+	 * runtime assembled, so it is deterministic and can point at the exact segment that moved.
+	 */
+	toHaveStablePrefix(received: unknown, minimum: number): MatcherResult {
+		if (
+			!Array.isArray(received) ||
+			received.length < 2 ||
+			!received.every((snapshot) => snapshot instanceof ContextSnapshot)
+		) {
+			return {
+				pass: false,
+				message: () => "toHaveStablePrefix expects at least two ContextSnapshot instances, one from each run.",
+			};
+		}
+		if (!Number.isFinite(minimum) || minimum < 0 || minimum > 1) {
+			return { pass: false, message: () => "toHaveStablePrefix expects a threshold between 0 and 1." };
+		}
+
+		const report = new PrefixComparator().compare(received);
+		const percentage = (ratio: number) => `${(ratio * 100).toFixed(1)}%`;
+		const divergence = report.divergence;
+		const details =
+			divergence === undefined
+				? ""
+				: ` First divergence: ${divergence.segment} at character ${divergence.offset} ` +
+					`(segment character ${divergence.segmentOffset}); contexts continue with ${divergence.excerpts
+						.map((excerpt) => JSON.stringify(excerpt))
+						.join(", ")}.`;
+
+		return {
+			pass: report.ratio >= minimum,
+			message: () =>
+				`expected a stable prefix of at least ${percentage(minimum)}, and ${percentage(report.ratio)} ` +
+				`was stable (${report.prefixCharacters}/${report.totalCharacters} characters).${details}`,
+		};
+	},
+
 	/** A model graded the answer against criteria, which is the assertion a rewrite survives. */
 	async toSatisfyRubric(received: unknown, judge: LlmJudge, criteria: string | JudgeRubric): Promise<MatcherResult> {
 		if (typeof received !== "string") {
@@ -232,6 +279,7 @@ declare module "vitest" {
 		toBeFullyPlayed(): T;
 		toBeSemanticallyCloseTo(expected: string, minimum?: number): Promise<T>;
 		toBeSimilarTo(expected: EmbeddingVector, minimum?: number): T;
+		toHaveStablePrefix(minimum: number): T;
 		toSatisfyRubric(judge: LlmJudge, criteria: string | JudgeRubric): Promise<T>;
 	}
 

@@ -118,4 +118,16 @@ describe("the matchers, over what a run actually did", () => {
 
 		expect(bed.agent(BillingAgent)).not.toBeFullyPlayed();
 	});
+
+	it("measures the stable prefix from two real runs of the same agent", async () => {
+		bed = await bedWith((script) => script.mockText("first").mockText("second"));
+		const billing = bed.get(BillingAgent);
+
+		const [first] = await billing.explain("where is order A-1042?");
+		const [second] = await billing.explain("what did order A-77 cost?");
+
+		expect(first).toBeDefined();
+		expect(second).toBeDefined();
+		expect([first, second]).toHaveStablePrefix(0.8);
+	});
 });

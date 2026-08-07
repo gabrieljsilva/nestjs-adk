@@ -6,8 +6,7 @@ import type { AgentDefinition } from "../../domain/agent/agent-definition";
 import { UnsupportedCapabilityError } from "../../domain/model/errors/unsupported-capability.error";
 import type { LlmModel } from "../../domain/model/llm-model";
 import { ModelCapability } from "../../domain/model/model-capability";
-import { AgentResult } from "../../domain/session/agent-result";
-import { AgentRunStatus } from "../../domain/session/agent-run-status";
+import type { AgentResult } from "../../domain/session/agent-result";
 import type { AttachmentStore } from "../artifact/attachment-store";
 import type { AgentCatalog } from "../catalog/agent-catalog";
 import type { OpenedSession } from "../session/opened-session";
@@ -20,6 +19,7 @@ import type { AgentRunFactory } from "./agent-run-factory";
 import type { RunJournal } from "./run-journal";
 import { RunObservers } from "./run-observers";
 import { RunProgress } from "./run-progress";
+import type { RunResultFactory } from "./run-result-factory";
 import type { RunScope } from "./run-scope";
 import type { RunScopeFactory } from "./run-scope-factory";
 import type { RunSettler } from "./run-settler";
@@ -51,6 +51,7 @@ export class AskAgent {
 		private readonly transfers: TransferGate,
 		private readonly ids: IdGenerator,
 		private readonly attachments: AttachmentStore,
+		private readonly results: RunResultFactory,
 		private readonly sources: readonly ToolSource[] = [],
 	) {}
 
@@ -65,7 +66,7 @@ export class AskAgent {
 		const entry = existing === undefined ? called : this.ownerOf(existing, called);
 
 		const started = this.runs.start(sessionId, entry.name);
-		const sources = new ToolSourceScope(this.sources);
+		const sources = new ToolSourceScope(this.sources, command.sources);
 		try {
 			// Both edges are checked before the session is touched, so a handover nobody declared
 			// and a question nobody can look at leave no trace at all.
@@ -139,7 +140,7 @@ export class AskAgent {
 			const scope = this.scopes.create(definition, model, started, remote, command.limits);
 			await this.reportUnauthorized(scope, progress, sources);
 			await this.loop.run(scope, opened, progress, observers);
-			return this.resultOf(started, progress);
+			return await this.results.after(started, progress);
 		} catch (error) {
 			await this.settler.settle(opened.session.id, progress.state, started, error);
 			throw error;
@@ -161,11 +162,5 @@ export class AskAgent {
 				progress.state,
 			),
 		);
-	}
-
-	private resultOf(started: StartedRun, progress: RunProgress): AgentResult {
-		const status = progress.isSuspended ? AgentRunStatus.SUSPENDED : AgentRunStatus.COMPLETED;
-		const awaiting = progress.state.pendingTurn?.awaiting ?? [];
-		return new AgentResult(started.run.sessionId, started.run.id, status, progress.answer, awaiting);
 	}
 }

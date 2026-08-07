@@ -134,36 +134,48 @@ The payload never enters the session history. It is injected into the request be
 
 ## Tools that arrive per run
 
-The tools above are decided when you write the code. Some are not: if your users connect their own integrations, the set changes per person and only exists at runtime. That is what `AdkToolSource` is for.
+The tools above are decided when you write the code. Some are not: if your users connect their own integrations, the set changes per person and only exists at runtime. That is what `ToolSource` is for.
+
+A source declared in the module belongs to the application and opens on every run:
 
 ```ts
-const run = await this.assistant.ask({
-	message,
+AdkModule.forRoot(
+	AdkModuleOptions.from({
+		defaultModel,
+		runtime: RuntimeOptions.from({ sources: [new CompanyCatalogSource()] }),
+	}),
+);
+```
+
+A source declared on the call belongs to that run alone, which is where a credential that is somebody's rather than the application's goes:
+
+```ts
+const result = await this.assistant.ask(message, {
+	sessionId,
 	sources: await this.integrationsOf(user.id),
 });
 ```
 
-A source is opened while the agent is resolved and closed when the run ends, whether it succeeded, threw, or the consumer walked away from the stream. Its tools join the ones the agent declares and are indistinguishable from them downstream: they go through argument validation, offload, approvals and events like any other.
+Both are opened, the module's first, and both are closed when the run ends: whether it answered, threw, or was aborted mid stream. Their tools join the ones the agent declares and are indistinguishable from them downstream: they go through argument validation, offload, approvals and events like any other.
 
 ```ts
-export abstract class AdkToolSource {
+export abstract class ToolSource {
 	abstract readonly name: string;
-	abstract open(ctx: ToolSourceContext): Promise<ResolvedTool[]>;
-	abstract close(): Promise<void>;
+	abstract open(sessionId: SessionId, runId: AgentRunId, signal?: AbortSignal): Promise<readonly ToolDefinition[]>;
+	abstract close(runId: AgentRunId): Promise<void>;
 }
 ```
 
-Two failures are expected and neither ends the run. Throw `ToolSourceUnavailableError` when the source is unreachable: its tools are absent, the conversation continues, and the agent works with what is left. Throw `ToolSourceAuthError` when the user has to authorize again: the source lands in `run.reauth`, which is what an application turns into a reconnect button.
+An approval is a new run, minutes or days later, and whatever the suspended run had open is long closed. So a held call that came from a source needs the source declared again on the decision:
 
 ```ts
-if (run.reauth.length > 0) {
-	return { text: run.text, reconnect: run.reauth.map((item) => item.source) };
-}
+await this.assistant.approve(sessionId, callId, {
+	by: "gabriel",
+	sources: await this.integrationsOf(user.id),
+});
 ```
 
-The distinction matters because reconnecting fixes one and not the other. The model is told about both, so it can explain the situation instead of pretending the capability never existed.
-
-Two sources answering to the same `name` is a configuration error and fails immediately, before any connection is attempted. The name identifies where a tool came from, so a duplicate would leave the model with two identical tools and no way to choose.
+Two failures are expected and neither ends the run. Throw `ToolSourceUnavailableError` when the source is unreachable: its tools are absent and the conversation continues with what is left. Throw `ToolSourceAuthError` when the user has to authorize again: the run journals a `tool.source-reauth-required` event naming the source, which is what an application turns into a reconnect button. The distinction matters because reconnecting fixes one and not the other.
 
 Omitting `sources` is harmless: the agent runs with what it declares and nothing else. Forgetting it costs you tools, never someone else's.
 
@@ -515,82 +527,114 @@ tool result lookup_order result={"id":"123","status":"shipped"}
 run done in 1389ms text=Your order 123 has shipped. | tokens in=772 out=41 total=813
 ```
 
-Token usage is also available programmatically on every result as `run.usage`. With pricing configured, the same line carries the run cost.
+Token usage is also on every result, per model, as `result.cost.byModel[n].usage`, next to what those tokens cost.
 
 ## Cost
 
-Turn on pricing in the module and every run reports what it cost:
+Declare one pricing source in the module and every run reports what it cost:
 
 ```ts
-AdkModule.forRoot({ engine: GoogleAdkEngine, pricing: new LiteLLMPricingSource() })
+AdkModule.forRoot(
+	AdkModuleOptions.from({
+		defaultModel,
+		runtime: RuntimeOptions.from({ pricing: new LiteLLMPricingSource() }),
+	}),
+);
 ```
 
 ```ts
-const run = await support.ask({ message });
-run.cost;
-// { total: 0.000334, currency: "USD",
-//   byModel: [{ model: "gemini-2.5-flash", calls: 2, usage: { promptTokens: 772, outputTokens: 41, totalTokens: 813 },
-//               amount: 0.000334 }],
-//   unpriced: [], catalogAsOf: "2026-07-25T04:12:00Z" }
+const result = await support.ask(message);
+
+result.cost.total.toString(); // "0.000334", exact, no exponent
+result.cost.calls; // 2
+result.cost.isComplete; // true
+result.cost.byModel[0]?.model.toString(); // "google/gemini-3.5-flash-lite"
 ```
 
-Prices come from the community catalog that LiteLLM maintains. `LiteLLMPricingSource` fetches it, keeps only the token rates, stores it and revalidates every four hours, all at runtime, inside the lib, with no build step. Every model in the catalog stays loaded, so a model released yesterday is priced today.
+Prices come from the catalog LiteLLM maintains. `LiteLLMPricingSource` reads it when the first run asks for a price, keeps only the per token rates, and serves them from memory for a day. A read that fails keeps whatever table was already loaded, and it is not retried on the next question: a catalog that is down must not turn a degraded report into a load problem.
 
-Each call is billed under the model that actually served it, so a failover or a compaction summary lands on its own line in `byModel` instead of being attributed to the agent's declared model. Cached prompt tokens are discounted from the prompt and charged at the cache rate, and models whose price grows above a context threshold (Gemini 2.5 Pro doubles past 200k) switch band by the real token count of the call.
+Each call is billed under the model that actually served it, so a failover lands on its own line in `byModel` instead of being attributed to the agent's declared model. A delegation's cost is added to the parent's total once, with the child's model listed separately. Cached prompt tokens are discounted from the prompt rather than added to it, and models whose price grows past a context threshold switch band by the real token count of the call.
+
+### Money is exact
+
+Amounts are `UsdAmount`, an integer count of pico dollars held as a `bigint`. That is a measured decision rather than a preference: the cheapest rate in the catalog is `1.3e-10` per token, which a nano unit truncates to zero, and `Number.MAX_SAFE_INTEGER` in pico dollars is about 9007 dollars, which an accumulator reaches.
+
+```ts
+result.cost.total.toString(); // "0.0000088"  exact decimal, what a NUMERIC column wants
+result.cost.total.pico; // 8800000n         exact integer, for arithmetic
+result.cost.total.toNumber(); // 8.8e-6     lossy: for a chart, never for a bill
+```
+
+`JSON.stringify` on a result answers the exact decimal string, so a controller can return an `AgentResult` unchanged.
 
 ### Posting to a ledger
 
-If these numbers go into a ledger rather than a dashboard, do not read `total` alone. Every `CallCost` carries a `breakdown` (`input`, `output` and `cached` as separate amounts, which is what a billing row usually wants as separate columns) plus the `rates` actually applied to that call, after bands and overrides:
+If these numbers go into a ledger rather than a dashboard, do not read `total` alone. `ModelCost` carries a `breakdown` with `input`, `output` and `cached` as separate amounts, which is what a billing row usually wants as separate columns, plus the `usage` those amounts were computed from, so a row can be reconciled against an invoice. It deliberately carries no rates: calls with different prompt sizes can land in different bands, so one rate for the aggregate would be a fiction. Rates are on the call, where they are unambiguous.
+
+One thing worth planning for: `byModel` is a list. A run that failed over or delegated touches two models, so a schema with one model name per transaction has no room for it.
+
+### Nothing is ever guessed
+
+A model the source does not know, a source that throws, a price with a hole in it, a provider that reported no tokens: every one of them ends the same way. The model is named in `cost.unpriced`, its tokens stay out of the total, and `cost.isComplete` is false. You get a number that is smaller than the invoice and says so, instead of one that looks right and is not.
+
+Declaring no source at all is the same story: every run answers a cost of zero with `isComplete` false. To find out why, implement the sink:
 
 ```ts
-const response = run.events.find((event) => event.type === "llm_response" && event.cost);
-response.cost;
-// { amount: 0.000334, currency: "USD",
-//   breakdown: { input: 0.00023, output: 0.000104, cached: 0 },
-//   rates: { input: 3e-7, output: 2.5e-6, cacheRead: 3e-8 } }
-```
-
-Token counts are integers and rates are per token, so a consumer doing decimal arithmetic can multiply them itself and never inherit our floating point, which matters if your ledger rounds down at ten decimal places and expects the parts to reconcile against the whole.
-
-`ModelCost` aggregates the same breakdown per model. It deliberately carries no `rates`: calls with different prompt sizes can land in different context bands, so a single rate for the aggregate would be a fiction. Rates are per call, where they are unambiguous.
-
-One more thing worth planning for: `byModel` is a list. A turn that failed over touches two models, so a schema with one model name per transaction has no room for it.
-
-Nothing is ever guessed. A model the catalog does not know, or one with an incomplete price, is named in `unpriced` and left out of the total: you get tokens without cost instead of a number that looks right and is not. The same applies before the first successful fetch: the run completes normally with `run.cost` absent.
-
-```ts
-new LiteLLMPricingSource({
-	storage: new RedisPricingStorage({ client: redis }), // or FileSystemPricingStorage
-	refreshEvery: 4 * 60 * 60 * 1000,
-	overrides: {
-		"internal-proxy-gpt": { inputPerMTok: 0.5, outputPerMTok: 1.5 },
-		"gemini-2.5-flash": { inputPerMTok: 0.24 }, // contract discount, keeps the catalog's output price
-	},
-})
-```
-
-Storage is not about saving memory (the whole catalog is ~0.33 MB): it is what makes a restart skip the download, lets replicas share a single fetch, and keeps prices available offline. The default is in-memory, per process.
-
-The catalog in memory is only ever replaced by a new and valid payload. A failed fetch, a timeout or an unexpected format logs an error and keeps the prices already loaded, so pricing never interrupts a run and never blocks boot. Because of that, the data can be stale: `catalogAsOf` tells you how old it is.
-
-One trust assumption comes with that convenience: by default the prices are community data, read at runtime from a mutable branch, so whatever upstream publishes becomes your cost numbers within four hours. Point `url` at a commit SHA when you need reproducible figures, and use `overrides` for any price you must guarantee: an override always wins, including above the context thresholds.
-
-## Embeddings
-
-The core ships an `AdkEmbedder` contract with no default implementation, so you bring the provider you prefer:
-
-```ts
-@Embedder({ model: "gemini-embedding-001", dimensions: 3072 })
-export class GeminiEmbedder extends AdkEmbedder {
-	protected async generate(texts: string[]): Promise<EmbeddingOutput> {
-		// call your provider, return vectors and the tokens it reported
+export class LoggingNotices extends PricingNoticeSink {
+	public report(notice: ModelUnpriced): void {
+		this.logger.warn(notice.message);
+		// "google/gemini-9-imaginary billed 813 tokens that were left out of the total: unknown-model."
 	}
 }
 ```
 
-Configure it once with `forRoot({ embedder })` and inject `AdkEmbedder` wherever you need vectors, for semantic search or deduplication. You implement `generate()`; the base class exposes `embed()`, which prices the call against the configured `PricingSource` and returns `cost` alongside the vectors. Embeddings only bill input, so the model id on the decorator plus the reported tokens is all it takes. When the provider does not report tokens, `usage.promptTokens` is absent and the call goes unpriced instead of being counted as free.
+Nothing about pricing can fail a run. The sink is off the path of every decision, including when it throws.
 
-The `Similarity` provider offers cosine similarity, and the testing package uses the same embedder for semantic assertions.
+### Your own source
+
+The catalog is community data read at runtime, so whatever upstream publishes becomes your cost numbers within a day. When you need negotiated rates, reproducible figures or your own cache, implement the port:
+
+```ts
+export class ContractPricing extends PricingSource {
+	public async priceOf(model: ModelIdentity): Promise<ModelPrice | undefined> {
+		const agreed = this.rates[model.model];
+		if (agreed === undefined) return undefined;
+		return ModelPrice.of(TokenRate.fromUsdPerToken(agreed.in), TokenRate.fromUsdPerToken(agreed.out));
+	}
+}
+```
+
+Returning `undefined` is a normal answer and not a failure. There is one source for the whole module and no per agent or per model override: a bill that can be overridden in three places is a bill nobody can explain, and the cases that want one are better served by a source of your own.
+
+## Embeddings
+
+`Embedder` is a port with no default implementation, so you bring the provider you prefer. Declare it once and inject it by type anywhere:
+
+```ts
+AdkModule.forRoot(AdkModuleOptions.from({ defaultModel, embedder: new GeminiEmbedder() }));
+```
+
+```ts
+@Injectable()
+export class SearchService {
+	public constructor(private readonly embedder: Embedder) {}
+
+	public async vectorOf(text: string): Promise<EmbeddingVector> {
+		return this.embedder.embed(text);
+	}
+}
+```
+
+An application that declares none still boots and still injects: only code that actually embeds fails, naming the option to declare. `@nestjs-adk/google` ships `GeminiEmbedder`, and the `Similarity` provider offers cosine similarity over the vectors.
+
+Indexing a corpus is often the larger half of a bill, and none of it is a turn, so `AgentResult.cost` never sees it. `PricedEmbedder` asks the same question about an embedding, through the same source:
+
+```ts
+const priced = new PricedEmbedder(embedder, reporter);
+const { vector, cost } = await priced.embed(text);
+```
+
+That only produces a number when the provider reports usage, which today most do not: Google's `embedContent` answers a `billableCharacterCount` and only on Enterprise, and nothing there counts tokens. An embedder that can report extends `MeteredEmbedder` and answers `embedMetered`. One that cannot lands in `cost.unpriced` with a notice, because estimating tokens from characters would put a number in a report that no invoice will match.
 
 ## Testing
 

@@ -2,6 +2,7 @@ import {
 	AdkModule,
 	AdkModuleOptions,
 	EffectApprovalPolicy,
+	LiteLLMPricingSource,
 	RuntimeOptions,
 	SqliteSessionStorage,
 	TokenThresholdCompactionPolicy,
@@ -45,27 +46,16 @@ export const geminiFlashLite = new GeminiModel(MODEL, { apiKey: GEMINI_API_KEY }
  */
 const COMPACTION = new TokenThresholdCompactionPolicy(24_000, 12_000, 4);
 
-export const storeOptions = new AdkModuleOptions(
-	geminiFlashLite,
-	new SqliteSessionStorage(storeConnection),
-	undefined,
-	undefined,
-	undefined,
-	new RuntimeOptions(
-		undefined,
-		undefined,
-		[],
-		undefined,
-		EffectApprovalPolicy.from(ToolEffect.DESTRUCTIVE),
-		undefined,
-		undefined,
-		undefined,
-		new StoreSummarizer(geminiFlashLite),
-		undefined,
-		undefined,
-		COMPACTION,
-	),
-);
+export const storeOptions = AdkModuleOptions.from({
+	defaultModel: geminiFlashLite,
+	storage: new SqliteSessionStorage(storeConnection),
+	runtime: RuntimeOptions.from({
+		approvals: EffectApprovalPolicy.from(ToolEffect.DESTRUCTIVE),
+		summarizer: new StoreSummarizer(geminiFlashLite),
+		compaction: COMPACTION,
+		pricing: new LiteLLMPricingSource(),
+	}),
+});
 
 /**
  * The store, wired. Each feature owns and exports its providers; this root only composes

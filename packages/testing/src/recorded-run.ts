@@ -16,7 +16,7 @@ export class RecordedRun extends AgentResult {
 		result: AgentResult,
 		public readonly events: RunEvents,
 	) {
-		super(result.sessionId, result.runId, result.status, result.text, result.awaiting);
+		super(result.sessionId, result.runId, result.status, result.text, result.awaiting, result.cost);
 	}
 
 	public get toolCalls(): readonly RecordedToolCall[] {

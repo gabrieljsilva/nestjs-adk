@@ -5,8 +5,7 @@ import type { ToolSource } from "../../contracts/tool-source";
 import type { AgentDefinition } from "../../domain/agent/agent-definition";
 import { SessionEventBatch } from "../../domain/event/session-event-batch";
 import type { LlmModel } from "../../domain/model/llm-model";
-import { AgentResult } from "../../domain/session/agent-result";
-import { AgentRunStatus } from "../../domain/session/agent-run-status";
+import type { AgentResult } from "../../domain/session/agent-result";
 import { ApprovalNotPendingError } from "../../domain/session/errors/approval-not-pending.error";
 import type { ApprovalDecision } from "../../domain/session/pending-call";
 import type { PendingTurn } from "../../domain/session/pending-turn";
@@ -18,12 +17,23 @@ import { ToolSourceScope } from "../tool/tool-source-scope";
 import type { AgentRunFactory } from "./agent-run-factory";
 import type { RunJournal } from "./run-journal";
 import { RunProgress } from "./run-progress";
+import type { RunResultFactory } from "./run-result-factory";
 import type { RunScope } from "./run-scope";
 import type { RunScopeFactory } from "./run-scope-factory";
 import type { RunSettler } from "./run-settler";
 import type { StartedRun } from "./started-run";
 import type { TurnExecutor } from "./turn-executor";
 import type { TurnLoop } from "./turn-loop";
+
+/** What a decision carries besides the decision itself. */
+export interface ApprovalOptions {
+	/** Who agreed or refused, recorded in the journal next to the decision. */
+	by?: string;
+	/** Why it was refused, which is what the model is told. */
+	reason?: string;
+	/** Sources opened for this run alone, on top of the module's. */
+	sources?: readonly ToolSource[];
+}
 
 /**
  * Records one decision, and runs the turn once every held call of it has one.
@@ -47,6 +57,7 @@ export class DecideApproval {
 		private readonly executor: TurnExecutor,
 		private readonly loop: TurnLoop,
 		private readonly settler: RunSettler,
+		private readonly results: RunResultFactory,
 		private readonly sources: readonly ToolSource[] = [],
 	) {}
 
@@ -54,9 +65,9 @@ export class DecideApproval {
 		sessionId: SessionId,
 		callId: ToolCallId,
 		decision: ApprovalDecision,
-		by?: string,
-		reason?: string,
+		options: ApprovalOptions = {},
 	): Promise<AgentResult> {
+		const { by, reason, sources: perRun = [] } = options;
 		const rehydrated = await this.sessions.rehydrate(sessionId);
 		if (rehydrated.state.pendingTurn?.isAwaiting(callId) !== true) {
 			throw new ApprovalNotPendingError(sessionId.value, callId.value);
@@ -65,7 +76,7 @@ export class DecideApproval {
 		const definition = this.catalog.findOrFail(rehydrated.state.activeAgent ?? rehydrated.session.rootAgent);
 		const model = this.models.resolve(definition);
 		const started = this.runs.resume(sessionId, definition.name, rehydrated.state.pendingTurn.runId);
-		const sources = new ToolSourceScope(this.sources);
+		const sources = new ToolSourceScope(this.sources, perRun);
 		const progress = new RunProgress(
 			await this.sessions.commit(
 				sessionId,
@@ -107,7 +118,7 @@ export class DecideApproval {
 		await this.commit(scope, progress, await this.executor.execute(scope, turn.calls, true));
 
 		await this.loop.run(scope, new OpenedSession(session, progress.state, false), progress);
-		return this.resultOf(started, progress);
+		return await this.results.after(started, progress);
 	}
 
 	/** Somebody still has to answer, so this run ends the way the one before it did. */
@@ -121,16 +132,10 @@ export class DecideApproval {
 			),
 		);
 		progress.suspend();
-		return this.resultOf(started, progress);
+		return await this.results.after(started, progress);
 	}
 
 	private async commit(scope: RunScope, progress: RunProgress, batch: SessionEventBatch): Promise<void> {
 		progress.advanced(await this.sessions.commit(scope.sessionId, progress.state.revision, batch, progress.state));
-	}
-
-	private resultOf(started: StartedRun, progress: RunProgress): AgentResult {
-		const status = progress.isSuspended ? AgentRunStatus.SUSPENDED : AgentRunStatus.COMPLETED;
-		const awaiting = progress.state.pendingTurn?.awaiting ?? [];
-		return new AgentResult(started.run.sessionId, started.run.id, status, progress.answer, awaiting);
 	}
 }

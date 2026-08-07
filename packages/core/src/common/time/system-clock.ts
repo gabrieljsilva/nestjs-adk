@@ -1,5 +1,5 @@
-import { Clock } from "../../common/time/clock";
-import { Instant } from "../../common/time/instant";
+import { Clock } from "./clock";
+import { Instant } from "./instant";
 
 /** The wall clock, which is what an application runs on when it does not say otherwise. */
 export class SystemClock extends Clock {

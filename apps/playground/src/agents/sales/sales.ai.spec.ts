@@ -1,6 +1,12 @@
 import "reflect-metadata";
 import "@nestjs-adk/testing/matchers";
-import { SessionStorage, SqliteConnection, SqliteSessionStorage } from "@nestjs-adk/core";
+import {
+	LiteLLMPricingSource,
+	ModelIdentity,
+	SessionStorage,
+	SqliteConnection,
+	SqliteSessionStorage,
+} from "@nestjs-adk/core";
 import { type AdkTestBed, AdkTestBedBuilder, RecordingModel, RunTranscript } from "@nestjs-adk/testing";
 import { Test, type TestingModuleBuilder } from "@nestjs/testing";
 import { describe, expect, it } from "vitest";
@@ -33,6 +39,106 @@ describe("AI: sales, tools and the answer they produce", () => {
 		expect(run).toHaveRunTool("quote_game");
 		expect(run.text).toContain("755");
 		expect(run).toHaveStatus("completed");
+	});
+
+	/**
+	 * What a real run cost, priced by the catalog LiteLLM actually publishes today.
+	 *
+	 * This is the one thing a fake catalog cannot answer: whether the table that exists right
+	 * now, at the URL the source reads, still holds the model this application runs on under a
+	 * key the resolver finds. `isComplete` is most of the assertion. It goes false if the
+	 * download failed, if the payload stopped being a catalog, if upstream renamed
+	 * `input_cost_per_token`, or if `gpt-5.6-luna` left the table.
+	 *
+	 * The amount is deliberately not pinned to a number. The rates are community data that
+	 * upstream owns and may change any day, so asserting one would make this red for something
+	 * that is not a bug. What is asserted is that a real answer produced a real price, that the
+	 * price is exact, and that a run of several turns adds up under the model that served them.
+	 */
+	it("prices what it just paid for against the published catalog", { timeout: 120_000 }, async () => {
+		const connection = new SqliteConnection();
+		await using bed = await AdkTestBedBuilder.from(Test.createTestingModule({ imports: [AppModule] }))
+			.overriding(StoreDatabase, new StoreDatabase(connection))
+			.overriding(SessionStorage, new SqliteSessionStorage(connection))
+			.withModel(openAILuna)
+			.withConsumers(new RunTranscript())
+			.boot();
+
+		const run = await bed.agent(SalesAgent).ask("How much does one copy of Stardew Valley cost?");
+
+		expect(run).toHaveRunTool("quote_game");
+		expect(run.cost.isComplete).toBe(true);
+		expect(run.cost.unpriced).toEqual([]);
+		expect(run.cost.byModel.map((model) => model.model.toString())).toEqual(["openai/gpt-5.6-luna"]);
+		expect(run.cost.total.pico).toBeGreaterThan(0n);
+		// The precision promise on a real amount: an exact decimal, never `8.8e-6`.
+		expect(run.cost.total.toString()).toMatch(/^\d+(\.\d+)?$/);
+
+		// A tool call is two turns at least, and both belong to the same entry.
+		const priced = run.cost.byModel[0];
+		expect(priced?.calls).toBeGreaterThan(1);
+		expect(priced?.usage.inputTokens).toBeGreaterThan(0);
+		expect(priced?.usage.outputTokens).toBeGreaterThan(0);
+		expect(run.cost.calls).toBe(priced?.calls);
+	});
+
+	/**
+	 * The reported amount against the rates the catalog published, part by part.
+	 *
+	 * The identity asserted is the whole of what pricing claims: each part is its own token count
+	 * times its own published rate, and the cached share comes out of the input rather than being
+	 * added to it. A provider that reports cached tokens is what makes the third part mean
+	 * anything, and OpenAI caches automatically only above about a thousand prompt tokens, which
+	 * the store's own prompt never reaches. Hence the preamble and the second question in the same
+	 * session: the second run replays a prefix the provider has already seen.
+	 *
+	 * The rates are read from the source rather than written here on purpose. They are community
+	 * data upstream owns, so a literal would make this red the day a price changes, which is not a
+	 * bug. That the projection reads the right fields, and ignores the `_priority` and `_flex`
+	 * tiers next to them, is proved offline against a literal in the projection's own spec.
+	 */
+	it("bills each part at its published rate and discounts the cached share", { timeout: 180_000 }, async () => {
+		const connection = new SqliteConnection();
+		await using bed = await AdkTestBedBuilder.from(Test.createTestingModule({ imports: [AppModule] }))
+			.overriding(StoreDatabase, new StoreDatabase(connection))
+			.overriding(SessionStorage, new SqliteSessionStorage(connection))
+			.withModel(openAILuna)
+			.withConsumers(new RunTranscript())
+			.boot();
+
+		// The bed keeps the conversation, so the second question replays the first as its prefix.
+		const preamble = "For context, our procurement policy reads as follows. ".repeat(60);
+		const sales = bed.agent(SalesAgent);
+		await sales.ask(`${preamble} How much does one copy of Stardew Valley cost?`);
+		const run = await sales.ask(`${preamble} And how much for three copies?`);
+
+		const priced = run.cost.byModel[0];
+		if (priced === undefined) throw new Error("the run was not priced");
+		const price = await new LiteLLMPricingSource().priceOf(ModelIdentity.of("openai", "gpt-5.6-luna"));
+		if (price === undefined) throw new Error("the catalog does not know the model");
+
+		const { inputTokens, outputTokens, cachedInputTokens } = priced.usage;
+		const fresh = BigInt(inputTokens - cachedInputTokens);
+		const cacheRate = price.cacheRead?.picoPerToken ?? price.input.picoPerToken;
+
+		expect(priced.breakdown.input.pico).toBe(fresh * price.input.picoPerToken);
+		expect(priced.breakdown.output.pico).toBe(BigInt(outputTokens) * price.output.picoPerToken);
+		expect(priced.breakdown.cached.pico).toBe(BigInt(cachedInputTokens) * cacheRate);
+		expect(run.cost.total.pico).toBe(
+			priced.breakdown.input.pico + priced.breakdown.output.pico + priced.breakdown.cached.pico,
+		);
+
+		// A prompt this size is far from the band the catalog declares, so the base rates applied.
+		expect(price.ratesFor(inputTokens).input.picoPerToken).toBe(price.input.picoPerToken);
+
+		/**
+		 * Whether the cache engaged is the provider's call and not something to fail a run over.
+		 * When it did, the discount has to be real: the same tokens billed cold cost more.
+		 */
+		if (cachedInputTokens > 0) {
+			const cold = BigInt(inputTokens) * price.input.picoPerToken + BigInt(outputTokens) * price.output.picoPerToken;
+			expect(run.cost.total.pico).toBeLessThan(cold);
+		}
 	});
 
 	it("answers a greeting without reaching for a tool", { timeout: 60_000 }, async () => {

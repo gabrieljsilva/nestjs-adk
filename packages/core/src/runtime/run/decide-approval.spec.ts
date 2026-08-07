@@ -76,7 +76,7 @@ describe("DecideApproval", () => {
 		]);
 		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("refund order 42")));
 
-		const resumed = await stack.deciding.handle(suspended.sessionId, CLOSE, "granted", "gabriel");
+		const resumed = await stack.deciding.handle(suspended.sessionId, CLOSE, "granted", { by: "gabriel" });
 
 		expect(lookup.calls).toBe(1);
 		expect(refund.calls).toBe(1);
@@ -123,7 +123,7 @@ describe("DecideApproval", () => {
 		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("refund and close 42")));
 		await stack.deciding.handle(suspended.sessionId, REFUND, "granted");
 
-		await stack.deciding.handle(suspended.sessionId, CLOSE, "denied", "gabriel", "the order stays open");
+		await stack.deciding.handle(suspended.sessionId, CLOSE, "denied", { by: "gabriel", reason: "the order stays open" });
 
 		expect(refund.calls).toBe(1);
 		expect(close.calls).toBe(0);
