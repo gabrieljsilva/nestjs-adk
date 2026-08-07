@@ -30,6 +30,26 @@ describe("ChunkStream", () => {
 		expect(await reading).toHaveLength(1);
 	});
 
+	/**
+	 * The one assertion that says "before", and the reason streaming exists at all.
+	 *
+	 * Every other case here emits and closes together, so a stream that piled every chunk up
+	 * and released them on `close` would satisfy all of them: the pieces would arrive as
+	 * pieces, just all at once once the turn was over, with a UI showing nothing until then.
+	 * Reading a chunk while the run is still open is what tells the two apart, and a stream
+	 * that buffered would hang here rather than fail an assertion.
+	 */
+	it("hands a chunk over while the run is still going, without waiting to be closed", async () => {
+		const stream = new ChunkStream();
+		const reading = stream.drain();
+
+		stream.emit(ModelChunk.text("early"));
+		const first = await reading.next();
+
+		expect(first.done).toBe(false);
+		expect(first.value?.textDelta).toBe("early");
+	});
+
 	it("keeps the order the run emitted in", async () => {
 		const stream = new ChunkStream();
 		const reading = collect(stream);

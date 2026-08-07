@@ -45,4 +45,23 @@ describe("ScriptedTurn", () => {
 		expect(ScriptedTurn.text("hi").expecting("A-1042").expectationText).toContain("A-1042");
 		expect(ScriptedTurn.text("hi").expectationText).toBe("anything");
 	});
+
+	it("keeps the pieces a streamed turn was written with, and the whole answer they make", () => {
+		const turn = ScriptedTurn.stream(["Temos ", "dois."]);
+
+		expect(turn.deltas).toEqual(["Temos ", "dois."]);
+		expect(turn.text).toBe("Temos dois.");
+	});
+
+	it("counts a text turn as one piece, so a caller reads both kinds the same way", () => {
+		expect(ScriptedTurn.text("Temos dois.").deltas).toEqual(["Temos dois."]);
+	});
+
+	it("carries no piece at all when the turn asks for a tool", () => {
+		expect(ScriptedTurn.toolCall("find_order", { id: "1" }).deltas).toEqual([]);
+	});
+
+	it("keeps the pieces when the turn is guarded", () => {
+		expect(ScriptedTurn.stream(["a", "b"]).expecting("x").deltas).toEqual(["a", "b"]);
+	});
 });

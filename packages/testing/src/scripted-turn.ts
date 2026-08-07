@@ -20,32 +20,44 @@ export type TurnExpectation = string | RegExp | ((request: ModelRequest) => bool
 export class ScriptedTurn {
 	private constructor(
 		public readonly text: string,
+		public readonly deltas: readonly string[],
 		public readonly calls: readonly ScriptedCall[],
 		public readonly failure?: ModelFailure,
 		public readonly expectation?: TurnExpectation,
 	) {}
 
 	public static text(text: string): ScriptedTurn {
-		return new ScriptedTurn(text, []);
+		return new ScriptedTurn(text, [text], []);
+	}
+
+	/**
+	 * The same answer, delivered in pieces, which is what a provider does when it streams.
+	 *
+	 * `text` stays the whole answer, because that is what the run ends up with either way:
+	 * the pieces only decide how many chunks carry it there. A turn scripted with one piece
+	 * is indistinguishable from `text`, which is exactly what a non streaming provider sends.
+	 */
+	public static stream(deltas: readonly string[]): ScriptedTurn {
+		return new ScriptedTurn(deltas.join(""), [...deltas], []);
 	}
 
 	public static toolCall(tool: string, args: Record<string, unknown>): ScriptedTurn {
-		return new ScriptedTurn("", [{ tool, args }]);
+		return new ScriptedTurn("", [], [{ tool, args }]);
 	}
 
 	/** Every call in one turn, which is how a model asks for tools in parallel. */
 	public static toolCalls(calls: readonly ScriptedCall[]): ScriptedTurn {
-		return new ScriptedTurn("", [...calls]);
+		return new ScriptedTurn("", [], [...calls]);
 	}
 
 	/** A turn that fails instead of answering, which is what a failover policy decides on. */
 	public static failure(failure: ModelFailure): ScriptedTurn {
-		return new ScriptedTurn("", [], failure);
+		return new ScriptedTurn("", [], [], failure);
 	}
 
 	/** The same turn, guarded: a request that does not satisfy the expectation stops the run. */
 	public expecting(expectation: TurnExpectation): ScriptedTurn {
-		return new ScriptedTurn(this.text, this.calls, this.failure, expectation);
+		return new ScriptedTurn(this.text, this.deltas, this.calls, this.failure, expectation);
 	}
 
 	/** The first call, for a caller that scripted a single one. */

@@ -66,6 +66,26 @@ export class ScriptedModel extends LlmModel {
 		return this;
 	}
 
+	/**
+	 * Queues one answer delivered in pieces, the way a provider streams it.
+	 *
+	 * A turn queued with `mockText` arrives as a single chunk carrying the whole answer, which
+	 * is what a provider sends with streaming off. That makes it useless for testing a caller
+	 * that consumes `stream`: the caller sees one chunk, the assertion passes, and a caller
+	 * that only ever renders the last chunk would pass too. Scripting the pieces is what puts
+	 * the incremental delivery under test.
+	 *
+	 * The run still ends with the pieces joined, so an assertion on the answer does not care
+	 * which of the two queued it.
+	 */
+	public mockStream(deltas: readonly string[]): this {
+		if (deltas.length === 0) {
+			throw new ScriptMisuseError(this.name, "stream a turn with no pieces; queue at least one, or use mockText");
+		}
+		this.script.push(ScriptedTurn.stream(deltas));
+		return this;
+	}
+
 	/** Queues a turn that asks for one tool, which the runtime then actually runs. */
 	public mockToolCall(tool: string, args: Record<string, unknown> = {}): this {
 		this.script.push(ScriptedTurn.toolCall(tool, args));
@@ -151,7 +171,11 @@ export class ScriptedModel extends LlmModel {
 				ModelChunk.finish("tool_calls"),
 			];
 		}
-		return [ModelChunk.text(turn.text), ModelChunk.usage(ModelUsage.of(this.promptTokens, 2)), ModelChunk.finish("stop")];
+		return [
+			...turn.deltas.map((delta) => ModelChunk.text(delta)),
+			ModelChunk.usage(ModelUsage.of(this.promptTokens, 2)),
+			ModelChunk.finish("stop"),
+		];
 	}
 
 	private describe(request: ModelRequest): string {

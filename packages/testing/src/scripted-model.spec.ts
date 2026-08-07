@@ -129,4 +129,40 @@ describe("ScriptedModel", () => {
 		await collect(model);
 		expect(() => model.verify()).not.toThrow();
 	});
+
+	it("hands a streamed turn over in the pieces it was given, in order", async () => {
+		const model = new ScriptedModel().mockStream(["Temos ", "o Hollow ", "Knight."]);
+
+		const texts = (await collect(model)).filter((chunk) => chunk.hasText).map((chunk) => chunk.textDelta);
+
+		expect(texts).toEqual(["Temos ", "o Hollow ", "Knight."]);
+	});
+
+	/** Without this the case above proves nothing: a caller reading only the last chunk would pass it. */
+	it("hands a text turn over as one chunk, which is what a provider sends with streaming off", async () => {
+		const model = new ScriptedModel().mockText("Temos o Hollow Knight.");
+
+		const texts = (await collect(model)).filter((chunk) => chunk.hasText).map((chunk) => chunk.textDelta);
+
+		expect(texts).toEqual(["Temos o Hollow Knight."]);
+	});
+
+	it("ends a streamed turn with the pieces joined, so an assertion on the answer reads the same", async () => {
+		const model = new ScriptedModel().mockStream(["Temos ", "o Hollow ", "Knight."]);
+
+		const chunks = await collect(model);
+
+		expect(chunks.map((chunk) => chunk.textDelta).join("")).toBe("Temos o Hollow Knight.");
+		expect(chunks.at(-1)?.finishReason).toBe("stop");
+	});
+
+	it("guards a streamed turn like any other", async () => {
+		const model = new ScriptedModel("sales").mockStream(["a", "b"]).expecting("hollow knight");
+
+		await expect(collect(model)).rejects.toThrow(ScriptDeviationError);
+	});
+
+	it("refuses a streamed turn with no pieces, which would answer nothing at all", () => {
+		expect(() => new ScriptedModel().mockStream([])).toThrow(ScriptMisuseError);
+	});
 });

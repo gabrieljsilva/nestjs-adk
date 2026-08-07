@@ -341,4 +341,55 @@ describe("AdkTestBed, over what the application declared", () => {
 
 		expect(run.status.name).toBe("suspended");
 	});
+
+	it("hands back the pieces a streamed answer arrived in, along with the run they add up to", async () => {
+		bed = await scriptedBed({
+			warranty: (script) => script.mockStream(["A garantia ", "é de 90 ", "dias."]),
+		}).boot();
+
+		const run = await bed.agent(WarrantyAgent).stream("qual a garantia?");
+
+		expect(run.textDeltas).toEqual(["A garantia ", "é de 90 ", "dias."]);
+		expect(run.text).toBe("A garantia é de 90 dias.");
+		expect(run.wasStreamed).toBe(true);
+	});
+
+	/**
+	 * The result is the generator's return value, which a `for await` throws away. Losing it
+	 * would leave a test asserting on nothing, so this holds the bed to handing it back.
+	 */
+	it("keeps the result a streamed run ended with, and the evidence of what it did", async () => {
+		bed = await scriptedBed({
+			billing: (script) => script.mockToolCall("find_order", { orderId: ORDER }).mockStream(["Custou ", "349 ", "reais."]),
+		}).boot();
+
+		const run = await bed.agent(BillingAgent).stream(`quanto custou o pedido ${ORDER}?`);
+
+		expect(run.status.name).toBe("completed");
+		expect(run.toolsRun).toEqual(["find_order"]);
+		expect(run.sessionId.value.length).toBeGreaterThan(0);
+	});
+
+	/** A caller that paints only the last chunk passes the case above unless one piece is told from many. */
+	it("reports a turn that was not streamed as the single piece it was", async () => {
+		bed = await scriptedBed({ warranty: says("A garantia é de 90 dias.") }).boot();
+
+		const run = await bed.agent(WarrantyAgent).stream("qual a garantia?");
+
+		expect(run.textDeltas).toEqual(["A garantia é de 90 dias."]);
+		expect(run.wasStreamed).toBe(false);
+	});
+
+	it("streams into the conversation it is already holding", async () => {
+		bed = await scriptedBed({
+			concierge: (script) => script.mockText("olá").mockStream(["ainda ", "aqui"]),
+		}).boot();
+		const concierge = bed.agent(ConciergeAgent);
+
+		const first = await concierge.ask("oi");
+		const second = await concierge.stream("e agora?");
+
+		expect(second.sessionId.value).toBe(first.sessionId.value);
+		expect(second.textDeltas).toEqual(["ainda ", "aqui"]);
+	});
 });

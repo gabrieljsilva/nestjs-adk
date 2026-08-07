@@ -59,7 +59,13 @@ Scripts are strict. A run that asks for a turn nobody queued fails naming the ag
 script.mockText("Sure!").expecting(/order A-1042/);
 ```
 
-There is also `mockToolCalls([...])` for the parallel case and `mockFailure(new RateLimitedFailure("429"))` for testing failover.
+There is also `mockToolCalls([...])` for the parallel case, `mockFailure(new RateLimitedFailure("429"))` for testing failover, and `mockStream([...])` for an answer that arrives in pieces:
+
+```ts
+script.mockStream(["A garantia ", "é de 90 ", "dias."]);
+```
+
+`mockText` sends the whole answer in one chunk, which is what a provider sends with streaming off. Use `mockStream` when the caller under test consumes `stream`: against a single chunk, a caller that collects everything and paints it once at the end passes just as well as one that paints as it goes.
 
 ## Real models, or a mix of both
 
@@ -94,6 +100,18 @@ run.events;                        // the raw events, for a question the rest do
 ```
 
 Because assertions read events and not the double, the same test body works against a script and against a provider.
+
+`stream` answers a `StreamedRun`, which is that same run plus the pieces the answer arrived in:
+
+```ts
+const run = await bed.agent(SalesAgent).stream("qual a garantia?");
+
+run.textDeltas;    // ["A garantia ", "é de 90 ", "dias."]
+run.wasStreamed;   // false when the whole answer came in one chunk
+run.text;          // the pieces joined, same as ask would have answered
+```
+
+The bed drains the generator for you. `AgentHandle.stream` returns the result as the generator's return value, and a `for await` discards it, so a test that iterated by hand would be left asserting on nothing.
 
 ## Matchers
 

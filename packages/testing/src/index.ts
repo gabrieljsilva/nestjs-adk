@@ -2,6 +2,7 @@ export { AdkTestBed } from "./adk-test-bed";
 export { AdkTestBedBuilder } from "./adk-test-bed-builder";
 export { TestAgent } from "./test-agent";
 export { RecordedRun } from "./recorded-run";
+export { StreamedRun } from "./streamed-run";
 export { RecordedToolCall } from "./recorded-tool-call";
 export type { ToolCallOutcome } from "./recorded-tool-call";
 export { RunEvents } from "./run-events";

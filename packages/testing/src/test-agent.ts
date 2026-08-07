@@ -2,6 +2,7 @@ import {
 	type AgentHandle,
 	type AgentResult,
 	type AskOptions,
+	type ModelChunk,
 	type SessionId,
 	type SessionInspection,
 	ToolCallId,
@@ -10,6 +11,7 @@ import { NothingAwaitingError } from "./errors/nothing-awaiting.error";
 import { RecordedRun } from "./recorded-run";
 import type { RunRecorder } from "./run-recorder";
 import type { ScriptedModel } from "./scripted-model";
+import { StreamedRun } from "./streamed-run";
 
 /**
  * A test's handle on one agent, over the real container and the real run path.
@@ -44,6 +46,25 @@ export class TestAgent {
 
 	public async ask(message: string, options?: AskOptions): Promise<RecordedRun> {
 		return this.recorded(await this.handle.ask(message, this.continuing(options)));
+	}
+
+	/**
+	 * The same question, watched: the run plus the pieces the answer arrived in.
+	 *
+	 * The generator is drained here instead of being handed over, because
+	 * `AgentHandle.stream` returns the result as the generator's return value and a `for await`
+	 * silently discards it. A test that lost the result would assert on nothing, so the bed
+	 * iterates to the end and keeps both.
+	 */
+	public async stream(message: string, options?: AskOptions): Promise<StreamedRun> {
+		const streaming = this.handle.stream(message, this.continuing(options));
+		const chunks: ModelChunk[] = [];
+		let next = await streaming.next();
+		while (!next.done) {
+			chunks.push(next.value);
+			next = await streaming.next();
+		}
+		return new StreamedRun(this.recorded(next.value), chunks);
 	}
 
 	/**
