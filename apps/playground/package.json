@@ -8,6 +8,7 @@
 		"@nestjs-adk/google": "^1.0.0",
 		"@nestjs-adk/openai": "^1.0.0",
 		"@nestjs-adk/testing": "^1.0.0",
-		"@google/genai": "^1.52.0"
+		"@google/genai": "^1.52.0",
+		"zod": "^4.4.3"
 	}
 }

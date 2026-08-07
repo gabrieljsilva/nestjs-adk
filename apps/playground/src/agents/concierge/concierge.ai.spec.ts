@@ -262,4 +262,32 @@ describe("AI: two models behind the same store", () => {
 		expect(run).toHaveDelegatedTo("billing");
 		expect(run.text).toMatch(/1[.,]?437/);
 	});
+
+	/**
+	 * The same store, decided by the other provider.
+	 *
+	 * Every other paid case runs the store on `gpt-5.6-luna`, so the Gemini adapter is only
+	 * ever asked to answer a conversation somebody else started. Here Gemini is the one that
+	 * reads the request, picks the destructive tool and gets held: the tool declaration, the
+	 * arguments and the approval policy all have to work on its side of the wire too.
+	 *
+	 * It lives in this file rather than in `billing` because what is under test is the
+	 * provider and not the sector, and this is the file the plan gives to both of them.
+	 */
+	it("holds the money on the other provider too", { timeout: 180_000 }, async () => {
+		const connection = new SqliteConnection();
+		await using bed = await AdkTestBedBuilder.from(Test.createTestingModule({ imports: [AppModule] }))
+			.overriding(StoreDatabase, new StoreDatabase(connection))
+			.overriding(SessionStorage, new SqliteSessionStorage(connection))
+			.withConsumers(new RunTranscript())
+			.withModel(geminiFlashLite)
+			.boot();
+
+		const run = await bed.agent(BillingAgent).ask("Refund the 349 reais from order A-1042.");
+
+		expect(run).toAwaitApproval("issue_refund");
+		expect(run).not.toHaveRunTool("issue_refund");
+		expect(run.callsTo("issue_refund").at(0)?.args).toMatchObject({ orderId: "A-1042" });
+		expect(bed.get(OrderRepository).findById("A-1042")?.isRefunded).toBe(false);
+	});
 });
