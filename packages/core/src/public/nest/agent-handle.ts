@@ -7,8 +7,10 @@ import type { ModelChunk } from "../../domain/model/model-chunk";
 import type { AgentResult } from "../../domain/session/agent-result";
 import { ApproveInput } from "../../domain/session/approve-input";
 import { AskInput } from "../../domain/session/ask-input";
+import { CreateSessionInput } from "../../domain/session/create-session-input";
 import { DelegateInput } from "../../domain/session/delegate-input";
 import { RejectInput } from "../../domain/session/reject-input";
+import type { Session } from "../../domain/session/session";
 import type { SessionInspection } from "../../domain/session/session-inspection";
 import { SessionOwner } from "../../domain/session/session-owner";
 import type { RuntimeServices } from "../../runtime/composition/runtime-services";
@@ -54,6 +56,25 @@ export interface AskOptions {
 	signal?: AbortSignal;
 }
 
+/** Everything opening a conversation can be told before anything is asked in it. */
+export interface CreateSessionOptions {
+	/**
+	 * The identifier the application already uses for this conversation.
+	 *
+	 * This is where an application that owns its own identifiers says so: the chat it just
+	 * created is the conversation, under the same id, and nothing has to be reconciled
+	 * afterwards. Leaving it out has the runtime name the conversation and answer with it.
+	 */
+	sessionId?: SessionId | string;
+	/**
+	 * Who this conversation belongs to, as the application identifies its own users.
+	 *
+	 * It is recorded on the session and remembered from then on, so an `owner` sent with a
+	 * later question is ignored and an agent that builds its prompt per run receives this one.
+	 */
+	owner?: string;
+}
+
 /** Who decided, and what has to be open for the turn that follows to run. */
 export interface DecisionOptions {
 	/** Who agreed or refused, recorded in the journal next to the decision. */
@@ -83,22 +104,52 @@ export class AgentHandle {
 	/**
 	 * Asks the agent something, optionally continuing a session or attaching media.
 	 *
-	 * The second argument takes a session id directly for the common case, and the options
-	 * object for everything else. An attachment needs a model that declares media input:
-	 * one that cannot see fails here rather than answering about an image it never received.
+	 * The second argument takes a session id directly for the common case, as text or
+	 * parsed, and the options object for everything else. An attachment needs a model that
+	 * declares media input: one that cannot see fails here rather than answering about an
+	 * image it never received.
 	 */
-	public async ask(message: string, options?: AskOptions | SessionId): Promise<AgentResult> {
+	public async ask(message: string, options?: AskOptions | SessionId | string): Promise<AgentResult> {
 		return this.runtime.runner.ask(this.commandOf(message, options));
 	}
 
 	/** The same question, watched: the chunks first, the result as the return value. */
-	public stream(message: string, options?: AskOptions | SessionId): AsyncGenerator<ModelChunk, AgentResult> {
+	public stream(message: string, options?: AskOptions | SessionId | string): AsyncGenerator<ModelChunk, AgentResult> {
 		return this.runtime.runner.stream(this.commandOf(message, options));
+	}
+
+	/**
+	 * Opens a conversation before anything is asked in it.
+	 *
+	 * It exists so an application can be the one naming its conversations: pass the id of the
+	 * chat you just created and that chat is the conversation. Asking is unchanged by it,
+	 * including that a question naming a conversation nobody opened is still refused, so a
+	 * stale or mistyped id fails loudly rather than becoming a second conversation.
+	 *
+	 * An id that already names a conversation is refused with `SessionAlreadyExistsError`,
+	 * and nothing about the existing one is touched. Two requests opening the same chat is
+	 * the ordinary case: one wins and the other reads that as already done.
+	 *
+	 * Only the head is written here. The journal begins with the first question, which is
+	 * also when observers hear anything about this conversation.
+	 */
+	public async createSession(options: CreateSessionOptions = {}): Promise<Session> {
+		return this.runtime.sessions.create(this.name, CreateSessionInput.of(options.sessionId, options.owner));
+	}
+
+	/** The conversation an id names, or nothing when it names none. Reads the head alone. */
+	public async findSessionById(sessionId: SessionId | string): Promise<Session | undefined> {
+		return this.runtime.sessions.find(AgentHandle.sessionOf(sessionId));
+	}
+
+	/** The same lookup for a caller with nothing to do about absence, which fails instead. */
+	public async findSessionByIdOrFail(sessionId: SessionId | string): Promise<Session> {
+		return this.runtime.sessions.findOrFail(AgentHandle.sessionOf(sessionId));
 	}
 
 	/** Where a conversation stands, for a caller that is not running anything. */
 	public async inspect(sessionId: SessionId | string): Promise<SessionInspection> {
-		return this.runtime.sessions.handle(AgentHandle.sessionOf(sessionId));
+		return this.runtime.sessions.inspect(AgentHandle.sessionOf(sessionId));
 	}
 
 	/**
@@ -136,11 +187,11 @@ export class AgentHandle {
 	}
 
 	/** What each model call was actually given, for the same command `ask` would have run. */
-	public async explain(message: string, options?: AskOptions | SessionId) {
+	public async explain(message: string, options?: AskOptions | SessionId | string) {
 		return this.runtime.runner.explain(this.commandOf(message, options));
 	}
 
-	private commandOf(message: string, options?: AskOptions | SessionId): AgentRunCommand {
+	private commandOf(message: string, options?: AskOptions | SessionId | string): AgentRunCommand {
 		const asked = AgentHandle.optionsOf(options);
 		const sessionId = asked.sessionId === undefined ? undefined : AgentHandle.sessionOf(asked.sessionId);
 		return new AgentRunCommand(
@@ -156,9 +207,19 @@ export class AgentHandle {
 		);
 	}
 
-	private static optionsOf(options?: AskOptions | SessionId): AskOptions {
+	/**
+	 * A session id alone is the common case, and it is accepted as text as well as parsed.
+	 *
+	 * The text form is the one an application actually holds: the id of a chat read from a
+	 * database is a string, and every other verb here already takes it that way. Accepting
+	 * only the parsed form left `ask(message, chat.id)` falling through to the options
+	 * branch, where a string has no `sessionId`, and the question quietly opened a second
+	 * conversation instead of continuing the one it named.
+	 */
+	private static optionsOf(options?: AskOptions | SessionId | string): AskOptions {
 		if (options === undefined) return {};
-		return options instanceof SessionId ? { sessionId: options } : options;
+		if (typeof options === "string" || options instanceof SessionId) return { sessionId: options };
+		return options;
 	}
 
 	/** The name alone is the common case, so it is still accepted where the options object goes. */

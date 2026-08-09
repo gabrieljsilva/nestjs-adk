@@ -8,7 +8,7 @@ import type { ActiveRunTracker } from "../lifecycle/active-run-tracker";
 import type { RuntimeLifecycle } from "../lifecycle/runtime-lifecycle";
 import type { AgentRunFactory } from "../run/agent-run-factory";
 import type { AgentRunner } from "../run/agent-runner";
-import type { InspectSession } from "../session/inspect-session";
+import type { SessionService } from "../session/session-service";
 
 /**
  * What the composition hands back to the public layer.
@@ -25,8 +25,8 @@ export class RuntimeServices {
 		public readonly catalog: AgentCatalog,
 		public readonly models: ModelResolver,
 		public readonly runner: AgentRunner,
-		/** The read half: where a session stands, for a caller that is not running anything. */
-		public readonly sessions: InspectSession,
+		/** The other half: opening a conversation and reading one, without running anything in it. */
+		public readonly sessions: SessionService,
 		public readonly runs: AgentRunFactory,
 		public readonly events: EventPublisher,
 		public readonly offloader: ArtifactOffloader,

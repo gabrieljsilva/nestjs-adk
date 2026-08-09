@@ -43,6 +43,21 @@ export class SessionManager {
 		await this.storage.create(session);
 	}
 
+	/**
+	 * The head of a conversation, without the journal behind it.
+	 *
+	 * This is the cheap read, and it is deliberately not `rehydrate`: answering whether a
+	 * chat already has a conversation, or who owns it, is one row, while rehydrating replays
+	 * every event to project a state the caller never asked for.
+	 */
+	public async find(sessionId: SessionId): Promise<Session | undefined> {
+		return this.storage.find(sessionId);
+	}
+
+	public async findOrFail(sessionId: SessionId): Promise<Session> {
+		return this.storage.findOrFail(sessionId);
+	}
+
 	public async commit(
 		sessionId: SessionId,
 		expectedRevision: SessionRevision,

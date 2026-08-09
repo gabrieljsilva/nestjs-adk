@@ -18,6 +18,7 @@ import { EventCorrelation } from "../../domain/event/event-correlation";
 import { EventHeader } from "../../domain/event/event-header";
 import { SessionEventBatch } from "../../domain/event/session-event-batch";
 import type { StoredSessionEvent } from "../../domain/event/stored-session-event";
+import { SessionNotFoundError } from "../../domain/session/errors/session-not-found.error";
 import { PendingCall } from "../../domain/session/pending-call";
 import { Session } from "../../domain/session/session";
 import { SessionMode } from "../../domain/session/session-mode";
@@ -95,6 +96,50 @@ function managerEvery(storage: SessionStorage, events: number): SessionManager {
 		SnapshotPolicy.every(events),
 	);
 }
+
+describe("SessionManager lookup", () => {
+	it("answers the head of a conversation that exists", async () => {
+		const manager = new SessionManager(await storageWithSession());
+
+		const session = await manager.find(ID);
+
+		expect(session?.id.value).toBe(ID.value);
+		expect(session?.rootAgent.equals(SUPPORT)).toBe(true);
+	});
+
+	it("answers nothing for an identifier no conversation uses", async () => {
+		const manager = new SessionManager(new InMemorySessionStorage());
+
+		expect(await manager.find(ID)).toBeUndefined();
+	});
+
+	it("refuses the same absence when the caller has nothing to do about it", async () => {
+		const manager = new SessionManager(new InMemorySessionStorage());
+
+		const error = await manager.findOrFail(ID).catch((reason) => reason);
+
+		expect(error).toBeInstanceOf(SessionNotFoundError);
+	});
+
+	it("reads the head without replaying the journal behind it", async () => {
+		const storage = await storageWithSession();
+		const manager = new SessionManager(storage);
+		await manager.commit(ID, SessionRevision.initial(), SessionEventBatch.of([created("e-1")]), SessionState.initial());
+		let replayed = 0;
+		const counting = Object.create(storage, {
+			readEvents: {
+				value: (...args: Parameters<InMemorySessionStorage["readEvents"]>) => {
+					replayed += 1;
+					return storage.readEvents(...args);
+				},
+			},
+		}) as SessionStorage;
+
+		await new SessionManager(counting).find(ID);
+
+		expect(replayed).toBe(0);
+	});
+});
 
 describe("SessionManager commit", () => {
 	it("projects only what the storage confirmed", async () => {

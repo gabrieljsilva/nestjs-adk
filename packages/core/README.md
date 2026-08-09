@@ -445,6 +445,31 @@ const first = await support.ask("where is my order?", { owner: user.email });
 const second = await support.ask("and the other one?", first.sessionId);
 ```
 
+### Naming the conversation yourself
+
+When your application already has an identifier for the conversation, usually the chat row it just wrote, open the session under that identifier instead of asking a question to find out what the runtime named it:
+
+```ts
+const chat = await this.chats.create({ userId: user.id });
+await support.createSession({ sessionId: chat.id, owner: user.email });
+
+const answer = await support.ask("where is my order?", chat.id);
+```
+
+`createSession` writes the head of the conversation and nothing else: the journal still begins with the first question, which is also when observers hear about it. Leave `sessionId` out and the runtime names the conversation, which is the way to get the identifier before anything is asked.
+
+An identifier that already names a conversation is refused with `SessionAlreadyExistsError`, and the existing conversation is untouched. Two requests opening the same chat is the ordinary case rather than the exotic one: one wins, the other reads the error as already done.
+
+Asking does not change. A question naming a conversation nobody opened is still refused with `SessionNotFoundError`, so a stale or mistyped id fails loudly instead of quietly becoming a second conversation.
+
+Reading a conversation by identifier comes in the two usual shapes, and both answer the head alone without replaying the journal:
+
+```ts
+const maybe = await support.findSessionById(chat.id); // Session | undefined
+const session = await support.findSessionByIdOrFail(chat.id); // throws SessionNotFoundError
+session.owner?.value;
+```
+
 Storage goes through `SessionStorage`. `InMemorySessionStorage` is the default and is right for development and tests. `SqliteSessionStorage` is shipped for a single process, and for anything else you implement the port:
 
 ```ts
@@ -852,8 +877,9 @@ Everything the package exports, and nothing else: a name that is not here is not
 | Symbol | What it is for |
 | --- | --- |
 | `AgentRegistry` | Reaches an agent by name, for a class that extends something else |
-| `AgentHandle` | One agent as an application holds it: `ask`, `stream`, `approve`, `reject`, `delegate`, `inspect`, `explain` |
+| `AgentHandle` | One agent as an application holds it: `ask`, `stream`, `approve`, `reject`, `delegate`, `inspect`, `explain`, `createSession`, `findSessionById`, `findSessionByIdOrFail` |
 | `AskOptions` | `sessionId`, `media`, `sources`, `owner`, `signal` |
+| `CreateSessionOptions` | `sessionId` and `owner`, for a conversation opened before anything is asked |
 | `DecisionOptions` | `by`, `sources` and `signal`, for an approval or a rejection |
 | `AgentResult` | What a run answered: text, ids, status, awaiting, cost |
 | `AgentRunStatus` | Completed, suspended, failed |
@@ -983,6 +1009,7 @@ Writing a `SessionStorage` needs more than the names in its signatures, and the 
 | --- | --- |
 | `AdkRuntimeHost`, `StartedRuntime`, `RuntimeServices` | Composing the runtime without a container |
 | `AgentRunCommand` | One run, resolved, for that path |
+| `SessionService`, `CreateSessionInput` | `runtime.sessions`: opening a conversation and reading one, on that path |
 | `AgentDefinition`, `AgentDescription` | An agent as the runtime knows it, which you assemble yourself there |
 | `StructuredOutputValidator`, `JsonStructuredOutputValidator` | The seam a request's output schema is validated through |
 | `AdkError` | The base of every error the library throws |

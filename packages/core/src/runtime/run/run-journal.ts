@@ -67,7 +67,10 @@ export class RunJournal {
 	): SessionEventBatch {
 		const events: SessionEvent[] = [];
 		if (opened.isNew) {
-			events.push(new SessionCreated(this.headerOf(started), transferredFrom ?? agent, command.owner?.value));
+			// The owner comes from the session and not from the command: a conversation opened
+			// ahead of time was told who owns it then, and the question that begins its journal
+			// carries nothing about it.
+			events.push(new SessionCreated(this.headerOf(started), transferredFrom ?? agent, opened.session.owner?.value));
 		}
 		if (transferredFrom !== undefined) events.push(this.transfer(started, transferredFrom, agent));
 		events.push(new UserMessageReceived(this.headerOf(started), command.input.message, attachments));

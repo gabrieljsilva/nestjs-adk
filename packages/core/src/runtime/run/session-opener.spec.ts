@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { InMemorySessionStorage } from "../../adapters/storage/in-memory-session-storage";
 import { SessionId } from "../../common/identity/session-id";
+import { SessionRevision } from "../../common/revision/session-revision";
 import { Instant } from "../../common/time/instant";
 import { AgentName } from "../../domain/agent/agent-name";
 import { AskInput } from "../../domain/session/ask-input";
@@ -33,12 +34,21 @@ describe("SessionOpener", () => {
 
 	it("continues the session a command names, without creating a second one", async () => {
 		const storage = new InMemorySessionStorage();
-		await storage.create(Session.start(SESSION, SUPPORT, SessionMode.EPHEMERAL, NOW));
+		await storage.create(Session.start(SESSION, SUPPORT, SessionMode.EPHEMERAL, NOW).at(SessionRevision.of(1)));
 
 		const opened = await openerOf(storage).open(new AgentRunCommand(SUPPORT, AskInput.of("again", SESSION)), SESSION);
 
 		expect(opened.isNew).toBe(false);
 		expect(opened.session.id.value).toBe(SESSION.value);
+	});
+
+	it("treats a session opened ahead of time as one whose journal still has to begin", async () => {
+		const storage = new InMemorySessionStorage();
+		await storage.create(Session.start(SESSION, SUPPORT, SessionMode.EPHEMERAL, NOW));
+
+		const opened = await openerOf(storage).open(new AgentRunCommand(SUPPORT, AskInput.of("first", SESSION)), SESSION);
+
+		expect(opened.isNew).toBe(true);
 	});
 
 	it("refuses a session that no longer accepts commands, before anything is written", async () => {

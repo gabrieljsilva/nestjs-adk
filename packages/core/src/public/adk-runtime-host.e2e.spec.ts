@@ -908,7 +908,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new SequenceIdGenerator("again"),
 			writeApprovingOptions(),
 		);
-		const inspection = await runtime.sessions.handle(suspended.sessionId);
+		const inspection = await runtime.sessions.inspect(suspended.sessionId);
 		await restarted.stop();
 
 		expect(inspection.isAwaitingApproval).toBe(true);
@@ -950,7 +950,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 		const journalLength = (await eventTypesOf(storage, suspended.sessionId)).length;
 		storage.replayed = 0;
 
-		const inspection = await runtime.sessions.handle(suspended.sessionId);
+		const inspection = await runtime.sessions.inspect(suspended.sessionId);
 
 		expect(journalLength).toBeGreaterThan(0);
 		expect(storage.replayed).toBe(0);
@@ -977,7 +977,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 		expect(result.text).toBe("answer 1");
 		expect(billing.requests).toHaveLength(1);
 		expect(await eventTypesOf(storage, result.sessionId)).toContain("agent.transferred");
-		expect((await runtime.sessions.handle(result.sessionId)).activeAgent.value).toBe("billing");
+		expect((await runtime.sessions.inspect(result.sessionId)).activeAgent.value).toBe("billing");
 	});
 
 	it("keeps one run across the handover, and offers the receiver its own tools", async () => {
@@ -1047,7 +1047,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 
 		expect(second.sessionId.value).toBe(first.sessionId.value);
 		expect(billing.requests).toHaveLength(1);
-		expect((await runtime.sessions.handle(first.sessionId)).activeAgent.value).toBe("billing");
+		expect((await runtime.sessions.inspect(first.sessionId)).activeAgent.value).toBe("billing");
 	});
 
 	it("refuses a handover nobody declared, and writes nothing about it", async () => {
@@ -1147,7 +1147,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("how long do I have?")));
 
 		expect(result.text).toBe("the specialist said: 42");
-		expect((await runtime.sessions.handle(result.sessionId)).activeAgent.value).toBe("support");
+		expect((await runtime.sessions.inspect(result.sessionId)).activeAgent.value).toBe("support");
 		const types = await eventTypesOf(storage, result.sessionId);
 		expect(types).toContain("delegation.started");
 		expect(types).toContain("delegation.completed");
@@ -1387,7 +1387,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 		);
 		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
 
-		const inspection = await runtime.sessions.handle(result.sessionId);
+		const inspection = await runtime.sessions.inspect(result.sessionId);
 
 		expect(inspection.isAwaitingApproval).toBe(false);
 		expect(result.awaiting).toEqual([]);

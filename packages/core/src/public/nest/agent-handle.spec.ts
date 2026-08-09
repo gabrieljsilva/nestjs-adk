@@ -45,9 +45,21 @@ function spyingRuntime() {
 			},
 		},
 		sessions: {
-			handle: async (sessionId: unknown) => {
+			inspect: async (sessionId: unknown) => {
 				calls.push({ verb: "inspect", payload: sessionId });
 				return "inspected";
+			},
+			create: async (agent: unknown, input: unknown) => {
+				calls.push({ verb: "create", payload: { agent, input } });
+				return "created";
+			},
+			find: async (sessionId: unknown) => {
+				calls.push({ verb: "find", payload: sessionId });
+				return "found";
+			},
+			findOrFail: async (sessionId: unknown) => {
+				calls.push({ verb: "findOrFail", payload: sessionId });
+				return "found";
 			},
 		},
 	};
@@ -72,12 +84,57 @@ describe("AgentHandle", () => {
 		expect(Reflect.get(Object(input), "sessionId")).toBe(SESSION);
 	});
 
+	/**
+	 * The id an application holds is text, read off a chat row, and every other verb here
+	 * takes it that way. Accepting only the parsed form made this question open a second
+	 * conversation instead of continuing the one it named, without failing.
+	 */
+	it("continues the conversation a session id names as plain text", async () => {
+		const { calls, handle } = spyingRuntime();
+
+		await handle.ask("again", "chat-42");
+
+		const input = Reflect.get(Object(calls[0]?.payload), "input");
+		expect(Reflect.get(Object(Reflect.get(Object(input), "sessionId")), "value")).toBe("chat-42");
+	});
+
 	it("answers about a session without running anything", async () => {
 		const { calls, handle } = spyingRuntime();
 
 		await handle.inspect(SESSION);
 
 		expect(calls[0]).toEqual({ verb: "inspect", payload: SESSION });
+	});
+
+	it("opens a conversation under the agent it is a handle on", async () => {
+		const { calls, handle } = spyingRuntime();
+
+		await handle.createSession({ sessionId: "chat-42", owner: "gabriel" });
+
+		const payload = Object(calls[0]?.payload);
+		expect(Reflect.get(payload, "agent")).toBe(SUPPORT);
+		const input = Object(Reflect.get(payload, "input"));
+		expect(Reflect.get(Object(Reflect.get(input, "sessionId")), "value")).toBe("chat-42");
+		expect(Reflect.get(Object(Reflect.get(input, "owner")), "value")).toBe("gabriel");
+	});
+
+	it("opens a conversation the runtime names, when the caller named none", async () => {
+		const { calls, handle } = spyingRuntime();
+
+		await handle.createSession();
+
+		const input = Object(Reflect.get(Object(calls[0]?.payload), "input"));
+		expect(Reflect.get(input, "sessionId")).toBeUndefined();
+	});
+
+	it("parses a session id given as text before looking a conversation up", async () => {
+		const { calls, handle } = spyingRuntime();
+
+		await handle.findSessionById("chat-42");
+		await handle.findSessionByIdOrFail("chat-42");
+
+		expect(calls.map((call) => call.verb)).toEqual(["find", "findOrFail"]);
+		expect(Reflect.get(Object(calls[0]?.payload), "value")).toBe("chat-42");
 	});
 
 	it("passes a decision through as the runtime's own input", async () => {

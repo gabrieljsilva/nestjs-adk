@@ -20,6 +20,7 @@ Under it, one class per use case: `AskAgent` for a question, `DecideApproval` fo
 | Class | Owns | Owns nothing about |
 | --- | --- | --- |
 | `SessionOpener` | create or rehydrate, refuse a closed session | what is then written to it |
+| `SessionService` | opening a conversation and reading one, outside any run | anything a run does in it |
 | `RunScopeFactory` | the catalog, the limits and the breaker of one run | when any of them is used |
 | `TurnLoop` | model, tools, model again, and when to stop | what the events look like |
 | `TurnExecutor` | running the calls of one turn, in order | whether they were allowed |
@@ -47,6 +48,22 @@ The order in `AskAgent` is the design, not an implementation detail:
 4. the run leaves the active set however it settles, so a shutdown draining on it is not waiting on something already over.
 
 Moving step 2 after step 3 is the kind of change that looks like tidying and silently removes a guarantee. It is written here because the code cannot say it.
+
+## A conversation may exist before any run happens in it
+
+An application that already identifies its conversations, a chat row being the usual one, opens the session itself through `SessionService.create`. That splits what used to be one act into two, and the split is only safe because of where the line falls.
+
+`createSession` writes the **head** and nothing else. The journal still begins with the first question, because `EventCorrelation.runId` is required on every event and a conversation opened outside a run has no run to name. A `SessionCreated` invented there would point at a run that never existed.
+
+So `OpenedSession.isNew` is not "I created this in this call". It is **"this journal has no beginning recorded yet"**, and `SessionOpener` reads it off the session's revision rather than off its own memory. Three situations land in it and all three need the same thing:
+
+- a session created by the very command being run;
+- a session opened by `createSession` minutes or days earlier;
+- a session whose head was written by a run that then died before committing, which under the old reading could never record its beginning again.
+
+`RunJournal.opening` reads the owner from `opened.session`, never from the command, for the same reason: a conversation opened ahead of time was told who owns it then, and the question that begins its journal carries nothing about it. Reading the command would write an event with no owner onto a session that has one, and a consumer projecting a read model off the journal would disagree with the head.
+
+What deliberately did **not** change is `ask`. A question naming a session that does not exist is still refused. Creating on an unknown id would read as convenience and cost the only signal that separates a stale identifier from a legitimate one, which is the same argument that keeps `InspectSession` refusing rather than answering empty.
 
 ## A run has one way to be stopped from outside
 

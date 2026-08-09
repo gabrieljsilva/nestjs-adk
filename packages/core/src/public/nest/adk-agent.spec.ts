@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { AgentRunId } from "../../common/identity/agent-run-id";
 import { SessionId } from "../../common/identity/session-id";
 import { ToolCallId } from "../../common/identity/tool-call-id";
+import { Instant } from "../../common/time/instant";
 import { PromptSource } from "../../contracts/prompt-source";
 import { AgentName } from "../../domain/agent/agent-name";
 import { MediaPart } from "../../domain/model/media-part";
@@ -9,7 +10,10 @@ import { PromptContext } from "../../domain/prompt/prompt-context";
 import { AgentResult } from "../../domain/session/agent-result";
 import { AgentRunStatus } from "../../domain/session/agent-run-status";
 import type { ApproveInput } from "../../domain/session/approve-input";
+import type { CreateSessionInput } from "../../domain/session/create-session-input";
 import type { RejectInput } from "../../domain/session/reject-input";
+import { Session } from "../../domain/session/session";
+import { SessionMode } from "../../domain/session/session-mode";
 import type { RuntimeServices } from "../../runtime/composition/runtime-services";
 import type { AgentRunCommand } from "../../runtime/run/agent-run-command";
 import { AdkAgent } from "./adk-agent";
@@ -19,6 +23,7 @@ import { AgentNotBoundError } from "./errors/agent-not-bound.error";
 
 const SUPPORT = AgentName.from("support");
 const PIXEL = "iVBORw0KGgo=";
+const NOW = Instant.fromIso("2026-01-01T00:00:00.000Z");
 
 /** Reaches the two protected members, which is what the runtime does through reflection. */
 class SupportAgent extends AdkAgent {
@@ -58,12 +63,34 @@ class RecordingRunner {
 	}
 }
 
-function boundAgent(): { agent: SupportAgent; runner: RecordingRunner } {
+/** The same for the session verbs: what was asked for matters, running it does not. */
+class RecordingSessions {
+	public readonly opened: { agent: AgentName; input: CreateSessionInput }[] = [];
+	public readonly lookups: { verb: string; sessionId: SessionId }[] = [];
+
+	public async create(agent: AgentName, input: CreateSessionInput): Promise<Session> {
+		this.opened.push({ agent, input });
+		return Session.start(input.sessionId ?? SessionId.from("generated"), agent, SessionMode.EPHEMERAL, NOW, input.owner);
+	}
+
+	public async find(sessionId: SessionId): Promise<Session | undefined> {
+		this.lookups.push({ verb: "find", sessionId });
+		return undefined;
+	}
+
+	public async findOrFail(sessionId: SessionId): Promise<Session> {
+		this.lookups.push({ verb: "findOrFail", sessionId });
+		return Session.start(sessionId, SUPPORT, SessionMode.EPHEMERAL, NOW);
+	}
+}
+
+function boundAgent(): { agent: SupportAgent; runner: RecordingRunner; sessions: RecordingSessions } {
 	const runner = new RecordingRunner();
-	const runtime: RuntimeServices = Object.assign(Object.create(null), { runner });
+	const sessions = new RecordingSessions();
+	const runtime: RuntimeServices = Object.assign(Object.create(null), { runner, sessions });
 	const agent = new SupportAgent();
 	agent.bindTo(new AgentHandle(SUPPORT, runtime));
-	return { agent, runner };
+	return { agent, runner, sessions };
 }
 
 describe("AdkAgent", () => {
@@ -110,7 +137,35 @@ describe("AdkAgent", () => {
 		const agent = new SupportAgent();
 
 		await expect(agent.ask("hi")).rejects.toBeInstanceOf(AgentNotBoundError);
+		await expect(agent.createSession()).rejects.toBeInstanceOf(AgentNotBoundError);
+		await expect(agent.findSessionById("s-1")).rejects.toBeInstanceOf(AgentNotBoundError);
 		expect(() => agent.agentName).toThrow(AgentNotBoundError);
+	});
+
+	it("opens a conversation as itself, under the identifier the application chose", async () => {
+		const { agent, sessions } = boundAgent();
+
+		const session = await agent.createSession({ sessionId: "chat-42", owner: "gabriel" });
+
+		expect(sessions.opened[0]?.agent).toBe(SUPPORT);
+		expect(session.id.value).toBe("chat-42");
+		expect(session.owner?.value).toBe("gabriel");
+	});
+
+	it("lets the runtime name a conversation the caller did not", async () => {
+		const { agent, sessions } = boundAgent();
+
+		await agent.createSession();
+
+		expect(sessions.opened[0]?.input.sessionId).toBeUndefined();
+	});
+
+	it("looks a conversation up both ways, through the same handle", async () => {
+		const { agent, sessions } = boundAgent();
+
+		expect(await agent.findSessionById("chat-42")).toBeUndefined();
+		expect((await agent.findSessionByIdOrFail("chat-42")).id.value).toBe("chat-42");
+		expect(sessions.lookups.map((lookup) => lookup.verb)).toEqual(["find", "findOrFail"]);
 	});
 
 	it("carries the session owner through the options, since the session is what remembers it", async () => {

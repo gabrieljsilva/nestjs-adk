@@ -4,9 +4,11 @@ import type { SessionState } from "../../domain/session/session-state";
 /**
  * The session a command is about to run against, however it got there.
  *
- * Whether it was just created or brought back from a journal changes exactly one thing:
- * a session that already existed has its creation recorded, and writing that fact twice
- * would give a reader two beginnings for one conversation.
+ * `isNew` is about the journal and not about who wrote the head: it says this conversation
+ * has no beginning recorded yet, so the run about to happen is the one that records it.
+ * A session opened ahead of time by `CreateSession` and one created by this very command
+ * are both in that position, and a conversation that already has a first event is not,
+ * because writing that fact twice would give a reader two beginnings for one conversation.
  */
 export class OpenedSession {
 	public constructor(

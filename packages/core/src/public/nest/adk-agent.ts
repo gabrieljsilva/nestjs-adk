@@ -4,8 +4,9 @@ import type { AgentName } from "../../domain/agent/agent-name";
 import type { ModelChunk } from "../../domain/model/model-chunk";
 import type { PromptContext } from "../../domain/prompt/prompt-context";
 import type { AgentResult } from "../../domain/session/agent-result";
+import type { Session } from "../../domain/session/session";
 import type { SessionInspection } from "../../domain/session/session-inspection";
-import type { AgentHandle, AskOptions, DecisionOptions } from "./agent-handle";
+import type { AgentHandle, AskOptions, CreateSessionOptions, DecisionOptions } from "./agent-handle";
 import type { AgentPrompting } from "./agent-prompting";
 import { AgentNotBoundError } from "./errors/agent-not-bound.error";
 
@@ -45,12 +46,25 @@ export abstract class AdkAgent {
 		return this.handle.name;
 	}
 
-	public async ask(message: string, options?: AskOptions | SessionId): Promise<AgentResult> {
+	public async ask(message: string, options?: AskOptions | SessionId | string): Promise<AgentResult> {
 		return this.handle.ask(message, options);
 	}
 
-	public stream(message: string, options?: AskOptions | SessionId): AsyncGenerator<ModelChunk, AgentResult> {
+	public stream(message: string, options?: AskOptions | SessionId | string): AsyncGenerator<ModelChunk, AgentResult> {
 		return this.handle.stream(message, options);
+	}
+
+	/** Opens a conversation under the identifier the application already uses for it. */
+	public async createSession(options?: CreateSessionOptions): Promise<Session> {
+		return this.handle.createSession(options);
+	}
+
+	public async findSessionById(sessionId: SessionId | string): Promise<Session | undefined> {
+		return this.handle.findSessionById(sessionId);
+	}
+
+	public async findSessionByIdOrFail(sessionId: SessionId | string): Promise<Session> {
+		return this.handle.findSessionByIdOrFail(sessionId);
 	}
 
 	public async inspect(sessionId: SessionId | string): Promise<SessionInspection> {
@@ -80,7 +94,7 @@ export abstract class AdkAgent {
 	}
 
 	/** What each model call was actually given, for the same command `ask` would have run. */
-	public async explain(message: string, options?: AskOptions | SessionId) {
+	public async explain(message: string, options?: AskOptions | SessionId | string) {
 		return this.handle.explain(message, options);
 	}
 

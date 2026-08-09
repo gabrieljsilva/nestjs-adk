@@ -22,7 +22,7 @@ describe("OpenedSession", () => {
 		expect(opened.state.revision.value).toBe(0);
 	});
 
-	it("says whether the session was created by this command", () => {
+	it("says whether this run is the one that has to record the conversation beginning", () => {
 		expect(new OpenedSession(session, SessionState.initial(), true).isNew).toBe(true);
 		expect(new OpenedSession(session, SessionState.initial(), false).isNew).toBe(false);
 	});

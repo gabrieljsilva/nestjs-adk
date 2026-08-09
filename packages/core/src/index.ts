@@ -79,6 +79,9 @@ export { RunLimits } from "./domain/session/run-limits";
 export { InvalidRunLimitError } from "./domain/session/errors/invalid-run-limit.error";
 export { SessionMode } from "./domain/session/session-mode";
 export { SessionOwner } from "./domain/session/session-owner";
+export { CreateSessionInput } from "./domain/session/create-session-input";
+// Reachable as `RuntimeServices.sessions`, which is what an application without NestJS holds.
+export { SessionService } from "./runtime/session/session-service";
 export { SessionStorage } from "./contracts/session-storage";
 // Everything named in the SessionStorage contract, without which nobody can implement one.
 export { SessionRevision } from "./common/revision/session-revision";
@@ -165,7 +168,7 @@ export { AdkAgent } from "./public/nest/adk-agent";
 export { AdkTool } from "./public/nest/adk-tool";
 export { AgentNotBoundError } from "./public/nest/errors/agent-not-bound.error";
 export { AgentHandle } from "./public/nest/agent-handle";
-export type { AskOptions, DecisionOptions } from "./public/nest/agent-handle";
+export type { AskOptions, CreateSessionOptions, DecisionOptions } from "./public/nest/agent-handle";
 export { SystemClock } from "./common/time/system-clock";
 export { RandomIdGenerator } from "./public/nest/random-id-generator";
 export { RuntimeOptions } from "./runtime/composition/runtime-options";

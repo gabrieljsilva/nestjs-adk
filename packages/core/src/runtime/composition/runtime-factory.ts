@@ -39,8 +39,10 @@ import { SessionOpener } from "../run/session-opener";
 import { StreamAgent } from "../run/stream-agent";
 import { TurnExecutor } from "../run/turn-executor";
 import { TurnLoop } from "../run/turn-loop";
+import { CreateSession } from "../session/create-session";
 import { InspectSession } from "../session/inspect-session";
 import { SessionManager } from "../session/session-manager";
+import { SessionService } from "../session/session-service";
 import { ToolExecutor } from "../tool/tool-executor";
 import { AgentSwitch } from "../transfer/agent-switch";
 import { TransferGate } from "../transfer/transfer-gate";
@@ -181,7 +183,7 @@ export class RuntimeFactory {
 				catalog,
 				resolver,
 				container.get(AgentRunner),
-				new InspectSession(sessions),
+				new SessionService(new CreateSession(sessions, clock, ids), new InspectSession(sessions), sessions),
 				container.get(AgentRunFactory),
 				container.get(EventPublisher),
 				container.get(ArtifactOffloader),
