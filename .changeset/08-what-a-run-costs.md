@@ -3,7 +3,7 @@
 "@nestjs-adk/testing": patch
 ---
 
-Every run answers what it cost, an embedder is injectable, and a tool source can belong to one run.
+Every run answers what it cost, and an embedder is injectable.
 
 Declare one pricing source in the module and `AgentResult.cost` is filled on every run:
 
@@ -42,15 +42,6 @@ export class SearchService {
 
 An application that declares none still boots and still injects: only code that embeds fails, and it names the option to declare. `PricedEmbedder` prices an embedding through the same source, and an embedder that reports no usage lands in `unpriced` rather than having its tokens guessed from characters.
 
-Tool sources can now be declared per run, alongside the module's:
-
-```ts
-await assistant.ask(message, { sessionId, sources: await integrationsOf(user.id) });
-await assistant.approve(sessionId, callId, { by: "gabriel", sources: await integrationsOf(user.id) });
-```
-
-They open with the run and close with it however it ends, so one user's connection never outlives their question. An approval declares them again because the run that suspended closed its own.
-
 `@nestjs-adk/testing` passes the cost through: `RecordedRun` rebuilds the result rather than wrapping it, and was dropping the new field, so every run in a test read a cost of zero.
 
-Breaking: `AgentResult` takes a sixth constructor argument, `ModelCost.of` and `ModelCost.including` take the usage, `AgentHandle.approve` and `AgentHandle.reject` take an options object where they took a name (a plain name still works), and `SystemClock` moved to `common/time` (the import from `@nestjs-adk/core` is unchanged).
+**Breaking:** `AgentResult` takes a sixth constructor argument, `ModelCost.of` and `ModelCost.including` take the usage, `AgentHandle.approve` and `AgentHandle.reject` take an options object where they took a name (a plain name still works), and `SystemClock` moved to `common/time` (the import from `@nestjs-adk/core` is unchanged).
