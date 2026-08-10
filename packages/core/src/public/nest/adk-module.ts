@@ -2,9 +2,11 @@ import {
 	type DynamicModule,
 	Global,
 	Module,
+	type ModuleMetadata,
 	type OnApplicationShutdown,
 	type OnModuleInit,
 	type Provider,
+	type Type,
 } from "@nestjs/common";
 import { DiscoveryService } from "@nestjs/core";
 import { InMemoryArtifactStorage } from "../../adapters/storage/in-memory-artifact-storage";
@@ -22,8 +24,11 @@ import type { RuntimeOptionsPatch } from "../../runtime/composition/runtime-opti
 import { CatalogModelResolver } from "../../runtime/model/catalog-model-resolver";
 import { AdkRuntimeHost } from "../adk-runtime-host";
 import { AdkComposer } from "./adk-composer";
+import type { AdkModuleAsyncOptions, AdkOptionsFactory } from "./adk-module-async-options";
 import { AdkModuleOptions } from "./adk-module-options";
 import { AgentRegistry } from "./agent-registry";
+import { AsyncOptionsNotDeclaredError } from "./errors/async-options-not-declared.error";
+import { ConflictingAsyncOptionsError } from "./errors/conflicting-async-options.error";
 import { RandomIdGenerator } from "./random-id-generator";
 import { UndeclaredEmbedder } from "./undeclared-embedder";
 
@@ -84,10 +89,39 @@ export class AdkModule implements OnModuleInit, OnApplicationShutdown {
 	) {}
 
 	public static forRoot(options: AdkModuleOptions): DynamicModule {
+		return AdkModule.moduleWith([{ provide: ADK_OPTIONS, useValue: options }]);
+	}
+
+	/**
+	 * The same module, with its options built inside the container.
+	 *
+	 * An application whose ports are providers cannot name them in a value: a storage that
+	 * depends on a database client, an embedder that needs credentials and an approval policy
+	 * that reads the current tenant only exist once NestJS has built them. This is the entry
+	 * point for that, and it changes nothing else: every provider already reads the options
+	 * through `ADK_OPTIONS`, so composing them later composes the whole runtime later.
+	 *
+	 * ```ts
+	 * AdkModule.forRootAsync({ imports: [InfraModule], useClass: AdkOptions });
+	 * ```
+	 *
+	 * Prefer `useClass`. A factory's dependencies are an `inject` array TypeScript cannot
+	 * check against its parameters, and a class declares them in its constructor.
+	 *
+	 * Whatever the factory depends on has to be reachable through `imports`, and it may not
+	 * be one of the tokens this module itself provides: asking for `SessionStorage` to build
+	 * the options that decide what `SessionStorage` is, is a cycle NestJS will refuse.
+	 */
+	public static forRootAsync(options: AdkModuleAsyncOptions): DynamicModule {
+		return AdkModule.moduleWith(AdkModule.optionsProvidersFor(options), options.imports);
+	}
+
+	/** One shape for both entry points, so the two can never drift on what the module exports. */
+	private static moduleWith(options: Provider[], imports: ModuleMetadata["imports"] = []): DynamicModule {
 		return {
 			module: AdkModule,
-			imports: [DiscoveryModule],
-			providers: [...AdkModule.providersFor(options)],
+			imports: [DiscoveryModule, ...imports],
+			providers: [...options, ...AdkModule.providersFor()],
 			exports: [
 				AgentRegistry,
 				AdkRuntimeHost,
@@ -98,6 +132,48 @@ export class AdkModule implements OnModuleInit, OnApplicationShutdown {
 				ModelResolver,
 				Embedder,
 			],
+		};
+	}
+
+	/**
+	 * Whichever of the three forms was declared, as the provider behind `ADK_OPTIONS`.
+	 *
+	 * Both refusals happen here, which is while `app.module.ts` is being read rather than
+	 * during the boot it would otherwise poison. `useClass` is registered as a provider of
+	 * this module, which is what lets an application name a class it declared nowhere.
+	 */
+	private static optionsProvidersFor(declared: AdkModuleAsyncOptions): Provider[] {
+		const forms = AdkModule.declaredForms(declared);
+		const [only] = forms;
+		if (only === undefined) throw new AsyncOptionsNotDeclaredError();
+		if (forms.length > 1) throw new ConflictingAsyncOptionsError(forms.map((form) => form.name));
+		return only.providers;
+	}
+
+	/** Every form the caller declared, named and already turned into providers. Exactly one is legal. */
+	private static declaredForms(declared: AdkModuleAsyncOptions): readonly DeclaredForm[] {
+		const forms: DeclaredForm[] = [];
+		if (declared.useFactory !== undefined) {
+			const inject = [...(declared.inject ?? [])];
+			forms.push({
+				name: "useFactory",
+				providers: [{ provide: ADK_OPTIONS, useFactory: declared.useFactory, inject }],
+			});
+		}
+		if (declared.useClass !== undefined) {
+			forms.push({ name: "useClass", providers: [declared.useClass, AdkModule.optionsBuiltBy(declared.useClass)] });
+		}
+		if (declared.useExisting !== undefined) {
+			forms.push({ name: "useExisting", providers: [AdkModule.optionsBuiltBy(declared.useExisting)] });
+		}
+		return forms;
+	}
+
+	private static optionsBuiltBy(factory: Type<AdkOptionsFactory>): Provider {
+		return {
+			provide: ADK_OPTIONS,
+			useFactory: (source: AdkOptionsFactory) => source.createAdkOptions(),
+			inject: [factory],
 		};
 	}
 
@@ -114,11 +190,12 @@ export class AdkModule implements OnModuleInit, OnApplicationShutdown {
 	 *
 	 * Every factory here reads the options through `ADK_OPTIONS` rather than capturing them
 	 * in a closure, so overriding one token is enough: the others keep following whatever
-	 * the container says the options are.
+	 * the container says the options are. It is also what makes `forRootAsync` a change to
+	 * one provider rather than to the module, since none of these know when the options
+	 * arrived, only that the token answers.
 	 */
-	private static providersFor(options: AdkModuleOptions): Provider[] {
+	private static providersFor(): Provider[] {
 		return [
-			{ provide: ADK_OPTIONS, useValue: options },
 			{
 				provide: ADK_DEFAULT_MODEL,
 				useFactory: (declared: AdkModuleOptions) => declared.defaultModel,
@@ -195,6 +272,12 @@ export class AdkModule implements OnModuleInit, OnApplicationShutdown {
 			},
 		];
 	}
+}
+
+/** One way of naming where the options come from, already resolved into what it provides. */
+interface DeclaredForm {
+	readonly name: string;
+	readonly providers: Provider[];
 }
 
 /** Imported rather than declared: `DiscoveryService` comes from NestJS itself. */

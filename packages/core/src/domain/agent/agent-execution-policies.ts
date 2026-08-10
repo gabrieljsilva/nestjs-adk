@@ -12,13 +12,15 @@ import { AgentTransferPolicy } from "./agent-transfer-policy";
  * positional constructor is how a definition ends up with ten parameters nobody can order
  * correctly. What an agent *is* stays on the definition; how it *runs* is here.
  *
- * Every rule is absent by default, and absent means the safe thing: no failover, nothing
- * compacted, no limit, and no agent to transfer or delegate to.
+ * Every rule is absent by default, and absent means whatever the runtime decided is safe:
+ * no failover, no limit, no agent to transfer or delegate to, and the standard share of the
+ * window for compaction. Compaction is the one that can also be declared as `false`, which
+ * is a decision to never shorten a conversation and not the same thing as declaring nothing.
  */
 export class AgentExecutionPolicies {
 	private constructor(
 		public readonly failover: AgentFailoverPolicy | undefined,
-		public readonly compaction: AdkCompactionPolicy | undefined,
+		public readonly compaction: AdkCompactionPolicy | false | undefined,
 		public readonly limits: RunLimits | undefined,
 		public readonly transfer: AgentTransferPolicy,
 		public readonly delegation: AgentDelegationPolicy,
@@ -36,7 +38,7 @@ export class AgentExecutionPolicies {
 
 	public static of(
 		failover?: AgentFailoverPolicy,
-		compaction?: AdkCompactionPolicy,
+		compaction?: AdkCompactionPolicy | false,
 		limits?: RunLimits,
 		transfer: AgentTransferPolicy = AgentTransferPolicy.none(),
 		delegation: AgentDelegationPolicy = AgentDelegationPolicy.none(),

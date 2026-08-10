@@ -171,7 +171,7 @@ const start = (model: LlmModel, options: RuntimeOptions = new RuntimeOptions()) 
 	);
 
 const askWith = (sources: readonly ToolSource[], message = "look it up") =>
-	new AgentRunCommand(SUPPORT, AskInput.of(message), undefined, undefined, undefined, undefined, undefined, sources);
+	new AgentRunCommand(SUPPORT, AskInput.of(message), undefined, undefined, undefined, undefined, sources);
 
 describe("tool sources declared per run", () => {
 	/** AC-18: the run's sources are added to the module's rather than replacing them. */

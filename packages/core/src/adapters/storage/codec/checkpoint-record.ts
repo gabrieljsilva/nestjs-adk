@@ -16,7 +16,6 @@ export class CheckpointRecord {
 		public readonly prefixDigestAlgorithm: string,
 		public readonly prefixDigestValue: string,
 		public readonly blocks: readonly unknown[],
-		public readonly composition: Readonly<Record<string, unknown>>,
 		/** Identity of the checkpoint: session, covered revision and strategy version. */
 		public readonly key: string,
 	) {}
@@ -32,7 +31,6 @@ export class CheckpointRecord {
 			row.text("prefixDigestAlgorithm"),
 			row.text("prefixDigestValue"),
 			row.array("blocks"),
-			row.json("composition"),
 			row.text("key"),
 		);
 	}

@@ -4,7 +4,6 @@ import { SessionRevision } from "../../../common/revision/session-revision";
 import { Instant } from "../../../common/time/instant";
 import { AgentName } from "../../../domain/agent/agent-name";
 import { Session } from "../../../domain/session/session";
-import { SessionMode } from "../../../domain/session/session-mode";
 import { SessionOwner } from "../../../domain/session/session-owner";
 import { SessionStatus } from "../../../domain/session/session-status";
 import { UnreadableStoredValueError } from "./errors/unreadable-stored-value.error";
@@ -13,11 +12,10 @@ import { SessionHeadCodec } from "./session-head-codec";
 const CREATED_AT = "2026-01-01T00:00:00.000Z";
 const UPDATED_AT = "2026-01-02T00:00:00.000Z";
 
-function durable(): Session {
+function withOwner(): Session {
 	return Session.restore(
 		SessionId.from("s-1"),
 		AgentName.from("support"),
-		SessionMode.DURABLE,
 		SessionStatus.SUSPENDED,
 		SessionRevision.of(7),
 		Instant.fromIso(CREATED_AT),
@@ -32,12 +30,11 @@ function durable(): Session {
  */
 describe("SessionHeadCodec", () => {
 	it("encodes a session as the columns its table is made of", () => {
-		const record = new SessionHeadCodec().encode(durable());
+		const record = new SessionHeadCodec().encode(withOwner());
 
 		expect(record).toEqual({
 			id: "s-1",
 			rootAgent: "support",
-			mode: "durable",
 			status: "suspended",
 			revision: 7,
 			createdAt: CREATED_AT,
@@ -48,7 +45,7 @@ describe("SessionHeadCodec", () => {
 
 	it("brings back a session that means the same thing", () => {
 		const codec = new SessionHeadCodec();
-		const session = durable();
+		const session = withOwner();
 
 		expect(codec.decode(codec.encode(session))).toEqual(session);
 	});
@@ -57,20 +54,14 @@ describe("SessionHeadCodec", () => {
 	it("decodes the status as the one instance the runtime decides on", () => {
 		const codec = new SessionHeadCodec();
 
-		const decoded = codec.decode(codec.encode(durable()));
+		const decoded = codec.decode(codec.encode(withOwner()));
 
 		expect(decoded.status).toBe(SessionStatus.SUSPENDED);
-		expect(decoded.mode).toBe(SessionMode.DURABLE);
 	});
 
-	it("keeps an ephemeral session without an owner", () => {
+	it("keeps a session that was opened without an owner", () => {
 		const codec = new SessionHeadCodec();
-		const session = Session.start(
-			SessionId.from("s-2"),
-			AgentName.from("support"),
-			SessionMode.EPHEMERAL,
-			Instant.fromIso(CREATED_AT),
-		);
+		const session = Session.start(SessionId.from("s-2"), AgentName.from("support"), Instant.fromIso(CREATED_AT));
 
 		expect(codec.encode(session).owner).toBeUndefined();
 		expect(codec.decode(codec.encode(session)).owner).toBeUndefined();
@@ -80,7 +71,6 @@ describe("SessionHeadCodec", () => {
 		const decoded = new SessionHeadCodec().decode({
 			id: "s-3",
 			rootAgent: "billing",
-			mode: "durable",
 			status: "active",
 			revision: 2,
 			createdAt: CREATED_AT,
@@ -95,14 +85,7 @@ describe("SessionHeadCodec", () => {
 	/** A row written by a newer build, which is worth saying out loud. */
 	it("refuses a status this runtime does not know", () => {
 		const codec = new SessionHeadCodec();
-		const row = { ...codec.encode(durable()), status: "hibernating" };
-
-		expect(() => codec.decode(row)).toThrow(UnreadableStoredValueError);
-	});
-
-	it("refuses a mode this runtime does not know", () => {
-		const codec = new SessionHeadCodec();
-		const row = { ...codec.encode(durable()), mode: "cached" };
+		const row = { ...codec.encode(withOwner()), status: "hibernating" };
 
 		expect(() => codec.decode(row)).toThrow(UnreadableStoredValueError);
 	});

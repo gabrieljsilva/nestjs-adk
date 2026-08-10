@@ -19,6 +19,7 @@ import { EventHeader } from "../../domain/event/event-header";
 import type { SessionEvent } from "../../domain/event/session-event";
 import { StoredSessionEvent } from "../../domain/event/stored-session-event";
 import { ModelIdentity } from "../../domain/model/model-identity";
+import type { PromptMeasurement } from "../../domain/model/prompt-measurement";
 
 const START = Instant.fromIso("2026-01-01T00:00:00.000Z");
 const MODEL = ModelIdentity.of("google", "gemini-flash");
@@ -40,8 +41,9 @@ export class JournalFixture {
 		return this.append((header) => new UserMessageReceived(header, text));
 	}
 
-	public assistant(text: string): this {
-		return this.append((header) => new AssistantMessageProduced(header, text, MODEL));
+	/** The measurement is optional because most providers report one and a test rarely cares. */
+	public assistant(text: string, measurement?: PromptMeasurement): this {
+		return this.append((header) => new AssistantMessageProduced(header, text, MODEL, measurement));
 	}
 
 	public toolCall(callId: string, toolName: string, args: Record<string, unknown> = {}): this {

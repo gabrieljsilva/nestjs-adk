@@ -1,9 +1,9 @@
 /**
  * What a storage adapter honestly claims to guarantee.
  *
- * An adapter without optimistic concurrency cannot serve durable sessions: two
- * processes would silently overwrite each other. Declaring capabilities lets the
- * conformance suite hold each adapter to what it promised, instead of assuming
+ * An adapter without optimistic concurrency cannot be written to from two places at
+ * once: the writers would silently overwrite each other. Declaring capabilities lets
+ * the conformance suite hold each adapter to what it promised, instead of assuming
  * every implementation is as strong as the reference one.
  */
 export class StorageCapabilities {
@@ -15,16 +15,17 @@ export class StorageCapabilities {
 		public readonly checkpoints: boolean = true,
 	) {}
 
-	public static durable(options: { snapshots: boolean; checkpoints?: boolean }): StorageCapabilities {
+	/** Both write guarantees, which is what more than one writer at a time requires. */
+	public static concurrent(options: { snapshots: boolean; checkpoints?: boolean }): StorageCapabilities {
 		return new StorageCapabilities(true, true, options.snapshots, options.checkpoints ?? true);
 	}
 
-	/** No concurrency control: usable within one process, never for a durable session. */
-	public static ephemeral(): StorageCapabilities {
+	/** No concurrency control: usable from one writer, never from two at once. */
+	public static singleWriter(): StorageCapabilities {
 		return new StorageCapabilities(false, false, false, false);
 	}
 
-	public get supportsDurableSessions(): boolean {
+	public get supportsConcurrentWriters(): boolean {
 		return this.optimisticConcurrency && this.idempotentAppend;
 	}
 }

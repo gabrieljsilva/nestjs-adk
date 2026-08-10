@@ -36,9 +36,14 @@ export interface AgentOptions {
 	 *
 	 * Declared here it replaces the module's policy rather than narrowing it, because two
 	 * policies deciding how much to keep would be one shortening what the other held on to.
-	 * Without one, and without a module policy, nothing is ever compacted.
+	 * Without one, and without a module policy, the conversation is compacted once it passes
+	 * the standard share of the model's window.
+	 *
+	 * `false` is how an agent says it is never to be shortened, which is a different statement
+	 * from saying nothing: an agent whose every word has to reach the model keeps them all and
+	 * fails against the window instead of quietly losing the beginning of the conversation.
 	 */
-	compaction?: AdkCompactionPolicy;
+	compaction?: AdkCompactionPolicy | false;
 	/**
 	 * How far a run of this agent may go before the runtime stops it.
 	 *

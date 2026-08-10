@@ -33,7 +33,7 @@ export class InMemorySessionStorage extends SessionStorage {
 	}
 
 	public capabilities(): StorageCapabilities {
-		return StorageCapabilities.durable({ snapshots: true });
+		return StorageCapabilities.concurrent({ snapshots: true });
 	}
 
 	public async create(session: Session): Promise<void> {

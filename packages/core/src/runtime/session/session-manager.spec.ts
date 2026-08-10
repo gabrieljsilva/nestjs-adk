@@ -21,7 +21,6 @@ import type { StoredSessionEvent } from "../../domain/event/stored-session-event
 import { SessionNotFoundError } from "../../domain/session/errors/session-not-found.error";
 import { PendingCall } from "../../domain/session/pending-call";
 import { Session } from "../../domain/session/session";
-import { SessionMode } from "../../domain/session/session-mode";
 import { SessionSnapshot } from "../../domain/session/session-snapshot";
 import { SessionState } from "../../domain/session/session-state";
 import { NoOpSessionEventPublisher } from "./no-op-session-event-publisher";
@@ -83,7 +82,7 @@ function suspended(id: string): AgentRunSuspended {
 
 async function storageWithSession(): Promise<InMemorySessionStorage> {
 	const storage = new InMemorySessionStorage();
-	await storage.create(Session.start(ID, SUPPORT, SessionMode.EPHEMERAL, NOW));
+	await storage.create(Session.start(ID, SUPPORT, NOW));
 	return storage;
 }
 
@@ -238,7 +237,7 @@ describe("SessionManager snapshot", () => {
 
 	it("keeps the run when the storage refuses the snapshot", async () => {
 		const storage = new SnapshotRefusingStorage();
-		await storage.create(Session.start(ID, SUPPORT, SessionMode.EPHEMERAL, NOW));
+		await storage.create(Session.start(ID, SUPPORT, NOW));
 		const manager = managerEvery(storage, 1);
 
 		const state = await manager.commit(

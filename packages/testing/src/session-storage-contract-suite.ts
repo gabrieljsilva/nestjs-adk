@@ -12,7 +12,6 @@ import {
 	type SessionEvent,
 	SessionEventBatch,
 	SessionId,
-	SessionMode,
 	SessionNotFoundError,
 	SessionRevision,
 	SessionRevisionConflictError,
@@ -44,7 +43,7 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 	public cases(create: () => SessionStorage): ContractCase[] {
 		const capabilities = create().capabilities();
 		const shared = [...this.sharedCases(create), ...(capabilities.checkpoints ? this.checkpointCases(create) : [])];
-		if (!capabilities.supportsDurableSessions) return shared;
+		if (!capabilities.supportsConcurrentWriters) return shared;
 		return [...shared, ...this.durableCases(create)];
 	}
 
@@ -216,7 +215,7 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 				if (stale !== undefined) return;
 
 				assert.equal(
-					storage.capabilities().supportsDurableSessions,
+					storage.capabilities().supportsConcurrentWriters,
 					false,
 					"a storage that writes on a stale expectedRevision has no concurrency control and must declare itself ephemeral: two writers would overwrite each other in silence",
 				);
@@ -303,7 +302,7 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 	}
 
 	private sessionOf(sessionId: string): Session {
-		return Session.start(SessionId.from(sessionId), AGENT, SessionMode.EPHEMERAL, NOW);
+		return Session.start(SessionId.from(sessionId), AGENT, NOW);
 	}
 
 	/**

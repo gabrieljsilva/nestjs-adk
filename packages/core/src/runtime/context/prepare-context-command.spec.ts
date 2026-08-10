@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SessionId } from "../../common/identity/session-id";
-import { TokenThresholdCompactionPolicy } from "../../domain/context/token-threshold-compaction-policy";
+import { WindowShareCompactionPolicy } from "../../domain/context/window-share-compaction-policy";
 import { ToolDeclaration } from "../../domain/model/tool-declaration";
 import { PromptInstructions } from "../../domain/prompt/prompt-instructions";
 import { StubModel } from "../../support/model/stub-model.fixture";
@@ -36,12 +36,12 @@ describe("PrepareContextCommand", () => {
 			[new ToolDeclaration("search", "finds things", {})],
 			PromptInstructions.from("runtime"),
 			PromptInstructions.from("agent"),
-			new TokenThresholdCompactionPolicy(1000, 600, 2),
+			new WindowShareCompactionPolicy({ maxShare: 0.9, targetShare: 0.7, keepRecentBlocks: 2 }),
 		);
 
 		expect(command.tools).toHaveLength(1);
 		expect(command.runtimeInstructions?.text).toBe("runtime");
 		expect(command.agentPrompt?.text).toBe("agent");
-		expect(command.compaction).toBeInstanceOf(TokenThresholdCompactionPolicy);
+		expect(command.compaction).toBeInstanceOf(WindowShareCompactionPolicy);
 	});
 });

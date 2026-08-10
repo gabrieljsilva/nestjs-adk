@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { ModelContextWindow } from "../model/model-context-window";
 import { ModelUsage } from "../model/model-usage";
+import { PromptMeasurement } from "../model/prompt-measurement";
 import { AdkCompactionPolicy } from "./adk-compaction-policy";
 import { CompactionDecision } from "./compaction-decision";
 import { ContextBudget } from "./context-budget";
-import { ContextCategory } from "./context-category";
-import { ContextComposition } from "./context-composition";
 
 class AlwaysCompacts extends AdkCompactionPolicy {
 	public decide(_budget: ContextBudget): CompactionDecision {
@@ -15,8 +14,8 @@ class AlwaysCompacts extends AdkCompactionPolicy {
 
 describe("AdkCompactionPolicy", () => {
 	it("is extended to decide compaction, and answers with a decision", () => {
-		const composition = ContextComposition.of([[ContextCategory.CONVERSATION, 1000]]);
-		const budget = new ContextBudget(ModelContextWindow.of(1000, 100), composition, ModelUsage.of(500, 20));
+		const measurement = PromptMeasurement.from(ModelUsage.of(500, 20), 1000);
+		const budget = new ContextBudget(ModelContextWindow.of(1000, 100), measurement, 1000);
 
 		const decision = new AlwaysCompacts().decide(budget);
 

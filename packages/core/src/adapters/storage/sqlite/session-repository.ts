@@ -21,10 +21,9 @@ export class SessionRepository {
 	public insert(session: Session): void {
 		const record = this.codec.encode(session);
 		this.connection.run(
-			"INSERT INTO sessions (id, root_agent, mode, status, revision, created_at, updated_at, owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+			"INSERT INTO sessions (id, root_agent, status, revision, created_at, updated_at, owner) VALUES (?, ?, ?, ?, ?, ?, ?)",
 			record.id,
 			record.rootAgent,
-			record.mode,
 			record.status,
 			record.revision,
 			record.createdAt,
@@ -57,7 +56,6 @@ export class SessionRepository {
 		return this.codec.decode({
 			id: row.text("id"),
 			rootAgent: row.text("root_agent"),
-			mode: row.text("mode"),
 			status: row.text("status"),
 			revision: row.integer("revision"),
 			createdAt: row.text("created_at"),

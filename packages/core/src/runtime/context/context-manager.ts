@@ -8,7 +8,6 @@ import { CompactionDecision } from "../../domain/context/compaction-decision";
 import type { ContextBlock } from "../../domain/context/context-block";
 import { ContextBudget } from "../../domain/context/context-budget";
 import { ContextCheckpoint } from "../../domain/context/context-checkpoint";
-import type { ContextComposition } from "../../domain/context/context-composition";
 import { ContextProjection } from "../../domain/context/context-projection";
 import { PreparedModelContext } from "../../domain/context/prepared-model-context";
 import type { ContextMeasurer } from "./context-measurer";
@@ -20,8 +19,8 @@ import type { StablePrefixDigest } from "./stable-prefix-digest";
 /**
  * The one road from a persisted journal to a model call.
  *
- * It projects, measures the composition of what it built, compacts when a policy says
- * so and refuses only what a declared window plus a measured usage prove will not fit.
+ * It projects, measures the size of what it built, compacts when a policy says so and
+ * refuses only what a declared window plus a measured usage prove will not fit.
  * A checkpoint is taken when compaction happened and reused when it still describes the
  * same prefix, so a long session is not compacted from scratch on every turn.
  *
@@ -53,10 +52,10 @@ export class ContextManager {
 			return new PreparedModelContext(projection, budget, prefixDigest, false);
 		}
 
-		// The usage describes the prompt as it was before compaction, so that is the size it is scaled from.
+		// The measurement describes the prompt as it was before compaction, so that is what the smaller one is scaled from.
 		const compacted = await this.strategy.compact(projection, decision);
-		const compactedBudget = this.budgetOf(compacted, command, budget.composition.characters);
-		await this.checkpoint(command.sessionId, compacted, prefixDigest, compactedBudget.composition);
+		const compactedBudget = this.budgetOf(compacted, command);
+		await this.checkpoint(command.sessionId, compacted, prefixDigest);
 		compactedBudget.verify(descriptor.identity);
 		return new PreparedModelContext(compacted, compactedBudget, prefixDigest, true);
 	}
@@ -82,16 +81,11 @@ export class ContextManager {
 		return checkpoint.isUsableAt(this.strategy.name, this.strategy.version, prefixDigest) ? checkpoint : undefined;
 	}
 
-	private budgetOf(
-		projection: ContextProjection,
-		command: PrepareContextCommand,
-		measuredAtCharacters?: number,
-	): ContextBudget {
+	private budgetOf(projection: ContextProjection, command: PrepareContextCommand): ContextBudget {
 		return new ContextBudget(
 			command.model.descriptor().contextWindow,
+			command.lastPrompt,
 			this.measurer.measure(projection),
-			command.lastUsage,
-			command.lastUsageCharacters ?? measuredAtCharacters,
 		);
 	}
 
@@ -100,7 +94,6 @@ export class ContextManager {
 		sessionId: SessionId,
 		projection: ContextProjection,
 		prefixDigest: ContentDigest,
-		composition: ContextComposition,
 	): Promise<void> {
 		const checkpoint = new ContextCheckpoint(
 			sessionId,
@@ -109,7 +102,6 @@ export class ContextManager {
 			this.strategy.version,
 			prefixDigest,
 			projection.blocks,
-			composition,
 		);
 		try {
 			await this.storage.saveCheckpoint(checkpoint);

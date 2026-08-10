@@ -29,7 +29,7 @@ A tool's image that cannot be written is dropped and the call still succeeds. Th
 
 ## An image is counted by what it costs, not by how long it is
 
-`MediaPart.characters` returns `ProjectedMediaCost`, which is a declared floor of 258 tokens per image, and never `base64.length`. `ContextMeasurer` works in characters, so counting the encoding would make a one megabyte image read as a million characters, dominate the composition and make compaction drop conversation to make room for something the provider bills as a few hundred tokens.
+`MediaPart.characters` returns `ProjectedMediaCost`, which is a declared floor of 258 tokens per image, and never `base64.length`. `ContextMeasurer` works in characters, so counting the encoding would make a one megabyte image read as a million characters, dominate the measurement and make compaction drop conversation to make room for something the provider bills as a few hundred tokens.
 
 The payload size is still available as `encodedBytes`, which is what limits are enforced against. The two numbers exist because they answer different questions: what the request weighs, and what the context is spending.
 

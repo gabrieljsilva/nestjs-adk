@@ -5,7 +5,6 @@ export class SessionHeadRecord {
 	public constructor(
 		public readonly id: string,
 		public readonly rootAgent: string,
-		public readonly mode: string,
 		public readonly status: string,
 		public readonly revision: number,
 		/** ISO 8601, which is the one timestamp format every driver stores without losing it. */
@@ -20,7 +19,6 @@ export class SessionHeadRecord {
 		return new SessionHeadRecord(
 			row.text("id"),
 			row.text("rootAgent"),
-			row.text("mode"),
 			row.text("status"),
 			row.integer("revision"),
 			row.text("createdAt"),

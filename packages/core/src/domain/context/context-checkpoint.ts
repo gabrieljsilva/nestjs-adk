@@ -2,7 +2,6 @@ import type { ContentDigest } from "../../common/digest/content-digest";
 import type { SessionId } from "../../common/identity/session-id";
 import type { SessionRevision } from "../../common/revision/session-revision";
 import type { ContextBlock } from "./context-block";
-import type { ContextComposition } from "./context-composition";
 
 /**
  * A compacted prefix kept so the next call does not compact the same history again.
@@ -20,7 +19,6 @@ export class ContextCheckpoint {
 		public readonly strategyVersion: number,
 		public readonly prefixDigest: ContentDigest,
 		public readonly blocks: readonly ContextBlock[],
-		public readonly composition: ContextComposition,
 	) {}
 
 	/** Identity of a checkpoint: writing the same one twice writes it once. */

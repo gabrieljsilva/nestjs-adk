@@ -5,22 +5,15 @@ import { SessionRevision } from "../../common/revision/session-revision";
 import { UserMessage } from "../model/user-message";
 import { ContextBlock } from "./context-block";
 import { ContextCheckpoint } from "./context-checkpoint";
-import { ContextComposition } from "./context-composition";
 
 const SESSION = SessionId.from("s-1");
 const DIGEST = ContentDigest.of("sha256", "abc123");
 const OTHER_DIGEST = ContentDigest.of("sha256", "def456");
 
 function checkpointOf(strategyVersion: number, digest = DIGEST): ContextCheckpoint {
-	return new ContextCheckpoint(
-		SESSION,
-		SessionRevision.of(40),
-		"oldest-first",
-		strategyVersion,
-		digest,
-		[ContextBlock.summary(new UserMessage("earlier"), SessionRevision.of(40))],
-		ContextComposition.empty(),
-	);
+	return new ContextCheckpoint(SESSION, SessionRevision.of(40), "oldest-first", strategyVersion, digest, [
+		ContextBlock.summary(new UserMessage("earlier"), SessionRevision.of(40)),
+	]);
 }
 
 describe("ContextCheckpoint", () => {

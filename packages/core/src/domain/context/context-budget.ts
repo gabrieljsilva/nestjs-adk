@@ -1,8 +1,7 @@
 import type { ContextWindow } from "../model/context-window";
 import type { ModelIdentity } from "../model/model-identity";
-import type { ModelUsage } from "../model/model-usage";
+import type { PromptMeasurement } from "../model/prompt-measurement";
 import { TokenCount } from "../model/token-count";
-import type { ContextComposition } from "./context-composition";
 import { ContextBudgetExceededError } from "./errors/context-budget-exceeded.error";
 
 /**
@@ -10,8 +9,8 @@ import { ContextBudgetExceededError } from "./errors/context-budget-exceeded.err
  *
  * Both numbers exist only when two things are true: the model declared a window, and a
  * call already reported its usage. Nothing here derives tokens from text, so a budget
- * before the first call of a session has a composition and no size, and says so through
- * `isMeasured` rather than through a zero that reads like room to spare.
+ * before the first call of a session knows its size in characters and no size in tokens,
+ * and says so through `isMeasured` rather than through a zero that reads like room to spare.
  *
  * There are two kinds of answer here and they are named apart, because they are not the
  * same kind of fact. What is measured is what the provider counted for the previous call.
@@ -22,13 +21,17 @@ import { ContextBudgetExceededError } from "./errors/context-budget-exceeded.err
  * Every question about the call that is about to happen is necessarily a projection: the
  * only thing that knows the real size of this prompt is the provider, and asking it is
  * the call. So refusing early is refusing on a projection, and the wording says so.
+ *
+ * A budget given no current size is a budget about the measured call itself, which is what
+ * a reader asking how full a conversation is wants: nothing has been added since.
  */
 export class ContextBudget {
 	public constructor(
 		public readonly window: ContextWindow,
-		public readonly composition: ContextComposition,
-		public readonly usage?: ModelUsage,
-		private readonly measuredAtCharacters?: number,
+		/** The last call a provider counted, which is the only absolute size in the runtime. */
+		public readonly lastPrompt?: PromptMeasurement,
+		/** How large the prompt is now, in characters; the measured size when nothing was added. */
+		public readonly characters: number = lastPrompt?.characters ?? 0,
 	) {}
 
 	public get isWindowKnown(): boolean {
@@ -37,7 +40,7 @@ export class ContextBudget {
 
 	/** True when a provider has reported usage for this context, which is the only source of a size. */
 	public get isMeasured(): boolean {
-		return this.usage !== undefined;
+		return this.lastPrompt !== undefined;
 	}
 
 	/** Both the window and a measured usage, which is what any free room answer needs. */
@@ -47,8 +50,8 @@ export class ContextBudget {
 
 	/** What the provider counted for the previous call, and nothing derived from it. */
 	public get usedTokens(): TokenCount | undefined {
-		const usage = this.usage;
-		return usage === undefined ? undefined : TokenCount.measured(usage.inputTokens);
+		const measured = this.lastPrompt;
+		return measured === undefined ? undefined : TokenCount.measured(measured.usage.inputTokens);
 	}
 
 	/**
@@ -60,8 +63,8 @@ export class ContextBudget {
 	 * compacting before the call that would prove it.
 	 */
 	public get projectedTokens(): number | undefined {
-		const usage = this.usage;
-		return usage === undefined ? undefined : Math.round(usage.inputTokens * this.growth());
+		const measured = this.lastPrompt;
+		return measured === undefined ? undefined : Math.round(measured.usage.inputTokens * this.growth());
 	}
 
 	/** The projection as a share of the window, for a policy that reasons in percentages. */
@@ -114,9 +117,7 @@ export class ContextBudget {
 	 * and one that was just compacted costs less, which is the whole point of compacting.
 	 */
 	private growth(): number {
-		const measuredAt = this.measuredAtCharacters;
-		if (measuredAt === undefined) return 1;
-		const growth = this.composition.growthFrom(measuredAt);
-		return Number.isFinite(growth) ? growth : 1;
+		const measured = this.lastPrompt?.characters ?? 0;
+		return measured <= 0 ? 1 : this.characters / measured;
 	}
 }

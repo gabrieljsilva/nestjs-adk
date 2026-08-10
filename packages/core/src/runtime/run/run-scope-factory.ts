@@ -1,5 +1,6 @@
 import type { AgentDefinition } from "../../domain/agent/agent-definition";
 import type { AdkCompactionPolicy } from "../../domain/context/adk-compaction-policy";
+import { WindowShareCompactionPolicy } from "../../domain/context/window-share-compaction-policy";
 import type { LlmModel } from "../../domain/model/llm-model";
 import { PromptContext } from "../../domain/prompt/prompt-context";
 import type { PromptInstructions } from "../../domain/prompt/prompt-instructions";
@@ -30,7 +31,9 @@ import type { StartedRun } from "./started-run";
  * Compaction resolves the same way, and there it is the whole policy that is replaced
  * rather than a field: an agent that declared one runs under its own, and one that declared
  * none runs under the module's, because two policies deciding how much to keep would be one
- * of them shortening what the other just decided to hold on to.
+ * of them shortening what the other just decided to hold on to. Declaring nothing anywhere
+ * still compacts, under the standard share of the window, and `false` at either level is
+ * how an application says a conversation is never to be shortened.
  *
  * This is also where an agent's own `prompt()` is called, which is why every method here
  * answers a promise. A scope is born exactly three times in a run's life, and each one is a
@@ -39,10 +42,13 @@ import type { StartedRun } from "./started-run";
  * prefix on every turn.
  */
 export class RunScopeFactory {
+	/** Built once: the standard policy holds no state, and a run should not allocate one per turn. */
+	private readonly standardCompaction = new WindowShareCompactionPolicy();
+
 	public constructor(
 		private readonly runtimeTools: readonly ToolDefinition[] = [],
 		private readonly limits: RunLimits = RunLimits.none(),
-		private readonly compaction?: AdkCompactionPolicy,
+		private readonly compaction?: AdkCompactionPolicy | false,
 	) {}
 
 	public async create(
@@ -128,8 +134,17 @@ export class RunScopeFactory {
 	}
 
 	/** The agent's own policy, or the module's, and never both narrowing each other. */
+	/**
+	 * The policy in force for this agent: its own, then the module's, then the standard one.
+	 *
+	 * `??` is what makes the three levels readable, because `false` is a declaration and not
+	 * an absence: an agent that turned compaction off keeps it off rather than falling through
+	 * to the module, and only a level nobody declared falls through at all.
+	 */
 	private compactionFor(definition: AgentDefinition): AdkCompactionPolicy | undefined {
-		return definition.compaction ?? this.compaction;
+		const declared = definition.compaction ?? this.compaction;
+		if (declared === false) return undefined;
+		return declared ?? this.standardCompaction;
 	}
 
 	/**

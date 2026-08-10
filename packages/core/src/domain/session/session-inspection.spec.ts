@@ -12,7 +12,6 @@ import { PendingCall } from "./pending-call";
 import { PendingTurn } from "./pending-turn";
 import { Session } from "./session";
 import { SessionInspection } from "./session-inspection";
-import { SessionMode } from "./session-mode";
 import { SessionState } from "./session-state";
 import { SessionStatus } from "./session-status";
 import { StateValues } from "./state-values";
@@ -24,7 +23,7 @@ const BILLING = AgentName.from("billing");
 const REFUND = ToolCallId.from("c-1");
 
 function sessionOf(status: SessionStatus = SessionStatus.ACTIVE): Session {
-	return Session.restore(SESSION, SUPPORT, SessionMode.EPHEMERAL, status, SessionRevision.of(7), NOW, NOW);
+	return Session.restore(SESSION, SUPPORT, status, SessionRevision.of(7), NOW, NOW);
 }
 
 function suspendedTurn(): PendingTurn {

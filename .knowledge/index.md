@@ -24,7 +24,7 @@ A row marked `target` describes a decision the code has not reached yet. It is s
 | `convention` `target` | [[error-taxonomy]] | Ownership, declaration and propagation of errors, and how an adapter classifies a provider failure |
 | `convention` `target` | [[services-over-functions]] | Behavior lives in classes with explicit dependencies and free functions stay at unavoidable language boundaries |
 | `pattern` `target` | [[module-boundaries]] | How the lib is split into internal modules, what each one exports, and why NestJS stays at the surface |
-| `pattern` `target` | [[context-projection]] | How a journal becomes the context a model reads, how it is measured, and what compaction may never touch |
+| `pattern` `target` | [[context-projection]] | How a journal becomes the context a model reads, how it is measured, when it is compacted by default, and what compaction may never touch |
 | `pattern` | [[tool-approval]] | How a run stops in front of a human, what it stores while it waits, and what runs when the answer arrives |
 | `pattern` | [[run-orchestration]] | How a command becomes a run, which class owns which decision, and why the public surface holds none of them |
 | `pattern` | [[session-snapshots]] | Why a snapshot is always disposable, when the runtime writes one, and what invalidates every snapshot at once |
@@ -33,7 +33,7 @@ A row marked `target` describes a decision the code has not reached yet. It is s
 | `pattern` | [[agent-delegation]] | How one agent has another answer a single task, why neither reads the other's conversation, and where the runtime's only dependency cycle lives |
 | `pattern` | [[multimodal-input]] | How an image reaches a model, why the journal never holds one, and what a tool result cannot carry |
 | `pattern` | [[tool-declaration]] | What a shared tool extends, how one schema types both forms of a tool, and why the method form has its own descriptor type |
-| `pitfall` | [[nest-composition-timing]] | Why the runtime is composed in a lifecycle hook and never in a provider, and what NestJS does to an instance captured too early |
+| `pitfall` | [[nest-composition-timing]] | Why the runtime is composed in a lifecycle hook and never in a provider, and why the module's options may come from the container |
 | `pattern` | [[test-bed]] | How a test replaces the model of one agent, what a run is asserted on, and why the bed refuses to boot |
 | `pattern` | [[tool-doubles]] | How a substituted tool keeps its declaration, what a double has to preserve, and when a listed tool fails the boot |
 | `pitfall` | [[cross-provider-history]] | What breaks when a history written by one model is replayed to another, and where the adapter compensates |

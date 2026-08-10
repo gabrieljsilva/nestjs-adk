@@ -59,7 +59,7 @@ export class SqliteSessionStorage extends SessionStorage {
 	}
 
 	public capabilities(): StorageCapabilities {
-		return StorageCapabilities.durable({ snapshots: true, checkpoints: false });
+		return StorageCapabilities.concurrent({ snapshots: true, checkpoints: false });
 	}
 
 	public async create(session: Session): Promise<void> {

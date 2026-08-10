@@ -3,14 +3,12 @@ import { SessionId } from "../../common/identity/session-id";
 import { Instant } from "../../common/time/instant";
 import { AgentName } from "../../domain/agent/agent-name";
 import { Session } from "../../domain/session/session";
-import { SessionMode } from "../../domain/session/session-mode";
 import { SessionState } from "../../domain/session/session-state";
 import { OpenedSession } from "./opened-session";
 
 const session = Session.start(
 	SessionId.from("s-1"),
 	AgentName.from("support"),
-	SessionMode.EPHEMERAL,
 	Instant.fromIso("2026-01-01T00:00:00.000Z"),
 );
 

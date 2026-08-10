@@ -47,6 +47,7 @@ export { ModelUsage } from "./domain/model/model-usage";
 export { ToolCallDelta } from "./domain/model/tool-call-delta";
 export { ModelResponse } from "./domain/model/model-response";
 export { TokenCount } from "./domain/model/token-count";
+export { PromptMeasurement } from "./domain/model/prompt-measurement";
 export { PromptInstructions } from "./domain/prompt/prompt-instructions";
 
 // prompting
@@ -77,7 +78,6 @@ export { AgentResult } from "./domain/session/agent-result";
 export { AgentRunStatus } from "./domain/session/agent-run-status";
 export { RunLimits } from "./domain/session/run-limits";
 export { InvalidRunLimitError } from "./domain/session/errors/invalid-run-limit.error";
-export { SessionMode } from "./domain/session/session-mode";
 export { SessionOwner } from "./domain/session/session-owner";
 export { CreateSessionInput } from "./domain/session/create-session-input";
 // Reachable as `RuntimeServices.sessions`, which is what an application without NestJS holds.
@@ -158,6 +158,9 @@ export type {
 	AdkModuleOptionsPatch,
 	PromptFileOptions,
 } from "./public/nest/adk-module-options";
+export type { AdkModuleAsyncOptions, AdkOptionsFactory } from "./public/nest/adk-module-async-options";
+export { AsyncOptionsNotDeclaredError } from "./public/nest/errors/async-options-not-declared.error";
+export { ConflictingAsyncOptionsError } from "./public/nest/errors/conflicting-async-options.error";
 export { AgentMetadata } from "./public/nest/agent-metadata";
 export { ToolMetadata } from "./public/nest/tool-metadata";
 export type { AgentClass, AgentTarget } from "./public/nest/agent-target";
@@ -257,7 +260,8 @@ export { ModelExecutor } from "./runtime/model/model-executor";
 
 // compaction
 export { AdkCompactionPolicy } from "./domain/context/adk-compaction-policy";
-export { TokenThresholdCompactionPolicy } from "./domain/context/token-threshold-compaction-policy";
+export { WindowShareCompactionPolicy } from "./domain/context/window-share-compaction-policy";
+export type { WindowShareCompactionOptions } from "./domain/context/window-share-compaction-policy";
 export { ContextBlock } from "./domain/context/context-block";
 export { InvalidCompactionThresholdError } from "./domain/context/errors/invalid-compaction-threshold.error";
 export { ContextSummarizer } from "./contracts/context-summarizer";

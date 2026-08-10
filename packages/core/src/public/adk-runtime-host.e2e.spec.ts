@@ -1040,7 +1040,6 @@ describe("AdkRuntimeHost over the native runtime", () => {
 				RunLimits.none(),
 				undefined,
 				undefined,
-				undefined,
 				BILLING,
 			),
 		);
@@ -1071,7 +1070,6 @@ describe("AdkRuntimeHost over the native runtime", () => {
 					SUPPORT,
 					AskInput.of("route me", first.sessionId),
 					RunLimits.none(),
-					undefined,
 					undefined,
 					undefined,
 					BILLING,

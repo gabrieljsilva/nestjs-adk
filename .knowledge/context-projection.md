@@ -1,6 +1,6 @@
 ---
 title: Context projection
-description: How a journal becomes the context a model reads, how it is measured, and what compaction may never touch
+description: How a journal becomes the context a model reads, how it is measured, when it is compacted by default, and what compaction may never touch
 type: pattern
 status: target
 tags: [core, context, compaction]
@@ -18,13 +18,15 @@ The unit of projection is [[context-projection|the block]], never the message. A
 
 A result whose call is missing stops the projection with a typed error. It is corruption, not an edge case.
 
-## Composition before the call, tokens after it
+## Characters before the call, tokens after it
 
 Nothing measures a prompt in tokens before sending it. Providers count after the fact and report the number as usage, so an adapter answering a count beforehand can only estimate, and an estimate looks exactly like a measurement at the call site: everything deciding on top of it inherits an error nobody can see. `TokenCount` has no `estimate` constructor, and that absence is the rule.
 
-What is knowable before a call is composition. Each category (runtime instructions, agent prompt, tool descriptions, conversation, tool results, active skills, summaries, media) is measured in characters of the canonical text and reported as a share of the whole. The fields are named `characters` and `share`, never `tokens`. A character is not a token, but the ratio between categories of the same prompt is stable enough to answer the only question anyone has beforehand: what is taking up the room.
+What is knowable before a call is size in characters of the canonical text, which is what `ContextMeasurer` answers: one number, never a token count. A character is not a token, but the ratio between two measurements of the same conversation is stable enough to carry a past measurement forward, which is the only thing anyone needs beforehand.
 
-The absolute size arrives with `ModelUsage`, in the chunks of the call that already happened. Turning a share into tokens (`share × inputTokens`) is attribution of a measured number, and `ContextComposition.attribute` is named for it.
+The absolute size arrives with `ModelUsage`, in the chunks of the call that already happened. The two travel together as `PromptMeasurement`: the tokens the provider counted, the characters they were counted over, and the model that counted them. None of the three means anything without the other two.
+
+There used to be a per category breakdown here, splitting the prompt across runtime instructions, agent prompt, tool descriptions, conversation, tool results, active skills, summaries and media, and attributing measured tokens to each by character share. It was removed because nothing read it: no policy decided on a category, the checkpoint stored one nobody loaded, and the attribution had no caller at all. `ContextBlock.category` stays, because a block is classified by what it is; what left is the arithmetic on top of it.
 
 Counting before a call exists only where a provider truly offers it. `LlmModel.countTokens` is optional and gated by `ModelCapability.TOKEN_COUNTING`: Gemini declares it, OpenAI does not, and the runtime never asks an adapter for a number it would have to invent.
 
@@ -32,16 +34,26 @@ Counting before a call exists only where a provider truly offers it. `LlmModel.c
 
 `ModelDescriptor.contextWindow` is a `ContextWindow`, and a provider that never declared one gets `UnknownContextWindow` rather than a number someone invented. Against it:
 
-- composition is still measured;
+- the prompt is still measured in characters;
 - nothing is ever refused, since refusing against an unstated limit invents the limit;
 - the runtime reports the unknown window once per model, through `ContextNoticeSink`;
-- compaction still runs, because a compaction policy declares its own absolute ceiling and does not read the window.
+- the standard policy compacts nothing, because a share of an unbounded window is never passed. An application that wants a conversation shortened anyway states the size itself, by extending `AdkCompactionPolicy`.
 
 The rule is that degrading is fine and degrading silently is not.
 
+## Compaction is on unless somebody turned it off
+
+An application that declares nothing is compacted at nine tenths of the window, down to seven tenths, keeping the four most recent blocks. That is `WindowShareCompactionPolicy`, and the default exists because the alternative was worse: before it, a conversation nobody had thought about grew until the window refused the call, and the failure arrived at the customer rather than at the developer. The shares match what Cline and Cursor do, and they are shares rather than counts because two hundred thousand tokens is comfortable in a window of a million and impossible in one of a hundred and twenty eight thousand.
+
+Three levels declare it, resolved in `RunScopeFactory.compactionFor`: the agent's `@Agent({ compaction })`, then `RuntimeOptions.compaction`, then the standard policy. `false` at either level turns compaction off, and it is a declaration rather than an absence: an agent that refuses compaction keeps refusing it under a runtime that declared a policy, and `??` is what keeps the three readable, since it falls through on `undefined` and never on `false`.
+
+An agent that turned it off and outgrows its window gets `ContextBudgetExceededError`, which is the honest end. The alternative is dropping the beginning of a conversation somebody said to keep whole.
+
 ## Free room needs both halves
 
-`ContextBudget` answers only when a window was declared **and** a call reported usage. Either half missing means the answer is absent rather than zero, because a zero here reads like room to spare.
+`ContextBudget` is a `ContextWindow` plus a `PromptMeasurement` plus how large the prompt is now. It answers only when a window was declared **and** a call reported usage. Either half missing means the answer is absent rather than zero, because a zero here reads like room to spare.
+
+Given no current size it stands on the measured one, which is a budget about the call that happened rather than one about to happen. That is what `AgentHandle.contextBudget(sessionId)` answers: the window comes from the agent's own model, the measurement from the journal, and no projection is built, because building one means resolving tools, instructions and an agent's own `prompt()`, all of which belong to a run.
 
 Measured and projected are different words for different facts, and the API keeps them apart. `usedTokens` is what the provider counted for the previous call, unscaled, and it is a `TokenCount`. `projectedTokens`, `projectedFreeTokens`, `projectedUsedShare` and `projectedFreeShare` carry that measurement to the prompt as it now stands, scaled by how the character count changed, and they answer plain numbers: a `TokenCount` means somebody counted, and there nobody did.
 

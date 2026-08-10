@@ -9,8 +9,8 @@ import {
 	SessionStorage,
 	SqliteConnection,
 	SqliteSessionStorage,
-	TokenThresholdCompactionPolicy,
 	UnsupportedCapabilityError,
+	WindowShareCompactionPolicy,
 } from "@nestjs-adk/core";
 import { AdkTestBedBuilder } from "@nestjs-adk/testing";
 import { Test } from "@nestjs/testing";
@@ -433,7 +433,7 @@ describe("the store, on a conversation too long to send", () => {
 			.withScript(WarrantyAgent, (script) => script.mockText("not called"))
 			.withScript(BillingAgent, (script) => script.mockText("not called"))
 			.withRuntime({
-				compaction: new TokenThresholdCompactionPolicy(2_000, 1_800, 4),
+				compaction: new WindowShareCompactionPolicy({ maxShare: 0.02, targetShare: 0.018, keepRecentBlocks: 4 }),
 				summarizer: new NamingSummarizer(),
 			})
 			.boot();
@@ -463,7 +463,7 @@ describe("the store, on a conversation too long to send", () => {
 			.withScript(WarrantyAgent, (script) => script.mockText("not called"))
 			.withScript(BillingAgent, (script) => script.mockText("not called"))
 			.withRuntime({
-				compaction: new TokenThresholdCompactionPolicy(2_000, 1_800, 4),
+				compaction: new WindowShareCompactionPolicy({ maxShare: 0.02, targetShare: 0.018, keepRecentBlocks: 4 }),
 				summarizer: new NamingSummarizer(),
 			})
 			.boot();
@@ -494,7 +494,7 @@ describe("the store, on a conversation too long to send", () => {
 			.withScript(WarrantyAgent, (script) => script.mockText("not called"))
 			.withScript(BillingAgent, (script) => script.mockText("not called"))
 			.withRuntime({
-				compaction: new TokenThresholdCompactionPolicy(2_000, 1_800, 4),
+				compaction: new WindowShareCompactionPolicy({ maxShare: 0.02, targetShare: 0.018, keepRecentBlocks: 4 }),
 				summarizer: new NamingSummarizer(),
 			})
 			.boot();
@@ -522,7 +522,7 @@ describe("the store, on a conversation too long to send", () => {
 			.withScript(WarrantyAgent, (script) => script.mockText("not called"))
 			.withScript(BillingAgent, (script) => script.mockText("not called"))
 			.withRuntime({
-				compaction: new TokenThresholdCompactionPolicy(2_000, 1_800, 4),
+				compaction: new WindowShareCompactionPolicy({ maxShare: 0.02, targetShare: 0.018, keepRecentBlocks: 4 }),
 				summarizer: new NamingSummarizer(),
 			})
 			.boot();

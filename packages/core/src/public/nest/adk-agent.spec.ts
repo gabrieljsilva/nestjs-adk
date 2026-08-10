@@ -13,7 +13,6 @@ import type { ApproveInput } from "../../domain/session/approve-input";
 import type { CreateSessionInput } from "../../domain/session/create-session-input";
 import type { RejectInput } from "../../domain/session/reject-input";
 import { Session } from "../../domain/session/session";
-import { SessionMode } from "../../domain/session/session-mode";
 import type { RuntimeServices } from "../../runtime/composition/runtime-services";
 import type { AgentRunCommand } from "../../runtime/run/agent-run-command";
 import { AdkAgent } from "./adk-agent";
@@ -70,7 +69,7 @@ class RecordingSessions {
 
 	public async create(agent: AgentName, input: CreateSessionInput): Promise<Session> {
 		this.opened.push({ agent, input });
-		return Session.start(input.sessionId ?? SessionId.from("generated"), agent, SessionMode.EPHEMERAL, NOW, input.owner);
+		return Session.start(input.sessionId ?? SessionId.from("generated"), agent, NOW, input.owner);
 	}
 
 	public async find(sessionId: SessionId): Promise<Session | undefined> {
@@ -80,7 +79,7 @@ class RecordingSessions {
 
 	public async findOrFail(sessionId: SessionId): Promise<Session> {
 		this.lookups.push({ verb: "findOrFail", sessionId });
-		return Session.start(sessionId, SUPPORT, SessionMode.EPHEMERAL, NOW);
+		return Session.start(sessionId, SUPPORT, NOW);
 	}
 }
 

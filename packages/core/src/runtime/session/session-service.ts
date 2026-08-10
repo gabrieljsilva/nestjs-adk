@@ -1,8 +1,10 @@
 import type { SessionId } from "../../common/identity/session-id";
 import type { AgentName } from "../../domain/agent/agent-name";
+import type { ContextBudget } from "../../domain/context/context-budget";
 import type { CreateSessionInput } from "../../domain/session/create-session-input";
 import type { Session } from "../../domain/session/session";
 import type { SessionInspection } from "../../domain/session/session-inspection";
+import type { InspectContextBudget } from "../context/inspect-context-budget";
 import type { CreateSession } from "./create-session";
 import type { InspectSession } from "./inspect-session";
 import type { SessionManager } from "./session-manager";
@@ -10,20 +12,21 @@ import type { SessionManager } from "./session-manager";
 /**
  * What an application calls to work with a conversation rather than to run one.
  *
- * Four verbs: open one, look at where one stands, and find one by identifier with absence
- * either answered or refused. It is to sessions what `AgentRunner` is to runs, and for the
- * same reason: the name a consumer holds must not also be the class that decides how any
- * of it happens.
+ * Five verbs: open one, look at where one stands, read how full its context is, and find
+ * one by identifier with absence either answered or refused. It is to sessions what
+ * `AgentRunner` is to runs, and for the same reason: the name a consumer holds must not
+ * also be the class that decides how any of it happens.
  *
  * The two lookups answer the head and nothing else, so telling whether a chat already has
- * a conversation costs one row. `inspect` is the one that projects, because where a
- * conversation stands can only be known by reading what happened in it.
+ * a conversation costs one row. `inspect` and `budget` are the ones that project, because
+ * where a conversation stands can only be known by reading what happened in it.
  */
 export class SessionService {
 	public constructor(
 		private readonly creating: CreateSession,
 		private readonly inspecting: InspectSession,
 		private readonly sessions: SessionManager,
+		private readonly budgeting: InspectContextBudget,
 	) {}
 
 	/** Opens a conversation the application names, or names one itself when it does not. */
@@ -34,6 +37,11 @@ export class SessionService {
 	/** Where a conversation stands, for a caller that is not running anything. */
 	public async inspect(sessionId: SessionId): Promise<SessionInspection> {
 		return this.inspecting.handle(sessionId);
+	}
+
+	/** How much of the agent's window the conversation's last call took, for a caller drawing a meter. */
+	public async budget(agent: AgentName, sessionId: SessionId): Promise<ContextBudget> {
+		return this.budgeting.handle(agent, sessionId);
 	}
 
 	public async find(sessionId: SessionId): Promise<Session | undefined> {

@@ -6,8 +6,8 @@ import {
 	RunLimits,
 	RuntimeOptions,
 	SqliteSessionStorage,
-	TokenThresholdCompactionPolicy,
 	ToolEffect,
+	WindowShareCompactionPolicy,
 } from "@nestjs-adk/core";
 import { GeminiModel } from "@nestjs-adk/google";
 import { Module } from "@nestjs/common";
@@ -34,7 +34,14 @@ if (GEMINI_API_KEY === undefined) throw new Error("GEMINI_API_KEY is required");
  * have to be restored together or not at all. Without a path it lives as long as the
  * process, which is what a developer trying the app out wants.
  */
-export const geminiFlashLite = new GeminiModel(MODEL, { apiKey: GEMINI_API_KEY });
+/**
+ * The window is declared because a policy that reasons in shares needs one to be a share of.
+ *
+ * A model that never states its window is never compacted, since the alternative is the
+ * runtime inventing a size for somebody's conversation. This one has a million tokens and
+ * says so, which is also what lets `contextBudget` answer how full a chat is.
+ */
+export const geminiFlashLite = new GeminiModel(MODEL, { apiKey: GEMINI_API_KEY, contextWindowTokens: 1_048_576 });
 
 /**
  * A conversation that outgrows the window is shortened, not dropped.
@@ -44,8 +51,12 @@ export const geminiFlashLite = new GeminiModel(MODEL, { apiKey: GEMINI_API_KEY }
  * recent turns plus a few sentences saying what happened before them. Without the
  * summarizer the same conversation would simply forget, and a customer who gave their
  * order number ten turns ago would have to give it again.
+ *
+ * The shares are far below the standard ones on purpose. A store conversation would never
+ * reach nine tenths of a million token window, so declaring the default here would be
+ * shipping a demo of something that never runs.
  */
-const COMPACTION = new TokenThresholdCompactionPolicy(24_000, 12_000, 4);
+const COMPACTION = new WindowShareCompactionPolicy({ maxShare: 0.02, targetShare: 0.01, keepRecentBlocks: 4 });
 
 /**
  * What any conversation here may spend before the runtime stops it.

@@ -5,7 +5,7 @@ type: pattern
 tags: [core, sessions, persistence, journal, api-surface]
 ---
 
-`SessionStorage` is a port an application is expected to implement: SQLite is for one process, in memory is for tests, and anything shared between replicas is somebody else's adapter. That means the surface an implementer needs is public API, held to the same rules as the rest of it.
+`SessionStorage` is a port an application is expected to implement. The two adapters that ship here are for development and for tests: in memory while a process runs, SQLite for the same thing on disk. Anything carrying production traffic is somebody else's adapter, written against the database the application already runs. That means the surface an implementer needs is public API, held to the same rules as the rest of it.
 
 For a long time it was not. The port was exported and its parts were not, so the only storages that could exist were the two that ship here.
 
@@ -33,7 +33,7 @@ const record = codecs.journal.encode(event);   // nine plain values
 const event = codecs.journal.decode(row);      // the class the projectors decide on
 ```
 
-An adapter therefore never touches `EventHeader`, `EventCorrelation`, the six identity types, `SessionStatus`, `SessionState`, `ContentDigest`, `PendingTurn`, `StateValues`, `PromptMeasurement` or `ContextComposition`. They stay private and stay free to change, and the published surface went from around thirty types to four codecs, four records, four errors and the suite.
+An adapter therefore never touches `EventHeader`, `EventCorrelation`, the six identity types, `SessionStatus`, `SessionState`, `ContentDigest`, `PendingTurn` or `StateValues`. They stay private and stay free to change, and the published surface went from around thirty types to four codecs, four records, four errors and the suite.
 
 Three details are load bearing:
 

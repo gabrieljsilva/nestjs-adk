@@ -5,8 +5,6 @@ import { ModelContextWindow } from "../model/model-context-window";
 import { UserMessage } from "../model/user-message";
 import { ContextBlock } from "./context-block";
 import { ContextBudget } from "./context-budget";
-import { ContextCategory } from "./context-category";
-import { ContextComposition } from "./context-composition";
 import { ContextProjection } from "./context-projection";
 import { PreparedModelContext } from "./prepared-model-context";
 
@@ -15,8 +13,8 @@ const R1 = SessionRevision.of(1);
 
 function prepare(message = new UserMessage("hi")): PreparedModelContext {
 	const projection = ContextProjection.of([ContextBlock.conversation(message, R1)]);
-	const composition = ContextComposition.of([[ContextCategory.CONVERSATION, message.text.length]]);
-	return new PreparedModelContext(projection, new ContextBudget(ModelContextWindow.of(1000, 100), composition), DIGEST);
+	const budget = new ContextBudget(ModelContextWindow.of(1000, 100), undefined, message.text.length);
+	return new PreparedModelContext(projection, budget, DIGEST);
 }
 
 describe("PreparedModelContext", () => {
@@ -24,9 +22,8 @@ describe("PreparedModelContext", () => {
 		expect(prepare().request.messages.map((message) => message.text)).toEqual(["hi"]);
 	});
 
-	it("reports the composition of its budget, in shares rather than tokens", () => {
-		expect(prepare().composition.shareOf(ContextCategory.CONVERSATION)).toBe(1);
-		expect(prepare().composition.characters).toBe(2);
+	it("reports the size of its budget, in characters rather than tokens", () => {
+		expect(prepare().characters).toBe(2);
 	});
 
 	it("reports the revision its projection covers", () => {

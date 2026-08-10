@@ -123,10 +123,15 @@ export class NestAgentScanner {
 		return typeof value === "object" && value !== null && typeof Reflect.get(value, "next") === "function";
 	}
 
-	/** Absent means the module's policy answers for this agent, which may itself be absent. */
-	private compactionOf(metadata: unknown, providerName: string): AdkCompactionPolicy | undefined {
+	/**
+	 * Absent means the module's policy answers for this agent, which may itself be absent.
+	 * `false` is carried through rather than dropped: it is this agent refusing compaction,
+	 * and dropping it would hand the agent whatever the module or the runtime decided.
+	 */
+	private compactionOf(metadata: unknown, providerName: string): AdkCompactionPolicy | false | undefined {
 		const declared = this.declaredField(metadata, "compaction");
 		if (declared === undefined) return undefined;
+		if (declared === false) return false;
 		if (this.isCompaction(declared)) return declared;
 		throw new InvalidAgentMetadataError(providerName, "compaction cannot decide anything: it has no decide method.");
 	}

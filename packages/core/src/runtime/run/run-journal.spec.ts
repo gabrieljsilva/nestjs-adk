@@ -22,7 +22,6 @@ import { AskInput } from "../../domain/session/ask-input";
 import { PendingCall } from "../../domain/session/pending-call";
 import { PendingTurn } from "../../domain/session/pending-turn";
 import { Session } from "../../domain/session/session";
-import { SessionMode } from "../../domain/session/session-mode";
 import { SessionOwner } from "../../domain/session/session-owner";
 import { SessionState } from "../../domain/session/session-state";
 import { ToolSourceAuthError } from "../../domain/tool/errors/tool-source-auth.error";
@@ -59,7 +58,7 @@ function startedRun(): StartedRun {
 }
 
 function openedSession(isNew: boolean): OpenedSession {
-	const session = Session.start(SESSION, NativeStackFixture.AGENT, SessionMode.EPHEMERAL, NOW);
+	const session = Session.start(SESSION, NativeStackFixture.AGENT, NOW);
 	return new OpenedSession(session, SessionState.initial(), isNew);
 }
 
@@ -86,7 +85,7 @@ describe("RunJournal", () => {
 
 	it("names the owner the session carries, not the one the question did", () => {
 		const owned = new OpenedSession(
-			Session.start(SESSION, NativeStackFixture.AGENT, SessionMode.EPHEMERAL, NOW, SessionOwner.from("gabriel")),
+			Session.start(SESSION, NativeStackFixture.AGENT, NOW, SessionOwner.from("gabriel")),
 			SessionState.initial(),
 			true,
 		);

@@ -5,7 +5,6 @@ import { SessionRevision } from "../../../common/revision/session-revision";
 import { ContextBlock } from "../../../domain/context/context-block";
 import { ContextCategory } from "../../../domain/context/context-category";
 import { ContextCheckpoint } from "../../../domain/context/context-checkpoint";
-import { ContextComposition } from "../../../domain/context/context-composition";
 import { CheckpointRecord } from "./checkpoint-record";
 import { UnreadableStoredValueError } from "./errors/unreadable-stored-value.error";
 import { ModelMessageCodec } from "./model-message-codec";
@@ -36,7 +35,6 @@ export class CheckpointCodec {
 			checkpoint.prefixDigest.algorithm,
 			checkpoint.prefixDigest.value,
 			checkpoint.blocks.map((block) => this.encodeBlock(block)),
-			this.encodeComposition(checkpoint.composition),
 			checkpoint.key,
 		);
 	}
@@ -51,7 +49,6 @@ export class CheckpointCodec {
 			record.strategyVersion,
 			ContentDigest.of(record.prefixDigestAlgorithm, record.prefixDigestValue),
 			record.blocks.map((block) => this.decodeBlock(block)),
-			this.decodeComposition(record.composition),
 		);
 	}
 
@@ -78,24 +75,6 @@ export class CheckpointCodec {
 			row.boolean("closed"),
 			callId === undefined ? undefined : ToolCallId.from(callId),
 			row.boolean("pinned"),
-		);
-	}
-
-	/**
-	 * Only the sizes are stored. Shares are derived from them on the way back, so a
-	 * checkpoint can never come back claiming proportions its own numbers disagree with.
-	 */
-	private encodeComposition(composition: ContextComposition): Record<string, unknown> {
-		return { sizes: composition.entries.map((entry) => [entry.category.key, entry.characters]) };
-	}
-
-	private decodeComposition(values: Readonly<Record<string, unknown>>): ContextComposition {
-		const sizes = new StoredRow(values).array("sizes");
-		return ContextComposition.of(
-			sizes.map((entry) => {
-				const row = new StoredRow(entry);
-				return [this.categoryOf(row.text("0")), row.integer("1")] as const;
-			}),
 		);
 	}
 

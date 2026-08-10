@@ -19,10 +19,10 @@ describe("SqliteConnection", () => {
 	it("hands back the first row, or nothing when there is none", () => {
 		const connection = new SqliteConnection();
 		connection.run(
-			"INSERT INTO sessions VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+			"INSERT INTO sessions VALUES (?, ?, ?, ?, ?, ?, ?)",
 			"s-1",
 			"support",
-			"ephemeral",
+
 			"active",
 			0,
 			"t",
@@ -41,10 +41,10 @@ describe("SqliteConnection", () => {
 		expect(() =>
 			connection.transaction(() => {
 				connection.run(
-					"INSERT INTO sessions VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+					"INSERT INTO sessions VALUES (?, ?, ?, ?, ?, ?, ?)",
 					"s-1",
 					"a",
-					"ephemeral",
+
 					"active",
 					0,
 					"t",
@@ -64,10 +64,10 @@ describe("SqliteConnection", () => {
 
 		connection.transaction(() => {
 			connection.run(
-				"INSERT INTO sessions VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+				"INSERT INTO sessions VALUES (?, ?, ?, ?, ?, ?, ?)",
 				"s-1",
 				"a",
-				"ephemeral",
+
 				"active",
 				0,
 				"t",

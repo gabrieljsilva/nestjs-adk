@@ -7,7 +7,6 @@ import { AgentName } from "../../domain/agent/agent-name";
 import { AskInput } from "../../domain/session/ask-input";
 import { SessionClosedError } from "../../domain/session/errors/session-closed.error";
 import { Session } from "../../domain/session/session";
-import { SessionMode } from "../../domain/session/session-mode";
 import { SessionStatus } from "../../domain/session/session-status";
 import { FakeClock } from "../../support/fake-clock";
 import { SessionManager } from "../session/session-manager";
@@ -34,7 +33,7 @@ describe("SessionOpener", () => {
 
 	it("continues the session a command names, without creating a second one", async () => {
 		const storage = new InMemorySessionStorage();
-		await storage.create(Session.start(SESSION, SUPPORT, SessionMode.EPHEMERAL, NOW).at(SessionRevision.of(1)));
+		await storage.create(Session.start(SESSION, SUPPORT, NOW).at(SessionRevision.of(1)));
 
 		const opened = await openerOf(storage).open(new AgentRunCommand(SUPPORT, AskInput.of("again", SESSION)), SESSION);
 
@@ -44,7 +43,7 @@ describe("SessionOpener", () => {
 
 	it("treats a session opened ahead of time as one whose journal still has to begin", async () => {
 		const storage = new InMemorySessionStorage();
-		await storage.create(Session.start(SESSION, SUPPORT, SessionMode.EPHEMERAL, NOW));
+		await storage.create(Session.start(SESSION, SUPPORT, NOW));
 
 		const opened = await openerOf(storage).open(new AgentRunCommand(SUPPORT, AskInput.of("first", SESSION)), SESSION);
 
@@ -53,7 +52,7 @@ describe("SessionOpener", () => {
 
 	it("refuses a session that no longer accepts commands, before anything is written", async () => {
 		const storage = new InMemorySessionStorage();
-		await storage.create(Session.start(SESSION, SUPPORT, SessionMode.EPHEMERAL, NOW).withStatus(SessionStatus.CLOSED));
+		await storage.create(Session.start(SESSION, SUPPORT, NOW).withStatus(SessionStatus.CLOSED));
 
 		const error = await openerOf(storage)
 			.open(new AgentRunCommand(SUPPORT, AskInput.of("again", SESSION)), SESSION)

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AgentTransferPolicy } from "../../domain/agent/agent-transfer-policy";
-import { TokenThresholdCompactionPolicy } from "../../domain/context/token-threshold-compaction-policy";
+import { WindowShareCompactionPolicy } from "../../domain/context/window-share-compaction-policy";
 import { RunLimits } from "../../domain/session/run-limits";
 import { ScriptedModel } from "../../support/run/scripted-model.fixture";
 import { InvalidAgentMetadataError } from "./errors/invalid-agent-metadata.error";
@@ -20,7 +20,7 @@ describe("NestComponentDiscovery", () => {
 
 	/** The definition is the only place a run reads it from, so a policy that stops here never runs. */
 	it("carries the compaction policy onto the definition", () => {
-		const policy = new TokenThresholdCompactionPolicy(1000, 400, 2);
+		const policy = new WindowShareCompactionPolicy({ maxShare: 0.9, targetShare: 0.7, keepRecentBlocks: 2 });
 
 		const [declared] = new NestComponentDiscovery().discover([
 			{ providerName: "SupportAgent", metadata: { name: "support", description: "d" }, model: MODEL, compaction: policy },

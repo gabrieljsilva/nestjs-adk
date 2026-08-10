@@ -37,7 +37,7 @@ export class SessionOpener {
 	}
 
 	private async start(command: AgentRunCommand, sessionId: SessionId): Promise<OpenedSession> {
-		const session = Session.start(sessionId, command.agent, command.mode, this.clock.now(), command.owner);
+		const session = Session.start(sessionId, command.agent, this.clock.now(), command.owner);
 		await this.sessions.create(session);
 		return new OpenedSession(session, SessionState.initial(), SessionOpener.isUnwritten(session));
 	}

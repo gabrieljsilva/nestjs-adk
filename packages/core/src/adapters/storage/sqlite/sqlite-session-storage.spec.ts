@@ -10,7 +10,6 @@ import { Instant } from "../../../common/time/instant";
 import { AppendEventsCommand } from "../../../contracts/append-events-command";
 import { AgentName } from "../../../domain/agent/agent-name";
 import { ContextCheckpoint } from "../../../domain/context/context-checkpoint";
-import { ContextComposition } from "../../../domain/context/context-composition";
 import { SessionCreated } from "../../../domain/event/catalog/session-created";
 import { UserMessageReceived } from "../../../domain/event/catalog/user-message-received";
 import { EventCorrelation } from "../../../domain/event/event-correlation";
@@ -19,7 +18,6 @@ import { SessionEventBatch } from "../../../domain/event/session-event-batch";
 import { SessionNotFoundError } from "../../../domain/session/errors/session-not-found.error";
 import { SessionRevisionConflictError } from "../../../domain/session/errors/session-revision-conflict.error";
 import { Session } from "../../../domain/session/session";
-import { SessionMode } from "../../../domain/session/session-mode";
 import { UnsupportedStorageFeatureError } from "./errors/unsupported-storage-feature.error";
 import { SqliteSessionStorage } from "./sqlite-session-storage";
 
@@ -36,19 +34,11 @@ function header(id: string): EventHeader {
 }
 
 function sessionOf(): Session {
-	return Session.start(ID, AGENT, SessionMode.EPHEMERAL, NOW);
+	return Session.start(ID, AGENT, NOW);
 }
 
 function checkpointOf(): ContextCheckpoint {
-	return new ContextCheckpoint(
-		ID,
-		SessionRevision.of(1),
-		"oldest-first",
-		1,
-		ContentDigest.of("sha256", "abc"),
-		[],
-		ContextComposition.empty(),
-	);
+	return new ContextCheckpoint(ID, SessionRevision.of(1), "oldest-first", 1, ContentDigest.of("sha256", "abc"), []);
 }
 
 function batchOf(...ids: readonly string[]): SessionEventBatch {
@@ -65,7 +55,7 @@ describe("SqliteSessionStorage", () => {
 	it("declares durable sessions with snapshots and without checkpoints", () => {
 		const capabilities = new SqliteSessionStorage().capabilities();
 
-		expect(capabilities.supportsDurableSessions).toBe(true);
+		expect(capabilities.supportsConcurrentWriters).toBe(true);
 		expect(capabilities.snapshots).toBe(true);
 		expect(capabilities.checkpoints).toBe(false);
 	});

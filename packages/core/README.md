@@ -67,6 +67,56 @@ const support = this.registry.get("support"); // AgentRegistry, injected
 
 That is the whole mental model: configure the module once, register classes as providers, inject the agent and call it.
 
+## Options that come from the container
+
+`forRoot` takes a value, which works while every option is one: a model built from an environment variable, a directory name, a policy with no dependencies.
+
+Most of what an application eventually plugs in is not. A storage holding a database client, an embedder that needs credentials, a pricing source with an HTTP client, an approval policy that reads the current tenant: those are providers, and nothing written where the module is declared can name them. `forRootAsync` builds the same options inside the container:
+
+```ts
+@Module({
+	imports: [
+		AdkModule.forRootAsync({ imports: [InfraModule], useClass: AdkOptions }),
+		SupportModule,
+	],
+})
+export class AppModule {}
+```
+
+```ts
+@Injectable()
+export class AdkOptions implements AdkOptionsFactory {
+	public constructor(
+		private readonly storage: PrismaSessionStorage,
+		private readonly pricing: LiteLlmPricingSource,
+	) {}
+
+	public createAdkOptions(): AdkModuleOptions {
+		return AdkModuleOptions.from({
+			defaultModel: flash,
+			storage: this.storage,
+			runtime: RuntimeOptions.from({ pricing: this.pricing }),
+		});
+	}
+}
+```
+
+`useExisting` points at an instance another module already provides, and `useFactory` takes the dependencies positionally:
+
+```ts
+AdkModule.forRootAsync({
+	imports: [InfraModule],
+	inject: [PrismaSessionStorage],
+	useFactory: (storage: PrismaSessionStorage) => AdkModuleOptions.from({ defaultModel: flash, storage }),
+});
+```
+
+Prefer `useClass`. TypeScript cannot line an `inject` array up with the parameters that receive it, so two entries swapped compile and fail at boot; a constructor is checked like any other provider's. That is also why a factory's parameters have to be annotated: they are typed `never` rather than `any`, so an unannotated one carries no type into the body.
+
+Whatever the options depend on has to be reachable through `imports`, and it may not be one of the tokens this module provides. Asking for `SessionStorage` in order to build the options that decide what `SessionStorage` is, is a cycle, and NestJS refuses it.
+
+Declaring none of the three is refused, and so is declaring two: the second would be configuration nothing reads. Both fail where `forRootAsync` is called, before the boot they would otherwise poison.
+
 ## Tools
 
 A tool is something the model can decide to call. A shared tool is a class that extends `AdkTool`. The Zod schema does two jobs at once: it tells the model what arguments exist, and it types the input for you.
@@ -470,7 +520,7 @@ const session = await support.findSessionByIdOrFail(chat.id); // throws SessionN
 session.owner?.value;
 ```
 
-Storage goes through `SessionStorage`. `InMemorySessionStorage` is the default and is right for development and tests. `SqliteSessionStorage` is shipped for a single process, and for anything else you implement the port:
+Storage goes through `SessionStorage`. `InMemorySessionStorage` is the default and is right while a process is running. `SqliteSessionStorage` is the same thing on disk, for development and for tests that want a conversation to survive a restart. Neither is meant to carry production traffic: for that you implement the port against the database you already run.
 
 ```ts
 AdkModule.forRoot(
@@ -562,18 +612,43 @@ Long conversations and big tool results both eat the window, and each has its ow
 
 A tool result above 20 thousand characters is stored as an artifact, and the model gets a short summary plus a `read_artifact` tool it can call when it really needs the whole thing. `runtime.offload` decides the threshold: `OffloadPolicy.byDefault()`, `above(n)` or `disabled()`. `read_artifact` works on anything in `ArtifactStorage`, not only offloaded results, so an upload saved there can be pulled in on demand: text comes back as a normal result, binary comes back as media.
 
-For long histories there is compaction. Declare a policy and the oldest closed exchanges are replaced by a summary once the conversation passes a threshold:
+For long histories there is compaction, and it is on without you declaring anything. Once a conversation passes nine tenths of the model's window it is shortened to seven tenths, oldest closed exchanges first, keeping the four most recent. Declare a `ContextSummarizer` and what leaves is replaced by a summary:
 
 ```ts
 runtime: RuntimeOptions.from({
-	compaction: new TokenThresholdCompactionPolicy(24_000, 12_000, 4),
 	summarizer: new StoreSummarizer(flash),
 });
 ```
 
-The numbers are the ceiling that triggers it, the size to compact down to, and how many recent exchanges are never touched. The ceiling is measured against what the provider reported, so a conversation nobody has had is never compacted. Without a `ContextSummarizer` the same conversation simply forgets, which is why declaring one matters more than the thresholds: a customer who gave their order number ten turns ago should not have to give it again.
+Without one the same conversation simply forgets, which is why declaring a summarizer matters more than the thresholds: a customer who gave their order number ten turns ago should not have to give it again.
+
+The thresholds are shares of the window and not token counts, because the same count is comfortable in a window of a million and impossible in one of a hundred and twenty eight thousand. Say your own:
+
+```ts
+runtime: RuntimeOptions.from({
+	compaction: new WindowShareCompactionPolicy({ maxShare: 0.8, targetShare: 0.5, keepRecentBlocks: 6 }),
+});
+```
+
+The ceiling is measured against what the provider reported, so a conversation nobody has had is never compacted, and neither is one running on a model that never declared its window: a share of an unstated limit is not a number this library will invent. If you need a conversation shortened there anyway, extend `AdkCompactionPolicy` with the size you have in mind.
 
 An agent may declare its own `compaction`, and like limits it replaces the module's rather than narrowing it. Here it is the whole policy that is replaced and not a field: two policies deciding how much to keep would be one of them shortening what the other just decided to hold on to.
+
+`compaction: false` turns it off, at either level, for a conversation that may not lose a word. It is a different statement from saying nothing: an agent that declared `false` stays uncompacted under a runtime that declared a policy, and when it outgrows its window the call is refused with `ContextBudgetExceededError` rather than the beginning of the conversation being dropped quietly.
+
+### Reading how full the window is
+
+```ts
+const budget = await this.support.contextBudget(chatId);
+
+budget.usedTokens?.tokens; // what the provider counted for the last call
+budget.projectedUsedShare; // that count as a share of this model's window
+budget.projectedFreeTokens; // what is left of it
+```
+
+It reads and never runs a turn. What it describes is the last call a provider actually counted, so a conversation nobody has asked anything in answers a window and no size, and so does one continued under a different model until that model answers once: a count taken by one provider divided by another one's window is a wrong number that looks right.
+
+This is the meter, not the decision. What compacts is the policy above, during a run, on the prompt about to be sent.
 
 ## Transfer and delegation
 
@@ -827,7 +902,7 @@ What exists, by subsystem:
 
 | Subsystem | Errors |
 | --- | --- |
-| Boot and wiring | `UnusableComponentError`, `UnregisteredToolError`, `NotAnAgentClassError`, `NotAToolClassError`, `AgentNotBoundError`, `AmbiguousAgentPromptError`, `ConflictingPromptOptionsError`, `EmbedderNotDeclaredError`, `HostNotStartedError` |
+| Boot and wiring | `UnusableComponentError`, `UnregisteredToolError`, `NotAnAgentClassError`, `NotAToolClassError`, `AgentNotBoundError`, `AmbiguousAgentPromptError`, `ConflictingPromptOptionsError`, `AsyncOptionsNotDeclaredError`, `ConflictingAsyncOptionsError`, `EmbedderNotDeclaredError`, `HostNotStartedError` |
 | Agents and routing | `ModelsExhaustedError`, `TransferNotDeclaredError`, `DelegationNotDeclaredError`, `UnknownTransferTargetError`, `UnknownDelegationTargetError`, `DelegationSuspendedError`, `AgentMaxTransfersError`, `AgentMaxDelegationDepthError` |
 | Runs and limits | `AgentMaxIterationsError`, `InvalidRunLimitError`, `ApprovalNotPendingError` |
 | Models and media | `ModelCallFailedError`, `EmptyModelResponseError`, `UnsupportedCapabilityError`, `UnsupportedMediaTypeError`, `MalformedMediaError`, `MediaTooLargeError`, `MalformedToolCallError`, `InvalidStructuredOutputError` |
@@ -851,8 +926,9 @@ Everything the package exports, and nothing else: a name that is not here is not
 
 | Symbol | What it is for |
 | --- | --- |
-| `AdkModule` | The one module to import. `forRoot(options)` |
+| `AdkModule` | The one module to import. `forRoot(options)`, or `forRootAsync(options)` when the options come from the container |
 | `AdkModuleOptions`, `AdkModuleOptionsInput`, `AdkModuleOptionsPatch` | What the module takes: model, storage, artifacts, clock, ids, runtime, embedder, prompts |
+| `AdkModuleAsyncOptions`, `AdkOptionsFactory` | What `forRootAsync` takes: `imports` plus one of `useClass`, `useExisting` or `useFactory` |
 | `PromptFileOptions` | The `prompts` field: which directory the default source reads |
 | `RuntimeOptions`, `RuntimeOptionsPatch` | What the runtime takes: limits, approvals, consumers, sources, pricing, compaction, snapshots, shutdown |
 | `ShutdownOptions` | How long a shutdown waits for runs in flight |
@@ -885,8 +961,9 @@ Everything the package exports, and nothing else: a name that is not here is not
 | `AgentRunStatus` | Completed, suspended, failed |
 | `PendingCall` | A call waiting for a human |
 | `SessionInspection` | Where a conversation stands, without running anything |
+| `ContextBudget` | How full the window is, without running anything |
 | `SessionId`, `AgentRunId`, `ToolCallId`, `AgentName` | The identities that appear in every result and event |
-| `SessionMode`, `SessionOwner`, `SessionRevision` | Ephemeral or durable, who owns it, and where its journal is |
+| `SessionOwner`, `SessionRevision` | Who a conversation belongs to, and where its journal is |
 | `RunLimits` | Iterations, consecutive tool failures, invalid arguments |
 
 ### Prompts
@@ -939,7 +1016,7 @@ Everything the package exports, and nothing else: a name that is not here is not
 | Symbol | What it is for |
 | --- | --- |
 | `SessionStorage`, `StorageCapabilities` | Where the journal lives, and what a port can do |
-| `InMemorySessionStorage`, `SqliteSessionStorage`, `SqliteConnection` | The two the library ships |
+| `InMemorySessionStorage`, `SqliteSessionStorage`, `SqliteConnection` | The two the library ships, both for development and tests |
 | `ArtifactStorage`, `InMemoryArtifactStorage` | Where a large result or an upload lives |
 | `OffloadPolicy` | When a result becomes an artifact instead of a message |
 | `SessionEventConsumer`, `PublishedEvent` | Being told what happened, after it was committed |
@@ -971,8 +1048,9 @@ Writing a `SessionStorage` needs more than the names in its signatures, and the 
 
 | Symbol | What it is for |
 | --- | --- |
-| `AdkCompactionPolicy`, `TokenThresholdCompactionPolicy` | When a conversation is shortened |
+| `AdkCompactionPolicy`, `WindowShareCompactionPolicy` | When a conversation is shortened, and the standard policy that decides it |
 | `ContextBudget`, `CompactionDecision` | What a policy is told, and what it answers |
+| `PromptMeasurement` | What a provider counted, over how much text, by which model |
 | `CompactionStrategy`, `ContextProjection` | How it is shortened, if you replace the default, and what it works on |
 | `ContextSummarizer` | What the removed turns are replaced by |
 | `ContextBlock` | The unit a summarizer is handed |

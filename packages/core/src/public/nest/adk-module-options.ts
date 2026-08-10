@@ -40,9 +40,12 @@ export type AdkModuleOptionsPatch = Partial<AdkModuleOptionsInput>;
  * something that runs, so `AdkModule.forRoot({ defaultModel })` is a working runtime with
  * sessions in memory and a system clock.
  *
- * The three ports are values rather than provider tokens because the module is what wires
- * the container, and asking the container for the things needed to build the container is
- * how a boot order becomes impossible to read.
+ * Every port here is a value rather than a provider token, so these options can be written
+ * where the module is declared, before any container exists. That is the simple case and not
+ * the only one: a port that is itself a provider, a storage holding a database client being
+ * the usual one, is named through `AdkModule.forRootAsync`, which builds this same object
+ * inside the container. What it produces is what `forRoot` was handed, so nothing downstream
+ * of the token can tell the two apart.
  */
 export class AdkModuleOptions {
 	public constructor(

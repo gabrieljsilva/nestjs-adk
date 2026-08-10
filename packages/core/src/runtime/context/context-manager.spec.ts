@@ -7,21 +7,20 @@ import { AppendEventsCommand } from "../../contracts/append-events-command";
 import { ContextNoticeSink } from "../../contracts/context-notice-sink";
 import type { SessionStorage } from "../../contracts/session-storage";
 import { AgentName } from "../../domain/agent/agent-name";
-import { ContextCategory } from "../../domain/context/context-category";
 import { ContextCheckpoint } from "../../domain/context/context-checkpoint";
-import { ContextComposition } from "../../domain/context/context-composition";
+import { ContextProjection } from "../../domain/context/context-projection";
 import type { ContextWindowUnknown } from "../../domain/context/context-window-unknown";
 import { ContextBudgetExceededError } from "../../domain/context/errors/context-budget-exceeded.error";
-import { TokenThresholdCompactionPolicy } from "../../domain/context/token-threshold-compaction-policy";
+import { WindowShareCompactionPolicy } from "../../domain/context/window-share-compaction-policy";
 import { SessionEventBatch } from "../../domain/event/session-event-batch";
 import { ModelContextWindow } from "../../domain/model/model-context-window";
 import { ModelIdentity } from "../../domain/model/model-identity";
 import { ModelUsage } from "../../domain/model/model-usage";
+import { PromptMeasurement } from "../../domain/model/prompt-measurement";
 import { ToolDeclaration } from "../../domain/model/tool-declaration";
 import { UnknownContextWindow } from "../../domain/model/unknown-context-window";
 import { PromptInstructions } from "../../domain/prompt/prompt-instructions";
 import { Session } from "../../domain/session/session";
-import { SessionMode } from "../../domain/session/session-mode";
 import { JournalFixture } from "../../support/context/journal.fixture";
 import { StubModel } from "../../support/model/stub-model.fixture";
 import { ContextManager } from "./context-manager";
@@ -34,6 +33,20 @@ import { StablePrefixDigest } from "./stable-prefix-digest";
 
 const NOW = Instant.fromIso("2026-01-01T00:00:00.000Z");
 const measurer = new ContextMeasurer();
+
+/**
+ * A call the provider counted, over exactly the text a journal projects to.
+ *
+ * The character count is what carries the measurement forward, so a fixture that guessed
+ * it would have compaction scale the previous turn by a factor nothing produced.
+ */
+async function measured(journal: JournalFixture, inputTokens: number): Promise<PromptMeasurement> {
+	const blocks = await new ContextProjector().project(journal.stream());
+	const characters = measurer.measure(ContextProjection.of(blocks));
+	const measurement = PromptMeasurement.from(ModelUsage.of(inputTokens, 50), characters);
+	if (measurement === undefined) throw new Error("the fixture asked for a measurement of nothing");
+	return measurement;
+}
 
 class RecordingSink extends ContextNoticeSink {
 	public readonly notices: ContextWindowUnknown[] = [];
@@ -61,7 +74,7 @@ function managerOf(storage: SessionStorage, notifier = new ContextWindowNotifier
 }
 
 async function storageWith(journal: JournalFixture, storage: InMemorySessionStorage): Promise<InMemorySessionStorage> {
-	await storage.create(Session.start(journal.sessionId, AgentName.from("support"), SessionMode.EPHEMERAL, NOW));
+	await storage.create(Session.start(journal.sessionId, AgentName.from("support"), NOW));
 	await storage.append(
 		new AppendEventsCommand(
 			journal.sessionId,
@@ -93,7 +106,7 @@ describe("ContextManager", () => {
 		expect(prepared.coveredRevision.value).toBe(2);
 	});
 
-	it("measures the composition of the prompt, in shares and without a size", async () => {
+	it("measures the size of the prompt in characters, and reports no size in tokens", async () => {
 		const journal = new JournalFixture().user("hi");
 		const manager = managerOf(await storageWith(journal, new InMemorySessionStorage()));
 		const command = new PrepareContextCommand(
@@ -105,9 +118,7 @@ describe("ContextManager", () => {
 
 		const prepared = await manager.prepare(command);
 
-		expect(prepared.composition.shareOf(ContextCategory.RUNTIME_INSTRUCTIONS)).toBeGreaterThan(0);
-		expect(prepared.composition.shareOf(ContextCategory.TOOL_DESCRIPTIONS)).toBeGreaterThan(0);
-		expect(prepared.composition.shareOf(ContextCategory.CONVERSATION)).toBeGreaterThan(0);
+		expect(prepared.characters).toBeGreaterThan("be brief".length);
 		expect(prepared.budget.isMeasured).toBe(false);
 		expect(prepared.budget.projectedFreeTokens).toBeUndefined();
 	});
@@ -123,7 +134,7 @@ describe("ContextManager", () => {
 			undefined,
 			undefined,
 			undefined,
-			ModelUsage.of(900, 10),
+			await measured(journal, 900),
 		);
 
 		await expect(manager.prepare(command)).rejects.toBeInstanceOf(ContextBudgetExceededError);
@@ -149,7 +160,7 @@ describe("ContextManager", () => {
 			undefined,
 			undefined,
 			undefined,
-			ModelUsage.of(300, 40),
+			await measured(journal, 300),
 		);
 
 		const prepared = await manager.prepare(command);
@@ -180,7 +191,7 @@ describe("ContextManager", () => {
 		expect(first.request.messages.map((message) => message.text)).toEqual(
 			second.request.messages.map((message) => message.text),
 		);
-		expect(first.composition.characters).toBe(second.composition.characters);
+		expect(first.characters).toBe(second.characters);
 	});
 
 	it("compacts when the policy says so and records a checkpoint", async () => {
@@ -193,8 +204,8 @@ describe("ContextManager", () => {
 			[],
 			undefined,
 			undefined,
-			new TokenThresholdCompactionPolicy(1000, 400, 2),
-			ModelUsage.of(1200, 50),
+			new WindowShareCompactionPolicy({ maxShare: 0.9, targetShare: 0.7, keepRecentBlocks: 2 }),
+			await measured(journal, 1200),
 		);
 
 		const uncompacted = await manager.prepare(new PrepareContextCommand(journal.sessionId, new StubModel()));
@@ -202,7 +213,7 @@ describe("ContextManager", () => {
 
 		expect(uncompacted.compacted).toBe(false);
 		expect(prepared.compacted).toBe(true);
-		expect(prepared.composition.characters).toBeLessThan(uncompacted.composition.characters);
+		expect(prepared.characters).toBeLessThan(uncompacted.characters);
 		const checkpoint = await storage.findCheckpoint(journal.sessionId);
 		expect(checkpoint?.strategy).toBe("oldest-first");
 		expect(checkpoint?.coveredRevision.value).toBe(20);
@@ -220,8 +231,8 @@ describe("ContextManager", () => {
 			[],
 			undefined,
 			prompt,
-			new TokenThresholdCompactionPolicy(1000, 400, 2),
-			ModelUsage.of(1200, 50),
+			new WindowShareCompactionPolicy({ maxShare: 0.9, targetShare: 0.7, keepRecentBlocks: 2 }),
+			await measured(journal, 1200),
 		);
 
 		const before = await manager.prepare(plain);
@@ -241,8 +252,8 @@ describe("ContextManager", () => {
 			[],
 			undefined,
 			undefined,
-			new TokenThresholdCompactionPolicy(1000, 400, 2),
-			ModelUsage.of(1200, 50),
+			new WindowShareCompactionPolicy({ maxShare: 0.9, targetShare: 0.7, keepRecentBlocks: 2 }),
+			await measured(journal, 1200),
 		);
 
 		const first = await manager.prepare(command);
@@ -264,8 +275,8 @@ describe("ContextManager", () => {
 				[],
 				undefined,
 				undefined,
-				new TokenThresholdCompactionPolicy(1000, 400, 2),
-				ModelUsage.of(1200, 50),
+				new WindowShareCompactionPolicy({ maxShare: 0.9, targetShare: 0.7, keepRecentBlocks: 2 }),
+				await measured(journal, 1200),
 			),
 		);
 
@@ -283,15 +294,7 @@ describe("ContextManager", () => {
 			(await managerOf(storage).prepare(new PrepareContextCommand(journal.sessionId, new StubModel()))).projection,
 		);
 		await storage.saveCheckpoint(
-			new ContextCheckpoint(
-				journal.sessionId,
-				SessionRevision.of(2),
-				"oldest-first",
-				99,
-				digest,
-				[],
-				ContextComposition.empty(),
-			),
+			new ContextCheckpoint(journal.sessionId, SessionRevision.of(2), "oldest-first", 99, digest, []),
 		);
 
 		const prepared = await managerOf(storage).prepare(new PrepareContextCommand(journal.sessionId, new StubModel()));
@@ -310,7 +313,6 @@ describe("ContextManager", () => {
 				1,
 				ContentDigest.of("sha256", "whatever"),
 				[],
-				ContextComposition.empty(),
 			),
 		);
 
@@ -331,8 +333,8 @@ describe("ContextManager", () => {
 				[],
 				undefined,
 				undefined,
-				new TokenThresholdCompactionPolicy(1000, 400, 2),
-				ModelUsage.of(1200, 50),
+				new WindowShareCompactionPolicy({ maxShare: 0.9, targetShare: 0.7, keepRecentBlocks: 2 }),
+				await measured(journal, 1200),
 			),
 		);
 
@@ -352,8 +354,8 @@ describe("ContextManager", () => {
 				[],
 				undefined,
 				undefined,
-				new TokenThresholdCompactionPolicy(1000, 400, 2),
-				ModelUsage.of(1200, 50),
+				new WindowShareCompactionPolicy({ maxShare: 0.9, targetShare: 0.7, keepRecentBlocks: 2 }),
+				await measured(journal, 1200),
 			),
 		);
 

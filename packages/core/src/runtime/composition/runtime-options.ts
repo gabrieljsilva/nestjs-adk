@@ -31,7 +31,7 @@ export interface RuntimeOptionsPatch {
 	summarizer?: ContextSummarizer;
 	contextNotices?: ContextNoticeSink;
 	consumerNotices?: ConsumerNoticeSink;
-	compaction?: AdkCompactionPolicy;
+	compaction?: AdkCompactionPolicy | false;
 	pricing?: PricingSource;
 	pricingNotices?: PricingNoticeSink;
 }
@@ -57,8 +57,12 @@ export class RuntimeOptions {
 		public readonly summarizer?: ContextSummarizer,
 		public readonly contextNotices?: ContextNoticeSink,
 		public readonly consumerNotices?: ConsumerNoticeSink,
-		/** What every agent that declared none runs under; one that declared its own keeps it. */
-		public readonly compaction?: AdkCompactionPolicy,
+		/**
+		 * What every agent that declared none runs under; one that declared its own keeps it.
+		 * Absent means the standard share of the window, and `false` means no conversation
+		 * running under this runtime is ever shortened.
+		 */
+		public readonly compaction?: AdkCompactionPolicy | false,
 		/** One source for the whole runtime. Without it every run answers a cost of zero and says so. */
 		public readonly pricing?: PricingSource,
 		public readonly pricingNotices?: PricingNoticeSink,

@@ -4,7 +4,6 @@ import type { Clock } from "../../common/time/clock";
 import type { AgentName } from "../../domain/agent/agent-name";
 import type { CreateSessionInput } from "../../domain/session/create-session-input";
 import { Session } from "../../domain/session/session";
-import { SessionMode } from "../../domain/session/session-mode";
 import type { SessionManager } from "./session-manager";
 
 /**
@@ -32,7 +31,6 @@ export class CreateSession {
 		const session = Session.start(
 			input.sessionId ?? SessionId.from(this.ids.next()),
 			agent,
-			SessionMode.EPHEMERAL,
 			this.clock.now(),
 			input.owner,
 		);

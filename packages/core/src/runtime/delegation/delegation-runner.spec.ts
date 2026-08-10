@@ -17,7 +17,6 @@ import type { LlmModel } from "../../domain/model/llm-model";
 import { AgentMaxDelegationDepthError } from "../../domain/session/errors/agent-max-delegation-depth.error";
 import { PendingCall } from "../../domain/session/pending-call";
 import { Session } from "../../domain/session/session";
-import { SessionMode } from "../../domain/session/session-mode";
 import { SessionState } from "../../domain/session/session-state";
 import { FakeClock } from "../../support/fake-clock";
 import { ScriptedModel } from "../../support/run/scripted-model.fixture";
@@ -102,7 +101,7 @@ function stack(support: AgentDefinition, models: ModelResolver = new FixedResolv
 }
 
 async function openedSession(sessions: SessionManager): Promise<OpenedSession> {
-	const session = Session.start(SESSION, SUPPORT, SessionMode.EPHEMERAL, NOW);
+	const session = Session.start(SESSION, SUPPORT, NOW);
 	await sessions.create(session);
 	return new OpenedSession(session, SessionState.initial(), true);
 }

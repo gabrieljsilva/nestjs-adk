@@ -17,6 +17,7 @@ import {
 	OrderService,
 	SendMessageUseCase,
 	WarrantyAgent,
+	asyncStoreModule,
 	storeModule,
 } from "./support/store.fixture";
 import { ToolFake } from "./tool-fake";
@@ -59,6 +60,21 @@ describe("AdkTestBed, over the application it booted", () => {
 			)
 			.withScript(WarrantyAgent, (script) => script.mockText("ok"))
 			.withScript(ConciergeAgent, (script) => script.mockText("ok"))
+			.boot();
+
+		const run = await bed.agent(BillingAgent).ask(`How much did order ${ORDER} cost?`);
+
+		expect(run.text).toContain("349");
+		expect(run.toolsRun).toEqual(["find_order"]);
+	});
+
+	it("boots an application whose options were built inside the container", async () => {
+		bed = await AdkTestBedBuilder.for(asyncStoreModule())
+			.withScript(BillingAgent, (script) =>
+				script.mockToolCall("find_order", { orderId: ORDER }).mockText("The order cost 349 reais."),
+			)
+			.withScript(WarrantyAgent, says("ok"))
+			.withScript(ConciergeAgent, says("ok"))
 			.boot();
 
 		const run = await bed.agent(BillingAgent).ask(`How much did order ${ORDER} cost?`);

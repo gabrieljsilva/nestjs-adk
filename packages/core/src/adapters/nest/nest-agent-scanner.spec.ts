@@ -2,7 +2,7 @@ import "reflect-metadata";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { SequentialFailoverPolicy } from "../../domain/agent/sequential-failover-policy";
-import { TokenThresholdCompactionPolicy } from "../../domain/context/token-threshold-compaction-policy";
+import { WindowShareCompactionPolicy } from "../../domain/context/window-share-compaction-policy";
 import { RunLimits } from "../../domain/session/run-limits";
 import { ScriptedModel } from "../../support/run/scripted-model.fixture";
 import { InvalidAgentMetadataError } from "./errors/invalid-agent-metadata.error";
@@ -173,7 +173,7 @@ describe("NestAgentScanner", () => {
 	});
 
 	it("takes the compaction policy an agent declared for itself", () => {
-		const own = new TokenThresholdCompactionPolicy(1000, 400, 2);
+		const own = new WindowShareCompactionPolicy({ maxShare: 0.9, targetShare: 0.7, keepRecentBlocks: 2 });
 		class CompactingAgent {}
 		Reflect.defineMetadata(AGENT_METADATA, { name: "c", description: "d", compaction: own }, CompactingAgent);
 

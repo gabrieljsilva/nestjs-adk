@@ -13,6 +13,7 @@ import { ContextManager } from "../context/context-manager";
 import { ContextMeasurer } from "../context/context-measurer";
 import { ContextProjector } from "../context/context-projector";
 import { ContextWindowNotifier } from "../context/context-window-notifier";
+import { InspectContextBudget } from "../context/inspect-context-budget";
 import { OldestFirstCompactionStrategy } from "../context/oldest-first-compaction-strategy";
 import { StablePrefixDigest } from "../context/stable-prefix-digest";
 import { CostCalculator } from "../cost/cost-calculator";
@@ -183,7 +184,7 @@ export class RuntimeFactory {
 				catalog,
 				resolver,
 				container.get(AgentRunner),
-				new SessionService(new CreateSession(sessions, clock, ids), new InspectSession(sessions), sessions),
+				this.sessionServiceOf(catalog, sessions, clock, ids),
 				container.get(AgentRunFactory),
 				container.get(EventPublisher),
 				container.get(ArtifactOffloader),
@@ -195,6 +196,22 @@ export class RuntimeFactory {
 		} catch (cause) {
 			throw new RuntimeCompositionFailedError(cause instanceof Error ? cause.message : String(cause), cause);
 		}
+	}
+
+	/** The read half of sessions, which needs the catalog because a window belongs to a model. */
+	private sessionServiceOf(
+		catalog: AgentCatalog,
+		sessions: SessionManager,
+		clock: Clock,
+		ids: IdGenerator,
+	): SessionService {
+		const inspecting = new InspectSession(sessions);
+		return new SessionService(
+			new CreateSession(sessions, clock, ids),
+			inspecting,
+			sessions,
+			new InspectContextBudget(inspecting, catalog),
+		);
 	}
 
 	public async dispose(): Promise<void> {

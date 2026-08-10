@@ -38,7 +38,7 @@ export class OldestFirstCompactionStrategy extends CompactionStrategy {
 	}
 
 	public async compact(projection: ContextProjection, decision: CompactionDecision): Promise<ContextProjection> {
-		const target = decision.targetOf(this.measurer.measure(projection).characters);
+		const target = decision.targetOf(this.measurer.measure(projection));
 		const kept = [...projection.blocks];
 		const dropped: ContextBlock[] = [];
 		let summary: ContextBlock | undefined;
@@ -97,6 +97,6 @@ export class OldestFirstCompactionStrategy extends CompactionStrategy {
 	}
 
 	private fits(projection: ContextProjection, target: number): boolean {
-		return this.measurer.measure(projection).characters <= target;
+		return this.measurer.measure(projection) <= target;
 	}
 }

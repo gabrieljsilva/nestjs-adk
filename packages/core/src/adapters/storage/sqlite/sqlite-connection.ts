@@ -4,7 +4,6 @@ const SCHEMA = `
 CREATE TABLE IF NOT EXISTS sessions (
 	id TEXT PRIMARY KEY,
 	root_agent TEXT NOT NULL,
-	mode TEXT NOT NULL,
 	status TEXT NOT NULL,
 	revision INTEGER NOT NULL,
 	created_at TEXT NOT NULL,

@@ -4,9 +4,7 @@ import { SessionId } from "../../../common/identity/session-id";
 import { ToolCallId } from "../../../common/identity/tool-call-id";
 import { SessionRevision } from "../../../common/revision/session-revision";
 import { ContextBlock } from "../../../domain/context/context-block";
-import { ContextCategory } from "../../../domain/context/context-category";
 import { ContextCheckpoint } from "../../../domain/context/context-checkpoint";
-import { ContextComposition } from "../../../domain/context/context-composition";
 import { AssistantMessage } from "../../../domain/model/assistant-message";
 import { ToolCallMessage } from "../../../domain/model/tool-call-message";
 import { ToolResultMessage } from "../../../domain/model/tool-result-message";
@@ -32,18 +30,7 @@ function blocks(): readonly ContextBlock[] {
 }
 
 function checkpointOf(): ContextCheckpoint {
-	return new ContextCheckpoint(
-		SessionId.from("s-1"),
-		SessionRevision.of(6),
-		"token-threshold",
-		2,
-		DIGEST,
-		blocks(),
-		ContextComposition.of([
-			[ContextCategory.CONVERSATION, 120],
-			[ContextCategory.SUMMARIES, 40],
-		]),
-	);
+	return new ContextCheckpoint(SessionId.from("s-1"), SessionRevision.of(6), "token-threshold", 2, DIGEST, blocks());
 }
 
 /**
@@ -98,15 +85,6 @@ describe("CheckpointCodec", () => {
 		expect(decoded.blocks[3]?.isOpen).toBe(true);
 	});
 
-	it("keeps which part of the prompt was taking up the room", () => {
-		const codec = new CheckpointCodec();
-
-		const decoded = codec.decode(codec.encode(checkpointOf()));
-
-		expect(decoded.composition.charactersOf(ContextCategory.CONVERSATION)).toBe(120);
-		expect(decoded.composition.characters).toBe(160);
-	});
-
 	/** A stale or foreign checkpoint has to stay detectable, which is what the digest is for. */
 	it("still refuses a prefix it was not written for", () => {
 		const codec = new CheckpointCodec();
@@ -125,7 +103,6 @@ describe("CheckpointCodec", () => {
 		const decoded = codec.decode({
 			...record,
 			blocks: JSON.stringify(record.blocks),
-			composition: JSON.stringify(record.composition),
 		});
 
 		expect(decoded).toEqual(checkpointOf());

@@ -78,7 +78,7 @@ export class TurnLoop extends DelegatedTurnLoop {
 			await this.commit(
 				current,
 				progress,
-				this.journal.turn(current.started, outcome, prepared.composition.characters, calls.length === 0 && !empty),
+				this.journal.turn(current.started, outcome, prepared.characters, calls.length === 0 && !empty),
 			);
 			// Billed to whoever served it, which after a reroute is not the model the agent declared.
 			progress.charged(new BilledCall(outcome.servedBy, outcome.response.usage));
@@ -146,8 +146,7 @@ export class TurnLoop extends DelegatedTurnLoop {
 				undefined,
 				scope.skills.instructions(scope.instructions),
 				scope.compaction,
-				measured?.usage,
-				measured?.characters,
+				measured,
 				scope.run.id,
 			),
 		);

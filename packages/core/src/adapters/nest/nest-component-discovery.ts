@@ -27,7 +27,7 @@ export interface DiscoveredProvider {
 	readonly promptBuilder?: PromptBuilder;
 	readonly failover?: AgentFailoverPolicy;
 	/** Absent leaves the agent on the module's policy, which may itself be absent. */
-	readonly compaction?: AdkCompactionPolicy;
+	readonly compaction?: AdkCompactionPolicy | false;
 	/** Absent leaves the agent on the module's ceiling, which may itself be absent. */
 	readonly limits?: RunLimits;
 	/** The `@TransfersTo` payload, still unvalidated: reflect metadata is `unknown` by definition. */

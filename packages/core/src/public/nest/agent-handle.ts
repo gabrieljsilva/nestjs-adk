@@ -2,6 +2,7 @@ import { SessionId } from "../../common/identity/session-id";
 import type { ToolCallId } from "../../common/identity/tool-call-id";
 import type { ToolSource } from "../../contracts/tool-source";
 import type { AgentName } from "../../domain/agent/agent-name";
+import type { ContextBudget } from "../../domain/context/context-budget";
 import type { MediaPart } from "../../domain/model/media-part";
 import type { ModelChunk } from "../../domain/model/model-chunk";
 import type { AgentResult } from "../../domain/session/agent-result";
@@ -153,6 +154,21 @@ export class AgentHandle {
 	}
 
 	/**
+	 * How full this agent's context window is for a conversation, without running a turn.
+	 *
+	 * It describes the last call a provider counted, which is the only call anyone measured,
+	 * so a conversation nobody has asked anything in answers a window and no size. The same
+	 * happens right after a model change, until the new model answers once: a count taken by
+	 * another provider divided by this one's window is a wrong number that looks right.
+	 *
+	 * This is the meter, and it is not what decides compaction. That decision is taken during
+	 * a run, on the prompt about to be sent, by the policy the agent runs under.
+	 */
+	public async contextBudget(sessionId: SessionId | string): Promise<ContextBudget> {
+		return this.runtime.sessions.budget(this.name, AgentHandle.sessionOf(sessionId));
+	}
+
+	/**
 	 * Lets a held call run.
 	 *
 	 * The sources are declared again because this is a new run: whatever the suspended run had
@@ -197,7 +213,6 @@ export class AgentHandle {
 		return new AgentRunCommand(
 			this.name,
 			AskInput.with(message, asked.media ?? [], sessionId),
-			undefined,
 			undefined,
 			asked.owner === undefined ? undefined : SessionOwner.from(asked.owner),
 			undefined,

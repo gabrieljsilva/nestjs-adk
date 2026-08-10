@@ -6,6 +6,7 @@ import { AgentDescription } from "../../domain/agent/agent-description";
 import { AgentExecutionPolicies } from "../../domain/agent/agent-execution-policies";
 import { AdkCompactionPolicy } from "../../domain/context/adk-compaction-policy";
 import { CompactionDecision } from "../../domain/context/compaction-decision";
+import { WindowShareCompactionPolicy } from "../../domain/context/window-share-compaction-policy";
 import { PromptBuilder } from "../../domain/prompt/prompt-builder";
 import type { PromptContext } from "../../domain/prompt/prompt-context";
 import { PromptInstructions } from "../../domain/prompt/prompt-instructions";
@@ -119,7 +120,7 @@ function building(builder: PromptBuilder): AgentDefinition {
 	);
 }
 
-function compacting(policy: AdkCompactionPolicy): AgentDefinition {
+function compacting(policy: AdkCompactionPolicy | false): AgentDefinition {
 	return AgentDefinition.of(
 		NativeStackFixture.AGENT,
 		AgentDescription.from("Support agent", NativeStackFixture.AGENT.value),
@@ -243,10 +244,36 @@ describe("RunScopeFactory", () => {
 			expect(scope.compaction).toBe(declared);
 		});
 
-		it("compacts nothing when neither declared a policy", async () => {
+		/** Nobody deciding is not nobody compacting: a conversation nobody thought about is still protected. */
+		it("falls back to the standard share of the window when neither declared a policy", async () => {
 			const scope = await new RunScopeFactory().create(NativeStackFixture.definitionOf(model), model, startedRun());
 
+			expect(scope.compaction).toBeInstanceOf(WindowShareCompactionPolicy);
+		});
+
+		it("compacts nothing for an agent that turned it off", async () => {
+			const factory = new RunScopeFactory([], RunLimits.none(), moduleWide);
+
+			const scope = await factory.create(compacting(false), model, startedRun());
+
 			expect(scope.compaction).toBeUndefined();
+		});
+
+		it("compacts nothing under a runtime that turned it off", async () => {
+			const factory = new RunScopeFactory([], RunLimits.none(), false);
+
+			const scope = await factory.create(NativeStackFixture.definitionOf(model), model, startedRun());
+
+			expect(scope.compaction).toBeUndefined();
+		});
+
+		/** The runtime saying no does not answer for an agent that said yes. */
+		it("lets an agent compact under a runtime that turned it off", async () => {
+			const factory = new RunScopeFactory([], RunLimits.none(), false);
+
+			const scope = await factory.create(compacting(declared), model, startedRun());
+
+			expect(scope.compaction).toBe(declared);
 		});
 
 		/** A handover runs under the rules of whoever received the session, not of whoever sent it. */

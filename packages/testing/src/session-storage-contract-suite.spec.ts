@@ -14,7 +14,7 @@ import { SessionStorageContractSuite } from "./session-storage-contract-suite";
 /** A storage as strong as the reference one, only honest about promising less. */
 class EphemeralSessionStorage extends InMemorySessionStorage {
 	public override capabilities(): StorageCapabilities {
-		return StorageCapabilities.ephemeral();
+		return StorageCapabilities.singleWriter();
 	}
 }
 

@@ -7,7 +7,6 @@ import type { AppendEventsCommand } from "../../contracts/append-events-command"
 import type { AppendEventsResult } from "../../contracts/append-events-result";
 import { AgentRunFailed } from "../../domain/event/catalog/agent-run-failed";
 import { Session } from "../../domain/session/session";
-import { SessionMode } from "../../domain/session/session-mode";
 import { SessionState } from "../../domain/session/session-state";
 import { FakeClock } from "../../support/fake-clock";
 import { NativeStackFixture } from "../../support/run/native-stack.fixture";
@@ -59,7 +58,7 @@ function settlerOf(storage: InMemorySessionStorage): RunSettler {
 }
 
 async function sessionIn(storage: InMemorySessionStorage): Promise<void> {
-	await storage.create(Session.start(SESSION, NativeStackFixture.AGENT, SessionMode.EPHEMERAL, NOW));
+	await storage.create(Session.start(SESSION, NativeStackFixture.AGENT, NOW));
 }
 
 async function typesIn(storage: InMemorySessionStorage): Promise<string[]> {

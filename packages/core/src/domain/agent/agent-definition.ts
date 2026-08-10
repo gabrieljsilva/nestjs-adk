@@ -59,7 +59,7 @@ export class AgentDefinition {
 		return this.policies.failover;
 	}
 
-	public get compaction(): AdkCompactionPolicy | undefined {
+	public get compaction(): AdkCompactionPolicy | false | undefined {
 		return this.policies.compaction;
 	}
 
@@ -84,7 +84,7 @@ export class AgentDefinition {
 		return this.failover !== undefined;
 	}
 
-	/** Without a policy nothing is ever compacted, which is the safe default for someone's conversation. */
+	/** Whether this agent said anything about compaction, including that it wants none. */
 	public get hasCompaction(): boolean {
 		return this.compaction !== undefined;
 	}

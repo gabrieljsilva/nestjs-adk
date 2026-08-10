@@ -1,6 +1,7 @@
 import type { SessionId } from "../../common/identity/session-id";
 import type { ToolCallId } from "../../common/identity/tool-call-id";
 import type { AgentName } from "../../domain/agent/agent-name";
+import type { ContextBudget } from "../../domain/context/context-budget";
 import type { ModelChunk } from "../../domain/model/model-chunk";
 import type { PromptContext } from "../../domain/prompt/prompt-context";
 import type { AgentResult } from "../../domain/session/agent-result";
@@ -69,6 +70,10 @@ export abstract class AdkAgent {
 
 	public async inspect(sessionId: SessionId | string): Promise<SessionInspection> {
 		return this.handle.inspect(sessionId);
+	}
+
+	public async contextBudget(sessionId: SessionId | string): Promise<ContextBudget> {
+		return this.handle.contextBudget(sessionId);
 	}
 
 	public async approve(

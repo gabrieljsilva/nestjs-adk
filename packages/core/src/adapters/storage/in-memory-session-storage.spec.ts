@@ -17,14 +17,13 @@ import { SessionAlreadyExistsError } from "../../domain/session/errors/session-a
 import { SessionNotFoundError } from "../../domain/session/errors/session-not-found.error";
 import { SessionRevisionConflictError } from "../../domain/session/errors/session-revision-conflict.error";
 import { Session } from "../../domain/session/session";
-import { SessionMode } from "../../domain/session/session-mode";
 import { InMemorySessionStorage } from "./in-memory-session-storage";
 
 const AGENT = AgentName.from("support");
 const NOW = Instant.fromIso("2026-01-01T00:00:00.000Z");
 
 function session(id = "s-1"): Session {
-	return Session.start(SessionId.from(id), AGENT, SessionMode.EPHEMERAL, NOW);
+	return Session.start(SessionId.from(id), AGENT, NOW);
 }
 
 function headerOf(id: string): EventHeader {
@@ -59,7 +58,7 @@ describe("InMemorySessionStorage", () => {
 	it("declares itself durable with snapshot support", () => {
 		const capabilities = new InMemorySessionStorage().capabilities();
 
-		expect(capabilities.supportsDurableSessions).toBe(true);
+		expect(capabilities.supportsConcurrentWriters).toBe(true);
 		expect(capabilities.snapshots).toBe(true);
 	});
 

@@ -3,7 +3,6 @@ import { DeepFreeze } from "../../common/immutability/deep-freeze";
 import type { SessionRevision } from "../../common/revision/session-revision";
 import type { ModelRequest } from "../model/model-request";
 import type { ContextBudget } from "./context-budget";
-import type { ContextComposition } from "./context-composition";
 import type { ContextProjection } from "./context-projection";
 
 /**
@@ -14,8 +13,9 @@ import type { ContextProjection } from "./context-projection";
  * digest covers the stable prefix, which is what a checkpoint compares against and
  * what provider side caching depends on staying byte identical.
  *
- * What it reports about size is composition, in shares. A number of tokens appears only
- * once a provider has answered, through the budget, and only when there is one.
+ * What it reports about size is characters, which is all anyone can know before the call.
+ * A number of tokens appears only once a provider has answered, through the budget, and
+ * only when there is one.
  */
 export class PreparedModelContext {
 	public readonly request: ModelRequest;
@@ -30,8 +30,9 @@ export class PreparedModelContext {
 		DeepFreeze.apply(this);
 	}
 
-	public get composition(): ContextComposition {
-		return this.budget.composition;
+	/** How large this context is, in characters of the text it will send. */
+	public get characters(): number {
+		return this.budget.characters;
 	}
 
 	public get coveredRevision(): SessionRevision {

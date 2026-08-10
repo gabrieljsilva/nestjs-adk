@@ -40,7 +40,7 @@ async function longConversation(turns: number): Promise<ContextProjection> {
 }
 
 function charactersOf(projection: ContextProjection): number {
-	return measurer.measure(projection).characters;
+	return measurer.measure(projection);
 }
 
 describe("OldestFirstCompactionStrategy", () => {

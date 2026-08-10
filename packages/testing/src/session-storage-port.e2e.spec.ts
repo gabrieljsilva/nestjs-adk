@@ -46,7 +46,7 @@ class RowStorage extends SessionStorage {
 	private readonly checkpoints = new Map<string, Map<string, CheckpointRecord>>();
 
 	public capabilities(): StorageCapabilities {
-		return StorageCapabilities.durable({ snapshots: true, checkpoints: true });
+		return StorageCapabilities.concurrent({ snapshots: true, checkpoints: true });
 	}
 
 	public async create(session: Session): Promise<void> {
@@ -187,6 +187,6 @@ describe("a storage written with only what the core publishes", () => {
 
 	it("is held to the durable cases, which is what it claims to be", () => {
 		expect(suite.cases(() => new RowStorage()).length).toBeGreaterThan(0);
-		expect(new RowStorage().capabilities().supportsDurableSessions).toBe(true);
+		expect(new RowStorage().capabilities().supportsConcurrentWriters).toBe(true);
 	});
 });

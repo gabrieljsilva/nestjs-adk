@@ -13,8 +13,8 @@ import type { StorageCapabilities } from "./storage-capabilities";
  *
  * Four guarantees define a correct adapter: a batch is written whole or not at all,
  * `expectedRevision` decides who wins a race, revisions are contiguous, and the same
- * event id written twice is written once. An adapter that cannot promise all four
- * says so through its capabilities and is refused durable sessions.
+ * event id written twice is written once. An adapter that cannot promise all four says
+ * so through its capabilities, and the contract suite holds it only to what it claimed.
  *
  * `readEvents` returns an async iterable because rehydration streams the tail: a
  * session with a long history must never be materialized in memory to be replayed.

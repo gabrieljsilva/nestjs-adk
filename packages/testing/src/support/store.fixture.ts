@@ -118,3 +118,25 @@ export function storeModule() {
 		],
 	};
 }
+
+/**
+ * The same application, configured from inside the container.
+ *
+ * An application whose ports are providers reaches the bed as a module whose options only
+ * exist after NestJS built them, and the bed replaces tokens the same way either way. This
+ * is what proves it, since the overrides it applies are resolved against `ADK_OPTIONS`.
+ */
+export function asyncStoreModule() {
+	return {
+		imports: [
+			AdkModule.forRootAsync({
+				useFactory: () =>
+					AdkModuleOptions.from({
+						defaultModel: new ScriptedModel("module-default"),
+						runtime: RuntimeOptions.from({ approvals: EffectApprovalPolicy.from(ToolEffect.DESTRUCTIVE) }),
+					}),
+			}),
+			StoreFeatureModule,
+		],
+	};
+}
