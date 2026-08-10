@@ -33,10 +33,19 @@ export class AttachmentStore {
 		return new AttachmentStore(new UnwritableArtifactStorage());
 	}
 
-	public async store(sessionId: SessionId, attachments: readonly MediaPart[]): Promise<readonly AttachmentReference[]> {
-		const references: AttachmentReference[] = [];
-		for (const part of attachments) references.push(await this.referenceOf(sessionId, part));
-		return references;
+	/**
+	 * A reference the caller already holds is passed through untouched, after everything
+	 * that needed writing: it is already a name, and the only side that can turn it into
+	 * bytes is the application that minted it.
+	 */
+	public async store(
+		sessionId: SessionId,
+		attachments: readonly MediaPart[],
+		references: readonly AttachmentReference[] = [],
+	): Promise<readonly AttachmentReference[]> {
+		const stored: AttachmentReference[] = [];
+		for (const part of attachments) stored.push(await this.referenceOf(sessionId, part));
+		return [...stored, ...references];
 	}
 
 	private async referenceOf(sessionId: SessionId, part: MediaPart): Promise<AttachmentReference> {

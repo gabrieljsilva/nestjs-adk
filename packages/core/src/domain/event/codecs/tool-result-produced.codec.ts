@@ -8,8 +8,8 @@ import { EventSchemaVersion } from "../event-schema-version";
 import { SessionEventCodec } from "../session-event-codec";
 import { AttachmentReferenceCodec } from "./attachment-reference.codec";
 
-/** The version that started recording a link as an attachment, next to a stored one. */
-const SCHEMA_VERSION = 4;
+/** The version that started recording an external attachment, resolved by the application. */
+const SCHEMA_VERSION = 5;
 
 /** Codec for the outcome of one tool call, kept paired with its request by callId. */
 export class ToolResultProducedCodec extends SessionEventCodec<ToolResultProduced> {

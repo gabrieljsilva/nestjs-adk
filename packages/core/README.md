@@ -187,6 +187,45 @@ The attachment reaches the model in the same turn, with the question already in 
 
 A model that never declared media input fails the call saying so rather than answering about nothing. The payload never enters the session history either: it is injected into the request being built and discarded with it, so a conversation with twenty attachments does not carry all twenty into every later turn. The model calls the tool again if it needs another look.
 
+## Attachments the application owns
+
+A question can carry an image the same way a tool answer can. `media` takes the bytes, or a public address the provider fetches itself, and the journal keeps a name rather than a payload:
+
+```ts
+await agent.ask("what is in this photo?", {
+	media: [MediaPart.image("image/png", file.base64)],
+});
+```
+
+That shape assumes the runtime either holds the bytes or freezes an address, and a file living in your own bucket fits neither. A pre-signed URL expires, and because history is rebuilt on every turn it then expires for every turn that follows; one without expiry is a capability URL recorded forever, in the journal and in whatever the provider cached. There is no correct TTL for an address inside an append-only journal.
+
+So a file the application owns is attached by name instead:
+
+```ts
+await agent.ask("what does the receipt say?", {
+	attachments: [AttachmentReference.external(upload.id, "image/png")],
+});
+```
+
+The journal records the id and nothing else. Every time a prompt is built, including the first one, the runtime hands the reference to the `AttachmentResolver` declared in `RuntimeOptions` and asks what it becomes now. The answer is an `AttachmentProjection`: `media(part)` puts it in front of the model, `note(text)` puts a line of text where it stood (so "describe this image" still reads coherently when the image is not sent), `omit()` leaves it out. Nothing the resolver answers is cached or recorded, which is what makes a fresh address per turn possible and lets "not any more" be a policy rather than a missing feature.
+
+Two resolvers ship, one per environment:
+
+```ts
+// development, or private files: bytes fetched server side and inlined. No address ever travels,
+// so a localhost MinIO works exactly like production S3.
+attachments: new InlineAttachmentResolver(async (id) => uploads.find(id));
+
+// production on S3: a fresh signed address per projection, TTL of minutes, never persisted.
+attachments: new SignedUrlAttachmentResolver(async (id) => storage.presign(id));
+```
+
+`SignedUrlAttachmentResolver` also checks what the serving model can do. Fetching a media URL is a declared capability (`MEDIA_URL`), both shipped providers declare it (OpenAI through `image_url`, Gemini through `fileUri`, which takes public HTTPS and signed addresses), and a model that never declared it is given a note rather than an address it would read as text.
+
+Declaring no resolver keeps the old behaviour for stored bytes and links, and an external reference then projects as a note saying no resolver is configured, so the wiring gap is visible in the conversation instead of silent. A resolver that throws becomes a note too; one missing file does not end a conversation that was already answered once.
+
+One guard closes the classic development trap: `MediaPart.link` refuses localhost, private ranges and `.local`/`.internal` names with `UnreachableMediaUrlError`, because a media URL is fetched from the provider's network, where that address is a different machine or no machine at all, and the failure arrives as an opaque provider error you paid for. A self hosted model that can actually reach the address opts out with `MediaLimits.allowingPrivateHosts()`.
+
 ## Tools that arrive per run
 
 The tools above are decided when you write the code. Some are not: if your users connect their own integrations, the set changes per person and only exists at runtime. That is what `ToolSource` is for.
@@ -482,7 +521,7 @@ export class ClaudeViaProxy extends LlmModel {
 
 The `ModelRequest` arrives ready, with the composed instruction, the conversation as `ModelMessage`s and the tool declarations, and you translate it to your provider's wire format. On the way back the runtime aggregates your chunks: text is a delta, tool calls accumulate by index, usage and finish reason are last one wins.
 
-The descriptor is not decoration. The context window is what compaction measures against, and the capabilities are what the runtime checks before it accepts an attachment or offers tools: a model that never declared `MEDIA_INPUT` fails a question carrying an image instead of paying for a call that answers about nothing. `UnknownContextWindow` is the honest answer when you do not know the size; the runtime reports it rather than guessing.
+The descriptor is not decoration. The context window is what compaction measures against, and the capabilities are what the runtime checks before it accepts an attachment or offers tools: a model that never declared `MEDIA_INPUT` fails a question carrying an image instead of paying for a call that answers about nothing. `MEDIA_URL` is the second media capability, declared by a provider that fetches a remote address itself; it is what decides whether a signed URL may be handed over or a note has to stand in. `UnknownContextWindow` is the honest answer when you do not know the size; the runtime reports it rather than guessing.
 
 Honour `signal` by stopping your upstream call when it fires. Keep the class stateless: one instance is shared by every run, and anything per request belongs inside `generate`, derived from the request.
 
@@ -905,7 +944,7 @@ What exists, by subsystem:
 | Boot and wiring | `UnusableComponentError`, `UnregisteredToolError`, `NotAnAgentClassError`, `NotAToolClassError`, `AgentNotBoundError`, `AmbiguousAgentPromptError`, `ConflictingPromptOptionsError`, `AsyncOptionsNotDeclaredError`, `ConflictingAsyncOptionsError`, `EmbedderNotDeclaredError`, `HostNotStartedError` |
 | Agents and routing | `ModelsExhaustedError`, `TransferNotDeclaredError`, `DelegationNotDeclaredError`, `UnknownTransferTargetError`, `UnknownDelegationTargetError`, `DelegationSuspendedError`, `AgentMaxTransfersError`, `AgentMaxDelegationDepthError` |
 | Runs and limits | `AgentMaxIterationsError`, `InvalidRunLimitError`, `ApprovalNotPendingError` |
-| Models and media | `ModelCallFailedError`, `EmptyModelResponseError`, `UnsupportedCapabilityError`, `UnsupportedMediaTypeError`, `MalformedMediaError`, `MediaTooLargeError`, `MalformedToolCallError`, `InvalidStructuredOutputError` |
+| Models and media | `ModelCallFailedError`, `EmptyModelResponseError`, `UnsupportedCapabilityError`, `UnsupportedMediaTypeError`, `MalformedMediaError`, `MediaTooLargeError`, `UnreachableMediaUrlError`, `MalformedToolCallError`, `InvalidStructuredOutputError` |
 | Tools | `ToolNotFoundError`, `ToolInvalidArgsError`, `ToolRepeatedFailureError`, `ToolApprovalRequiredError`, `ToolSourceUnavailableError`, `ToolSourceAuthError` |
 | Prompts | `PromptNotFoundError`, `MissingPromptVariablesError`, `PromptFileUnreadableError` |
 | Context and artifacts | `InvalidCompactionThresholdError`, `ArtifactNotFoundError`, `TamperedArtifactReferenceError`, `AttachmentNotStoredError` |
@@ -954,7 +993,7 @@ Everything the package exports, and nothing else: a name that is not here is not
 | --- | --- |
 | `AgentRegistry` | Reaches an agent by name, for a class that extends something else |
 | `AgentHandle` | One agent as an application holds it: `ask`, `stream`, `approve`, `reject`, `delegate`, `inspect`, `explain`, `createSession`, `findSessionById`, `findSessionByIdOrFail` |
-| `AskOptions` | `sessionId`, `media`, `sources`, `owner`, `signal` |
+| `AskOptions` | `sessionId`, `media`, `attachments`, `sources`, `owner`, `signal` |
 | `CreateSessionOptions` | `sessionId` and `owner`, for a conversation opened before anything is asked |
 | `DecisionOptions` | `by`, `sources` and `signal`, for an approval or a rejection |
 | `AgentResult` | What a run answered: text, ids, status, awaiting, cost |
@@ -996,6 +1035,18 @@ Everything the package exports, and nothing else: a name that is not here is not
 | `ModelExecutor` | The one call site of a model, with failover applied |
 | `ModelFailure` and `RateLimitedFailure`, `TimeoutFailure`, `UnavailableFailure`, `ContextExceededFailure`, `SafetyBlockedFailure`, `InvalidRequestFailure`, `UnknownFailure` | A failure as data, for a policy to decide on |
 | `AgentFailoverPolicy`, `SequentialFailoverPolicy`, `FailoverContext`, `ModelReroute` | What to try next, and what happened when it was tried |
+
+### Attachments
+
+| Symbol | What it is for |
+| --- | --- |
+| `AttachmentReference` | How the journal names what was attached: `artifact(id)`, `link(url, type)`, `external(id, type)` |
+| `AttachmentResolver` | Implement it to decide what an attachment becomes, on every projection |
+| `AttachmentRequest` | What the resolver is told: the reference, where it sits, what the wire accepts, and `load()` |
+| `AttachmentProjection` | The three answers: `media(part)`, `note(text)`, `omit()` |
+| `DefaultAttachmentResolver` | What runs when none is declared: stored bytes inline, a link as its address |
+| `InlineAttachmentResolver` | Fetches an external file server side and inlines it |
+| `SignedUrlAttachmentResolver` | Mints a fresh address per projection, for a model that fetches URLs itself |
 
 ### Tools
 

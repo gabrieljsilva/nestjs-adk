@@ -238,6 +238,21 @@ export { ArtifactNotFoundError } from "./domain/artifact/errors/artifact-not-fou
 export { TamperedArtifactReferenceError } from "./domain/artifact/errors/tampered-artifact-reference.error";
 export { InMemoryArtifactStorage } from "./adapters/storage/in-memory-artifact-storage";
 
+// attachments
+export { AttachmentReference } from "./domain/model/attachment-reference";
+export { AttachmentResolver } from "./contracts/attachment-resolver";
+export { AttachmentRequest } from "./domain/model/attachment-request";
+export { AttachmentProjection } from "./domain/model/attachment-projection";
+export { DefaultAttachmentResolver } from "./runtime/artifact/default-attachment-resolver";
+export {
+	InlineAttachmentResolver,
+	type AttachmentContentLoader,
+} from "./adapters/attachment/inline-attachment-resolver";
+export {
+	SignedUrlAttachmentResolver,
+	type AttachmentUrlSigner,
+} from "./adapters/attachment/signed-url-attachment-resolver";
+
 // embeddings
 export { Embedder } from "./contracts/embedder";
 export { MeteredEmbedder } from "./contracts/metered-embedder";
@@ -279,6 +294,7 @@ export { UnsupportedCapabilityError } from "./domain/model/errors/unsupported-ca
 export { UnsupportedMediaTypeError } from "./domain/model/errors/unsupported-media-type.error";
 export { MalformedMediaError } from "./domain/model/errors/malformed-media.error";
 export { MediaTooLargeError } from "./domain/model/errors/media-too-large.error";
+export { UnreachableMediaUrlError } from "./domain/model/errors/unreachable-media-url.error";
 export { AttachmentNotStoredError } from "./runtime/artifact/errors/attachment-not-stored.error";
 export { MalformedToolCallError } from "./domain/model/errors/malformed-tool-call.error";
 export { InvalidStructuredOutputError } from "./domain/model/errors/invalid-structured-output.error";

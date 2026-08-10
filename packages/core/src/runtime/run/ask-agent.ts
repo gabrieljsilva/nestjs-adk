@@ -76,7 +76,11 @@ export class AskAgent {
 
 			const opened = existing ?? (await this.opener.open(command, sessionId));
 			const from = command.transferTo === undefined ? undefined : entry.name;
-			const attached = await this.attachments.store(opened.session.id, command.input.attachments);
+			const attached = await this.attachments.store(
+				opened.session.id,
+				command.input.attachments,
+				command.input.references,
+			);
 			const progress = new RunProgress(
 				await this.sessions.commit(
 					opened.session.id,

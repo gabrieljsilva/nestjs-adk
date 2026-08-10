@@ -25,8 +25,8 @@ function artifact(id: string): AttachmentReference {
 }
 
 describe("UserMessageReceivedCodec", () => {
-	it("is the version that records a link next to a stored attachment", () => {
-		expect(codec.schemaVersion.value).toBe(3);
+	it("is the version that records an external attachment the application resolves", () => {
+		expect(codec.schemaVersion.value).toBe(4);
 	});
 
 	it("leaves the field out when nothing was attached, because most messages attach nothing", () => {

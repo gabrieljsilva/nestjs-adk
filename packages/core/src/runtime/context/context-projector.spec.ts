@@ -1,14 +1,32 @@
 import { describe, expect, it } from "vitest";
+import { InMemoryArtifactStorage } from "../../adapters/storage/in-memory-artifact-storage";
 import { AgentRunId } from "../../common/identity/agent-run-id";
 import { SessionRevision } from "../../common/revision/session-revision";
+import { AttachmentResolver } from "../../contracts/attachment-resolver";
 import { ContextCategory } from "../../domain/context/context-category";
 import { OrphanToolResultError } from "../../domain/context/errors/orphan-tool-result.error";
+import { AttachmentProjection } from "../../domain/model/attachment-projection";
+import { AttachmentReference } from "../../domain/model/attachment-reference";
+import type { AttachmentRequest } from "../../domain/model/attachment-request";
 import { ToolCallMessage } from "../../domain/model/tool-call-message";
 import { ToolResultMessage } from "../../domain/model/tool-result-message";
 import { JournalFixture } from "../../support/context/journal.fixture";
+import { SequenceIdGenerator } from "../../support/sequence-id-generator";
+import { AttachmentReader } from "../artifact/attachment-reader";
 import { ContextProjector } from "./context-projector";
 
 const projector = new ContextProjector();
+
+/** Stands every attachment down to a note, which is the observable half of resolving. */
+class NotingResolver extends AttachmentResolver {
+	public async resolve(request: AttachmentRequest): Promise<AttachmentProjection> {
+		return AttachmentProjection.noteFor(request.reference, "kept away");
+	}
+}
+
+function storageOf(): InMemoryArtifactStorage {
+	return new InMemoryArtifactStorage(new SequenceIdGenerator("a"));
+}
 
 describe("ContextProjector", () => {
 	it("projects a conversation in journal order", async () => {
@@ -132,5 +150,45 @@ describe("ContextProjector", () => {
 		const blocks = await projector.project(journal.stream(SessionRevision.of(1)));
 
 		expect(blocks.flatMap((block) => block.messages).map((message) => message.text)).toEqual(["hello", "more"]);
+	});
+
+	it("reads a note into the message text, so the words still explain what stood there", async () => {
+		const noting = new ContextProjector(new AttachmentReader(storageOf(), new NotingResolver()));
+		const journal = new JournalFixture().user("describe this", [AttachmentReference.external("f-1", "image/png")]);
+
+		const blocks = await noting.project(journal.stream());
+
+		expect(blocks[0]?.messages[0]?.text).toBe("describe this\n\n[attachment image/png: kept away]");
+	});
+
+	it("annotates a tool output with the note, leaving the tool's own answer intact", async () => {
+		const noting = new ContextProjector(new AttachmentReader(storageOf(), new NotingResolver()));
+		const journal = new JournalFixture()
+			.user("chart it")
+			.toolCall("c-1", "render")
+			.toolResult("c-1", "render", { rows: 3 }, false, [AttachmentReference.external("f-1", "image/png")]);
+
+		const blocks = await noting.project(journal.stream());
+		const result = blocks[1]?.messages[1] as ToolResultMessage;
+
+		expect(result.output).toEqual({ rows: 3, "[attachments]": "[attachment image/png: kept away]" });
+		expect(result.media).toEqual([]);
+	});
+
+	it("tells the resolver whether the attachment belongs to the run being served", async () => {
+		const seen: boolean[] = [];
+		const witness = new (class extends AttachmentResolver {
+			public async resolve(request: AttachmentRequest): Promise<AttachmentProjection> {
+				seen.push(request.isCurrentRun);
+				return AttachmentProjection.omit();
+			}
+		})();
+		const observing = new ContextProjector(new AttachmentReader(storageOf(), witness));
+		const journal = new JournalFixture().user("look", [AttachmentReference.external("f-1", "image/png")]);
+
+		await observing.project(journal.stream(), AgentRunId.from("run-1"));
+		await observing.project(journal.stream(), AgentRunId.from("run-2"));
+
+		expect(seen).toEqual([true, false]);
 	});
 });

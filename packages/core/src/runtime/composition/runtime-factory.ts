@@ -81,7 +81,7 @@ export class RuntimeFactory {
 		const sessions = new SessionManager(storage, undefined, events, undefined, options.snapshots);
 		const context = new ContextManager(
 			storage,
-			new ContextProjector(new AttachmentReader(artifacts)),
+			new ContextProjector(new AttachmentReader(artifacts, options.attachments)),
 			measurer,
 			new StablePrefixDigest(),
 			new OldestFirstCompactionStrategy(measurer, options.summarizer),

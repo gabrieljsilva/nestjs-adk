@@ -21,6 +21,8 @@ Customer support has four sectors, which is what makes transfer and delegation a
 
 Layers run one way: `controller` calls `use-case`, which calls `service`, which calls `repository`, which talks to SQLite. The agents' tools are providers that call use cases, so no business rule lives inside a tool.
 
+Customer photos live with the store, not with the runtime: `UploadsVault` keeps them by id, a question names the upload with `AttachmentReference.external`, and the `InlineAttachmentResolver` declared in the module options fetches the bytes while each prompt is built. The journal only ever holds the id.
+
 ### The Nébula Club, which boots on its own
 
 `src/loyalty/` is a second application in the same repository, and it is separate on purpose. The four sectors declare their prompts in `@Agent({ prompt })` and are the comparison, so the club is where the other way is exercised: three desks whose prompt is built once per run by an overridden `prompt()`.

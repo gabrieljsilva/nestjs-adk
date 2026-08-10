@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SessionId } from "../../common/identity/session-id";
+import { AttachmentReference } from "../model/attachment-reference";
 import { MediaTooLargeError } from "../model/errors/media-too-large.error";
 import { MediaLimits } from "../model/media-limits";
 import { MediaPart } from "../model/media-part";
@@ -56,5 +57,30 @@ describe("AskInput", () => {
 		attachments.push(imageOf());
 
 		expect(input.attachments).toHaveLength(1);
+	});
+
+	it("carries references next to bytes, and either alone counts as attached", () => {
+		const reference = AttachmentReference.external("file-7", "image/png");
+		const input = AskInput.with("look", [], undefined, undefined, [reference]);
+
+		expect(input.hasAttachments).toBe(true);
+		expect(input.references).toEqual([reference]);
+		expect(input.attachments).toEqual([]);
+	});
+
+	it("charges a reference nothing against the media total, because it carries no bytes", () => {
+		const limits = MediaLimits.of(1024, 1024, 12);
+		const references = [AttachmentReference.external("file-7", "image/png")];
+
+		expect(AskInput.with("look", [imageOf()], undefined, limits, references).references).toHaveLength(1);
+	});
+
+	it("copies the reference list, so a caller cannot add to it afterwards", () => {
+		const references = [AttachmentReference.external("file-7", "image/png")];
+		const input = AskInput.with("look", [], undefined, undefined, references);
+
+		references.push(AttachmentReference.external("file-8", "image/png"));
+
+		expect(input.references).toHaveLength(1);
 	});
 });

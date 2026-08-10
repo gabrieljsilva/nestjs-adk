@@ -73,6 +73,8 @@ export class GeminiModel extends ModelSpec {
 			[ModelCapability.STREAMING, true],
 			[ModelCapability.STRUCTURED_OUTPUT, true],
 			[ModelCapability.MEDIA_INPUT, true],
+			// Since January 2026 the API fetches public HTTPS and signed URLs through fileUri.
+			[ModelCapability.MEDIA_URL, true],
 			[ModelCapability.PROMPT_CACHE, true],
 			[ModelCapability.TOKEN_COUNTING, true],
 		]);

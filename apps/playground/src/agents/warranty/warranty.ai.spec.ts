@@ -1,12 +1,19 @@
 import "reflect-metadata";
 import "@nestjs-adk/testing/matchers";
-import { MediaPart, SessionStorage, SqliteConnection, SqliteSessionStorage } from "@nestjs-adk/core";
+import {
+	AttachmentReference,
+	MediaPart,
+	SessionStorage,
+	SqliteConnection,
+	SqliteSessionStorage,
+} from "@nestjs-adk/core";
 import { type AdkTestBed, AdkTestBedBuilder, RunTranscript, TestImage } from "@nestjs-adk/testing";
 import { Test, type TestingModuleBuilder } from "@nestjs/testing";
 import { describe, expect, it } from "vitest";
 import { TicketRepository } from "../../aftersales/ticket.repository";
 import { AppModule } from "../../app.module";
 import { InspectSessionUseCase } from "../../chat/inspect-session.use-case";
+import { uploadsVault } from "../../shared/shared.module";
 import { StoreDatabase } from "../../shared/store-database";
 import { judge, openAILuna } from "../../testing/models";
 import { WarrantyAgent } from "../warranty/warranty.agent";
@@ -66,6 +73,34 @@ describe("AI: warranty, a photo and the sector next door", () => {
 			.agent(WarrantyAgent)
 			.ask("What is the predominant color in this product photo? Answer with one word.", {
 				media: [MediaPart.image(image.mediaType, image.toBase64())],
+			});
+
+		expect(run.text).toMatch(/red/i);
+	});
+
+	/**
+	 * The photo stays with the store and only its id enters the conversation.
+	 *
+	 * This is the external attachment path end to end: the question carries a reference,
+	 * the journal records the id, and the vault is asked for the bytes while the prompt is
+	 * being built. What only a provider can prove is that what the resolver hands back
+	 * arrives in a shape the model actually looks at.
+	 */
+	it("looks at a file the store holds, named by id, never by its bytes", { timeout: 120_000 }, async () => {
+		const connection = new SqliteConnection();
+		await using bed = await AdkTestBedBuilder.from(Test.createTestingModule({ imports: [AppModule] }))
+			.overriding(StoreDatabase, new StoreDatabase(connection))
+			.overriding(SessionStorage, new SqliteSessionStorage(connection))
+			.withModel(openAILuna)
+			.withConsumers(new RunTranscript())
+			.boot();
+		const image = TestImage.red();
+		uploadsVault.put("upload-42", MediaPart.image(image.mediaType, image.toBase64()));
+
+		const run = await bed
+			.agent(WarrantyAgent)
+			.ask("What is the predominant color in the product photo I uploaded? Answer with one word.", {
+				attachments: [AttachmentReference.external("upload-42", image.mediaType)],
 			});
 
 		expect(run.text).toMatch(/red/i);

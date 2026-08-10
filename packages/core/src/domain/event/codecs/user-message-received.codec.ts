@@ -6,8 +6,8 @@ import { EventSchemaVersion } from "../event-schema-version";
 import { SessionEventCodec } from "../session-event-codec";
 import { AttachmentReferenceCodec } from "./attachment-reference.codec";
 
-/** The version that started recording a link as an attachment, next to a stored one. */
-const SCHEMA_VERSION = 3;
+/** The version that started recording an external attachment, resolved by the application. */
+const SCHEMA_VERSION = 4;
 
 /** Codec for the message the user sent into the session, with what came attached to it. */
 export class UserMessageReceivedCodec extends SessionEventCodec<UserMessageReceived> {

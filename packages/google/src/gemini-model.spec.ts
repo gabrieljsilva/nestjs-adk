@@ -91,6 +91,8 @@ describe("GeminiModel", () => {
 		expect(capabilities.supports(ModelCapability.STREAMING)).toBe(true);
 		expect(capabilities.supports(ModelCapability.STRUCTURED_OUTPUT)).toBe(true);
 		expect(capabilities.supports(ModelCapability.MEDIA_INPUT)).toBe(true);
+		// The API fetches public HTTPS and signed URLs through fileUri since January 2026.
+		expect(capabilities.supports(ModelCapability.MEDIA_URL)).toBe(true);
 		expect(capabilities.supports(ModelCapability.PROMPT_CACHE)).toBe(true);
 	});
 

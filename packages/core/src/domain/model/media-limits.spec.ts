@@ -41,4 +41,17 @@ describe("MediaLimits", () => {
 
 		expect(limits.supports("image/tiff")).toBe(false);
 	});
+
+	it("refuses a private host by default, because the provider fetches from its own network", () => {
+		expect(MediaLimits.byDefault().allowsPrivateHost).toBe(false);
+		expect(MediaLimits.of(8, 6, 12).allowsPrivateHost).toBe(false);
+	});
+
+	it("names the opt out for the one setup where the address is reachable", () => {
+		const limits = MediaLimits.byDefault().allowingPrivateHosts();
+
+		expect(limits.allowsPrivateHost).toBe(true);
+		expect(limits.maxEncodedBytes).toBe(MediaLimits.byDefault().maxEncodedBytes);
+		expect(MediaLimits.byDefault().allowsPrivateHost).toBe(false);
+	});
 });

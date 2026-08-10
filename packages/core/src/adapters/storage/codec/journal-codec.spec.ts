@@ -44,7 +44,7 @@ describe("JournalCodec", () => {
 		expect(record).toEqual({
 			eventId: "e-1",
 			type: UserMessageReceived.TYPE,
-			schemaVersion: 3,
+			schemaVersion: 4,
 			occurredAt: OCCURRED_AT,
 			runId: "run-1",
 			agentId: "support",

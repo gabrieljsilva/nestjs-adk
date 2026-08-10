@@ -13,6 +13,12 @@ const SUPPORTED_TYPES: readonly string[] = ["image/png", "image/jpeg", "image/gi
  * of images that each fit can still overflow a request together. The defaults are the
  * ones the providers themselves enforce, so a request refused here would have been
  * refused there, after being paid for.
+ *
+ * A private host is refused by default for the same reason: a media URL is fetched by the
+ * provider's network, where localhost is the provider's own machine, so the request would
+ * be paid for and answered about an image nobody fetched. The opt out exists for the one
+ * setup where the address is reachable, a self hosted model or a gateway on the same
+ * network.
  */
 export class MediaLimits {
 	private constructor(
@@ -20,10 +26,11 @@ export class MediaLimits {
 		public readonly maxDecodedBytes: number,
 		public readonly maxTotalEncodedBytes: number,
 		public readonly supportedTypes: readonly string[],
+		public readonly allowsPrivateHost: boolean,
 	) {}
 
 	public static byDefault(): MediaLimits {
-		return new MediaLimits(MAX_ENCODED_BYTES, MAX_DECODED_BYTES, MAX_TOTAL_ENCODED_BYTES, SUPPORTED_TYPES);
+		return new MediaLimits(MAX_ENCODED_BYTES, MAX_DECODED_BYTES, MAX_TOTAL_ENCODED_BYTES, SUPPORTED_TYPES, false);
 	}
 
 	public static of(
@@ -32,7 +39,18 @@ export class MediaLimits {
 		maxTotalEncodedBytes: number,
 		supportedTypes: readonly string[] = SUPPORTED_TYPES,
 	): MediaLimits {
-		return new MediaLimits(maxEncodedBytes, maxDecodedBytes, maxTotalEncodedBytes, [...supportedTypes]);
+		return new MediaLimits(maxEncodedBytes, maxDecodedBytes, maxTotalEncodedBytes, [...supportedTypes], false);
+	}
+
+	/** The same ceilings, accepting a link the serving model can actually reach. */
+	public allowingPrivateHosts(): MediaLimits {
+		return new MediaLimits(
+			this.maxEncodedBytes,
+			this.maxDecodedBytes,
+			this.maxTotalEncodedBytes,
+			this.supportedTypes,
+			true,
+		);
 	}
 
 	public supports(mediaType: string): boolean {

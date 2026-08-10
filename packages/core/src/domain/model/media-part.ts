@@ -1,5 +1,6 @@
 import { MalformedMediaError } from "./errors/malformed-media.error";
 import { MediaTooLargeError } from "./errors/media-too-large.error";
+import { UnreachableMediaUrlError } from "./errors/unreachable-media-url.error";
 import { UnsupportedMediaTypeError } from "./errors/unsupported-media-type.error";
 import { MediaLimits } from "./media-limits";
 import { ProjectedMediaCost } from "./projected-media-cost";
@@ -60,13 +61,15 @@ export class MediaPart {
 	 * The type is still declared, because Gemini asks for it alongside the URI and because
 	 * a link nobody described is a link nothing can validate. Only http and https are
 	 * accepted: a `file:` or `data:` URL here would either fail at the provider or smuggle
-	 * bytes through a field meant to hold a name.
+	 * bytes through a field meant to hold a name. A localhost or private range address is
+	 * refused unless the limits allow it, because the provider fetches from its own
+	 * network, where that address is a different machine or no machine at all.
 	 */
 	public static link(url: string, mediaType: string, limits: MediaLimits = MediaLimits.byDefault()): MediaPart {
 		const declared = mediaType.trim().toLowerCase();
 		if (!limits.supports(declared)) throw new UnsupportedMediaTypeError(declared, limits.supportedTypes);
 
-		const address = MediaPart.remoteAddressOf(url.trim());
+		const address = MediaPart.remoteAddressOf(url.trim(), limits.allowsPrivateHost);
 		return new MediaPart(declared, undefined, address);
 	}
 
@@ -114,7 +117,7 @@ export class MediaPart {
 		return this.remote ?? `${DATA_URL_PREFIX}${this.mediaType}${BASE64_MARKER},${this.base64}`;
 	}
 
-	private static remoteAddressOf(url: string): string {
+	private static remoteAddressOf(url: string, allowsPrivateHost: boolean): string {
 		let parsed: URL;
 		try {
 			parsed = new URL(url);
@@ -124,7 +127,42 @@ export class MediaPart {
 		if (!REMOTE_SCHEMES.includes(parsed.protocol)) {
 			throw new MalformedMediaError(`the address is ${parsed.protocol} and only http and https are fetchable`);
 		}
+		if (!allowsPrivateHost && MediaPart.isPrivateHost(parsed.hostname)) {
+			throw new UnreachableMediaUrlError(parsed.hostname);
+		}
 		return parsed.toString();
+	}
+
+	/** Loopback, private ranges, link local and mDNS names, which no provider's network resolves here. */
+	private static isPrivateHost(hostname: string): boolean {
+		const host = hostname.toLowerCase();
+		if (host === "localhost" || host.endsWith(".localhost")) return true;
+		if (host.endsWith(".local") || host.endsWith(".internal")) return true;
+		if (host === "0.0.0.0") return true;
+		// URL keeps an IPv6 host in brackets: loopback, unspecified, unique local (fc00::/7) and link local (fe80::/10).
+		if (host === "[::1]" || host === "[::]") return true;
+		if (host.startsWith("[fc") || host.startsWith("[fd") || /^\[fe[89ab]/.test(host)) return true;
+		const mapped = MediaPart.mappedIpv4Of(host);
+		return MediaPart.isPrivateIpv4(mapped ?? host);
+	}
+
+	/** The IPv4 inside an IPv4-mapped IPv6 host, which URL canonicalizes into two hex groups. */
+	private static mappedIpv4Of(host: string): string | undefined {
+		const match = /^\[::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})\]$/.exec(host);
+		if (match === null) return undefined;
+		const high = Number.parseInt(match[1] ?? "", 16);
+		const low = Number.parseInt(match[2] ?? "", 16);
+		return `${high >> 8}.${high & 0xff}.${low >> 8}.${low & 0xff}`;
+	}
+
+	private static isPrivateIpv4(host: string): boolean {
+		const match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+		if (match === null) return false;
+		const [first, second] = [Number(match[1]), Number(match[2])];
+		if (first === 127 || first === 10) return true;
+		if (first === 192 && second === 168) return true;
+		if (first === 172 && second >= 16 && second <= 31) return true;
+		return first === 169 && second === 254;
 	}
 
 	private static agreedTypeOf(declared: string, fromUrl: string): string {

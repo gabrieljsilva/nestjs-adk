@@ -18,6 +18,7 @@ import { EventCorrelation } from "../../domain/event/event-correlation";
 import { EventHeader } from "../../domain/event/event-header";
 import type { SessionEvent } from "../../domain/event/session-event";
 import { StoredSessionEvent } from "../../domain/event/stored-session-event";
+import type { AttachmentReference } from "../../domain/model/attachment-reference";
 import { ModelIdentity } from "../../domain/model/model-identity";
 import type { PromptMeasurement } from "../../domain/model/prompt-measurement";
 
@@ -37,8 +38,8 @@ export class JournalFixture {
 
 	public constructor(public readonly sessionId: SessionId = SessionId.from("s-1")) {}
 
-	public user(text: string): this {
-		return this.append((header) => new UserMessageReceived(header, text));
+	public user(text: string, attachments: readonly AttachmentReference[] = []): this {
+		return this.append((header) => new UserMessageReceived(header, text, attachments));
 	}
 
 	/** The measurement is optional because most providers report one and a test rarely cares. */
@@ -50,8 +51,17 @@ export class JournalFixture {
 		return this.append((header) => new ToolCallRequested(header, ToolCallId.from(callId), toolName, args));
 	}
 
-	public toolResult(callId: string, toolName: string, output: Record<string, unknown> = {}, failed = false): this {
-		return this.append((header) => new ToolResultProduced(header, ToolCallId.from(callId), toolName, output, failed));
+	public toolResult(
+		callId: string,
+		toolName: string,
+		output: Record<string, unknown> = {},
+		failed = false,
+		attachments: readonly AttachmentReference[] = [],
+	): this {
+		return this.append(
+			(header) =>
+				new ToolResultProduced(header, ToolCallId.from(callId), toolName, output, failed, undefined, attachments),
+		);
 	}
 
 	public skill(name: string, scope: "run" | "session" = "run", callId = "c-1"): this {

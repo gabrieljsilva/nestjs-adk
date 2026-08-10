@@ -19,4 +19,20 @@ describe("AttachmentReference", () => {
 		expect(reference.mediaType).toBe("image/png");
 		expect(reference.artifactId).toBeUndefined();
 	});
+
+	it("names an external file by the application's own id, holding no bytes and no address", () => {
+		const reference = AttachmentReference.external("file-7", "image/png");
+
+		expect(reference.isExternal).toBe(true);
+		expect(reference.externalId).toBe("file-7");
+		expect(reference.mediaType).toBe("image/png");
+		expect(reference.artifactId).toBeUndefined();
+		expect(reference.url).toBeUndefined();
+		expect(reference.isLink).toBe(false);
+	});
+
+	it("is external only when it carries an external id", () => {
+		expect(AttachmentReference.artifact(ArtifactId.from("a-1")).isExternal).toBe(false);
+		expect(AttachmentReference.link("https://cdn.example/x.png", "image/png").isExternal).toBe(false);
+	});
 });

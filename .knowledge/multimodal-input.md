@@ -7,17 +7,29 @@ sources:
   - https://adk.dev/artifacts/
   - https://github.com/cline/cline/blob/main/sdk/packages/llms/src/providers/middleware/split-tool-images.ts
   - https://github.com/cline/cline/blob/main/sdk/packages/shared/src/llms/media.ts
+  - https://blog.google/innovation-and-ai/technology/developers-tools/gemini-api-new-file-limits/
+  - https://github.com/googleapis/js-genai/issues/1385
 ---
 
 A user can attach an image to a question and a tool can answer with one. Both end up as a `MediaPart`, and everything else about them is different: where the bytes live, what the journal records, and where in the request they are allowed to sit.
 
 ## The journal records names, never bytes
 
-A `MediaPart` is validated at the boundary and written to `ArtifactStorage` by `AttachmentStore`. What the event keeps is the `ArtifactId`: `UserMessageReceived` in `v: 2` and `ToolResultProduced` in `v: 3` both carry a list of ids, absent when there is none.
+A `MediaPart` is validated at the boundary and written to `ArtifactStorage` by `AttachmentStore`. What the event keeps is the `AttachmentReference`: an `ArtifactId` for bytes the runtime stored, an address for a link, an `externalId` for a file the application owns. `UserMessageReceived` carries the list since `v: 2`, external references since `v: 4`; `ToolResultProduced` since `v: 3`, external references since `v: 5`. Absent when there is none.
 
 The reason is read frequency. A journal is read on every rehydration, every status check and every projection, while the image itself is only looked at when a prompt is being built. Inlining a megabyte of base64 into an event makes every one of those reads carry it.
 
 `AttachmentReader` brings it back during projection, with a cache bounded by bytes rather than entries, because without one the image attached to the first question would be fetched again on every turn after it for the life of the conversation.
+
+## Materialization is asked, not recorded
+
+Identity is durable and materialization is not: a signed URL is right for one turn and wrong for the next, and relevance ("not this turn", "not any more") is policy the runtime does not own. So every reference passes through the `AttachmentResolver` port on every projection, and the answer is an `AttachmentProjection`: `media` puts it in front of the model, `note` puts a bracketed line of text where it stood, `omit` leaves it out. `DefaultAttachmentResolver` reproduces the pre-port behaviour (stored bytes inline, a link as its address) and turns an external reference into a note saying no resolver is configured, because that is a wiring mistake somebody has to see.
+
+Three rules keep this honest. Resolver output is never cached and never recorded; the reader's cache holds only what `AttachmentRequest.load` materialized from the runtime's own storage. A resolver that throws becomes a note, never a dead turn, for the same reason an unreadable artifact is left out. And the request tells the resolver what the wire accepts (`acceptsRemoteUrl`, from `ModelCapability.MEDIA_URL`), so a signed address is never minted for a model that would read it as text. Both shipped providers declare the capability: OpenAI fetches through `image_url`, and Gemini fetches public HTTPS and signed URLs (S3 pre-signed, Azure SAS) through `fileUri` since January 2026, when the premise that `fileUri` only took its own Files API expired. One reliability note travels with Gemini: `googleapis/js-genai#1385` reports intermittent "Cannot fetch content from the provided URL" for S3 pre-signed URIs where the URL stays valid and a retry succeeds, which is a reason to expect retries in the application, not a reason to declare the capability false.
+
+The shipped resolvers are the two ends of that decision: `InlineAttachmentResolver` fetches server side and inlines (development, private files, no address ever travels), `SignedUrlAttachmentResolver` mints a fresh address per projection (production S3, TTL of minutes, nothing durable holds it). One caveat travels with the second: a compaction checkpoint persists projected blocks, so a checkpointed turn keeps the address it was projected with.
+
+`MediaPart.link` refuses a loopback or private range address with `UnreachableMediaUrlError` unless `MediaLimits.allowingPrivateHosts()` says the serving model can reach it, because the provider fetches from its own network and the failure there is silent.
 
 ## Failing to store is not the same failure twice
 

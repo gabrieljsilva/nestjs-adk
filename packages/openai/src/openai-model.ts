@@ -69,6 +69,8 @@ export class OpenAiModel extends ModelSpec {
 			[ModelCapability.STREAMING, true],
 			[ModelCapability.STRUCTURED_OUTPUT, true],
 			[ModelCapability.MEDIA_INPUT, true],
+			// `image_url.url` takes an address the provider fetches itself; Gemini's fileUri does not.
+			[ModelCapability.MEDIA_URL, true],
 		]);
 	}
 }

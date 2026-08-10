@@ -13,6 +13,7 @@ import { ToolCallMessage } from "../../domain/model/tool-call-message";
 import { ToolResultMessage } from "../../domain/model/tool-result-message";
 import { UserMessage } from "../../domain/model/user-message";
 import { AttachmentReader } from "../artifact/attachment-reader";
+import { ResolvedAttachments } from "../artifact/resolved-attachments";
 
 /**
  * Turns a journal into the causal blocks a model can read.
@@ -37,6 +38,7 @@ export class ContextProjector {
 	public async project(
 		events: AsyncIterable<StoredSessionEvent>,
 		currentRun?: AgentRunId,
+		acceptsRemoteUrl = false,
 	): Promise<readonly ContextBlock[]> {
 		const blocks: ContextBlock[] = [];
 		const pending = new Map<string, number>();
@@ -57,7 +59,9 @@ export class ContextProjector {
 			}
 			if (this.belongsToAnother(delegated, stored, currentRun)) continue;
 			if (event instanceof UserMessageReceived) {
-				blocks.push(ContextBlock.conversation(await this.said(stored, event), stored.revision));
+				blocks.push(
+					ContextBlock.conversation(await this.said(stored, event, currentRun, acceptsRemoteUrl), stored.revision),
+				);
 				continue;
 			}
 			// A turn that only asked for tools said nothing, and an empty message read back as
@@ -80,7 +84,7 @@ export class ContextProjector {
 				continue;
 			}
 			if (event instanceof ToolResultProduced) {
-				await this.close(blocks, pending, event, stored);
+				await this.close(blocks, pending, event, stored, currentRun, acceptsRemoteUrl);
 			}
 		}
 
@@ -88,14 +92,32 @@ export class ContextProjector {
 	}
 
 	/**
-	 * What the user said, with what they attached put back where it was.
+	 * What the user said, with what they attached put back the way this turn reads it.
 	 *
-	 * The journal kept ids, so the bytes are fetched here and only here. A message that
-	 * attached nothing costs no read at all, which is almost every message.
+	 * The journal kept names, so the resolver is asked here and only here what each one
+	 * becomes. A message that attached nothing costs no read at all, which is almost every
+	 * message. A note stands in after the words, the way `MediaFit` writes its placeholder.
 	 */
-	private async said(stored: StoredSessionEvent, event: UserMessageReceived): Promise<UserMessage> {
+	private async said(
+		stored: StoredSessionEvent,
+		event: UserMessageReceived,
+		currentRun?: AgentRunId,
+		acceptsRemoteUrl = false,
+	): Promise<UserMessage> {
 		if (!event.hasAttachments) return new UserMessage(event.text);
-		return new UserMessage(event.text, await this.attachments.read(stored.sessionId, event.attachments));
+		const resolved = await this.attachments.read(
+			stored.sessionId,
+			event.attachments,
+			stored.revision,
+			this.isCurrent(stored, currentRun),
+			acceptsRemoteUrl,
+		);
+		return new UserMessage(resolved.appendTo(event.text), resolved.media);
+	}
+
+	/** True when the event belongs to the run being served, which is what a resolver may key on. */
+	private isCurrent(stored: StoredSessionEvent, currentRun?: AgentRunId): boolean {
+		return stored.event.correlation.runId.value === currentRun?.value;
 	}
 
 	/**
@@ -115,14 +137,31 @@ export class ContextProjector {
 		pending: Map<string, number>,
 		event: ToolResultProduced,
 		stored: StoredSessionEvent,
+		currentRun?: AgentRunId,
+		acceptsRemoteUrl = false,
 	): Promise<void> {
 		const at = pending.get(event.callId.value);
 		const open = at === undefined ? undefined : blocks[at];
 		if (at === undefined || open === undefined) {
 			throw new OrphanToolResultError(event.callId.value, event.toolName);
 		}
-		const media = event.hasAttachments ? await this.attachments.read(stored.sessionId, event.attachments) : [];
-		const result = new ToolResultMessage(event.callId, event.toolName, event.output, event.failed, media);
+		// A note joins the output under a synthetic key, the way the offloader writes its placeholder.
+		const resolved = event.hasAttachments
+			? await this.attachments.read(
+					stored.sessionId,
+					event.attachments,
+					stored.revision,
+					this.isCurrent(stored, currentRun),
+					acceptsRemoteUrl,
+				)
+			: ResolvedAttachments.none();
+		const result = new ToolResultMessage(
+			event.callId,
+			event.toolName,
+			resolved.annotate(event.output),
+			event.failed,
+			resolved.media,
+		);
 		blocks[at] = open.answeredBy(result, stored.revision);
 		pending.delete(event.callId.value);
 	}

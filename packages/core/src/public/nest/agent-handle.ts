@@ -3,6 +3,7 @@ import type { ToolCallId } from "../../common/identity/tool-call-id";
 import type { ToolSource } from "../../contracts/tool-source";
 import type { AgentName } from "../../domain/agent/agent-name";
 import type { ContextBudget } from "../../domain/context/context-budget";
+import type { AttachmentReference } from "../../domain/model/attachment-reference";
 import type { MediaPart } from "../../domain/model/media-part";
 import type { ModelChunk } from "../../domain/model/model-chunk";
 import type { AgentResult } from "../../domain/session/agent-result";
@@ -29,6 +30,15 @@ export interface AskOptions {
 	sessionId?: SessionId | string;
 	/** What the model should look at, in the order it should see it. */
 	media?: readonly MediaPart[];
+	/**
+	 * Names of files the application owns, instead of their bytes.
+	 *
+	 * Each one is recorded in the journal as it is and handed to the `AttachmentResolver`
+	 * on every projection, including this first one, so what the model sees is decided
+	 * each time: fresh bytes, a fresh signed address, a line of text, or nothing. Without
+	 * a resolver declared, an external reference projects as a note saying so.
+	 */
+	attachments?: readonly AttachmentReference[];
 	/**
 	 * Tool sources for this run alone, opened on top of the module's and closed with it.
 	 *
@@ -212,7 +222,7 @@ export class AgentHandle {
 		const sessionId = asked.sessionId === undefined ? undefined : AgentHandle.sessionOf(asked.sessionId);
 		return new AgentRunCommand(
 			this.name,
-			AskInput.with(message, asked.media ?? [], sessionId),
+			AskInput.with(message, asked.media ?? [], sessionId, undefined, asked.attachments ?? []),
 			undefined,
 			asked.owner === undefined ? undefined : SessionOwner.from(asked.owner),
 			undefined,

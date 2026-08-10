@@ -6,6 +6,12 @@ export class ModelCapability {
 	public static readonly PROMPT_CACHE = new ModelCapability("prompt-cache");
 	public static readonly MEDIA_INPUT = new ModelCapability("media-input");
 
+	/**
+	 * The provider fetches a remote media URL by itself. Absent, a link handed to the
+	 * model is a string nobody fetches, so a signed address is replaced by a note.
+	 */
+	public static readonly MEDIA_URL = new ModelCapability("media-url");
+
 	/** The provider counts tokens before a call. Most do not, and none of them may pretend to. */
 	public static readonly TOKEN_COUNTING = new ModelCapability("token-counting");
 

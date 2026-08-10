@@ -4,6 +4,7 @@ import { SessionId } from "../../common/identity/session-id";
 import { ArtifactStorage } from "../../contracts/artifact-storage";
 import type { ArtifactContent } from "../../domain/artifact/artifact-content";
 import type { ArtifactReference } from "../../domain/artifact/artifact-reference";
+import { AttachmentReference } from "../../domain/model/attachment-reference";
 import { MediaPart } from "../../domain/model/media-part";
 import { SequenceIdGenerator } from "../../support/sequence-id-generator";
 import { AttachmentStore } from "./attachment-store";
@@ -91,5 +92,25 @@ describe("AttachmentStore", () => {
 		await expect(store.store(SESSION, [MediaPart.image("image/png", PIXEL)])).rejects.toBeInstanceOf(
 			AttachmentNotStoredError,
 		);
+	});
+
+	it("passes a reference through untouched, after everything that needed writing", async () => {
+		const store = new AttachmentStore(storageOf());
+		const external = AttachmentReference.external("file-7", "image/png");
+
+		const stored = await store.store(SESSION, [MediaPart.image("image/png", PIXEL)], [external]);
+
+		expect(stored).toHaveLength(2);
+		expect(stored[0]?.artifactId).toBeDefined();
+		expect(stored[1]).toBe(external);
+	});
+
+	it("takes a reference even when nothing can be written, because nothing has to be", async () => {
+		const store = new AttachmentStore(new RefusingArtifactStorage());
+		const external = AttachmentReference.external("file-7", "image/png");
+
+		const stored = await store.store(SESSION, [], [external]);
+
+		expect(stored).toEqual([external]);
 	});
 });

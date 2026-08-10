@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MalformedMediaError } from "./errors/malformed-media.error";
 import { MediaTooLargeError } from "./errors/media-too-large.error";
+import { UnreachableMediaUrlError } from "./errors/unreachable-media-url.error";
 import { UnsupportedMediaTypeError } from "./errors/unsupported-media-type.error";
 import { MediaLimits } from "./media-limits";
 import { MediaPart } from "./media-part";
@@ -106,5 +107,43 @@ describe("MediaPart", () => {
 		const linked = MediaPart.link("https://cdn.example/photo.png", "image/png");
 
 		expect(linked.characters).toBe(inline.characters);
+	});
+
+	it("refuses an address only this process can see, naming the host", () => {
+		const unreachable = [
+			"http://localhost:3000/uploads/1.png",
+			"http://app.localhost/1.png",
+			"http://127.0.0.1/1.png",
+			"http://10.0.0.5/1.png",
+			"http://192.168.0.10/1.png",
+			"http://172.16.0.1/1.png",
+			"http://169.254.1.1/1.png",
+			"http://0.0.0.0/1.png",
+			"http://[::1]:3000/1.png",
+			"http://[::]/1.png",
+			"http://[::ffff:127.0.0.1]/1.png",
+			"http://[::ffff:192.168.0.10]/1.png",
+			"http://[fd12::1]/1.png",
+			"http://[fe80::1]/1.png",
+			"http://minio.local/1.png",
+			"http://storage.internal/1.png",
+		];
+
+		for (const url of unreachable) {
+			expect(() => MediaPart.link(url, "image/png"), url).toThrow(UnreachableMediaUrlError);
+		}
+	});
+
+	it("still takes a public address, including ones that merely look numeric", () => {
+		expect(MediaPart.link("http://172.15.0.1/1.png", "image/png").isRemote).toBe(true);
+		expect(MediaPart.link("http://172.32.0.1/1.png", "image/png").isRemote).toBe(true);
+		expect(MediaPart.link("https://8.8.8.8/1.png", "image/png").isRemote).toBe(true);
+		expect(MediaPart.link("http://[::ffff:8.8.8.8]/1.png", "image/png").isRemote).toBe(true);
+	});
+
+	it("takes a private address when the limits allow it, for a model that can reach it", () => {
+		const limits = MediaLimits.byDefault().allowingPrivateHosts();
+
+		expect(MediaPart.link("http://localhost:3000/uploads/1.png", "image/png", limits).isRemote).toBe(true);
 	});
 });

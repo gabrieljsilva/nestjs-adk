@@ -2,6 +2,7 @@ import {
 	AdkModule,
 	AdkModuleOptions,
 	EffectApprovalPolicy,
+	InlineAttachmentResolver,
 	LiteLLMPricingSource,
 	RunLimits,
 	RuntimeOptions,
@@ -20,7 +21,7 @@ import { InspectSessionUseCase } from "./chat/inspect-session.use-case";
 import { RejectToolCallUseCase } from "./chat/reject-tool-call.use-case";
 import { SendMessageUseCase } from "./chat/send-message.use-case";
 import { StoreSummarizer } from "./chat/store-summarizer";
-import { SharedModule, storeConnection } from "./shared/shared.module";
+import { SharedModule, storeConnection, uploadsVault } from "./shared/shared.module";
 import { StoreSeed } from "./shared/store-seed";
 
 const MODEL = process.env.PLAYGROUND_MODEL ?? "gemini-3.5-flash-lite";
@@ -78,6 +79,8 @@ export const storeOptions = AdkModuleOptions.from({
 		compaction: COMPACTION,
 		pricing: new LiteLLMPricingSource(),
 		limits: STORE_LIMITS,
+		// A question names an upload by id; the vault is asked again on every projection.
+		attachments: new InlineAttachmentResolver(async (externalId) => uploadsVault.find(externalId)),
 	}),
 });
 

@@ -16,12 +16,21 @@ describe("AttachmentReferenceCodec", () => {
 		expect(encoded).toEqual({ url: "https://cdn.example/x.png", mediaType: "image/png" });
 	});
 
-	it("round trips both kinds", () => {
+	it("writes an external reference as the application's id and the type nothing else knows", () => {
+		const encoded = codec.encode(AttachmentReference.external("file-7", "image/png"));
+
+		expect(encoded).toEqual({ externalId: "file-7", mediaType: "image/png" });
+	});
+
+	it("round trips all three kinds", () => {
 		const link = codec.decode(codec.encode(AttachmentReference.link("https://cdn.example/x.png", "image/png")));
 		const stored = codec.decode(codec.encode(AttachmentReference.artifact(ArtifactId.from("a-1"))));
+		const external = codec.decode(codec.encode(AttachmentReference.external("file-7", "image/png")));
 
 		expect(link?.url).toBe("https://cdn.example/x.png");
 		expect(stored?.artifactId?.value).toBe("a-1");
+		expect(external?.externalId).toBe("file-7");
+		expect(external?.mediaType).toBe("image/png");
 	});
 
 	it("reads the bare string the first version of the field wrote", () => {
@@ -31,10 +40,11 @@ describe("AttachmentReferenceCodec", () => {
 		expect(decoded?.isLink).toBe(false);
 	});
 
-	it("answers nothing for a value that names neither", () => {
+	it("answers nothing for a value that names none of the three", () => {
 		expect(codec.decode(7)).toBeUndefined();
 		expect(codec.decode(null)).toBeUndefined();
 		expect(codec.decode({})).toBeUndefined();
 		expect(codec.decode({ url: "https://cdn.example/x.png" })).toBeUndefined();
+		expect(codec.decode({ externalId: "file-7" })).toBeUndefined();
 	});
 });

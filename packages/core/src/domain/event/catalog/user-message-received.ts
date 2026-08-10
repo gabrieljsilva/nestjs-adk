@@ -3,8 +3,8 @@ import type { EventHeader } from "../event-header";
 import { EventSchemaVersion } from "../event-schema-version";
 import { SessionEvent } from "../session-event";
 
-/** The version that started recording a link as an attachment, next to a stored one. */
-const SCHEMA_VERSION = 3;
+/** The version that started recording an external attachment, resolved by the application. */
+const SCHEMA_VERSION = 4;
 
 /**
  * The user sent a message into the session.

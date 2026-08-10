@@ -10,6 +10,7 @@ import { ContextBudget } from "../../domain/context/context-budget";
 import { ContextCheckpoint } from "../../domain/context/context-checkpoint";
 import { ContextProjection } from "../../domain/context/context-projection";
 import { PreparedModelContext } from "../../domain/context/prepared-model-context";
+import { ModelCapability } from "../../domain/model/model-capability";
 import type { ContextMeasurer } from "./context-measurer";
 import type { ContextProjector } from "./context-projector";
 import type { ContextWindowNotifier } from "./context-window-notifier";
@@ -43,7 +44,10 @@ export class ContextManager {
 
 		const prefix = ContextProjection.of([], command.tools, command.runtimeInstructions, command.agentPrompt);
 		const prefixDigest = this.digest.of(prefix);
-		const projection = prefix.withBlocks(await this.blocksOf(command.sessionId, prefixDigest, command.runId));
+		const acceptsRemoteUrl = descriptor.capabilities.supports(ModelCapability.MEDIA_URL);
+		const projection = prefix.withBlocks(
+			await this.blocksOf(command.sessionId, prefixDigest, command.runId, acceptsRemoteUrl),
+		);
 
 		const budget = this.budgetOf(projection, command);
 		const decision = command.compaction?.decide(budget) ?? CompactionDecision.skip();
@@ -65,10 +69,11 @@ export class ContextManager {
 		sessionId: SessionId,
 		prefixDigest: ContentDigest,
 		runId?: AgentRunId,
+		acceptsRemoteUrl = false,
 	): Promise<readonly ContextBlock[]> {
 		const checkpoint = await this.usableCheckpoint(sessionId, prefixDigest);
 		const from = checkpoint?.coveredRevision ?? SessionRevision.initial();
-		const tail = await this.projector.project(this.storage.readEvents(sessionId, from), runId);
+		const tail = await this.projector.project(this.storage.readEvents(sessionId, from), runId, acceptsRemoteUrl);
 		return checkpoint === undefined ? tail : [...checkpoint.blocks, ...tail];
 	}
 

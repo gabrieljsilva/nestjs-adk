@@ -1,16 +1,31 @@
 import type { ArtifactId } from "../../common/identity/artifact-id";
 import type { SessionId } from "../../common/identity/session-id";
+import type { SessionRevision } from "../../common/revision/session-revision";
 import { ArtifactStorage } from "../../contracts/artifact-storage";
+import type { AttachmentResolver } from "../../contracts/attachment-resolver";
 import type { ArtifactContent } from "../../domain/artifact/artifact-content";
 import type { ArtifactReference } from "../../domain/artifact/artifact-reference";
+import { AttachmentProjection } from "../../domain/model/attachment-projection";
 import type { AttachmentReference } from "../../domain/model/attachment-reference";
+import { AttachmentRequest } from "../../domain/model/attachment-request";
+import { MediaLimits } from "../../domain/model/media-limits";
 import { MediaPart } from "../../domain/model/media-part";
+import { DefaultAttachmentResolver } from "./default-attachment-resolver";
+import { ResolvedAttachments } from "./resolved-attachments";
 
 /** How much of the cache is worth keeping: one request's worth of media, and no more. */
 const MAX_CACHED_BYTES = 8 * 1024 * 1024;
 
 /**
- * Brings attachments back so a message can be read as it was sent.
+ * Brings attachments back so a message can be read as it was sent, asking the resolver
+ * what each one becomes this time.
+ *
+ * Every reference goes through the resolver on every projection, because materialization
+ * is a per-turn answer: bytes now, a fresh address now, a line of text, or nothing. What
+ * the runtime can materialize on its own is offered to the resolver through the request,
+ * and that is the only thing this cache ever holds. Resolver output is never cached: a
+ * URL signed for this turn is wrong on the next one, and only the application knows the
+ * TTL of what it minted.
  *
  * The journal is projected once per turn, so without a cache the image attached on the
  * first question would be fetched again on every question after it, for the whole life of
@@ -18,18 +33,19 @@ const MAX_CACHED_BYTES = 8 * 1024 * 1024;
  * sessions, and the cache is bounded by bytes rather than by entries, because the thing
  * being held is measured in megabytes.
  *
- * A link costs nothing to bring back: the address was the record, so it is rebuilt without
- * touching storage and never enters the cache.
- *
- * An attachment that no longer resolves is left out rather than raised. It was already
- * answered when it was sent, and refusing to project the session would make one missing
- * image end every turn that came after it.
+ * A resolver that throws does not end the turn: the attachment was already answered when
+ * it was sent, and refusing to project the session would make one missing image end every
+ * turn that came after it. It projects as a note instead of silence, so the model is told
+ * an attachment stood there.
  */
 export class AttachmentReader {
 	private readonly cached = new Map<string, MediaPart>();
 	private cachedBytes = 0;
 
-	public constructor(private readonly storage: ArtifactStorage) {}
+	public constructor(
+		private readonly storage: ArtifactStorage,
+		private readonly resolver: AttachmentResolver = new DefaultAttachmentResolver(),
+	) {}
 
 	/**
 	 * A reader with nowhere to read from, for a caller that has no artifact storage.
@@ -40,16 +56,38 @@ export class AttachmentReader {
 		return new AttachmentReader(new UnreachableArtifactStorage());
 	}
 
-	public async read(sessionId: SessionId, references: readonly AttachmentReference[]): Promise<readonly MediaPart[]> {
-		const parts: MediaPart[] = [];
+	public async read(
+		sessionId: SessionId,
+		references: readonly AttachmentReference[],
+		revision: SessionRevision,
+		isCurrentRun: boolean,
+		acceptsRemoteUrl: boolean,
+	): Promise<ResolvedAttachments> {
+		const media: MediaPart[] = [];
+		const notes: string[] = [];
 		for (const reference of references) {
-			const part = await this.one(sessionId, reference);
-			if (part !== undefined) parts.push(part);
+			const request = new AttachmentRequest(sessionId, reference, revision, isCurrentRun, acceptsRemoteUrl, () =>
+				this.materialize(sessionId, reference),
+			);
+			const projection = await this.projectionOf(request);
+			const part = projection.part;
+			if (part !== undefined) media.push(part);
+			const text = projection.text;
+			if (text !== undefined) notes.push(text);
 		}
-		return parts;
+		return new ResolvedAttachments(media, notes);
 	}
 
-	private async one(sessionId: SessionId, reference: AttachmentReference): Promise<MediaPart | undefined> {
+	private async projectionOf(request: AttachmentRequest): Promise<AttachmentProjection> {
+		try {
+			return await this.resolver.resolve(request);
+		} catch {
+			return AttachmentProjection.noteFor(request.reference, "could not be resolved");
+		}
+	}
+
+	/** The runtime's own answer: stored bytes, a recorded address, nothing for an external id. */
+	private async materialize(sessionId: SessionId, reference: AttachmentReference): Promise<MediaPart | undefined> {
 		const url = reference.url;
 		if (url !== undefined) return this.linked(url, reference.mediaType);
 
@@ -64,11 +102,16 @@ export class AttachmentReader {
 		return part;
 	}
 
-	/** A link that no longer passes validation is dropped, the same as an unreadable artifact. */
+	/**
+	 * A link that no longer passes validation is dropped, the same as an unreadable artifact.
+	 * A private host is not revalidated here, because this is a recorded fact being rebuilt;
+	 * everything else is checked against the default limits, so a type accepted at the
+	 * boundary under widened limits is dropped on replay rather than sent unvalidated.
+	 */
 	private linked(url: string, mediaType?: string): MediaPart | undefined {
 		if (mediaType === undefined) return undefined;
 		try {
-			return MediaPart.link(url, mediaType);
+			return MediaPart.link(url, mediaType, MediaLimits.byDefault().allowingPrivateHosts());
 		} catch {
 			return undefined;
 		}

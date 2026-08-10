@@ -1,3 +1,4 @@
+import type { AttachmentResolver } from "../../contracts/attachment-resolver";
 import type { ConsumerNoticeSink } from "../../contracts/consumer-notice-sink";
 import type { ContextNoticeSink } from "../../contracts/context-notice-sink";
 import type { ContextSummarizer } from "../../contracts/context-summarizer";
@@ -34,6 +35,7 @@ export interface RuntimeOptionsPatch {
 	compaction?: AdkCompactionPolicy | false;
 	pricing?: PricingSource;
 	pricingNotices?: PricingNoticeSink;
+	attachments?: AttachmentResolver;
 }
 
 /**
@@ -66,6 +68,8 @@ export class RuntimeOptions {
 		/** One source for the whole runtime. Without it every run answers a cost of zero and says so. */
 		public readonly pricing?: PricingSource,
 		public readonly pricingNotices?: PricingNoticeSink,
+		/** What an attachment becomes on each projection. Without it, stored bytes inline and links pass through. */
+		public readonly attachments?: AttachmentResolver,
 	) {}
 
 	/** Options built from names instead of positions, with the same defaults as declaring none. */
@@ -95,6 +99,7 @@ export class RuntimeOptions {
 			patch.compaction ?? this.compaction,
 			patch.pricing ?? this.pricing,
 			patch.pricingNotices ?? this.pricingNotices,
+			patch.attachments ?? this.attachments,
 		);
 	}
 }

@@ -1,4 +1,5 @@
 import type { SessionId } from "../../common/identity/session-id";
+import type { AttachmentReference } from "../model/attachment-reference";
 import { MediaTooLargeError } from "../model/errors/media-too-large.error";
 import { MediaLimits } from "../model/media-limits";
 import type { MediaPart } from "../model/media-part";
@@ -15,6 +16,8 @@ export class AskInput {
 		public readonly sessionId: SessionId | undefined,
 		/** What the user attached for the model to look at, in the order they attached it. */
 		public readonly attachments: readonly MediaPart[],
+		/** Names of files the application owns, resolved by it on every projection. */
+		public readonly references: readonly AttachmentReference[],
 	) {}
 
 	public static of(message: string, sessionId?: SessionId): AskInput {
@@ -29,13 +32,14 @@ export class AskInput {
 	 *
 	 * The size of each attachment was already settled when it was built. What is decided
 	 * here is the only thing a single part cannot know, which is whether the set of them
-	 * fits in one request.
+	 * fits in one request. A reference carries no bytes, so it costs the total nothing.
 	 */
 	public static with(
 		message: string,
 		attachments: readonly MediaPart[],
 		sessionId?: SessionId,
 		limits: MediaLimits = MediaLimits.byDefault(),
+		references: readonly AttachmentReference[] = [],
 	): AskInput {
 		const trimmed = message.trim();
 		if (trimmed.length === 0) throw new EmptyMessageError();
@@ -44,11 +48,11 @@ export class AskInput {
 		if (total > limits.maxTotalEncodedBytes) {
 			throw new MediaTooLargeError("total", total, limits.maxTotalEncodedBytes);
 		}
-		return new AskInput(trimmed, sessionId, [...attachments]);
+		return new AskInput(trimmed, sessionId, [...attachments], [...references]);
 	}
 
 	public get hasAttachments(): boolean {
-		return this.attachments.length > 0;
+		return this.attachments.length > 0 || this.references.length > 0;
 	}
 
 	public get continuesSession(): boolean {
