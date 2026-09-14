@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { SessionId } from "../../common/identity/session-id";
 import { PricingNoticeSink } from "../../contracts/pricing-notice-sink";
 import { PricingSource } from "../../contracts/pricing-source";
 import { BilledCall } from "../../domain/cost/billed-call";
@@ -7,6 +8,7 @@ import type { ModelUnpriced } from "../../domain/cost/model-unpriced";
 import { TokenRate } from "../../domain/cost/token-rate";
 import { ModelIdentity } from "../../domain/model/model-identity";
 import { ModelUsage } from "../../domain/model/model-usage";
+import { SessionContext } from "../../domain/run/session-context";
 import { CostCalculator } from "./cost-calculator";
 import { RunCostReporter } from "./run-cost-reporter";
 
@@ -21,7 +23,7 @@ class CatalogOf extends PricingSource {
 		super();
 	}
 
-	public async priceOf(model: ModelIdentity): Promise<ModelPrice | undefined> {
+	public async findPrice(_context: SessionContext | undefined, model: ModelIdentity): Promise<ModelPrice | undefined> {
 		this.asked.push(model.toString());
 		return this.known[model.toString()];
 	}
@@ -30,7 +32,7 @@ class CatalogOf extends PricingSource {
 class CollectedNotices extends PricingNoticeSink {
 	public readonly reported: ModelUnpriced[] = [];
 
-	public report(notice: ModelUnpriced): void {
+	public report(_context: SessionContext | undefined, notice: ModelUnpriced): void {
 		this.reported.push(notice);
 	}
 }
@@ -38,9 +40,11 @@ class CollectedNotices extends PricingNoticeSink {
 const reporterOn = (source?: PricingSource, notices?: PricingNoticeSink) =>
 	new RunCostReporter(new CostCalculator(), source, notices);
 
+const CTX = SessionContext.fromSessionId(SessionId.from("s-1"));
+
 describe("RunCostReporter", () => {
 	it("adds up every call a model served into one entry", async () => {
-		const cost = await reporterOn(new CatalogOf({ [LUNA.toString()]: PRICE })).report([
+		const cost = await reporterOn(new CatalogOf({ [LUNA.toString()]: PRICE })).report(CTX, [
 			new BilledCall(LUNA, ModelUsage.of(40, 12)),
 			new BilledCall(LUNA, ModelUsage.of(60, 8)),
 		]);
@@ -55,7 +59,7 @@ describe("RunCostReporter", () => {
 	it("keeps a rerouted run's models apart", async () => {
 		const source = new CatalogOf({ [LUNA.toString()]: PRICE, [FLASH.toString()]: PRICE });
 
-		const cost = await reporterOn(source).report([
+		const cost = await reporterOn(source).report(CTX, [
 			new BilledCall(LUNA, ModelUsage.of(10, 0)),
 			new BilledCall(FLASH, ModelUsage.of(10, 0)),
 		]);
@@ -68,7 +72,7 @@ describe("RunCostReporter", () => {
 	it("asks the source once per model however many calls it served", async () => {
 		const source = new CatalogOf({ [LUNA.toString()]: PRICE });
 
-		await reporterOn(source).report([
+		await reporterOn(source).report(CTX, [
 			new BilledCall(LUNA, ModelUsage.of(1, 1)),
 			new BilledCall(LUNA, ModelUsage.of(1, 1)),
 			new BilledCall(LUNA, ModelUsage.of(1, 1)),
@@ -80,7 +84,7 @@ describe("RunCostReporter", () => {
 	it("leaves an unknown model's tokens out of the total and says so", async () => {
 		const notices = new CollectedNotices();
 
-		const cost = await reporterOn(new CatalogOf({ [LUNA.toString()]: PRICE }), notices).report([
+		const cost = await reporterOn(new CatalogOf({ [LUNA.toString()]: PRICE }), notices).report(CTX, [
 			new BilledCall(LUNA, ModelUsage.of(40, 12)),
 			new BilledCall(FLASH, ModelUsage.of(1_000_000, 1_000_000)),
 		]);
@@ -97,7 +101,7 @@ describe("RunCostReporter", () => {
 	it("answers zero with a warning when no source was declared", async () => {
 		const notices = new CollectedNotices();
 
-		const cost = await reporterOn(undefined, notices).report([new BilledCall(LUNA, ModelUsage.of(40, 12))]);
+		const cost = await reporterOn(undefined, notices).report(CTX, [new BilledCall(LUNA, ModelUsage.of(40, 12))]);
 
 		expect(cost.total.isZero).toBe(true);
 		expect(cost.byModel).toEqual([]);
@@ -109,7 +113,7 @@ describe("RunCostReporter", () => {
 	it("reports a call the provider gave no usage for instead of pricing it as free", async () => {
 		const notices = new CollectedNotices();
 
-		const cost = await reporterOn(new CatalogOf({ [LUNA.toString()]: PRICE }), notices).report([
+		const cost = await reporterOn(new CatalogOf({ [LUNA.toString()]: PRICE }), notices).report(CTX, [
 			new BilledCall(LUNA, ModelUsage.none()),
 		]);
 
@@ -122,12 +126,12 @@ describe("RunCostReporter", () => {
 	it("treats a source that throws as a source that does not know the model", async () => {
 		const notices = new CollectedNotices();
 		const source = new (class extends PricingSource {
-			public async priceOf(): Promise<ModelPrice | undefined> {
+			public async findPrice(_context: SessionContext | undefined): Promise<ModelPrice | undefined> {
 				throw new Error("catalog is down");
 			}
 		})();
 
-		const cost = await reporterOn(source, notices).report([new BilledCall(LUNA, ModelUsage.of(40, 12))]);
+		const cost = await reporterOn(source, notices).report(CTX, [new BilledCall(LUNA, ModelUsage.of(40, 12))]);
 
 		expect(cost.total.isZero).toBe(true);
 		expect(cost.unpriced).toHaveLength(1);
@@ -136,12 +140,12 @@ describe("RunCostReporter", () => {
 
 	it("does not lose the report when the sink throws", async () => {
 		const notices = new (class extends PricingNoticeSink {
-			public report(): void {
+			public report(_context: SessionContext | undefined): void {
 				throw new Error("sink is broken");
 			}
 		})();
 
-		const cost = await reporterOn(new CatalogOf({ [LUNA.toString()]: PRICE }), notices).report([
+		const cost = await reporterOn(new CatalogOf({ [LUNA.toString()]: PRICE }), notices).report(CTX, [
 			new BilledCall(LUNA, ModelUsage.of(40, 12)),
 			new BilledCall(FLASH, ModelUsage.of(10, 0)),
 		]);
@@ -154,7 +158,7 @@ describe("RunCostReporter", () => {
 		const source = new CatalogOf({});
 		const notices = new CollectedNotices();
 
-		const cost = await reporterOn(source, notices).report([]);
+		const cost = await reporterOn(source, notices).report(CTX, []);
 
 		expect(cost.total.isZero).toBe(true);
 		expect(cost.isComplete).toBe(true);
@@ -163,7 +167,7 @@ describe("RunCostReporter", () => {
 	});
 
 	it("prices without a sink declared", async () => {
-		const cost = await reporterOn(new CatalogOf({})).report([new BilledCall(LUNA, ModelUsage.of(40, 12))]);
+		const cost = await reporterOn(new CatalogOf({})).report(CTX, [new BilledCall(LUNA, ModelUsage.of(40, 12))]);
 
 		expect(cost.isComplete).toBe(false);
 	});
@@ -172,10 +176,10 @@ describe("RunCostReporter", () => {
 	it("prices after the run rather than per call", async () => {
 		const priceOf = vi.fn(async () => PRICE);
 		const source = new (class extends PricingSource {
-			public priceOf = priceOf;
+			public findPrice = priceOf;
 		})();
 
-		await reporterOn(source).report([
+		await reporterOn(source).report(CTX, [
 			new BilledCall(LUNA, ModelUsage.of(1, 1)),
 			new BilledCall(LUNA, ModelUsage.of(1, 1)),
 		]);

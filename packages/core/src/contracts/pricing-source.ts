@@ -1,5 +1,6 @@
 import type { ModelPrice } from "../domain/cost/model-price";
 import type { ModelIdentity } from "../domain/model/model-identity";
+import type { SessionContext } from "../domain/run/session-context";
 
 /**
  * Where the price of a model comes from.
@@ -13,7 +14,7 @@ import type { ModelIdentity } from "../domain/model/model-identity";
  *
  * ```ts
  * export class ContractPricing extends PricingSource {
- *   public async priceOf(model: ModelIdentity): Promise<ModelPrice | undefined> {
+ *   public async findPrice(_context: SessionContext | undefined, model: ModelIdentity): Promise<ModelPrice | undefined> {
  *     const agreed = this.rates[model.model];
  *     if (agreed === undefined) return undefined;
  *     return ModelPrice.of(TokenRate.fromUsdPerToken(agreed.in), TokenRate.fromUsdPerToken(agreed.out));
@@ -24,8 +25,12 @@ import type { ModelIdentity } from "../domain/model/model-identity";
  * Returning `undefined` is a normal answer and not a failure: the model is reported as
  * unpriced, its tokens stay out of the total, and the run carries on. Throwing is also
  * survivable, and is treated the same way, because a bill is never worth a conversation.
+ *
+ * The context is the conversation the call was made in. It is absent for exactly one caller:
+ * an embedding asked for outside a run, which has a model and a usage but no conversation to
+ * name. Everything a run does carries one.
  */
 export abstract class PricingSource {
 	/** The price for this model, or `undefined` when this source does not know it. */
-	public abstract priceOf(model: ModelIdentity): Promise<ModelPrice | undefined>;
+	public abstract findPrice(context: SessionContext | undefined, model: ModelIdentity): Promise<ModelPrice | undefined>;
 }

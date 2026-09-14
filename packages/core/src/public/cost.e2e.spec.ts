@@ -27,6 +27,7 @@ import { ToolCallDelta } from "../domain/model/tool-call-delta";
 import { ToolResultMessage } from "../domain/model/tool-result-message";
 import { UnavailableFailure } from "../domain/model/unavailable-failure";
 import { PromptInstructions } from "../domain/prompt/prompt-instructions";
+import { SessionContext } from "../domain/run/session-context";
 import { AskInput } from "../domain/session/ask-input";
 import { RuntimeOptions } from "../runtime/composition/runtime-options";
 import { AgentRunCommand } from "../runtime/run/agent-run-command";
@@ -55,7 +56,7 @@ class KnownRates extends PricingSource {
 		super();
 	}
 
-	public async priceOf(model: ModelIdentity): Promise<ModelPrice | undefined> {
+	public async findPrice(_context: SessionContext | undefined, model: ModelIdentity): Promise<ModelPrice | undefined> {
 		this.asked.push(model.toString());
 		return this.known.some((known) => known.equals(model)) ? RATES.get(model.toString()) : undefined;
 	}
@@ -64,7 +65,7 @@ class KnownRates extends PricingSource {
 class CollectedNotices extends PricingNoticeSink {
 	public readonly reported: ModelUnpriced[] = [];
 
-	public report(notice: ModelUnpriced): void {
+	public report(_context: SessionContext | undefined, notice: ModelUnpriced): void {
 		this.reported.push(notice);
 	}
 }

@@ -11,6 +11,7 @@ import { SessionMetadataSet } from "../../domain/event/catalog/session-metadata-
 import { UserMessageReceived } from "../../domain/event/catalog/user-message-received";
 import type { PublishedEvent } from "../../domain/event/published-event";
 import type { SessionEvent } from "../../domain/event/session-event";
+import { SessionContext } from "../../domain/run/session-context";
 import { SessionAlreadyExistsError } from "../../domain/session/errors/session-already-exists.error";
 import { SessionNotFoundError } from "../../domain/session/errors/session-not-found.error";
 import { MetadataKey } from "../../domain/session/metadata-key";
@@ -51,7 +52,7 @@ describe("a conversation the application opens itself", () => {
 
 		class Recorder extends SessionEventConsumer {
 			public readonly name = "recorder";
-			public async consume(event: PublishedEvent): Promise<void> {
+			public async consume(_context: SessionContext, event: PublishedEvent): Promise<void> {
 				seen.push(event.type);
 			}
 		}
@@ -83,7 +84,10 @@ describe("a conversation the application opens itself", () => {
 
 	async function journalOf(sessionId: string): Promise<SessionEvent[]> {
 		const events: SessionEvent[] = [];
-		for await (const stored of storage.readEvents(SessionId.from(sessionId), SessionRevision.initial())) {
+		for await (const stored of storage.readEvents(
+			SessionContext.fromSessionId(SessionId.from(sessionId)),
+			SessionRevision.initial(),
+		)) {
 			events.push(stored.event);
 		}
 		return events;

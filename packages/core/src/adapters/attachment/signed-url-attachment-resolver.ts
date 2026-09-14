@@ -3,6 +3,7 @@ import { AttachmentProjection } from "../../domain/model/attachment-projection";
 import type { AttachmentRequest } from "../../domain/model/attachment-request";
 import { MediaLimits } from "../../domain/model/media-limits";
 import { MediaPart } from "../../domain/model/media-part";
+import type { SessionContext } from "../../domain/run/session-context";
 
 /**
  * Mints a fresh address for one external attachment, or nothing when the file is gone.
@@ -33,7 +34,7 @@ export class SignedUrlAttachmentResolver extends AttachmentResolver {
 		super();
 	}
 
-	public async resolve(request: AttachmentRequest): Promise<AttachmentProjection> {
+	public async resolve(_context: SessionContext, request: AttachmentRequest): Promise<AttachmentProjection> {
 		const externalId = request.reference.externalId;
 		if (externalId === undefined) {
 			const stored = await request.load();

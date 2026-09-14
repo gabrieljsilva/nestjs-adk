@@ -6,6 +6,7 @@ import { Instant } from "../../common/time/instant";
 import type { AppendEventsCommand } from "../../contracts/append-events-command";
 import type { AppendEventsResult } from "../../contracts/append-events-result";
 import { AgentRunFailed } from "../../domain/event/catalog/agent-run-failed";
+import { SessionContext } from "../../domain/run/session-context";
 import { Session } from "../../domain/session/session";
 import { SessionState } from "../../domain/session/session-state";
 import { FakeClock } from "../../support/fake-clock";
@@ -29,10 +30,10 @@ const clock = new FakeClock(NOW);
 class ConflictingStorage extends InMemorySessionStorage {
 	public attempts = 0;
 
-	public async append(command: AppendEventsCommand): Promise<AppendEventsResult> {
+	public async append(context: SessionContext, command: AppendEventsCommand): Promise<AppendEventsResult> {
 		this.attempts += 1;
 		if (this.attempts === 1) throw new Error("the journal lost the race");
-		return super.append(command);
+		return super.append(context, command);
 	}
 }
 
@@ -58,12 +59,13 @@ function settlerOf(storage: InMemorySessionStorage): RunSettler {
 }
 
 async function sessionIn(storage: InMemorySessionStorage): Promise<void> {
-	await storage.create(Session.start(SESSION, NativeStackFixture.AGENT, NOW));
+	await storage.create(SessionContext.fromSessionId(SESSION), Session.start(SESSION, NativeStackFixture.AGENT, NOW));
 }
 
 async function typesIn(storage: InMemorySessionStorage): Promise<string[]> {
 	const types: string[] = [];
-	for await (const stored of storage.readEvents(SESSION, SessionRevision.initial())) types.push(stored.event.type);
+	for await (const stored of storage.readEvents(SessionContext.fromSessionId(SESSION), SessionRevision.initial()))
+		types.push(stored.event.type);
 	return types;
 }
 
@@ -72,7 +74,12 @@ describe("RunSettler", () => {
 		const storage = new InMemorySessionStorage();
 		await sessionIn(storage);
 
-		await settlerOf(storage).settle(SESSION, SessionState.initial(), startedRun(), new Error("something broke"));
+		await settlerOf(storage).settle(
+			SessionContext.fromSessionId(SESSION),
+			SessionState.initial(),
+			startedRun(),
+			new Error("something broke"),
+		);
 
 		expect(await typesIn(storage)).toEqual([AgentRunFailed.TYPE]);
 	});
@@ -81,7 +88,12 @@ describe("RunSettler", () => {
 		const storage = new ConflictingStorage();
 		await sessionIn(storage);
 
-		await settlerOf(storage).settle(SESSION, SessionState.initial(), startedRun(), new Error("something broke"));
+		await settlerOf(storage).settle(
+			SessionContext.fromSessionId(SESSION),
+			SessionState.initial(),
+			startedRun(),
+			new Error("something broke"),
+		);
 
 		expect(storage.attempts).toBe(2);
 		expect(await typesIn(storage)).toEqual([AgentRunFailed.TYPE]);
@@ -92,7 +104,12 @@ describe("RunSettler", () => {
 		await sessionIn(storage);
 
 		await expect(
-			settlerOf(storage).settle(SESSION, SessionState.initial(), startedRun(), new Error("something broke")),
+			settlerOf(storage).settle(
+				SessionContext.fromSessionId(SESSION),
+				SessionState.initial(),
+				startedRun(),
+				new Error("something broke"),
+			),
 		).resolves.toBeUndefined();
 	});
 });

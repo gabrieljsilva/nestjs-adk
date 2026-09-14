@@ -49,7 +49,7 @@ export class LlmJudge {
 	) {}
 
 	public async judge(answer: string, rubric: JudgeRubric): Promise<JudgeVerdict> {
-		const response = await this.executor.execute(this.model, this.requestFor(answer, rubric));
+		const response = await this.executor.execute(undefined, this.model, this.requestFor(answer, rubric));
 		const verdict = this.readVerdict(response.structuredOutput ?? this.parsed(response.text), response.text);
 		return JudgeVerdict.of(rubric.passes(verdict.score), verdict.score, verdict.reason);
 	}

@@ -1,16 +1,16 @@
 import { ArtifactId } from "../../common/identity/artifact-id";
 import type { IdGenerator } from "../../common/identity/id-generator";
-import type { SessionId } from "../../common/identity/session-id";
 import { ArtifactStorage } from "../../contracts/artifact-storage";
 import type { ArtifactContent } from "../../domain/artifact/artifact-content";
 import { ArtifactReference } from "../../domain/artifact/artifact-reference";
 import { ArtifactNotFoundError } from "../../domain/artifact/errors/artifact-not-found.error";
 import { TamperedArtifactReferenceError } from "../../domain/artifact/errors/tampered-artifact-reference.error";
+import type { SessionContext } from "../../domain/run/session-context";
 
 /**
  * Reference artifact storage, and the shape every durable adapter is measured against.
  *
- * Content is kept under the session first and the artifact second, so a read scoped to
+ * Content is kept under the session of the context first and the artifact second, so a read scoped to
  * the wrong session misses rather than matches, and no key concatenation can make two
  * different pairs collide into one. What comes back is checked against the digest the
  * caller arrived with, which catches a rewritten reference and a store that lost content
@@ -23,7 +23,8 @@ export class InMemoryArtifactStorage extends ArtifactStorage {
 		super();
 	}
 
-	public async put(sessionId: SessionId, content: ArtifactContent): Promise<ArtifactReference> {
+	public async put(context: SessionContext, content: ArtifactContent): Promise<ArtifactReference> {
+		const sessionId = context.sessionId;
 		const reference = ArtifactReference.of(ArtifactId.from(this.ids.next()), sessionId, content);
 		const owned = this.bySession.get(sessionId.value) ?? new Map<string, ArtifactContent>();
 		owned.set(reference.id.value, content);
@@ -31,7 +32,8 @@ export class InMemoryArtifactStorage extends ArtifactStorage {
 		return reference;
 	}
 
-	public async read(sessionId: SessionId, reference: ArtifactReference): Promise<ArtifactContent> {
+	public async read(context: SessionContext, reference: ArtifactReference): Promise<ArtifactContent> {
+		const sessionId = context.sessionId;
 		const content = reference.belongsTo(sessionId)
 			? this.bySession.get(sessionId.value)?.get(reference.id.value)
 			: undefined;
@@ -46,12 +48,13 @@ export class InMemoryArtifactStorage extends ArtifactStorage {
 		return content;
 	}
 
-	public async find(sessionId: SessionId, artifactId: ArtifactId): Promise<ArtifactReference | undefined> {
+	public async find(context: SessionContext, artifactId: ArtifactId): Promise<ArtifactReference | undefined> {
+		const sessionId = context.sessionId;
 		const content = this.bySession.get(sessionId.value)?.get(artifactId.value);
 		return content === undefined ? undefined : ArtifactReference.of(artifactId, sessionId, content);
 	}
 
-	public async deleteAll(sessionId: SessionId): Promise<void> {
-		this.bySession.delete(sessionId.value);
+	public async deleteAll(context: SessionContext): Promise<void> {
+		this.bySession.delete(context.sessionId.value);
 	}
 }

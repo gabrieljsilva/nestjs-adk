@@ -59,7 +59,7 @@ describe("ModelExecutor", () => {
 			ModelChunk.finish("stop"),
 		]);
 
-		const response = await executor.execute(model, withTool);
+		const response = await executor.execute(undefined, model, withTool);
 
 		expect(response.text).toBe("Reembolso");
 		expect(response.toolCalls[0]?.args).toEqual({ orderId: "42" });
@@ -72,7 +72,7 @@ describe("ModelExecutor", () => {
 		const chunks = [ModelChunk.text("Reem"), ModelChunk.text("bolso "), ModelChunk.text("concluído")];
 
 		const streamed: string[] = [];
-		const turn = executor.stream(new ScriptedModel(chunks), request);
+		const turn = executor.stream(undefined, new ScriptedModel(chunks), request);
 		let step = await turn.next();
 		while (step.done !== true) {
 			streamed.push(step.value.textDelta);
@@ -85,8 +85,8 @@ describe("ModelExecutor", () => {
 	it("streams the chunks and answers the same aggregate as execute", async () => {
 		const chunks = [ModelChunk.text("a"), ModelChunk.text("b"), ModelChunk.finish("stop")];
 
-		const asked = await executor.execute(new ScriptedModel(chunks), request);
-		const turn = executor.stream(new ScriptedModel(chunks), request);
+		const asked = await executor.execute(undefined, new ScriptedModel(chunks), request);
+		const turn = executor.stream(undefined, new ScriptedModel(chunks), request);
 		let step = await turn.next();
 		while (step.done !== true) step = await turn.next();
 
@@ -96,7 +96,7 @@ describe("ModelExecutor", () => {
 	it("refuses tools on a model that never declared them, before calling it", async () => {
 		const model = new ScriptedModel([ModelChunk.finish("stop")], ModelCapabilities.none());
 
-		await expect(executor.execute(model, withTool)).rejects.toBeInstanceOf(UnsupportedCapabilityError);
+		await expect(executor.execute(undefined, model, withTool)).rejects.toBeInstanceOf(UnsupportedCapabilityError);
 		expect(model.calls).toBe(0);
 	});
 
@@ -104,14 +104,14 @@ describe("ModelExecutor", () => {
 		const model = new ScriptedModel([ModelChunk.finish("stop")], ModelCapabilities.none());
 		const structured = new ModelRequest([new UserMessage("hi")], [], undefined, { type: "object" });
 
-		await expect(executor.execute(model, structured)).rejects.toBeInstanceOf(UnsupportedCapabilityError);
+		await expect(executor.execute(undefined, model, structured)).rejects.toBeInstanceOf(UnsupportedCapabilityError);
 		expect(model.calls).toBe(0);
 	});
 
 	it("names the capability that was missing", async () => {
 		const model = new ScriptedModel([ModelChunk.finish("stop")], ModelCapabilities.none());
 
-		const failure = await executor.execute(model, withTool).catch((error) => error);
+		const failure = await executor.execute(undefined, model, withTool).catch((error) => error);
 
 		expect(failure).toBeInstanceOf(UnsupportedCapabilityError);
 		if (!(failure instanceof UnsupportedCapabilityError)) return;
@@ -122,14 +122,14 @@ describe("ModelExecutor", () => {
 	it("runs a request without tools on a model that declares none", async () => {
 		const model = new ScriptedModel([ModelChunk.text("hi")], ModelCapabilities.none());
 
-		expect((await executor.execute(model, request)).text).toBe("hi");
+		expect((await executor.execute(undefined, model, request)).text).toBe("hi");
 	});
 
 	it("validates a structured answer and carries the value", async () => {
 		const model = new ScriptedModel([ModelChunk.text('{"refunded":true}')]);
 		const structured = new ModelRequest([new UserMessage("hi")], [], undefined, { type: "object" });
 
-		const response = await executor.execute(model, structured);
+		const response = await executor.execute(undefined, model, structured);
 
 		expect(response.structuredOutput).toEqual({ refunded: true });
 		expect(response.text).toBe('{"refunded":true}');
@@ -139,11 +139,11 @@ describe("ModelExecutor", () => {
 		const model = new ScriptedModel([ModelChunk.text("I cannot do that")]);
 		const structured = new ModelRequest([new UserMessage("hi")], [], undefined, { type: "object" });
 
-		await expect(executor.execute(model, structured)).rejects.toBeInstanceOf(InvalidStructuredOutputError);
+		await expect(executor.execute(undefined, model, structured)).rejects.toBeInstanceOf(InvalidStructuredOutputError);
 	});
 
 	it("carries no structured output when none was asked for", async () => {
-		const response = await executor.execute(new ScriptedModel([ModelChunk.text("hi")]), request);
+		const response = await executor.execute(undefined, new ScriptedModel([ModelChunk.text("hi")]), request);
 
 		expect(response.structuredOutput).toBeUndefined();
 	});
@@ -152,7 +152,7 @@ describe("ModelExecutor", () => {
 		const model = new ScriptedModel();
 		const controller = new AbortController();
 
-		await executor.execute(model, request, controller.signal);
+		await executor.execute(undefined, model, request, controller.signal);
 
 		expect(model.signal).toBe(controller.signal);
 	});
@@ -160,7 +160,7 @@ describe("ModelExecutor", () => {
 	it("executes the model it was given, once, and never picks another", async () => {
 		const model = new ScriptedModel([ModelChunk.text("hi")]);
 
-		await executor.execute(model, request);
+		await executor.execute(undefined, model, request);
 
 		expect(model.calls).toBe(1);
 	});

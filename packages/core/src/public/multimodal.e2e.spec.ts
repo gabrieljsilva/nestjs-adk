@@ -33,6 +33,7 @@ import { ToolResultMessage } from "../domain/model/tool-result-message";
 import { UnavailableFailure } from "../domain/model/unavailable-failure";
 import { UserMessage } from "../domain/model/user-message";
 import { PromptInstructions } from "../domain/prompt/prompt-instructions";
+import { SessionContext } from "../domain/run/session-context";
 import { AskInput } from "../domain/session/ask-input";
 import { ToolDefinition } from "../domain/tool/tool-definition";
 import { ToolEffect } from "../domain/tool/tool-effect";
@@ -162,7 +163,7 @@ function imageOf(): MediaPart {
 
 async function messagesOf(storage: InMemorySessionStorage, sessionId: SessionId): Promise<UserMessageReceived[]> {
 	const found: UserMessageReceived[] = [];
-	for await (const stored of storage.readEvents(sessionId, SessionRevision.initial())) {
+	for await (const stored of storage.readEvents(SessionContext.fromSessionId(sessionId), SessionRevision.initial())) {
 		if (stored.event instanceof UserMessageReceived) found.push(stored.event);
 	}
 	return found;
@@ -189,13 +190,14 @@ class RefusingArtifactStorage extends ArtifactStorage {
 
 async function eventCountOf(storage: InMemorySessionStorage, sessionId: SessionId): Promise<number> {
 	let count = 0;
-	for await (const _stored of storage.readEvents(sessionId, SessionRevision.initial())) count += 1;
+	for await (const _stored of storage.readEvents(SessionContext.fromSessionId(sessionId), SessionRevision.initial()))
+		count += 1;
 	return count;
 }
 
 async function resultsOf(storage: InMemorySessionStorage, sessionId: SessionId): Promise<ToolResultProduced[]> {
 	const found: ToolResultProduced[] = [];
-	for await (const stored of storage.readEvents(sessionId, SessionRevision.initial())) {
+	for await (const stored of storage.readEvents(SessionContext.fromSessionId(sessionId), SessionRevision.initial())) {
 		if (stored.event instanceof ToolResultProduced) found.push(stored.event);
 	}
 	return found;
@@ -208,9 +210,9 @@ async function base64Of(
 ): Promise<string> {
 	const id = attachment.artifactId;
 	if (id === undefined) throw new Error("expected the attachment to be a stored one");
-	const reference = await artifacts.find(sessionId, id);
+	const reference = await artifacts.find(SessionContext.fromSessionId(sessionId), id);
 	if (reference === undefined) throw new Error("expected the attachment to have been stored");
-	return (await artifacts.read(sessionId, reference)).text;
+	return (await artifacts.read(SessionContext.fromSessionId(sessionId), reference)).text;
 }
 
 const host = new AdkRuntimeHost();
@@ -291,7 +293,7 @@ describe("a question with an image in it", () => {
 		).rejects.toBeInstanceOf(UnsupportedCapabilityError);
 
 		expect(blind.requests).toHaveLength(0);
-		expect(await storage.find(SessionId.from("id-1"))).toBeUndefined();
+		expect(await storage.find(SessionContext.fromSessionId(SessionId.from("id-1")))).toBeUndefined();
 	});
 
 	it("degrades to a note when a reroute lands on a model that cannot see", async () => {

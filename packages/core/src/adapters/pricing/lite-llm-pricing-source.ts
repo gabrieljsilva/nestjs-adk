@@ -4,6 +4,7 @@ import { SystemClock } from "../../common/time/system-clock";
 import { PricingSource } from "../../contracts/pricing-source";
 import type { ModelPrice } from "../../domain/cost/model-price";
 import type { ModelIdentity } from "../../domain/model/model-identity";
+import type { SessionContext } from "../../domain/run/session-context";
 import { CatalogTransport } from "./catalog-transport";
 import { HttpCatalogTransport } from "./http-catalog-transport";
 import { LiteLlmCatalogProjection } from "./lite-llm-catalog-projection";
@@ -60,7 +61,7 @@ export class LiteLLMPricingSource extends PricingSource {
 		this.retryMillis = options.retryMillis ?? DEFAULT_RETRY_MILLIS;
 	}
 
-	public async priceOf(model: ModelIdentity): Promise<ModelPrice | undefined> {
+	public async findPrice(_context: SessionContext | undefined, model: ModelIdentity): Promise<ModelPrice | undefined> {
 		await this.refreshIfDue();
 		const catalog = this.catalog;
 		if (catalog === undefined) return undefined;

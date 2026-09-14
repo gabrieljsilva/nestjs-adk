@@ -1,5 +1,4 @@
 import type { ArtifactId } from "../../common/identity/artifact-id";
-import type { SessionId } from "../../common/identity/session-id";
 import type { SessionRevision } from "../../common/revision/session-revision";
 import { ArtifactStorage } from "../../contracts/artifact-storage";
 import type { AttachmentResolver } from "../../contracts/attachment-resolver";
@@ -10,6 +9,7 @@ import type { AttachmentReference } from "../../domain/model/attachment-referenc
 import { AttachmentRequest } from "../../domain/model/attachment-request";
 import { MediaLimits } from "../../domain/model/media-limits";
 import { MediaPart } from "../../domain/model/media-part";
+import type { SessionContext } from "../../domain/run/session-context";
 import { DefaultAttachmentResolver } from "./default-attachment-resolver";
 import { ResolvedAttachments } from "./resolved-attachments";
 
@@ -57,7 +57,7 @@ export class AttachmentReader {
 	}
 
 	public async read(
-		sessionId: SessionId,
+		context: SessionContext,
 		references: readonly AttachmentReference[],
 		revision: SessionRevision,
 		isCurrentRun: boolean,
@@ -66,10 +66,10 @@ export class AttachmentReader {
 		const media: MediaPart[] = [];
 		const notes: string[] = [];
 		for (const reference of references) {
-			const request = new AttachmentRequest(sessionId, reference, revision, isCurrentRun, acceptsRemoteUrl, () =>
-				this.materialize(sessionId, reference),
+			const request = new AttachmentRequest(context.sessionId, reference, revision, isCurrentRun, acceptsRemoteUrl, () =>
+				this.materialize(context, reference),
 			);
-			const projection = await this.projectionOf(request);
+			const projection = await this.projectionOf(context, request);
 			const part = projection.part;
 			if (part !== undefined) media.push(part);
 			const text = projection.text;
@@ -78,26 +78,26 @@ export class AttachmentReader {
 		return new ResolvedAttachments(media, notes);
 	}
 
-	private async projectionOf(request: AttachmentRequest): Promise<AttachmentProjection> {
+	private async projectionOf(context: SessionContext, request: AttachmentRequest): Promise<AttachmentProjection> {
 		try {
-			return await this.resolver.resolve(request);
+			return await this.resolver.resolve(context, request);
 		} catch {
 			return AttachmentProjection.noteFor(request.reference, "could not be resolved");
 		}
 	}
 
 	/** The runtime's own answer: stored bytes, a recorded address, nothing for an external id. */
-	private async materialize(sessionId: SessionId, reference: AttachmentReference): Promise<MediaPart | undefined> {
+	private async materialize(context: SessionContext, reference: AttachmentReference): Promise<MediaPart | undefined> {
 		const url = reference.url;
 		if (url !== undefined) return this.linked(url, reference.mediaType);
 
 		const id = reference.artifactId;
 		if (id === undefined) return undefined;
-		const key = `${sessionId.value}/${id.value}`;
+		const key = `${context.sessionId.value}/${id.value}`;
 		const hit = this.cached.get(key);
 		if (hit !== undefined) return hit;
 
-		const part = await this.fetch(sessionId, id);
+		const part = await this.fetch(context, id);
 		if (part !== undefined) this.remember(key, part);
 		return part;
 	}
@@ -117,11 +117,11 @@ export class AttachmentReader {
 		}
 	}
 
-	private async fetch(sessionId: SessionId, id: ArtifactId): Promise<MediaPart | undefined> {
+	private async fetch(context: SessionContext, id: ArtifactId): Promise<MediaPart | undefined> {
 		try {
-			const reference = await this.storage.find(sessionId, id);
+			const reference = await this.storage.find(context, id);
 			if (reference === undefined) return undefined;
-			const content = await this.storage.read(sessionId, reference);
+			const content = await this.storage.read(context, reference);
 			return MediaPart.image(content.mediaType, content.text);
 		} catch {
 			return undefined;

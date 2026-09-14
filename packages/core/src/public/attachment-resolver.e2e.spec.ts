@@ -27,6 +27,7 @@ import { ModelIdentity } from "../domain/model/model-identity";
 import { ModelRequest } from "../domain/model/model-request";
 import { UserMessage } from "../domain/model/user-message";
 import { PromptInstructions } from "../domain/prompt/prompt-instructions";
+import { SessionContext } from "../domain/run/session-context";
 import { AskInput } from "../domain/session/ask-input";
 import { RuntimeOptions } from "../runtime/composition/runtime-options";
 import { AgentRunCommand } from "../runtime/run/agent-run-command";
@@ -83,7 +84,7 @@ function agentOf(model: LlmModel): DeclaredAgent {
 
 async function messagesOf(storage: InMemorySessionStorage, sessionId: SessionId): Promise<UserMessageReceived[]> {
 	const found: UserMessageReceived[] = [];
-	for await (const stored of storage.readEvents(sessionId, SessionRevision.initial())) {
+	for await (const stored of storage.readEvents(SessionContext.fromSessionId(sessionId), SessionRevision.initial())) {
 		if (stored.event instanceof UserMessageReceived) found.push(stored.event);
 	}
 	return found;
@@ -187,7 +188,7 @@ describe("a question naming a file the application owns", () => {
 	it("survives a resolver that throws, telling the model what stood there", async () => {
 		const model = new SeeingModel();
 		const failing = new (class extends AttachmentResolver {
-			public async resolve(): Promise<AttachmentProjection> {
+			public async resolve(_context: SessionContext): Promise<AttachmentProjection> {
 				throw new Error("the bucket is down");
 			}
 		})();
@@ -212,7 +213,7 @@ describe("a question naming a file the application owns", () => {
 	it("lets the application drop an old image by position, keeping only the current turn's", async () => {
 		const model = new SeeingModel();
 		const recencyOnly = new (class extends AttachmentResolver {
-			public async resolve(request: AttachmentRequest): Promise<AttachmentProjection> {
+			public async resolve(_context: SessionContext, request: AttachmentRequest): Promise<AttachmentProjection> {
 				if (!request.isCurrentRun) return AttachmentProjection.noteFor(request.reference, "dropped by policy");
 				return AttachmentProjection.media(MediaPart.image("image/png", PIXEL));
 			}
@@ -246,6 +247,6 @@ describe("a question naming a file the application owns", () => {
 		const { runtime } = await startedWith(blind, undefined, storage);
 
 		await expect(runtime.runner.ask(askWith([RECEIPT]))).rejects.toBeInstanceOf(UnsupportedCapabilityError);
-		expect(await storage.find(SessionId.from("id-1"))).toBeUndefined();
+		expect(await storage.find(SessionContext.fromSessionId(SessionId.from("id-1")))).toBeUndefined();
 	});
 });

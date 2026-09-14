@@ -1,5 +1,6 @@
 import type { CompactionDecision } from "../domain/context/compaction-decision";
 import type { ContextProjection } from "../domain/context/context-projection";
+import type { RunContext } from "../domain/run/run-context";
 
 /**
  * How a context that grew too long becomes one that fits.
@@ -19,5 +20,9 @@ export abstract class CompactionStrategy {
 	/** Bump it whenever the same input would now produce a different compaction. */
 	public abstract readonly version: number;
 
-	public abstract compact(projection: ContextProjection, decision: CompactionDecision): Promise<ContextProjection>;
+	public abstract compact(
+		context: RunContext,
+		projection: ContextProjection,
+		decision: CompactionDecision,
+	): Promise<ContextProjection>;
 }

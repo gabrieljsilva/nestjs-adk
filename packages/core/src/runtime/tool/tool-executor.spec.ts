@@ -21,6 +21,7 @@ import { ToolDefinition } from "../../domain/tool/tool-definition";
 import { ToolEffect } from "../../domain/tool/tool-effect";
 import { ToolHandler } from "../../domain/tool/tool-handler";
 import { ToolInvocation } from "../../domain/tool/tool-invocation";
+import { RunContextFixture } from "../../support/run/run-context.fixture";
 import { SequenceIdGenerator } from "../../support/sequence-id-generator";
 import { ArtifactOffloader } from "../artifact/artifact-offloader";
 import { ToolBreaker } from "./tool-breaker";
@@ -65,14 +66,10 @@ function refundOf(handler: ToolHandler, effect: ToolEffect = ToolEffect.WRITE): 
 
 function commandOf(tool: ToolDefinition, args: unknown, approved = false, actor?: Actor): ToolExecutionCommand {
 	return new ToolExecutionCommand(
-		SESSION,
-		RUN,
-		SUPPORT,
+		RunContextFixture.run(SESSION, { agent: SUPPORT, runId: RUN.value, actor }),
 		ToolCatalog.of([tool]),
 		new ToolInvocation(CALL, tool.name, args),
-		undefined,
 		approved,
-		actor,
 	);
 }
 
@@ -175,9 +172,7 @@ describe("ToolExecutor", () => {
 
 	it("tells the model when it asked for a tool that does not exist", async () => {
 		const command = new ToolExecutionCommand(
-			SESSION,
-			RUN,
-			SUPPORT,
+			RunContextFixture.run(SESSION, { agent: SUPPORT, runId: RUN.value }),
 			ToolCatalog.of([refundOf(new RecordingHandler())]),
 			new ToolInvocation(CALL, "refunds", { orderId: "42" }),
 		);
@@ -280,7 +275,11 @@ describe("ToolExecutor", () => {
 		const breaker = new ToolBreaker(RunLimits.of(undefined, 2));
 		const catalog = ToolCatalog.of([refundOf(new RecordingHandler())]);
 		const missing = (name: string): ToolExecutionCommand =>
-			new ToolExecutionCommand(SESSION, RUN, SUPPORT, catalog, new ToolInvocation(CALL, name, {}));
+			new ToolExecutionCommand(
+				RunContextFixture.run(SESSION, { agent: SUPPORT, runId: RUN.value }),
+				catalog,
+				new ToolInvocation(CALL, name, {}),
+			);
 
 		await executorOf().execute(missing("tool_a"), breaker);
 

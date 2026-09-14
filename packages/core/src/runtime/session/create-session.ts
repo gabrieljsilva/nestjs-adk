@@ -3,6 +3,7 @@ import { SessionId } from "../../common/identity/session-id";
 import type { Clock } from "../../common/time/clock";
 import type { AgentName } from "../../domain/agent/agent-name";
 import { SessionEventBatch } from "../../domain/event/session-event-batch";
+import { SessionContext } from "../../domain/run/session-context";
 import type { CreateSessionInput } from "../../domain/session/create-session-input";
 import { Session } from "../../domain/session/session";
 import { SessionState } from "../../domain/session/session-state";
@@ -41,7 +42,7 @@ export class CreateSession {
 
 	public async handle(agent: AgentName, input: CreateSessionInput): Promise<Session> {
 		const session = Session.start(input.sessionId ?? SessionId.from(this.ids.next()), agent, this.clock.now());
-		await this.sessions.create(session);
+		await this.sessions.create(new SessionContext(session.id, input.metadata, session.revision), session);
 		if (input.metadata.isEmpty) return session;
 		return await this.record(session, agent, input);
 	}
@@ -51,7 +52,7 @@ export class CreateSession {
 		const started = this.runs.start(session.id, agent);
 		try {
 			const state = await this.sessions.commit(
-				session.id,
+				new SessionContext(session.id, input.metadata, session.revision),
 				session.revision,
 				SessionEventBatch.of([...this.journal.metadata(started, input.metadata)]),
 				SessionState.initial(),

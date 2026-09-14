@@ -79,7 +79,7 @@ export class TurnLoop extends DelegatedTurnLoop {
 			if (outcome.response.hasText) progress.said(outcome.response.text);
 			if (outcome.response.structuredOutput !== undefined) progress.answered(outcome.response.structuredOutput);
 
-			await this.commit(
+			current = await this.commit(
 				current,
 				progress,
 				this.journal.turn(current.started, outcome, prepared.characters, calls.length === 0 && !empty),
@@ -99,7 +99,7 @@ export class TurnLoop extends DelegatedTurnLoop {
 			const turn = this.gate.screen(current.catalog, calls, current.actor);
 			await this.announce(current, turn, observers.tools);
 			if (this.gate.holdsAny(turn)) {
-				await this.commit(current, progress, this.journal.suspension(current.started, turn));
+				current = await this.commit(current, progress, this.journal.suspension(current.started, turn));
 				progress.suspend();
 				return;
 			}
@@ -107,7 +107,7 @@ export class TurnLoop extends DelegatedTurnLoop {
 			// Delegations commit as they run, so they happen before the results of this turn exist.
 			const delegated = await this.delegations.runAll(current, opened, progress, turn);
 			const batch = await this.executor.execute(current, turn, false, delegated, observers.tools);
-			await this.commit(current, progress, batch);
+			current = await this.commit(current, progress, batch);
 
 			const target = this.agents.requestedIn(batch);
 			if (target !== undefined) {
@@ -143,11 +143,21 @@ export class TurnLoop extends DelegatedTurnLoop {
 	 */
 	private async announce(scope: RunScope, turn: readonly PendingCall[], observer?: ToolCallObserver): Promise<void> {
 		if (observer === undefined) return;
-		for (const call of turn) await observer.requested(ToolCallNotice.of(call, scope.catalog.find(call.toolName)));
+		for (const call of turn) {
+			await observer.requested(scope.context, ToolCallNotice.of(call, scope.catalog.find(call.toolName)));
+		}
 	}
 
-	private async commit(scope: RunScope, progress: RunProgress, batch: SessionEventBatch): Promise<void> {
-		progress.advanced(await this.sessions.commit(scope.sessionId, progress.state.revision, batch, progress.state));
+	/**
+	 * Commits, and answers the scope the rest of the run reads from.
+	 *
+	 * A tool of this turn may have written session metadata, and the fold moves on the commit
+	 * that carried it. Handing the new one back is what lets the next call of the same run see
+	 * what the last one wrote, instead of a tool being the one component blind to its own write.
+	 */
+	private async commit(scope: RunScope, progress: RunProgress, batch: SessionEventBatch): Promise<RunScope> {
+		progress.advanced(await this.sessions.commit(scope.context, progress.state.revision, batch, progress.state));
+		return scope.withMetadata(progress.state.metadata);
 	}
 
 	/** The size a provider reported for the previous turn is the only anchor this one has. */
@@ -156,14 +166,13 @@ export class TurnLoop extends DelegatedTurnLoop {
 		const measured = state.lastPrompt?.takenBy(scope.model.descriptor().identity);
 		return this.context.prepare(
 			new PrepareContextCommand(
-				opened.session.id,
+				scope.context,
 				scope.model,
 				scope.catalog.declarations(),
 				undefined,
 				scope.skills.instructions(scope.instructions),
 				scope.compaction,
 				measured,
-				scope.run.id,
 				scope.definition.outputSchema,
 			),
 		);
@@ -171,6 +180,7 @@ export class TurnLoop extends DelegatedTurnLoop {
 
 	private commandOf(scope: RunScope, prepared: PreparedModelContext): ModelRunCommand {
 		return new ModelRunCommand(
+			scope.context,
 			scope.run.id,
 			scope.agent,
 			scope.model,

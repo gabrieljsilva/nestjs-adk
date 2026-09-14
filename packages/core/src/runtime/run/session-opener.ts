@@ -1,5 +1,6 @@
 import type { SessionId } from "../../common/identity/session-id";
 import type { Clock } from "../../common/time/clock";
+import { SessionContext } from "../../domain/run/session-context";
 import { SessionClosedError } from "../../domain/session/errors/session-closed.error";
 import { Session } from "../../domain/session/session";
 import { SessionState } from "../../domain/session/session-state";
@@ -28,7 +29,7 @@ export class SessionOpener {
 	public async open(command: AgentRunCommand, sessionId: SessionId): Promise<OpenedSession> {
 		if (command.input.sessionId === undefined) return this.start(command, sessionId);
 
-		const rehydrated = await this.sessions.rehydrate(sessionId);
+		const rehydrated = await this.sessions.rehydrate(SessionContext.fromSessionId(sessionId));
 		if (!rehydrated.session.acceptsCommands) {
 			throw new SessionClosedError(sessionId.value, rehydrated.session.status.toString());
 		}
@@ -37,7 +38,7 @@ export class SessionOpener {
 
 	private async start(command: AgentRunCommand, sessionId: SessionId): Promise<OpenedSession> {
 		const session = Session.start(sessionId, command.agent, this.clock.now());
-		await this.sessions.create(session);
+		await this.sessions.create(SessionContext.fromSession(session), session);
 		return new OpenedSession(session, SessionState.initial(), true);
 	}
 

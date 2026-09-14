@@ -1,6 +1,6 @@
-import type { SessionId } from "../../common/identity/session-id";
 import type { SessionEvent } from "../../domain/event/session-event";
 import { SessionEventBatch } from "../../domain/event/session-event-batch";
+import type { SessionContext } from "../../domain/run/session-context";
 import type { SessionState } from "../../domain/session/session-state";
 import type { SessionManager } from "../session/session-manager";
 import type { RunJournal } from "./run-journal";
@@ -25,30 +25,30 @@ export class RunSettler {
 		private readonly journal: RunJournal,
 	) {}
 
-	public async settle(sessionId: SessionId, state: SessionState, started: StartedRun, error: unknown): Promise<void> {
+	public async settle(context: SessionContext, state: SessionState, started: StartedRun, error: unknown): Promise<void> {
 		const terminal = this.journal.terminal(started, error);
 		try {
-			await this.commit(sessionId, state.revision, state, terminal);
+			await this.commit(context, state.revision, state, terminal);
 		} catch {
-			await this.rebase(sessionId, terminal);
+			await this.rebase(context, terminal);
 		}
 	}
 
-	private async rebase(sessionId: SessionId, terminal: SessionEvent): Promise<void> {
+	private async rebase(context: SessionContext, terminal: SessionEvent): Promise<void> {
 		try {
-			const rehydrated = await this.sessions.rehydrate(sessionId);
-			await this.commit(sessionId, rehydrated.session.revision, rehydrated.state, terminal);
+			const rehydrated = await this.sessions.rehydrate(context);
+			await this.commit(context, rehydrated.session.revision, rehydrated.state, terminal);
 		} catch {
-			await this.sessions.announce(sessionId, terminal);
+			await this.sessions.announce(context, terminal);
 		}
 	}
 
 	private async commit(
-		sessionId: SessionId,
+		context: SessionContext,
 		revision: SessionState["revision"],
 		state: SessionState,
 		terminal: SessionEvent,
 	): Promise<void> {
-		await this.sessions.commit(sessionId, revision, SessionEventBatch.of([terminal]), state);
+		await this.sessions.commit(context, revision, SessionEventBatch.of([terminal]), state);
 	}
 }

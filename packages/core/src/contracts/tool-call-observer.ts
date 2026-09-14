@@ -1,3 +1,4 @@
+import type { RunContext } from "../domain/run/run-context";
 import type { ToolCallNotice } from "../domain/tool/tool-call-notice";
 import type { ToolResultNotice } from "../domain/tool/tool-result-notice";
 
@@ -21,6 +22,6 @@ import type { ToolResultNotice } from "../domain/tool/tool-result-notice";
  * parent asked a question and is owed an answer, not the working out.
  */
 export abstract class ToolCallObserver {
-	public abstract requested(call: ToolCallNotice): Promise<void> | void;
-	public abstract settled(result: ToolResultNotice): Promise<void> | void;
+	public abstract requested(context: RunContext, call: ToolCallNotice): Promise<void> | void;
+	public abstract settled(context: RunContext, result: ToolResultNotice): Promise<void> | void;
 }

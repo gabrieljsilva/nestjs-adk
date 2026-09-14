@@ -11,6 +11,7 @@ import { SessionCreated } from "../../domain/event/catalog/session-created";
 import { UserMessageReceived } from "../../domain/event/catalog/user-message-received";
 import { ModelChunk } from "../../domain/model/model-chunk";
 import { ModelUsage } from "../../domain/model/model-usage";
+import { SessionContext } from "../../domain/run/session-context";
 import { AgentRunStatus } from "../../domain/session/agent-run-status";
 import { AskInput } from "../../domain/session/ask-input";
 import { SessionClosedError } from "../../domain/session/errors/session-closed.error";
@@ -33,7 +34,7 @@ describe("AskAgent", () => {
 
 		expect(result.text).toBe("hello");
 		expect(result.status.equals(AgentRunStatus.COMPLETED)).toBe(true);
-		expect(await harness.storage.find(result.sessionId)).toBeDefined();
+		expect(await harness.storage.find(SessionContext.fromSessionId(result.sessionId))).toBeDefined();
 	});
 
 	it("journals the question before the answer, and the answer with the end of the run", async () => {
@@ -131,7 +132,7 @@ describe("AskAgent", () => {
 		const error = await failing.asking.handle(new AgentRunCommand(SUPPORT, AskInput.of("hi"))).catch((reason) => reason);
 
 		expect(error).toBeInstanceOf(Error);
-		const sessions = await failing.storage.find(SessionId.from("id-1"));
+		const sessions = await failing.storage.find(SessionContext.fromSessionId(SessionId.from("id-1")));
 		expect(sessions).toBeDefined();
 		const failed = (await failing.journalOf(SessionId.from("id-1"))).find(
 			(event): event is AgentRunFailed => event instanceof AgentRunFailed,
@@ -151,9 +152,9 @@ describe("AskAgent", () => {
 
 	it("refuses a session that no longer accepts commands", async () => {
 		const first = await harness.asking.handle(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
-		const stored = await harness.storage.findOrFail(first.sessionId);
-		await harness.storage.delete(first.sessionId);
-		await harness.storage.create(stored.withStatus(SessionStatus.CLOSED));
+		const stored = await harness.storage.findOrFail(SessionContext.fromSessionId(first.sessionId));
+		await harness.storage.delete(SessionContext.fromSessionId(first.sessionId));
+		await harness.storage.create(SessionContext.fromSessionId(first.sessionId), stored.withStatus(SessionStatus.CLOSED));
 
 		const error = await harness.asking
 			.handle(new AgentRunCommand(SUPPORT, AskInput.of("again", first.sessionId)))

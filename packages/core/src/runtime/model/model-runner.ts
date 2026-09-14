@@ -41,7 +41,7 @@ export class ModelRunner {
 			attempted.push(model);
 			let emitted = false;
 			try {
-				const turn = this.executor.stream(model, command.request, command.signal);
+				const turn = this.executor.stream(command.context, model, command.request, command.signal);
 				let step = await turn.next();
 				while (step.done !== true) {
 					emitted = true;

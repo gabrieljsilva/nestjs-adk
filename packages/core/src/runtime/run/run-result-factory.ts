@@ -1,3 +1,4 @@
+import type { RunContext } from "../../domain/run/run-context";
 import { AgentResult } from "../../domain/session/agent-result";
 import { AgentRunStatus } from "../../domain/session/agent-run-status";
 import type { RunCostReporter } from "../cost/run-cost-reporter";
@@ -16,14 +17,14 @@ export class RunResultFactory {
 	public constructor(private readonly costs: RunCostReporter) {}
 
 	/** How a run that went through the loop ends, whether it answered or stopped to wait. */
-	public async after(started: StartedRun, progress: RunProgress): Promise<AgentResult> {
+	public async after(context: RunContext, started: StartedRun, progress: RunProgress): Promise<AgentResult> {
 		return new AgentResult(
 			started.run.sessionId,
 			started.run.id,
 			progress.isSuspended ? AgentRunStatus.SUSPENDED : AgentRunStatus.COMPLETED,
 			progress.answer,
 			progress.state.pendingTurn?.awaiting ?? [],
-			await this.costs.report(progress.billed),
+			await this.costs.report(context, progress.billed),
 			progress.output,
 		);
 	}
@@ -35,14 +36,19 @@ export class RunResultFactory {
 	 * awaiting: a delegation that suspended never gets here, because a parent cannot answer for a
 	 * call its child is waiting on.
 	 */
-	public async answering(started: StartedRun, progress: RunProgress, text: string): Promise<AgentResult> {
+	public async answering(
+		context: RunContext,
+		started: StartedRun,
+		progress: RunProgress,
+		text: string,
+	): Promise<AgentResult> {
 		return new AgentResult(
 			started.run.sessionId,
 			started.run.id,
 			AgentRunStatus.COMPLETED,
 			text,
 			[],
-			await this.costs.report(progress.billed),
+			await this.costs.report(context, progress.billed),
 			progress.output,
 		);
 	}

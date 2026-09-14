@@ -1,4 +1,5 @@
 import type { SessionId } from "../../common/identity/session-id";
+import { SessionContext } from "../../domain/run/session-context";
 import { SessionInspection } from "../../domain/session/session-inspection";
 import type { SessionManager } from "./session-manager";
 
@@ -18,7 +19,7 @@ export class InspectSession {
 	public constructor(private readonly sessions: SessionManager) {}
 
 	public async handle(sessionId: SessionId): Promise<SessionInspection> {
-		const rehydrated = await this.sessions.rehydrate(sessionId);
+		const rehydrated = await this.sessions.rehydrate(SessionContext.fromSessionId(sessionId));
 		return SessionInspection.of(rehydrated.session, rehydrated.state);
 	}
 }

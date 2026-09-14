@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { SessionId } from "../../common/identity/session-id";
 import { Embedder } from "../../contracts/embedder";
 import { MeteredEmbedder } from "../../contracts/metered-embedder";
 import { PricingNoticeSink } from "../../contracts/pricing-notice-sink";
@@ -10,6 +11,7 @@ import { EmbeddingVector } from "../../domain/embedding/embedding-vector";
 import { MeteredEmbedding } from "../../domain/embedding/metered-embedding";
 import { ModelIdentity } from "../../domain/model/model-identity";
 import { ModelUsage } from "../../domain/model/model-usage";
+import { SessionContext } from "../../domain/run/session-context";
 import { CostCalculator } from "./cost-calculator";
 import { PricedEmbedder } from "./priced-embedder";
 import { RunCostReporter } from "./run-cost-reporter";
@@ -18,7 +20,7 @@ const EMBEDDING_MODEL = ModelIdentity.of("openai", "text-embedding-3-small");
 const PRICE = ModelPrice.of(TokenRate.fromUsdPerToken(2e-8), TokenRate.zero());
 
 class KnowsEmbeddings extends PricingSource {
-	public async priceOf(model: ModelIdentity): Promise<ModelPrice | undefined> {
+	public async findPrice(_context: SessionContext | undefined, model: ModelIdentity): Promise<ModelPrice | undefined> {
 		return model.equals(EMBEDDING_MODEL) ? PRICE : undefined;
 	}
 }
@@ -26,7 +28,7 @@ class KnowsEmbeddings extends PricingSource {
 class CollectedNotices extends PricingNoticeSink {
 	public readonly reported: ModelUnpriced[] = [];
 
-	public report(notice: ModelUnpriced): void {
+	public report(_context: SessionContext | undefined, notice: ModelUnpriced): void {
 		this.reported.push(notice);
 	}
 }
@@ -45,6 +47,8 @@ class ReportingEmbedder extends MeteredEmbedder {
 
 const pricedOn = (embedder: Embedder, notices?: PricingNoticeSink) =>
 	new PricedEmbedder(embedder, new RunCostReporter(new CostCalculator(), new KnowsEmbeddings(), notices));
+
+const CTX = SessionContext.fromSessionId(SessionId.from("s-1"));
 
 describe("PricedEmbedder", () => {
 	it("prices an embedder that reports what it consumed", async () => {

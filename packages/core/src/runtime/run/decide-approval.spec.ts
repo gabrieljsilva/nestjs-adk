@@ -7,6 +7,7 @@ import { ToolApprovalGranted } from "../../domain/event/catalog/tool-approval-gr
 import { ToolResultProduced } from "../../domain/event/catalog/tool-result-produced";
 import { ModelChunk } from "../../domain/model/model-chunk";
 import { ToolCallDelta } from "../../domain/model/tool-call-delta";
+import type { RunContext } from "../../domain/run/run-context";
 import { AgentRunStatus } from "../../domain/session/agent-run-status";
 import { AskInput } from "../../domain/session/ask-input";
 import { ApprovalNotPendingError } from "../../domain/session/errors/approval-not-pending.error";
@@ -73,11 +74,11 @@ class LoggingObserver extends ToolCallObserver {
 	public readonly requests: ToolCallNotice[] = [];
 	public readonly results: ToolResultNotice[] = [];
 
-	public requested(call: ToolCallNotice): void {
+	public requested(_context: RunContext, call: ToolCallNotice): void {
 		this.requests.push(call);
 	}
 
-	public settled(result: ToolResultNotice): void {
+	public settled(_context: RunContext, result: ToolResultNotice): void {
 		this.results.push(result);
 	}
 }

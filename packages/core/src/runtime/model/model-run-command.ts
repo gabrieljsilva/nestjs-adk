@@ -3,6 +3,7 @@ import type { AgentFailoverPolicy } from "../../domain/agent/agent-failover-poli
 import type { AgentName } from "../../domain/agent/agent-name";
 import type { LlmModel } from "../../domain/model/llm-model";
 import type { ModelRequest } from "../../domain/model/model-request";
+import type { RunContext } from "../../domain/run/run-context";
 
 /**
  * One turn to run, with the model to start from and the policy to fall back through.
@@ -11,6 +12,8 @@ import type { ModelRequest } from "../../domain/model/model-request";
  */
 export class ModelRunCommand {
 	public constructor(
+		/** Where this turn is happening, so a validator reads the same facts every other port reads. */
+		public readonly context: RunContext,
 		public readonly runId: AgentRunId,
 		public readonly agent: AgentName,
 		public readonly model: LlmModel,

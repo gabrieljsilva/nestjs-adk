@@ -1,5 +1,6 @@
 import { StructuredOutputValidator } from "../../contracts/structured-output-validator";
 import { InvalidStructuredOutputError } from "../../domain/model/errors/invalid-structured-output.error";
+import type { RunContext } from "../../domain/run/run-context";
 
 /**
  * The default: the answer has to be a JSON object, and nothing further is checked.
@@ -10,7 +11,7 @@ import { InvalidStructuredOutputError } from "../../domain/model/errors/invalid-
  * with the answer attached, instead of reaching the caller as a shape nobody validated.
  */
 export class JsonStructuredOutputValidator extends StructuredOutputValidator {
-	public validate(_schema: unknown, answer: string): unknown {
+	public validate(_context: RunContext | undefined, _schema: unknown, answer: string): unknown {
 		const text = answer.trim();
 		if (text.length === 0) throw new InvalidStructuredOutputError("the model answered nothing", answer);
 

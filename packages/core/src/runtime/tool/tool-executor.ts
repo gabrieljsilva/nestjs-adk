@@ -117,14 +117,7 @@ export class ToolExecutor {
 		breaker: ToolBreaker,
 	): Promise<ToolOutcome> {
 		const invocation = command.invocation;
-		const context = new ToolContext(
-			command.sessionId,
-			command.runId,
-			command.agent,
-			invocation.callId,
-			command.signal,
-			command.actor,
-		);
+		const context = command.toToolContext();
 
 		let answered: unknown;
 		try {
@@ -138,9 +131,7 @@ export class ToolExecutor {
 		const media = answered instanceof ToolOutput ? answered.media : [];
 		const text = this.textOf(produced);
 		// A tool that exists to bring content back into the context must not have it taken out again.
-		const offloaded = tool.internal
-			? OffloadedContent.inline(text)
-			: await this.offloader.offload(command.sessionId, text);
+		const offloaded = tool.internal ? OffloadedContent.inline(text) : await this.offloader.offload(command.context, text);
 		return ToolOutcome.succeeded(
 			invocation.callId,
 			tool.name,
@@ -164,7 +155,7 @@ export class ToolExecutor {
 	): Promise<readonly AttachmentReference[]> {
 		if (media.length === 0) return [];
 		try {
-			return await this.attachments.store(command.sessionId, media);
+			return await this.attachments.store(command.context, media);
 		} catch {
 			return [];
 		}

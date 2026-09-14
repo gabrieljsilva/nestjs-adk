@@ -1,13 +1,15 @@
-import { AssistantMessage, ContextBlock, SessionRevision, UserMessage } from "@nestjs-adk/core";
+import { AssistantMessage, ContextBlock, type RunContext, SessionRevision, UserMessage } from "@nestjs-adk/core";
 import { ScriptedModel } from "@nestjs-adk/testing";
 import { describe, expect, it } from "vitest";
 import { StoreSummarizer } from "./store-summarizer";
+
+const RUN = undefined as unknown as RunContext;
 
 describe("StoreSummarizer", () => {
 	it("answers what the model wrote, trimmed", async () => {
 		const model = new ScriptedModel().mockText("  The customer asked about order A-1042.  ");
 
-		const summary = await new StoreSummarizer(model).summarize([
+		const summary = await new StoreSummarizer(model).summarize(RUN, [
 			ContextBlock.conversation(new UserMessage("What about order A-1042?"), SessionRevision.initial()),
 		]);
 
@@ -17,7 +19,7 @@ describe("StoreSummarizer", () => {
 	it("hands the model every turn it is about to drop, labelled by who said it", async () => {
 		const model = new ScriptedModel().mockText("summary");
 
-		await new StoreSummarizer(model).summarize([
+		await new StoreSummarizer(model).summarize(RUN, [
 			ContextBlock.conversation(new UserMessage("I want to return A-1042"), SessionRevision.initial()),
 			ContextBlock.conversation(new AssistantMessage("I will check."), SessionRevision.initial()),
 		]);
@@ -31,7 +33,7 @@ describe("StoreSummarizer", () => {
 	it("never calls the model when there is nothing to summarize", async () => {
 		const model = new ScriptedModel().mockText("summary");
 
-		const summary = await new StoreSummarizer(model).summarize([
+		const summary = await new StoreSummarizer(model).summarize(RUN, [
 			ContextBlock.conversation(new UserMessage("   "), SessionRevision.initial()),
 		]);
 
@@ -42,7 +44,7 @@ describe("StoreSummarizer", () => {
 	it("asks for a summary short enough that it never becomes the context it replaced", async () => {
 		const model = new ScriptedModel().mockText("summary");
 
-		await new StoreSummarizer(model).summarize([
+		await new StoreSummarizer(model).summarize(RUN, [
 			ContextBlock.conversation(new UserMessage("hello"), SessionRevision.initial()),
 		]);
 

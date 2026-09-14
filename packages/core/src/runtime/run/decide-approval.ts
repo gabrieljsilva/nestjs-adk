@@ -6,6 +6,8 @@ import type { ToolSource } from "../../contracts/tool-source";
 import type { AgentDefinition } from "../../domain/agent/agent-definition";
 import { SessionEventBatch } from "../../domain/event/session-event-batch";
 import type { LlmModel } from "../../domain/model/llm-model";
+import { RunContext } from "../../domain/run/run-context";
+import { SessionContext } from "../../domain/run/session-context";
 import type { AgentResult } from "../../domain/session/agent-result";
 import { ApprovalNotPendingError } from "../../domain/session/errors/approval-not-pending.error";
 import type { ApprovalDecision } from "../../domain/session/pending-call";
@@ -77,7 +79,7 @@ export class DecideApproval {
 		options: ApprovalOptions = {},
 	): Promise<AgentResult> {
 		const { by, reason, sources: perRun = [], signal, actor, toolCalls } = options;
-		const rehydrated = await this.sessions.rehydrate(sessionId);
+		const rehydrated = await this.sessions.rehydrate(SessionContext.fromSessionId(sessionId));
 		if (rehydrated.state.pendingTurn?.isAwaiting(callId) !== true) {
 			throw new ApprovalNotPendingError(sessionId.value, callId.value);
 		}
@@ -86,9 +88,10 @@ export class DecideApproval {
 		const model = this.models.resolve(definition);
 		const started = this.runs.resume(sessionId, definition.name, rehydrated.state.pendingTurn.runId, signal);
 		const sources = new ToolSourceScope(this.sources, perRun);
+		const context = RunContext.fromOpenedSession(rehydrated.session, rehydrated.state, started.run, { signal, actor });
 		const progress = new RunProgress(
 			await this.sessions.commit(
-				sessionId,
+				context,
 				rehydrated.session.revision,
 				SessionEventBatch.of([
 					this.journal.started(started, definition.name, model.descriptor().identity),
@@ -108,17 +111,17 @@ export class DecideApproval {
 
 		try {
 			return await this.release(
+				context.withMetadata(progress.state.metadata),
 				definition,
 				model,
 				started,
 				progress,
 				sources,
 				rehydrated.session,
-				actor,
 				RunObservers.none().watchingTools(toolCalls),
 			);
 		} catch (error) {
-			await this.settler.settle(sessionId, progress.state, started, error);
+			await this.settler.settle(context, progress.state, started, error);
 			throw error;
 		} finally {
 			await sources.close(started.run.id);
@@ -128,42 +131,49 @@ export class DecideApproval {
 
 	/** The turn runs when nobody is waiting on it anymore, and stays suspended until then. */
 	private async release(
+		context: RunContext,
 		definition: AgentDefinition,
 		model: LlmModel,
 		started: StartedRun,
 		progress: RunProgress,
 		sources: ToolSourceScope,
 		session: Session,
-		actor: Actor | undefined,
 		observers: RunObservers,
 	): Promise<AgentResult> {
 		const turn = progress.state.pendingTurn;
 		if (turn === undefined) throw new ApprovalNotPendingError(session.id.value, started.run.id.value);
-		if (!turn.isDecided) return this.staySuspended(started, progress, turn);
+		if (!turn.isDecided) return this.staySuspended(context, started, progress, turn);
 
 		const remote = await sources.open(session.id, started.run.id, started.cancellation.signal);
-		const scope = await this.scopes.create(definition, model, started, remote, undefined, progress.state.metadata, actor);
-		await this.commit(scope, progress, await this.executor.execute(scope, turn.calls, true, undefined, observers.tools));
+		const scope = await this.scopes.create(context, definition, model, started, remote);
+		const released = await this.executor.execute(scope, turn.calls, true, undefined, observers.tools);
+		const running = await this.commit(scope, progress, released);
 
-		await this.loop.run(scope, new OpenedSession(session, progress.state, false), progress, observers);
-		return await this.results.after(started, progress);
+		await this.loop.run(running, new OpenedSession(session, progress.state, false), progress, observers);
+		return await this.results.after(running.context, started, progress);
 	}
 
 	/** Somebody still has to answer, so this run ends the way the one before it did. */
-	private async staySuspended(started: StartedRun, progress: RunProgress, turn: PendingTurn): Promise<AgentResult> {
+	private async staySuspended(
+		context: RunContext,
+		started: StartedRun,
+		progress: RunProgress,
+		turn: PendingTurn,
+	): Promise<AgentResult> {
 		progress.advanced(
 			await this.sessions.commit(
-				started.run.sessionId,
+				context,
 				progress.state.revision,
 				this.journal.stillWaiting(started, turn),
 				progress.state,
 			),
 		);
 		progress.suspend();
-		return await this.results.after(started, progress);
+		return await this.results.after(context, started, progress);
 	}
 
-	private async commit(scope: RunScope, progress: RunProgress, batch: SessionEventBatch): Promise<void> {
-		progress.advanced(await this.sessions.commit(scope.sessionId, progress.state.revision, batch, progress.state));
+	private async commit(scope: RunScope, progress: RunProgress, batch: SessionEventBatch): Promise<RunScope> {
+		progress.advanced(await this.sessions.commit(scope.context, progress.state.revision, batch, progress.state));
+		return scope.withMetadata(progress.state.metadata);
 	}
 }

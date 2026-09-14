@@ -1,5 +1,5 @@
 import type { SessionId } from "../../common/identity/session-id";
-import { SessionRevision } from "../../common/revision/session-revision";
+import type { SessionRevision } from "../../common/revision/session-revision";
 import type { AppendEventsCommand } from "../../contracts/append-events-command";
 import { AppendEventsResult } from "../../contracts/append-events-result";
 import { SessionStorage } from "../../contracts/session-storage";
@@ -9,6 +9,7 @@ import type { SessionEvent } from "../../domain/event/session-event";
 import { SessionEventCodecs } from "../../domain/event/session-event-codecs";
 import type { SessionEventRegistry } from "../../domain/event/session-event-registry";
 import { StoredSessionEvent } from "../../domain/event/stored-session-event";
+import type { SessionContext } from "../../domain/run/session-context";
 import { JournalCorruptedError } from "../../domain/session/errors/journal-corrupted.error";
 import { SessionAlreadyExistsError } from "../../domain/session/errors/session-already-exists.error";
 import { SessionNotFoundError } from "../../domain/session/errors/session-not-found.error";
@@ -36,26 +37,21 @@ export class InMemorySessionStorage extends SessionStorage {
 		return StorageCapabilities.concurrent({ snapshots: true });
 	}
 
-	public async create(session: Session): Promise<void> {
+	public async create(_context: SessionContext, session: Session): Promise<void> {
 		if (this.records.has(session.id.value)) throw new SessionAlreadyExistsError(session.id.value);
 		this.records.set(session.id.value, new SessionRecord(session));
 	}
 
-	public async find(sessionId: SessionId): Promise<Session | undefined> {
-		return this.records.get(sessionId.value)?.session;
+	public async find(context: SessionContext): Promise<Session | undefined> {
+		return this.records.get(context.sessionId.value)?.session;
 	}
 
-	public async findOrFail(sessionId: SessionId): Promise<Session> {
-		const session = await this.find(sessionId);
-		if (session === undefined) throw new SessionNotFoundError(sessionId.value);
-		return session;
-	}
-
-	public async append(command: AppendEventsCommand): Promise<AppendEventsResult> {
+	public async append(_context: SessionContext, command: AppendEventsCommand): Promise<AppendEventsResult> {
 		return this.withinSession(command.sessionId, () => this.appendLocked(command));
 	}
 
-	public async *readEvents(sessionId: SessionId, afterRevision: SessionRevision): AsyncIterable<StoredSessionEvent> {
+	public async *readEvents(context: SessionContext, afterRevision: SessionRevision): AsyncIterable<StoredSessionEvent> {
+		const sessionId = context.sessionId;
 		const record = this.records.get(sessionId.value);
 		if (record === undefined) throw new SessionNotFoundError(sessionId.value);
 		for (const stored of record.events) {
@@ -63,28 +59,28 @@ export class InMemorySessionStorage extends SessionStorage {
 		}
 	}
 
-	public async delete(sessionId: SessionId): Promise<void> {
-		this.records.delete(sessionId.value);
+	public async delete(context: SessionContext): Promise<void> {
+		this.records.delete(context.sessionId.value);
 	}
 
-	public async saveSnapshot(snapshot: SessionSnapshot): Promise<void> {
+	public async saveSnapshot(_context: SessionContext, snapshot: SessionSnapshot): Promise<void> {
 		const record = this.records.get(snapshot.sessionId.value);
 		if (record === undefined) throw new SessionNotFoundError(snapshot.sessionId.value);
 		record.snapshot = snapshot;
 	}
 
-	public async findSnapshot(sessionId: SessionId): Promise<SessionSnapshot | undefined> {
-		return this.records.get(sessionId.value)?.snapshot;
+	public async findSnapshot(context: SessionContext): Promise<SessionSnapshot | undefined> {
+		return this.records.get(context.sessionId.value)?.snapshot;
 	}
 
-	public async saveCheckpoint(checkpoint: ContextCheckpoint): Promise<void> {
+	public async saveCheckpoint(_context: SessionContext, checkpoint: ContextCheckpoint): Promise<void> {
 		const record = this.records.get(checkpoint.sessionId.value);
 		if (record === undefined) throw new SessionNotFoundError(checkpoint.sessionId.value);
 		record.checkpoints.set(checkpoint.key, checkpoint);
 	}
 
-	public async findCheckpoint(sessionId: SessionId): Promise<ContextCheckpoint | undefined> {
-		const record = this.records.get(sessionId.value);
+	public async findCheckpoint(context: SessionContext): Promise<ContextCheckpoint | undefined> {
+		const record = this.records.get(context.sessionId.value);
 		if (record === undefined) return undefined;
 		let furthest: ContextCheckpoint | undefined;
 		for (const checkpoint of record.checkpoints.values()) {

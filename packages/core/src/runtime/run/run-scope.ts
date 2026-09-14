@@ -4,9 +4,10 @@ import type { AgentName } from "../../domain/agent/agent-name";
 import type { AdkCompactionPolicy } from "../../domain/context/adk-compaction-policy";
 import type { LlmModel } from "../../domain/model/llm-model";
 import type { PromptInstructions } from "../../domain/prompt/prompt-instructions";
+import type { RunContext } from "../../domain/run/run-context";
 import type { AgentRun } from "../../domain/session/agent-run";
 import type { RunLimits } from "../../domain/session/run-limits";
-import { SessionMetadata } from "../../domain/session/session-metadata";
+import type { SessionMetadata } from "../../domain/session/session-metadata";
 import type { Actor } from "../../domain/tool/actor";
 import type { ToolDefinition } from "../../domain/tool/tool-definition";
 import type { SkillCatalog } from "../skill/skill-catalog";
@@ -27,6 +28,8 @@ import type { StartedRun } from "./started-run";
  */
 export class RunScope {
 	public constructor(
+		/** Where this run is happening, read by everything the scope hands itself to. */
+		public readonly context: RunContext,
 		public readonly definition: AgentDefinition,
 		public readonly model: LlmModel,
 		public readonly started: StartedRun,
@@ -38,13 +41,36 @@ export class RunScope {
 		public readonly remote: readonly ToolDefinition[] = [],
 		/** Already resolved from the module and the agent, so the loop never asks twice. */
 		public readonly compaction?: AdkCompactionPolicy,
-		/** The session's durable metadata, carried so a handover and a delegation read the same facts. */
-		public readonly metadata: SessionMetadata = SessionMetadata.empty(),
 		/** What the agent's own `prompt()` answered for this run, when it has one. */
 		private readonly resolved?: PromptInstructions,
-		/** Who asked, handed to every tool of this run, a handover and a delegation included. */
-		public readonly actor?: Actor,
 	) {}
+
+	/** The same scope reading metadata a tool of this run just wrote. */
+	public withMetadata(metadata: SessionMetadata): RunScope {
+		return new RunScope(
+			this.context.withMetadata(metadata),
+			this.definition,
+			this.model,
+			this.started,
+			this.catalog,
+			this.skills,
+			this.limits,
+			this.breaker,
+			this.remote,
+			this.compaction,
+			this.resolved,
+		);
+	}
+
+	/** The session's durable metadata, carried so a handover and a delegation read the same facts. */
+	public get metadata(): SessionMetadata {
+		return this.context.metadata;
+	}
+
+	/** Who asked, handed to every tool of this run, a handover and a delegation included. */
+	public get actor(): Actor | undefined {
+		return this.context.actor;
+	}
 
 	public get agent(): AgentName {
 		return this.definition.name;
@@ -63,15 +89,15 @@ export class RunScope {
 	}
 
 	public get run(): AgentRun {
-		return this.started.run;
+		return this.context.run;
 	}
 
 	public get sessionId(): SessionId {
-		return this.started.run.sessionId;
+		return this.context.sessionId;
 	}
 
 	/** What stops the run from outside, handed to every tool and every model call it makes. */
 	public get signal(): AbortSignal | undefined {
-		return this.started.cancellation.signal;
+		return this.context.signal;
 	}
 }

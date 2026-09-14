@@ -1,4 +1,3 @@
-import type { SessionId } from "../../../common/identity/session-id";
 import type { SessionRevision } from "../../../common/revision/session-revision";
 import type { AppendEventsCommand } from "../../../contracts/append-events-command";
 import { AppendEventsResult } from "../../../contracts/append-events-result";
@@ -8,6 +7,7 @@ import type { ContextCheckpoint } from "../../../domain/context/context-checkpoi
 import { SessionEventCodecs } from "../../../domain/event/session-event-codecs";
 import type { SessionEventRegistry } from "../../../domain/event/session-event-registry";
 import type { StoredSessionEvent } from "../../../domain/event/stored-session-event";
+import type { SessionContext } from "../../../domain/run/session-context";
 import { JournalCorruptedError } from "../../../domain/session/errors/journal-corrupted.error";
 import { SessionAlreadyExistsError } from "../../../domain/session/errors/session-already-exists.error";
 import { SessionNotFoundError } from "../../../domain/session/errors/session-not-found.error";
@@ -62,31 +62,27 @@ export class SqliteSessionStorage extends SessionStorage {
 		return StorageCapabilities.concurrent({ snapshots: true, checkpoints: false });
 	}
 
-	public async create(session: Session): Promise<void> {
+	public async create(_context: SessionContext, session: Session): Promise<void> {
 		if (this.sessions.find(session.id) !== undefined) throw new SessionAlreadyExistsError(session.id.value);
 		this.sessions.insert(session);
 	}
 
-	public async find(sessionId: SessionId): Promise<Session | undefined> {
-		return this.sessions.find(sessionId);
+	public async find(context: SessionContext): Promise<Session | undefined> {
+		return this.sessions.find(context.sessionId);
 	}
 
-	public async findOrFail(sessionId: SessionId): Promise<Session> {
-		const session = this.sessions.find(sessionId);
-		if (session === undefined) throw new SessionNotFoundError(sessionId.value);
-		return session;
-	}
-
-	public async append(command: AppendEventsCommand): Promise<AppendEventsResult> {
+	public async append(_context: SessionContext, command: AppendEventsCommand): Promise<AppendEventsResult> {
 		return this.connection.transaction(() => this.appendWithin(command));
 	}
 
-	public async *readEvents(sessionId: SessionId, afterRevision: SessionRevision): AsyncIterable<StoredSessionEvent> {
+	public async *readEvents(context: SessionContext, afterRevision: SessionRevision): AsyncIterable<StoredSessionEvent> {
+		const sessionId = context.sessionId;
 		if (this.sessions.find(sessionId) === undefined) throw new SessionNotFoundError(sessionId.value);
 		for (const stored of this.events.after(sessionId, afterRevision)) yield stored;
 	}
 
-	public async delete(sessionId: SessionId): Promise<void> {
+	public async delete(context: SessionContext): Promise<void> {
+		const sessionId = context.sessionId;
 		this.connection.transaction(() => {
 			this.events.deleteAll(sessionId);
 			this.snapshots.delete(sessionId);
@@ -94,18 +90,18 @@ export class SqliteSessionStorage extends SessionStorage {
 		});
 	}
 
-	public async saveSnapshot(snapshot: SessionSnapshot): Promise<void> {
+	public async saveSnapshot(_context: SessionContext, snapshot: SessionSnapshot): Promise<void> {
 		if (this.sessions.find(snapshot.sessionId) === undefined) {
 			throw new SessionNotFoundError(snapshot.sessionId.value);
 		}
 		this.snapshots.save(snapshot);
 	}
 
-	public async findSnapshot(sessionId: SessionId): Promise<SessionSnapshot | undefined> {
-		return this.snapshots.find(sessionId);
+	public async findSnapshot(context: SessionContext): Promise<SessionSnapshot | undefined> {
+		return this.snapshots.find(context.sessionId);
 	}
 
-	public async saveCheckpoint(_checkpoint: ContextCheckpoint): Promise<void> {
+	public async saveCheckpoint(_context: SessionContext, _checkpoint: ContextCheckpoint): Promise<void> {
 		throw new UnsupportedStorageFeatureError("context checkpoints");
 	}
 

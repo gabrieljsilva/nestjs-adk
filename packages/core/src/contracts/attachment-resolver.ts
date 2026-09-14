@@ -1,5 +1,6 @@
 import type { AttachmentProjection } from "../domain/model/attachment-projection";
 import type { AttachmentRequest } from "../domain/model/attachment-request";
+import type { SessionContext } from "../domain/run/session-context";
 
 /**
  * The application's answer to what an attachment becomes, each time a context is built.
@@ -20,5 +21,5 @@ import type { AttachmentRequest } from "../domain/model/attachment-request";
  * behaviour: stored bytes come back inline, a link comes back as its address.
  */
 export abstract class AttachmentResolver {
-	public abstract resolve(request: AttachmentRequest): Promise<AttachmentProjection>;
+	public abstract resolve(context: SessionContext, request: AttachmentRequest): Promise<AttachmentProjection>;
 }

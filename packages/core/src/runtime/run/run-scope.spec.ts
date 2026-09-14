@@ -4,6 +4,7 @@ import { Instant } from "../../common/time/instant";
 import { RunLimits } from "../../domain/session/run-limits";
 import { FakeClock } from "../../support/fake-clock";
 import { NativeStackFixture } from "../../support/run/native-stack.fixture";
+import { RunContextFixture } from "../../support/run/run-context.fixture";
 import { ScriptedModel } from "../../support/run/scripted-model.fixture";
 import { SequenceIdGenerator } from "../../support/sequence-id-generator";
 import { ActiveRunTracker } from "../lifecycle/active-run-tracker";
@@ -32,7 +33,13 @@ function startedRun(): StartedRun {
 }
 
 async function scopeOf(): Promise<RunScope> {
-	return await new RunScopeFactory().create(definition, model, startedRun(), [], RunLimits.none());
+	const started = startedRun();
+	const context = RunContextFixture.run(SESSION, {
+		agent: NativeStackFixture.AGENT,
+		runId: started.run.id.value,
+		signal: started.cancellation.signal,
+	});
+	return await new RunScopeFactory().create(context, definition, model, started, [], RunLimits.none());
 }
 
 describe("RunScope", () => {

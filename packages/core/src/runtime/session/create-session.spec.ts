@@ -5,6 +5,7 @@ import { SessionRevision } from "../../common/revision/session-revision";
 import { Instant } from "../../common/time/instant";
 import { AgentName } from "../../domain/agent/agent-name";
 import { SessionMetadataSet } from "../../domain/event/catalog/session-metadata-set";
+import { SessionContext } from "../../domain/run/session-context";
 import { CreateSessionInput } from "../../domain/session/create-session-input";
 import { SessionAlreadyExistsError } from "../../domain/session/errors/session-already-exists.error";
 import { FakeClock } from "../../support/fake-clock";
@@ -42,7 +43,7 @@ describe("CreateSession", () => {
 		const session = await creatorOf(storage).handle(SUPPORT, CreateSessionInput.fromOptions("chat-42"));
 
 		expect(session.id.value).toBe("chat-42");
-		expect(await storage.find(SessionId.from("chat-42"))).toBeDefined();
+		expect(await storage.find(SessionContext.fromSessionId(SessionId.from("chat-42")))).toBeDefined();
 	});
 
 	it("names the conversation itself when the caller chose nothing", async () => {
@@ -51,7 +52,7 @@ describe("CreateSession", () => {
 		const session = await creatorOf(storage).handle(SUPPORT, CreateSessionInput.fromOptions());
 
 		expect(session.id.value).toBe("s-1");
-		expect(await storage.find(session.id)).toBeDefined();
+		expect(await storage.find(SessionContext.fromSessionId(session.id))).toBeDefined();
 	});
 
 	it("roots the conversation at the agent that opened it", async () => {
@@ -74,7 +75,8 @@ describe("CreateSession", () => {
 
 		expect(session.revision.value).toBe(1);
 		const events = [];
-		for await (const stored of storage.readEvents(session.id, SessionRevision.initial())) events.push(stored.event);
+		for await (const stored of storage.readEvents(SessionContext.fromSessionId(session.id), SessionRevision.initial()))
+			events.push(stored.event);
 		expect(events).toHaveLength(1);
 		expect(events[0]).toBeInstanceOf(SessionMetadataSet);
 	});

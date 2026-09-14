@@ -10,6 +10,7 @@ import {
 	MetadataKey,
 	Session,
 	SessionAlreadyExistsError,
+	SessionContext,
 	type SessionEvent,
 	SessionEventBatch,
 	SessionId,
@@ -57,12 +58,12 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 		return [
 			new ContractCase("brings a snapshot back meaning what it meant when it was written", async () => {
 				const storage = create();
-				await storage.create(this.sessionOf("s-1"));
-				await storage.append(this.commandOf("s-1", 0, "e-1"));
+				await storage.create(this.contextOf("s-1"), this.sessionOf("s-1"));
+				await storage.append(this.contextOf("s-1"), this.commandOf("s-1", 0, "e-1"));
 
-				await storage.saveSnapshot(this.snapshotOf("s-1", 1));
+				await storage.saveSnapshot(this.contextOf("s-1"), this.snapshotOf("s-1", 1));
 
-				const found = await storage.findSnapshot(SessionId.from("s-1"));
+				const found = await storage.findSnapshot(this.contextOf("s-1"));
 				assert.ok(found !== undefined, "a storage that declares snapshots must answer the one it was given");
 				assert.equal(found.revision.value, 1, "a snapshot read at another revision is a session meaning something else");
 				assert.equal(
@@ -84,10 +85,10 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 		return [
 			new ContractCase("keeps context checkpoints in a collection of their own", async () => {
 				const storage = create();
-				await storage.create(this.sessionOf("s-1"));
-				await storage.append(this.commandOf("s-1", 0, "e-1"));
+				await storage.create(this.contextOf("s-1"), this.sessionOf("s-1"));
+				await storage.append(this.contextOf("s-1"), this.commandOf("s-1", 0, "e-1"));
 
-				await storage.saveCheckpoint(this.checkpointOf("s-1", 1, 1));
+				await storage.saveCheckpoint(this.contextOf("s-1"), this.checkpointOf("s-1", 1, 1));
 
 				assert.equal(
 					await this.headOf(storage, "s-1"),
@@ -100,48 +101,48 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 					"a checkpoint must not appear among the events of the session",
 				);
 				assert.equal(
-					(await storage.findCheckpoint(SessionId.from("s-1")))?.coveredRevision.value,
+					(await storage.findCheckpoint(this.contextOf("s-1")))?.coveredRevision.value,
 					1,
 					"a checkpoint that was written must be readable back",
 				);
 			}),
 			new ContractCase("writes the same checkpoint once, however often it is written", async () => {
 				const storage = create();
-				await storage.create(this.sessionOf("s-1"));
-				await storage.append(this.commandOf("s-1", 0, "e-1"));
+				await storage.create(this.contextOf("s-1"), this.sessionOf("s-1"));
+				await storage.append(this.contextOf("s-1"), this.commandOf("s-1", 0, "e-1"));
 
-				await storage.saveCheckpoint(this.checkpointOf("s-1", 1, 1));
-				await storage.saveCheckpoint(this.checkpointOf("s-1", 1, 1));
+				await storage.saveCheckpoint(this.contextOf("s-1"), this.checkpointOf("s-1", 1, 1));
+				await storage.saveCheckpoint(this.contextOf("s-1"), this.checkpointOf("s-1", 1, 1));
 
 				assert.equal(
-					(await storage.findCheckpoint(SessionId.from("s-1")))?.coveredRevision.value,
+					(await storage.findCheckpoint(this.contextOf("s-1")))?.coveredRevision.value,
 					1,
 					"session, covered revision and strategy version identify a checkpoint: the same one twice is the same one",
 				);
 			}),
 			new ContractCase("answers with the checkpoint that covers the most journal", async () => {
 				const storage = create();
-				await storage.create(this.sessionOf("s-1"));
-				await storage.append(this.commandOf("s-1", 0, "e-1", "e-2"));
+				await storage.create(this.contextOf("s-1"), this.sessionOf("s-1"));
+				await storage.append(this.contextOf("s-1"), this.commandOf("s-1", 0, "e-1", "e-2"));
 
-				await storage.saveCheckpoint(this.checkpointOf("s-1", 2, 1));
-				await storage.saveCheckpoint(this.checkpointOf("s-1", 1, 1));
+				await storage.saveCheckpoint(this.contextOf("s-1"), this.checkpointOf("s-1", 2, 1));
+				await storage.saveCheckpoint(this.contextOf("s-1"), this.checkpointOf("s-1", 1, 1));
 
 				assert.equal(
-					(await storage.findCheckpoint(SessionId.from("s-1")))?.coveredRevision.value,
+					(await storage.findCheckpoint(this.contextOf("s-1")))?.coveredRevision.value,
 					2,
 					"an older checkpoint arriving late must not replace the one that covers more",
 				);
 			}),
 			new ContractCase("keeps the checkpoints of one session out of another", async () => {
 				const storage = create();
-				await storage.create(this.sessionOf("s-1"));
-				await storage.create(this.sessionOf("s-2"));
+				await storage.create(this.contextOf("s-1"), this.sessionOf("s-1"));
+				await storage.create(this.contextOf("s-2"), this.sessionOf("s-2"));
 
-				await storage.saveCheckpoint(this.checkpointOf("s-1", 0, 1));
+				await storage.saveCheckpoint(this.contextOf("s-1"), this.checkpointOf("s-1", 0, 1));
 
 				assert.equal(
-					await storage.findCheckpoint(SessionId.from("s-2")),
+					await storage.findCheckpoint(this.contextOf("s-2")),
 					undefined,
 					"a session with no checkpoint of its own must not read someone else's",
 				);
@@ -154,9 +155,10 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 		return [
 			new ContractCase("round trips every event of the catalog, whatever its payload holds", async () => {
 				const storage = create();
-				await storage.create(this.sessionOf("s-1"));
+				await storage.create(this.contextOf("s-1"), this.sessionOf("s-1"));
 
 				await storage.append(
+					this.contextOf("s-1"),
 					new AppendEventsCommand(
 						SessionId.from("s-1"),
 						SessionRevision.of(0),
@@ -178,10 +180,10 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 			}),
 			new ContractCase("refuses a duplicated create and leaves the existing session untouched", async () => {
 				const storage = create();
-				await storage.create(this.sessionOf("s-1"));
-				await storage.append(this.commandOf("s-1", 0, "e-1"));
+				await storage.create(this.contextOf("s-1"), this.sessionOf("s-1"));
+				await storage.append(this.contextOf("s-1"), this.commandOf("s-1", 0, "e-1"));
 
-				const failure = await this.errorOf(() => storage.create(this.sessionOf("s-1")));
+				const failure = await this.errorOf(() => storage.create(this.contextOf("s-1"), this.sessionOf("s-1")));
 
 				assert.ok(
 					failure instanceof SessionAlreadyExistsError,
@@ -192,9 +194,9 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 			}),
 			new ContractCase("assigns consecutive revisions to a batch in one operation", async () => {
 				const storage = create();
-				await storage.create(this.sessionOf("s-1"));
+				await storage.create(this.contextOf("s-1"), this.sessionOf("s-1"));
 
-				const result = await storage.append(this.commandOf("s-1", 0, "e-1", "e-2", "e-3"));
+				const result = await storage.append(this.contextOf("s-1"), this.commandOf("s-1", 0, "e-1", "e-2", "e-3"));
 
 				assert.deepEqual(
 					result.committed.map((stored) => stored.revision.value),
@@ -207,8 +209,8 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 			}),
 			new ContractCase("streams events in revision order and honours afterRevision", async () => {
 				const storage = create();
-				await storage.create(this.sessionOf("s-1"));
-				await storage.append(this.commandOf("s-1", 0, "e-1", "e-2", "e-3"));
+				await storage.create(this.contextOf("s-1"), this.sessionOf("s-1"));
+				await storage.append(this.contextOf("s-1"), this.commandOf("s-1", 0, "e-1", "e-2", "e-3"));
 
 				assert.deepEqual(
 					await this.revisionsOf(storage, "s-1", 0),
@@ -225,11 +227,11 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 			}),
 			new ContractCase("keeps the journal of one session out of another", async () => {
 				const storage = create();
-				await storage.create(this.sessionOf("s-1"));
-				await storage.create(this.sessionOf("s-2"));
+				await storage.create(this.contextOf("s-1"), this.sessionOf("s-1"));
+				await storage.create(this.contextOf("s-2"), this.sessionOf("s-2"));
 
-				await storage.append(this.commandOf("s-1", 0, "e-1"));
-				await storage.append(this.commandOf("s-2", 0, "e-2"));
+				await storage.append(this.contextOf("s-1"), this.commandOf("s-1", 0, "e-1"));
+				await storage.append(this.contextOf("s-2"), this.commandOf("s-2", 0, "e-2"));
 
 				assert.deepEqual(
 					(await this.journalOf(storage, "s-1")).map((stored) => stored.event.id.value),
@@ -245,29 +247,29 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 			}),
 			new ContractCase("removes head, journal and snapshot together, and forgives a missing session", async () => {
 				const storage = create();
-				await storage.create(this.sessionOf("s-1"));
-				await storage.append(this.commandOf("s-1", 0, "e-1"));
-				if (storage.capabilities().snapshots) await storage.saveSnapshot(this.snapshotOf("s-1", 1));
+				await storage.create(this.contextOf("s-1"), this.sessionOf("s-1"));
+				await storage.append(this.contextOf("s-1"), this.commandOf("s-1", 0, "e-1"));
+				if (storage.capabilities().snapshots) await storage.saveSnapshot(this.contextOf("s-1"), this.snapshotOf("s-1", 1));
 
-				await storage.delete(SessionId.from("s-1"));
+				await storage.delete(this.contextOf("s-1"));
 
-				assert.equal(await storage.find(SessionId.from("s-1")), undefined, "delete must remove the head");
-				assert.equal(await storage.findSnapshot(SessionId.from("s-1")), undefined, "delete must remove the snapshot");
+				assert.equal(await storage.find(this.contextOf("s-1")), undefined, "delete must remove the head");
+				assert.equal(await storage.findSnapshot(this.contextOf("s-1")), undefined, "delete must remove the snapshot");
 				assert.equal(
-					await storage.findCheckpoint(SessionId.from("s-1")),
+					await storage.findCheckpoint(this.contextOf("s-1")),
 					undefined,
 					"delete must remove the context checkpoints too",
 				);
 				const failure = await this.errorOf(() => this.journalOf(storage, "s-1"));
 				assert.ok(failure instanceof SessionNotFoundError, "the journal must go away with the session that owned it");
-				await storage.delete(SessionId.from("s-1"));
+				await storage.delete(this.contextOf("s-1"));
 			}),
 			new ContractCase("never claims durable sessions while accepting a stale expected revision", async () => {
 				const storage = create();
-				await storage.create(this.sessionOf("s-1"));
-				await storage.append(this.commandOf("s-1", 0, "e-1"));
+				await storage.create(this.contextOf("s-1"), this.sessionOf("s-1"));
+				await storage.append(this.contextOf("s-1"), this.commandOf("s-1", 0, "e-1"));
 
-				const stale = await this.errorOf(() => storage.append(this.commandOf("s-1", 0, "e-2")));
+				const stale = await this.errorOf(() => storage.append(this.contextOf("s-1"), this.commandOf("s-1", 0, "e-2")));
 				if (stale !== undefined) return;
 
 				assert.equal(
@@ -284,10 +286,10 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 		return [
 			new ContractCase("persists nothing and leaves the head alone when the expected revision is wrong", async () => {
 				const storage = create();
-				await storage.create(this.sessionOf("s-1"));
-				await storage.append(this.commandOf("s-1", 0, "e-1"));
+				await storage.create(this.contextOf("s-1"), this.sessionOf("s-1"));
+				await storage.append(this.contextOf("s-1"), this.commandOf("s-1", 0, "e-1"));
 
-				const failure = await this.errorOf(() => storage.append(this.commandOf("s-1", 0, "e-2")));
+				const failure = await this.errorOf(() => storage.append(this.contextOf("s-1"), this.commandOf("s-1", 0, "e-2")));
 
 				assert.ok(
 					failure instanceof SessionRevisionConflictError,
@@ -298,11 +300,11 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 			}),
 			new ContractCase("treats a retry of the same batch as already done", async () => {
 				const storage = create();
-				await storage.create(this.sessionOf("s-1"));
+				await storage.create(this.contextOf("s-1"), this.sessionOf("s-1"));
 				const batch = this.commandOf("s-1", 0, "e-1", "e-2");
 
-				const first = await storage.append(batch);
-				const retry = await storage.append(batch);
+				const first = await storage.append(this.contextOf("s-1"), batch);
+				const retry = await storage.append(this.contextOf("s-1"), batch);
 
 				assert.equal(
 					retry.revision.value,
@@ -318,11 +320,12 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 			}),
 			new ContractCase("refuses an event id that comes back carrying different content", async () => {
 				const storage = create();
-				await storage.create(this.sessionOf("s-1"));
-				await storage.append(this.commandOf("s-1", 0, "e-1"));
+				await storage.create(this.contextOf("s-1"), this.sessionOf("s-1"));
+				await storage.append(this.contextOf("s-1"), this.commandOf("s-1", 0, "e-1"));
 
 				const failure = await this.errorOf(() =>
 					storage.append(
+						this.contextOf("s-1"),
 						new AppendEventsCommand(
 							SessionId.from("s-1"),
 							SessionRevision.of(1),
@@ -339,11 +342,11 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 			}),
 			new ContractCase("gives exactly one winner to two appends racing on the same revision", async () => {
 				const storage = create();
-				await storage.create(this.sessionOf("s-1"));
+				await storage.create(this.contextOf("s-1"), this.sessionOf("s-1"));
 
 				const results = await Promise.allSettled([
-					storage.append(this.commandOf("s-1", 0, "a-1")),
-					storage.append(this.commandOf("s-1", 0, "b-1")),
+					storage.append(this.contextOf("s-1"), this.commandOf("s-1", 0, "a-1")),
+					storage.append(this.contextOf("s-1"), this.commandOf("s-1", 0, "b-1")),
 				]);
 
 				const committed = results.filter((result) => result.status === "fulfilled");
@@ -359,6 +362,16 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 
 	private sessionOf(sessionId: string): Session {
 		return Session.start(SessionId.from(sessionId), AGENT, NOW);
+	}
+
+	/**
+	 * The context every method of the port takes, built the way an implementer builds one.
+	 *
+	 * It goes through the exported factory rather than a domain constructor, so the suite only
+	 * ever holds what somebody writing an adapter outside this repository can hold.
+	 */
+	private contextOf(sessionId: string): SessionContext {
+		return SessionContext.fromSessionId(SessionId.from(sessionId));
 	}
 
 	/**
@@ -453,7 +466,7 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 
 	private async journalOf(storage: SessionStorage, sessionId: string, afterRevision = 0): Promise<StoredSessionEvent[]> {
 		const events: StoredSessionEvent[] = [];
-		for await (const stored of storage.readEvents(SessionId.from(sessionId), SessionRevision.of(afterRevision))) {
+		for await (const stored of storage.readEvents(this.contextOf(sessionId), SessionRevision.of(afterRevision))) {
 			events.push(stored);
 		}
 		return events;
@@ -465,7 +478,7 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 	}
 
 	private async headOf(storage: SessionStorage, sessionId: string): Promise<number> {
-		return (await storage.findOrFail(SessionId.from(sessionId))).revision.value;
+		return (await storage.findOrFail(this.contextOf(sessionId))).revision.value;
 	}
 
 	/** The error the work threw, or undefined when it went through, so a case can assert on both. */

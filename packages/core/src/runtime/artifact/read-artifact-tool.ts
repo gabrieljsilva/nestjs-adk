@@ -74,9 +74,9 @@ class ArtifactContentHandler extends ToolHandler {
 
 	public async invoke(args: Record<string, unknown>, context: ToolContext): Promise<unknown> {
 		const artifactId = ArtifactId.from(String(args.artifactId));
-		const sessionId = context.sessionId;
-		const reference = await this.storage.find(sessionId, artifactId);
-		if (reference === undefined) throw new ArtifactNotFoundError(artifactId.value, sessionId.value);
-		return (await this.storage.read(sessionId, reference)).text;
+		const session = context.toSessionContext();
+		const reference = await this.storage.find(session, artifactId);
+		if (reference === undefined) throw new ArtifactNotFoundError(artifactId.value, session.sessionId.value);
+		return (await this.storage.read(session, reference)).text;
 	}
 }

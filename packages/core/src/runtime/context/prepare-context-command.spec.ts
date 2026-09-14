@@ -4,21 +4,24 @@ import { WindowShareCompactionPolicy } from "../../domain/context/window-share-c
 import { ToolDeclaration } from "../../domain/model/tool-declaration";
 import { PromptInstructions } from "../../domain/prompt/prompt-instructions";
 import { StubModel } from "../../support/model/stub-model.fixture";
+import { RunContextFixture } from "../../support/run/run-context.fixture";
 import { PrepareContextCommand } from "./prepare-context-command";
 
 const SESSION = SessionId.from("s-1");
 const model = new StubModel();
 
+const RUN = RunContextFixture.run(SESSION);
+
 describe("PrepareContextCommand", () => {
 	it("carries the session and the model that will read the context", () => {
-		const command = new PrepareContextCommand(SESSION, model);
+		const command = new PrepareContextCommand(RUN, model);
 
 		expect(command.sessionId).toBe(SESSION);
 		expect(command.model).toBe(model);
 	});
 
 	it("offers no tools and no prompts unless it was given them", () => {
-		const command = new PrepareContextCommand(SESSION, model);
+		const command = new PrepareContextCommand(RUN, model);
 
 		expect(command.tools).toEqual([]);
 		expect(command.runtimeInstructions).toBeUndefined();
@@ -26,12 +29,12 @@ describe("PrepareContextCommand", () => {
 	});
 
 	it("compacts nothing unless a policy was declared", () => {
-		expect(new PrepareContextCommand(SESSION, model).compaction).toBeUndefined();
+		expect(new PrepareContextCommand(RUN, model).compaction).toBeUndefined();
 	});
 
 	it("carries tools, prompts and the policy when they were declared", () => {
 		const command = new PrepareContextCommand(
-			SESSION,
+			RUN,
 			model,
 			[new ToolDeclaration("search", "finds things", {})],
 			PromptInstructions.from("runtime"),

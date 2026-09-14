@@ -1,4 +1,4 @@
-import { type PublishedEvent, SessionEventConsumer } from "@nestjs-adk/core";
+import { type PublishedEvent, type SessionContext, SessionEventConsumer } from "@nestjs-adk/core";
 
 /** How much of a long answer is worth reading in a test log. */
 const LIMIT = 220;
@@ -24,7 +24,7 @@ export class RunTranscript extends SessionEventConsumer {
 		super();
 	}
 
-	public async consume(event: PublishedEvent): Promise<void> {
+	public async consume(_context: SessionContext, event: PublishedEvent): Promise<void> {
 		this.remember(event);
 		const line = this.lineOf(event);
 		if (line !== undefined) this.print(line);

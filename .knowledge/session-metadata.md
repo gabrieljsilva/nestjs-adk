@@ -37,4 +37,4 @@ The limit is sixteen kibibytes serialized, per key rather than per session. Meta
 
 A delegated run has its own agent, model, tools and budget, and it writes to the parent's journal on the parent's session. There is no child session to copy metadata into: the child reads the same fold, which is the read-only inheritance the design wanted, and a key the child writes lands on the one conversation there is.
 
-Related: [[session-snapshots]], [[storage-adapters]], [[context-projection]], [[agent-delegation]], [[agent-prompting]].
+Related: [[run-context]], [[session-snapshots]], [[storage-adapters]], [[context-projection]], [[agent-delegation]], [[agent-prompting]].

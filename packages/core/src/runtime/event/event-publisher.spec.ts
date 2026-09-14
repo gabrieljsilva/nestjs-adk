@@ -17,6 +17,7 @@ import { EventHeader } from "../../domain/event/event-header";
 import type { PublishedEvent } from "../../domain/event/published-event";
 import type { SessionEvent } from "../../domain/event/session-event";
 import { StoredSessionEvent } from "../../domain/event/stored-session-event";
+import { SessionContext } from "../../domain/run/session-context";
 import { EventPublisher } from "./event-publisher";
 
 const SESSION = SessionId.from("s-1");
@@ -42,7 +43,7 @@ class RecordingConsumer extends SessionEventConsumer {
 		super();
 	}
 
-	public async consume(event: PublishedEvent): Promise<void> {
+	public async consume(_context: SessionContext, event: PublishedEvent): Promise<void> {
 		this.seen.push(event);
 	}
 
@@ -54,7 +55,7 @@ class RecordingConsumer extends SessionEventConsumer {
 class FailingConsumer extends SessionEventConsumer {
 	public readonly name = "failing";
 
-	public async consume(): Promise<void> {
+	public async consume(_context: SessionContext): Promise<void> {
 		throw new Error("connection refused");
 	}
 }
@@ -64,7 +65,7 @@ class HalfFailingConsumer extends SessionEventConsumer {
 	public readonly name = "half-failing";
 	public readonly seen: string[] = [];
 
-	public async consume(event: PublishedEvent): Promise<void> {
+	public async consume(_context: SessionContext, event: PublishedEvent): Promise<void> {
 		if (this.seen.length === 0 && event.payload.text === "one") throw new Error("connection refused");
 		this.seen.push(String(event.payload.text));
 	}
@@ -73,14 +74,14 @@ class HalfFailingConsumer extends SessionEventConsumer {
 class HangingConsumer extends SessionEventConsumer {
 	public readonly name = "hanging";
 
-	public async consume(): Promise<void> {
+	public async consume(_context: SessionContext): Promise<void> {
 		await new Promise<void>(() => undefined);
 	}
 }
 
 /** A sink that breaks while being told something broke, which must not reach the run. */
 class ThrowingSink extends ConsumerNoticeSink {
-	public report(): void {
+	public report(_context: SessionContext | undefined): void {
 		throw new Error("the notice sink is down too");
 	}
 }
@@ -88,10 +89,12 @@ class ThrowingSink extends ConsumerNoticeSink {
 class RecordingSink extends ConsumerNoticeSink {
 	public readonly notices: ConsumerFailed[] = [];
 
-	public report(notice: ConsumerFailed): void {
+	public report(_context: SessionContext | undefined, notice: ConsumerFailed): void {
 		this.notices.push(notice);
 	}
 }
+
+const CTX = SessionContext.fromSessionId(SessionId.from("s-1"));
 
 describe("EventPublisher", () => {
 	it("hands every committed event to every consumer", async () => {
@@ -99,7 +102,7 @@ describe("EventPublisher", () => {
 		const second = new RecordingConsumer("second");
 		const publisher = new EventPublisher([first, second]);
 
-		await publisher.publish([
+		await publisher.publish(CTX, [
 			stored(1, new UserMessageReceived(header("e-1"), "hi")),
 			stored(2, new UserMessageReceived(header("e-2"), "again")),
 		]);
@@ -111,7 +114,7 @@ describe("EventPublisher", () => {
 	it("publishes nothing when the append produced nothing", async () => {
 		const consumer = new RecordingConsumer();
 
-		await new EventPublisher([consumer]).publish([]);
+		await new EventPublisher([consumer]).publish(CTX, []);
 
 		expect(consumer.seen).toHaveLength(0);
 	});
@@ -119,7 +122,7 @@ describe("EventPublisher", () => {
 	it("marks a committed event as durable, with the revision it landed on", async () => {
 		const consumer = new RecordingConsumer();
 
-		await new EventPublisher([consumer]).publish([stored(7, new UserMessageReceived(header("e-1"), "hi"))]);
+		await new EventPublisher([consumer]).publish(CTX, [stored(7, new UserMessageReceived(header("e-1"), "hi"))]);
 
 		expect(consumer.seen[0]?.isDurable).toBe(true);
 		expect(consumer.seen[0]?.revision?.value).toBe(7);
@@ -128,7 +131,7 @@ describe("EventPublisher", () => {
 	it("marks an emitted event as not durable, because nothing was written", async () => {
 		const consumer = new RecordingConsumer();
 
-		await new EventPublisher([consumer]).emit(SESSION, new UserMessageReceived(header("e-1"), "hi"));
+		await new EventPublisher([consumer]).emit(CTX, new UserMessageReceived(header("e-1"), "hi"));
 
 		expect(consumer.seen[0]?.isDurable).toBe(false);
 	});
@@ -140,7 +143,7 @@ describe("EventPublisher", () => {
 			apiKey: "sk-live",
 		});
 
-		await new EventPublisher([consumer]).publish([stored(1, call)]);
+		await new EventPublisher([consumer]).publish(CTX, [stored(1, call)]);
 
 		expect(consumer.seen[0]?.payload).toMatchObject({ args: { orderId: "42", apiKey: "[redacted]" } });
 	});
@@ -149,7 +152,7 @@ describe("EventPublisher", () => {
 		const healthy = new RecordingConsumer();
 		const sink = new RecordingSink();
 
-		await new EventPublisher([new FailingConsumer(), healthy], sink).publish([
+		await new EventPublisher([new FailingConsumer(), healthy], sink).publish(CTX, [
 			stored(1, new UserMessageReceived(header("e-1"), "hi")),
 		]);
 
@@ -164,7 +167,7 @@ describe("EventPublisher", () => {
 		const sink = new RecordingSink();
 		const publisher = new EventPublisher([new HangingConsumer(), healthy], sink, 5000);
 
-		const published = publisher.publish([stored(1, new UserMessageReceived(header("e-1"), "hi"))]);
+		const published = publisher.publish(CTX, [stored(1, new UserMessageReceived(header("e-1"), "hi"))]);
 		await vi.advanceTimersByTimeAsync(5000);
 		await published;
 		vi.useRealTimers();
@@ -196,7 +199,9 @@ describe("EventPublisher", () => {
 	it("does nothing at all when nobody is watching", async () => {
 		const publisher = new EventPublisher();
 
-		await expect(publisher.publish([stored(1, new UserMessageReceived(header("e-1"), "hi"))])).resolves.toBeUndefined();
+		await expect(
+			publisher.publish(CTX, [stored(1, new UserMessageReceived(header("e-1"), "hi"))]),
+		).resolves.toBeUndefined();
 		expect(publisher.hasConsumers).toBe(false);
 	});
 
@@ -205,7 +210,7 @@ describe("EventPublisher", () => {
 		const sink = new RecordingSink();
 		const publisher = new EventPublisher([new HangingConsumer()], sink, 1000);
 
-		const publishing = publisher.publish([
+		const publishing = publisher.publish(CTX, [
 			stored(1, new UserMessageReceived(header("e-1"), "one")),
 			stored(2, new UserMessageReceived(header("e-2"), "two")),
 			stored(3, new UserMessageReceived(header("e-3"), "three")),
@@ -222,7 +227,7 @@ describe("EventPublisher", () => {
 		const consumer = new HalfFailingConsumer();
 		const publisher = new EventPublisher([consumer], new RecordingSink());
 
-		await publisher.publish([
+		await publisher.publish(CTX, [
 			stored(1, new UserMessageReceived(header("e-1"), "one")),
 			stored(2, new UserMessageReceived(header("e-2"), "two")),
 		]);
@@ -233,6 +238,8 @@ describe("EventPublisher", () => {
 	it("swallows a notice sink that throws, so telemetry cannot break a committed run", async () => {
 		const publisher = new EventPublisher([new FailingConsumer()], new ThrowingSink());
 
-		await expect(publisher.publish([stored(1, new UserMessageReceived(header("e-1"), "hi"))])).resolves.toBeUndefined();
+		await expect(
+			publisher.publish(CTX, [stored(1, new UserMessageReceived(header("e-1"), "hi"))]),
+		).resolves.toBeUndefined();
 	});
 });

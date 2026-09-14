@@ -4,15 +4,14 @@ import { SessionId } from "../../common/identity/session-id";
 import { ToolCallId } from "../../common/identity/tool-call-id";
 import { AgentName } from "../../domain/agent/agent-name";
 import { ToolInvocation } from "../../domain/tool/tool-invocation";
+import { RunContextFixture } from "../../support/run/run-context.fixture";
 import { ToolCatalog } from "./tool-catalog";
 import { ToolExecutionCommand } from "./tool-execution-command";
 
 describe("ToolExecutionCommand", () => {
 	it("carries the run, the agent and the tools that agent offers", () => {
 		const command = new ToolExecutionCommand(
-			SessionId.from("s-1"),
-			AgentRunId.from("run-1"),
-			AgentName.from("support"),
+			RunContextFixture.run("s-1", { agent: AgentName.from("support") }),
 			ToolCatalog.empty(),
 			new ToolInvocation(ToolCallId.from("c-1"), "refund", {}),
 		);

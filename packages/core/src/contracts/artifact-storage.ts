@@ -1,7 +1,7 @@
 import type { ArtifactId } from "../common/identity/artifact-id";
-import type { SessionId } from "../common/identity/session-id";
 import type { ArtifactContent } from "../domain/artifact/artifact-content";
 import type { ArtifactReference } from "../domain/artifact/artifact-reference";
+import type { SessionContext } from "../domain/run/session-context";
 
 /**
  * Where content that left the context is kept.
@@ -13,11 +13,16 @@ import type { ArtifactReference } from "../domain/artifact/artifact-reference";
  *
  * Nothing here is transactional with the journal. An artifact written for a run that
  * then failed is garbage, not corruption, and collecting it is the adapter's business.
+ *
+ * The context is the first parameter of every method, and it carries the session's own
+ * metadata: an adapter that keys a bucket by tenant reads it from there rather than being
+ * told the session id and guessing. Keying stays by session either way, because that is
+ * the scope the guarantees above are written about.
  */
 export abstract class ArtifactStorage {
-	public abstract put(sessionId: SessionId, content: ArtifactContent): Promise<ArtifactReference>;
+	public abstract put(context: SessionContext, content: ArtifactContent): Promise<ArtifactReference>;
 
-	public abstract read(sessionId: SessionId, reference: ArtifactReference): Promise<ArtifactContent>;
+	public abstract read(context: SessionContext, reference: ArtifactReference): Promise<ArtifactContent>;
 
 	/**
 	 * The reference behind an id, or nothing when this session has no such artifact.
@@ -26,8 +31,8 @@ export abstract class ArtifactStorage {
 	 * and the digest is bookkeeping it was never shown. Resolution stays scoped to the
 	 * session, so knowing an id is not enough to read one.
 	 */
-	public abstract find(sessionId: SessionId, artifactId: ArtifactId): Promise<ArtifactReference | undefined>;
+	public abstract find(context: SessionContext, artifactId: ArtifactId): Promise<ArtifactReference | undefined>;
 
 	/** Removes everything a session owns; a session that owns nothing is not an error. */
-	public abstract deleteAll(sessionId: SessionId): Promise<void>;
+	public abstract deleteAll(context: SessionContext): Promise<void>;
 }

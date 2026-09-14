@@ -15,6 +15,7 @@ import { UserMessageReceived } from "../../../domain/event/catalog/user-message-
 import { EventCorrelation } from "../../../domain/event/event-correlation";
 import { EventHeader } from "../../../domain/event/event-header";
 import { SessionEventBatch } from "../../../domain/event/session-event-batch";
+import { SessionContext } from "../../../domain/run/session-context";
 import { SessionNotFoundError } from "../../../domain/session/errors/session-not-found.error";
 import { SessionRevisionConflictError } from "../../../domain/session/errors/session-revision-conflict.error";
 import { Session } from "../../../domain/session/session";
@@ -51,6 +52,10 @@ function batchOf(...ids: readonly string[]): SessionEventBatch {
  * together, so both are held to the same cases. What stays here is what only this
  * adapter has to answer for: its capabilities, its file, and its SQL.
  */
+function ctx(id = "s-1"): SessionContext {
+	return SessionContext.fromSessionId(SessionId.from(id));
+}
+
 describe("SqliteSessionStorage", () => {
 	it("declares durable sessions with snapshots and without checkpoints", () => {
 		const capabilities = new SqliteSessionStorage().capabilities();
@@ -62,17 +67,18 @@ describe("SqliteSessionStorage", () => {
 
 	it("refuses a checkpoint instead of accepting one it would drop", async () => {
 		const storage = new SqliteSessionStorage();
-		await storage.create(sessionOf());
+		await storage.create(ctx(), sessionOf());
 
 		await expect(storage.findCheckpoint()).resolves.toBeUndefined();
-		await expect(storage.saveCheckpoint(checkpointOf())).rejects.toBeInstanceOf(UnsupportedStorageFeatureError);
+		await expect(storage.saveCheckpoint(ctx(), checkpointOf())).rejects.toBeInstanceOf(UnsupportedStorageFeatureError);
 	});
 
 	it("reads back an event through the same codec that wrote it", async () => {
 		const storage = new SqliteSessionStorage();
-		await storage.create(sessionOf());
+		await storage.create(ctx(), sessionOf());
 
 		await storage.append(
+			ctx(),
 			new AppendEventsCommand(
 				ID,
 				SessionRevision.initial(),
@@ -81,7 +87,7 @@ describe("SqliteSessionStorage", () => {
 		);
 
 		const read = [];
-		for await (const stored of storage.readEvents(ID, SessionRevision.initial())) read.push(stored);
+		for await (const stored of storage.readEvents(ctx(), SessionRevision.initial())) read.push(stored);
 		const first = read[0]?.event;
 		expect(first).toBeInstanceOf(UserMessageReceived);
 		expect(first instanceof UserMessageReceived ? first.text : "").toBe("how long do I have?");
@@ -89,33 +95,33 @@ describe("SqliteSessionStorage", () => {
 
 	it("survives being reopened, which is the whole point of being durable", async () => {
 		const storage = new SqliteSessionStorage();
-		await storage.create(sessionOf());
-		await storage.append(new AppendEventsCommand(ID, SessionRevision.initial(), batchOf("e-1", "e-2")));
+		await storage.create(ctx(), sessionOf());
+		await storage.append(ctx(), new AppendEventsCommand(ID, SessionRevision.initial(), batchOf("e-1", "e-2")));
 
-		const head = await storage.findOrFail(ID);
+		const head = await storage.findOrFail(ctx());
 		expect(head.revision.value).toBe(2);
 		expect(head.rootAgent.value).toBe("support");
 	});
 
 	it("writes nothing at all when one event of a batch cannot be written", async () => {
 		const storage = new SqliteSessionStorage();
-		await storage.create(sessionOf());
-		await storage.append(new AppendEventsCommand(ID, SessionRevision.initial(), batchOf("e-1")));
+		await storage.create(ctx(), sessionOf());
+		await storage.append(ctx(), new AppendEventsCommand(ID, SessionRevision.initial(), batchOf("e-1")));
 
 		await expect(
-			storage.append(new AppendEventsCommand(ID, SessionRevision.of(1), batchOf("e-2", "e-1"))),
+			storage.append(ctx(), new AppendEventsCommand(ID, SessionRevision.of(1), batchOf("e-2", "e-1"))),
 		).rejects.toThrow();
 
-		expect((await storage.findOrFail(ID)).revision.value).toBe(1);
+		expect((await storage.findOrFail(ctx())).revision.value).toBe(1);
 	});
 
 	it("refuses a stale expected revision", async () => {
 		const storage = new SqliteSessionStorage();
-		await storage.create(sessionOf());
-		await storage.append(new AppendEventsCommand(ID, SessionRevision.initial(), batchOf("e-1")));
+		await storage.create(ctx(), sessionOf());
+		await storage.append(ctx(), new AppendEventsCommand(ID, SessionRevision.initial(), batchOf("e-1")));
 
 		await expect(
-			storage.append(new AppendEventsCommand(ID, SessionRevision.initial(), batchOf("e-2"))),
+			storage.append(ctx(), new AppendEventsCommand(ID, SessionRevision.initial(), batchOf("e-2"))),
 		).rejects.toBeInstanceOf(SessionRevisionConflictError);
 	});
 
@@ -124,7 +130,7 @@ describe("SqliteSessionStorage", () => {
 
 		await expect(
 			(async () => {
-				for await (const stored of storage.readEvents(ID, SessionRevision.initial())) return stored;
+				for await (const stored of storage.readEvents(ctx(), SessionRevision.initial())) return stored;
 				return undefined;
 			})(),
 		).rejects.toBeInstanceOf(SessionNotFoundError);

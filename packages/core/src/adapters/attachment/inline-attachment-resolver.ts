@@ -2,6 +2,7 @@ import { AttachmentResolver } from "../../contracts/attachment-resolver";
 import { AttachmentProjection } from "../../domain/model/attachment-projection";
 import type { AttachmentRequest } from "../../domain/model/attachment-request";
 import type { MediaPart } from "../../domain/model/media-part";
+import type { SessionContext } from "../../domain/run/session-context";
 
 /**
  * Brings the bytes of one external attachment, or nothing when they are gone.
@@ -30,7 +31,7 @@ export class InlineAttachmentResolver extends AttachmentResolver {
 		super();
 	}
 
-	public async resolve(request: AttachmentRequest): Promise<AttachmentProjection> {
+	public async resolve(_context: SessionContext, request: AttachmentRequest): Promise<AttachmentProjection> {
 		const externalId = request.reference.externalId;
 		if (externalId === undefined) {
 			const stored = await request.load();

@@ -9,6 +9,7 @@ import { UserMessageReceived } from "../domain/event/catalog/user-message-receiv
 import { EventCorrelation } from "../domain/event/event-correlation";
 import { EventHeader } from "../domain/event/event-header";
 import { PublishedEvent } from "../domain/event/published-event";
+import type { SessionContext } from "../domain/run/session-context";
 import { SessionEventConsumer } from "./session-event-consumer";
 
 const published = PublishedEvent.runtime(
@@ -28,7 +29,7 @@ class RecordingConsumer extends SessionEventConsumer {
 	public readonly name = "recording";
 	public readonly seen: PublishedEvent[] = [];
 
-	public async consume(event: PublishedEvent): Promise<void> {
+	public async consume(_context: SessionContext, event: PublishedEvent): Promise<void> {
 		this.seen.push(event);
 	}
 }
@@ -37,7 +38,7 @@ describe("SessionEventConsumer", () => {
 	it("receives the published event", async () => {
 		const consumer = new RecordingConsumer();
 
-		await consumer.consume(published);
+		await consumer.consume(undefined as unknown as SessionContext, published);
 
 		expect(consumer.seen).toHaveLength(1);
 	});

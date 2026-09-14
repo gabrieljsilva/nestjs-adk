@@ -1,6 +1,5 @@
 import type { ContentDigest } from "../../common/digest/content-digest";
 import type { AgentRunId } from "../../common/identity/agent-run-id";
-import type { SessionId } from "../../common/identity/session-id";
 import { SessionRevision } from "../../common/revision/session-revision";
 import type { CompactionStrategy } from "../../contracts/compaction-strategy";
 import type { SessionStorage } from "../../contracts/session-storage";
@@ -11,6 +10,7 @@ import { ContextCheckpoint } from "../../domain/context/context-checkpoint";
 import { ContextProjection } from "../../domain/context/context-projection";
 import { PreparedModelContext } from "../../domain/context/prepared-model-context";
 import { ModelCapability } from "../../domain/model/model-capability";
+import type { RunContext } from "../../domain/run/run-context";
 import type { ContextMeasurer } from "./context-measurer";
 import type { ContextProjector } from "./context-projector";
 import type { ContextWindowNotifier } from "./context-window-notifier";
@@ -40,7 +40,7 @@ export class ContextManager {
 
 	public async prepare(command: PrepareContextCommand): Promise<PreparedModelContext> {
 		const descriptor = command.model.descriptor();
-		this.notifier.reportIfUnknown(descriptor);
+		this.notifier.reportIfUnknown(command.context, descriptor);
 
 		const prefix = ContextProjection.of(
 			[],
@@ -52,7 +52,7 @@ export class ContextManager {
 		const prefixDigest = this.digest.of(prefix);
 		const acceptsRemoteUrl = descriptor.capabilities.supports(ModelCapability.MEDIA_URL);
 		const projection = prefix.withBlocks(
-			await this.blocksOf(command.sessionId, prefixDigest, command.runId, acceptsRemoteUrl),
+			await this.blocksOf(command.context, prefixDigest, command.runId, acceptsRemoteUrl),
 		);
 
 		const budget = this.budgetOf(projection, command);
@@ -63,31 +63,32 @@ export class ContextManager {
 		}
 
 		// The measurement describes the prompt as it was before compaction, so that is what the smaller one is scaled from.
-		const compacted = await this.strategy.compact(projection, decision);
+		const compacted = await this.strategy.compact(command.context, projection, decision);
 		const compactedBudget = this.budgetOf(compacted, command);
-		await this.checkpoint(command.sessionId, compacted, prefixDigest);
+		await this.checkpoint(command.context, compacted, prefixDigest);
 		compactedBudget.verify(descriptor.identity);
 		return new PreparedModelContext(compacted, compactedBudget, prefixDigest, true);
 	}
 
 	/** A usable checkpoint replaces the journal it covers; anything else means projecting it all. */
 	private async blocksOf(
-		sessionId: SessionId,
+		context: RunContext,
 		prefixDigest: ContentDigest,
 		runId?: AgentRunId,
 		acceptsRemoteUrl = false,
 	): Promise<readonly ContextBlock[]> {
-		const checkpoint = await this.usableCheckpoint(sessionId, prefixDigest);
+		const checkpoint = await this.usableCheckpoint(context, prefixDigest);
 		const from = checkpoint?.coveredRevision ?? SessionRevision.initial();
-		const tail = await this.projector.project(this.storage.readEvents(sessionId, from), runId, acceptsRemoteUrl);
+		const events = this.storage.readEvents(context, from);
+		const tail = await this.projector.project(context, events, runId, acceptsRemoteUrl);
 		return checkpoint === undefined ? tail : [...checkpoint.blocks, ...tail];
 	}
 
 	private async usableCheckpoint(
-		sessionId: SessionId,
+		context: RunContext,
 		prefixDigest: ContentDigest,
 	): Promise<ContextCheckpoint | undefined> {
-		const checkpoint = await this.storage.findCheckpoint(sessionId);
+		const checkpoint = await this.storage.findCheckpoint(context);
 		if (checkpoint === undefined) return undefined;
 		return checkpoint.isUsableAt(this.strategy.name, this.strategy.version, prefixDigest) ? checkpoint : undefined;
 	}
@@ -102,12 +103,12 @@ export class ContextManager {
 
 	/** The checkpoint is an optimization, so failing to write one never fails the call. */
 	private async checkpoint(
-		sessionId: SessionId,
+		context: RunContext,
 		projection: ContextProjection,
 		prefixDigest: ContentDigest,
 	): Promise<void> {
 		const checkpoint = new ContextCheckpoint(
-			sessionId,
+			context.sessionId,
 			projection.coveredRevision,
 			this.strategy.name,
 			this.strategy.version,
@@ -115,7 +116,7 @@ export class ContextManager {
 			projection.blocks,
 		);
 		try {
-			await this.storage.saveCheckpoint(checkpoint);
+			await this.storage.saveCheckpoint(context, checkpoint);
 		} catch {
 			return undefined;
 		}

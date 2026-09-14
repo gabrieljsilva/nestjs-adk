@@ -9,11 +9,14 @@ import type { ArtifactReference } from "../../domain/artifact/artifact-reference
 import { AttachmentProjection } from "../../domain/model/attachment-projection";
 import { AttachmentReference } from "../../domain/model/attachment-reference";
 import type { AttachmentRequest } from "../../domain/model/attachment-request";
+import { SessionContext } from "../../domain/run/session-context";
 import { SequenceIdGenerator } from "../../support/sequence-id-generator";
 import { AttachmentReader } from "./attachment-reader";
 
 const SESSION = SessionId.from("s-1");
+const CTX = SessionContext.fromSessionId(SESSION);
 const OTHER = SessionId.from("s-2");
+const OTHER_CTX = SessionContext.fromSessionId(OTHER);
 const PIXEL = "iVBORw0KGgo=";
 const REVISION = SessionRevision.initial();
 
@@ -21,9 +24,9 @@ const REVISION = SessionRevision.initial();
 class CountingArtifactStorage extends InMemoryArtifactStorage {
 	public reads = 0;
 
-	public override async read(sessionId: SessionId, reference: ArtifactReference): Promise<ArtifactContent> {
+	public override async read(context: SessionContext, reference: ArtifactReference): Promise<ArtifactContent> {
 		this.reads += 1;
-		return super.read(sessionId, reference);
+		return super.read(context, reference);
 	}
 }
 
@@ -35,7 +38,7 @@ class RecordingResolver extends AttachmentResolver {
 		super();
 	}
 
-	public async resolve(request: AttachmentRequest): Promise<AttachmentProjection> {
+	public async resolve(_context: SessionContext, request: AttachmentRequest): Promise<AttachmentProjection> {
 		this.requests.push(request);
 		return this.answer(request);
 	}
@@ -45,12 +48,12 @@ function storageOf(): CountingArtifactStorage {
 	return new CountingArtifactStorage(new SequenceIdGenerator("a"));
 }
 
-async function put(storage: InMemoryArtifactStorage, sessionId: SessionId = SESSION): Promise<AttachmentReference> {
-	return AttachmentReference.artifact((await storage.put(sessionId, ArtifactContent.of(PIXEL, "image/png"))).id);
+async function put(storage: InMemoryArtifactStorage, context: SessionContext = CTX): Promise<AttachmentReference> {
+	return AttachmentReference.artifact((await storage.put(context, ArtifactContent.of(PIXEL, "image/png"))).id);
 }
 
-function read(reader: AttachmentReader, references: readonly AttachmentReference[], sessionId: SessionId = SESSION) {
-	return reader.read(sessionId, references, REVISION, true, false);
+function read(reader: AttachmentReader, references: readonly AttachmentReference[], context: SessionContext = CTX) {
+	return reader.read(context, references, REVISION, true, false);
 }
 
 describe("AttachmentReader", () => {
@@ -82,7 +85,7 @@ describe("AttachmentReader", () => {
 	it("never answers one session with another session's attachment", async () => {
 		const storage = storageOf();
 		const reader = new AttachmentReader(storage);
-		const id = await put(storage, OTHER);
+		const id = await put(storage, OTHER_CTX);
 
 		expect((await read(reader, [id])).media).toEqual([]);
 	});
@@ -126,9 +129,7 @@ describe("AttachmentReader", () => {
 		const storage = storageOf();
 		const reader = new AttachmentReader(storage);
 		const first = await put(storage);
-		const second = AttachmentReference.artifact(
-			(await storage.put(SESSION, ArtifactContent.of("aGk=", "image/jpeg"))).id,
-		);
+		const second = AttachmentReference.artifact((await storage.put(CTX, ArtifactContent.of("aGk=", "image/jpeg"))).id);
 
 		const resolved = await read(reader, [second, first]);
 
@@ -142,7 +143,7 @@ describe("AttachmentReader", () => {
 		const id = await put(storage);
 		const external = AttachmentReference.external("file-7", "image/png");
 
-		const resolved = await reader.read(SESSION, [id, external], REVISION, true, true);
+		const resolved = await reader.read(CTX, [id, external], REVISION, true, true);
 
 		expect(resolved.media).toEqual([]);
 		expect(resolver.requests).toHaveLength(2);

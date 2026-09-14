@@ -24,6 +24,7 @@ import { ToolDefinition } from "../../domain/tool/tool-definition";
 import { ToolEffect } from "../../domain/tool/tool-effect";
 import { ToolHandler } from "../../domain/tool/tool-handler";
 import { ToolSchema } from "../../domain/tool/tool-schema";
+import { RunContextFixture } from "../../support/run/run-context.fixture";
 import { ScriptedModel } from "../../support/run/scripted-model.fixture";
 import { AgentCatalog } from "../catalog/agent-catalog";
 import { RunCancellation } from "../lifecycle/run-cancellation";
@@ -125,7 +126,12 @@ describe("AgentSwitch", () => {
 		const scopes = new RunScopeFactory();
 		const catalog = AgentCatalog.of([new DeclaredAgent(support, "S"), new DeclaredAgent(billing, "B")]);
 		const agents = new AgentSwitch(catalog, new DeclaredModelResolver(), scopes);
-		const scope = await scopes.create(support, SUPPORT_MODEL, startedRun());
+		const started = startedRun();
+		const context = RunContextFixture.run(started.run.sessionId, {
+			agent: started.run.agent,
+			runId: started.run.id.value,
+		});
+		const scope = await scopes.create(context, support, SUPPORT_MODEL, started);
 
 		const switched = await agents.to(scope, BILLING);
 
@@ -141,7 +147,12 @@ describe("AgentSwitch", () => {
 		const scopes = new RunScopeFactory();
 		const catalog = AgentCatalog.of([new DeclaredAgent(support, "S"), new DeclaredAgent(billing, "B")]);
 		const agents = new AgentSwitch(catalog, new DeclaredModelResolver(), scopes);
-		const scope = await scopes.create(support, SUPPORT_MODEL, startedRun());
+		const started = startedRun();
+		const context = RunContextFixture.run(started.run.sessionId, {
+			agent: started.run.agent,
+			runId: started.run.id.value,
+		});
+		const scope = await scopes.create(context, support, SUPPORT_MODEL, started);
 
 		const switched = await agents.to(scope, BILLING);
 

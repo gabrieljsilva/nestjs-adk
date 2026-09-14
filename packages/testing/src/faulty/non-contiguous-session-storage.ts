@@ -2,6 +2,7 @@ import {
 	type AppendEventsCommand,
 	AppendEventsResult,
 	InMemorySessionStorage,
+	type SessionContext,
 	SessionRevision,
 	StoredSessionEvent,
 } from "@nestjs-adk/core";
@@ -14,8 +15,8 @@ const REVISION_STEP = 2;
  * event that was lost on the way, so every replay has to guess whether the history it holds is complete.
  */
 export class NonContiguousSessionStorage extends InMemorySessionStorage {
-	public override async append(command: AppendEventsCommand): Promise<AppendEventsResult> {
-		const result = await super.append(command);
+	public override async append(context: SessionContext, command: AppendEventsCommand): Promise<AppendEventsResult> {
+		const result = await super.append(context, command);
 		const base = command.expectedRevision.value;
 		const stretched = result.committed.map(
 			(stored, index) =>

@@ -4,9 +4,8 @@ import { WindowShareCompactionPolicy } from "../../domain/context/window-share-c
 import type { LlmModel } from "../../domain/model/llm-model";
 import { PromptContext } from "../../domain/prompt/prompt-context";
 import type { PromptInstructions } from "../../domain/prompt/prompt-instructions";
+import type { RunContext } from "../../domain/run/run-context";
 import { RunLimits } from "../../domain/session/run-limits";
-import { SessionMetadata } from "../../domain/session/session-metadata";
-import type { Actor } from "../../domain/tool/actor";
 import type { ToolDefinition } from "../../domain/tool/tool-definition";
 import { DelegateToAgentTool } from "../delegation/delegate-to-agent-tool";
 import { ActivateSkillTool } from "../skill/activate-skill-tool";
@@ -53,17 +52,17 @@ export class RunScopeFactory {
 	) {}
 
 	public async create(
+		context: RunContext,
 		definition: AgentDefinition,
 		model: LlmModel,
 		started: StartedRun,
 		remote: readonly ToolDefinition[] = [],
 		callLimits?: RunLimits,
-		metadata: SessionMetadata = SessionMetadata.empty(),
-		actor?: Actor,
 	): Promise<RunScope> {
 		const skills = SkillCatalog.of(definition.skills);
 		const limits = this.limits.overriddenBy(definition.limits).overriddenBy(callLimits);
 		return new RunScope(
+			context,
 			definition,
 			model,
 			started,
@@ -73,9 +72,7 @@ export class RunScopeFactory {
 			new ToolBreaker(limits),
 			remote,
 			this.compactionFor(definition),
-			metadata,
-			await this.promptFor(definition, started, metadata, actor),
-			actor,
+			await this.promptFor(context, definition),
 		);
 	}
 
@@ -90,7 +87,9 @@ export class RunScopeFactory {
 	 */
 	public async switched(scope: RunScope, definition: AgentDefinition, model: LlmModel): Promise<RunScope> {
 		const skills = SkillCatalog.of(definition.skills);
+		const context = scope.context.withActiveAgent(definition.name);
 		return new RunScope(
+			context,
 			definition,
 			model,
 			scope.started,
@@ -100,9 +99,7 @@ export class RunScopeFactory {
 			scope.breaker,
 			scope.remote,
 			this.compactionFor(definition),
-			scope.metadata,
-			await this.promptFor(definition, scope.started, scope.metadata, scope.actor),
-			scope.actor,
+			await this.promptFor(context, definition),
 		);
 	}
 
@@ -122,7 +119,9 @@ export class RunScopeFactory {
 	): Promise<RunScope> {
 		const skills = SkillCatalog.of(definition.skills);
 		const limits = this.limits.overriddenBy(definition.limits);
+		const context = parent.context.delegatedTo(child.run, child.cancellation.signal);
 		return new RunScope(
+			context,
 			definition,
 			model,
 			child,
@@ -132,9 +131,7 @@ export class RunScopeFactory {
 			new ToolBreaker(limits),
 			parent.remote,
 			this.compactionFor(definition),
-			parent.metadata,
-			await this.promptFor(definition, child, parent.metadata, parent.actor),
-			parent.actor,
+			await this.promptFor(context, definition),
 		);
 	}
 
@@ -160,22 +157,17 @@ export class RunScopeFactory {
 	 * ends the run before the model is asked anything, because an agent whose instruction
 	 * could not be assembled is not an agent that should answer.
 	 */
-	private async promptFor(
-		definition: AgentDefinition,
-		started: StartedRun,
-		metadata: SessionMetadata = SessionMetadata.empty(),
-		actor?: Actor,
-	): Promise<PromptInstructions | undefined> {
+	private async promptFor(context: RunContext, definition: AgentDefinition): Promise<PromptInstructions | undefined> {
 		const builder = definition.promptBuilder;
 		if (builder === undefined) return undefined;
 		return await builder.build(
 			new PromptContext(
-				started.run.sessionId,
-				started.run.id,
+				context.sessionId,
+				context.runId,
 				definition.name,
-				metadata,
-				started.cancellation.signal,
-				actor,
+				context.metadata,
+				context.signal,
+				context.actor,
 			),
 		);
 	}

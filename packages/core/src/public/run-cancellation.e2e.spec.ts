@@ -20,6 +20,7 @@ import { ModelDescriptor } from "../domain/model/model-descriptor";
 import { ModelIdentity } from "../domain/model/model-identity";
 import { ModelUsage } from "../domain/model/model-usage";
 import { PromptInstructions } from "../domain/prompt/prompt-instructions";
+import { SessionContext } from "../domain/run/session-context";
 import { AskInput } from "../domain/session/ask-input";
 import { AgentRunCommand } from "../runtime/run/agent-run-command";
 import { FakeClock } from "../support/fake-clock";
@@ -98,7 +99,8 @@ async function start(model: LlmModel) {
 
 async function journalOf(storage: InMemorySessionStorage, sessionId: SessionId): Promise<SessionEvent[]> {
 	const events: SessionEvent[] = [];
-	for await (const stored of storage.readEvents(sessionId, SessionRevision.initial())) events.push(stored.event);
+	for await (const stored of storage.readEvents(SessionContext.fromSessionId(sessionId), SessionRevision.initial()))
+		events.push(stored.event);
 	return events;
 }
 

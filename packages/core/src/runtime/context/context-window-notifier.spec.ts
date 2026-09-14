@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { SessionId } from "../../common/identity/session-id";
 import { ContextNoticeSink } from "../../contracts/context-notice-sink";
 import type { ContextWindowUnknown } from "../../domain/context/context-window-unknown";
 import { ModelCapabilities } from "../../domain/model/model-capabilities";
@@ -6,12 +7,13 @@ import { ModelContextWindow } from "../../domain/model/model-context-window";
 import { ModelDescriptor } from "../../domain/model/model-descriptor";
 import { ModelIdentity } from "../../domain/model/model-identity";
 import { UnknownContextWindow } from "../../domain/model/unknown-context-window";
+import { SessionContext } from "../../domain/run/session-context";
 import { ContextWindowNotifier } from "./context-window-notifier";
 
 class RecordingSink extends ContextNoticeSink {
 	public readonly notices: ContextWindowUnknown[] = [];
 
-	public report(notice: ContextWindowUnknown): void {
+	public report(_context: SessionContext | undefined, notice: ContextWindowUnknown): void {
 		this.notices.push(notice);
 	}
 }
@@ -24,11 +26,13 @@ function descriptorOf(model: string, known: boolean): ModelDescriptor {
 	);
 }
 
+const CTX = SessionContext.fromSessionId(SessionId.from("s-1"));
+
 describe("ContextWindowNotifier", () => {
 	it("reports a model that declares no window", () => {
 		const sink = new RecordingSink();
 
-		new ContextWindowNotifier(sink).reportIfUnknown(descriptorOf("m-1", false));
+		new ContextWindowNotifier(sink).reportIfUnknown(CTX, descriptorOf("m-1", false));
 
 		expect(sink.notices).toHaveLength(1);
 		expect(sink.notices[0]?.model.model).toBe("m-1");
@@ -37,7 +41,7 @@ describe("ContextWindowNotifier", () => {
 	it("says nothing about a model that declares one", () => {
 		const sink = new RecordingSink();
 
-		new ContextWindowNotifier(sink).reportIfUnknown(descriptorOf("m-1", true));
+		new ContextWindowNotifier(sink).reportIfUnknown(CTX, descriptorOf("m-1", true));
 
 		expect(sink.notices).toHaveLength(0);
 	});
@@ -46,9 +50,9 @@ describe("ContextWindowNotifier", () => {
 		const sink = new RecordingSink();
 		const notifier = new ContextWindowNotifier(sink);
 
-		notifier.reportIfUnknown(descriptorOf("m-1", false));
-		notifier.reportIfUnknown(descriptorOf("m-1", false));
-		notifier.reportIfUnknown(descriptorOf("m-1", false));
+		notifier.reportIfUnknown(CTX, descriptorOf("m-1", false));
+		notifier.reportIfUnknown(CTX, descriptorOf("m-1", false));
+		notifier.reportIfUnknown(CTX, descriptorOf("m-1", false));
 
 		expect(sink.notices).toHaveLength(1);
 	});
@@ -57,8 +61,8 @@ describe("ContextWindowNotifier", () => {
 		const sink = new RecordingSink();
 		const notifier = new ContextWindowNotifier(sink);
 
-		notifier.reportIfUnknown(descriptorOf("m-1", false));
-		notifier.reportIfUnknown(descriptorOf("m-2", false));
+		notifier.reportIfUnknown(CTX, descriptorOf("m-1", false));
+		notifier.reportIfUnknown(CTX, descriptorOf("m-2", false));
 
 		expect(sink.notices.map((notice) => notice.model.model)).toEqual(["m-1", "m-2"]);
 	});
@@ -66,13 +70,13 @@ describe("ContextWindowNotifier", () => {
 	it("remembers per instance, so another runtime reports the same model again", () => {
 		const sink = new RecordingSink();
 
-		new ContextWindowNotifier(sink).reportIfUnknown(descriptorOf("m-1", false));
-		new ContextWindowNotifier(sink).reportIfUnknown(descriptorOf("m-1", false));
+		new ContextWindowNotifier(sink).reportIfUnknown(CTX, descriptorOf("m-1", false));
+		new ContextWindowNotifier(sink).reportIfUnknown(CTX, descriptorOf("m-1", false));
 
 		expect(sink.notices).toHaveLength(2);
 	});
 
 	it("works without a sink", () => {
-		expect(() => new ContextWindowNotifier().reportIfUnknown(descriptorOf("m-1", false))).not.toThrow();
+		expect(() => new ContextWindowNotifier().reportIfUnknown(CTX, descriptorOf("m-1", false))).not.toThrow();
 	});
 });

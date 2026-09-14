@@ -16,6 +16,7 @@ import { ModelIdentity } from "../../domain/model/model-identity";
 import type { ModelRequest } from "../../domain/model/model-request";
 import { ModelUsage } from "../../domain/model/model-usage";
 import { UnknownContextWindow } from "../../domain/model/unknown-context-window";
+import { SessionContext } from "../../domain/run/session-context";
 import { RuntimeOptions } from "../../runtime/composition/runtime-options";
 import { FakeClock } from "../../support/fake-clock";
 import { SequenceIdGenerator } from "../../support/sequence-id-generator";
@@ -151,7 +152,9 @@ describe("how full a conversation's context is", () => {
 
 		await converse(agent, 12);
 
-		expect((await storage.findCheckpoint(SessionId.from(CHAT)))?.strategy).toBe("oldest-first");
+		expect((await storage.findCheckpoint(SessionContext.fromSessionId(SessionId.from(CHAT))))?.strategy).toBe(
+			"oldest-first",
+		);
 	});
 
 	/**
@@ -163,7 +166,7 @@ describe("how full a conversation's context is", () => {
 		await vault.createSession({ sessionId: CHAT });
 
 		await expect(converse(vault, 12)).rejects.toBeInstanceOf(ContextBudgetExceededError);
-		expect(await storage.findCheckpoint(SessionId.from(CHAT))).toBeUndefined();
+		expect(await storage.findCheckpoint(SessionContext.fromSessionId(SessionId.from(CHAT)))).toBeUndefined();
 	});
 
 	/** Half the window is passed on the sixth question, long before nine tenths would be. */
@@ -175,6 +178,6 @@ describe("how full a conversation's context is", () => {
 
 		await converse(agent, 7);
 
-		expect(await storage.findCheckpoint(SessionId.from(CHAT))).toBeDefined();
+		expect(await storage.findCheckpoint(SessionContext.fromSessionId(SessionId.from(CHAT)))).toBeDefined();
 	});
 });

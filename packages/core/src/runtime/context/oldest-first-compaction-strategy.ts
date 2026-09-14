@@ -4,6 +4,7 @@ import type { CompactionDecision } from "../../domain/context/compaction-decisio
 import { ContextBlock } from "../../domain/context/context-block";
 import type { ContextProjection } from "../../domain/context/context-projection";
 import { UserMessage } from "../../domain/model/user-message";
+import type { RunContext } from "../../domain/run/run-context";
 import type { ContextMeasurer } from "./context-measurer";
 
 /** Two rounds are enough: one to make room, one to make room for the summary itself. */
@@ -37,7 +38,11 @@ export class OldestFirstCompactionStrategy extends CompactionStrategy {
 		super();
 	}
 
-	public async compact(projection: ContextProjection, decision: CompactionDecision): Promise<ContextProjection> {
+	public async compact(
+		context: RunContext,
+		projection: ContextProjection,
+		decision: CompactionDecision,
+	): Promise<ContextProjection> {
 		const target = decision.targetOf(this.measurer.measure(projection));
 		const kept = [...projection.blocks];
 		const dropped: ContextBlock[] = [];
@@ -46,7 +51,7 @@ export class OldestFirstCompactionStrategy extends CompactionStrategy {
 		for (let round = 0; round < MAX_ROUNDS; round += 1) {
 			this.dropUntilItFits(projection, kept, dropped, summary, decision, target);
 			if (this.summarizer === undefined || dropped.length === 0) break;
-			summary = await this.summaryOf(dropped);
+			summary = await this.summaryOf(context, dropped);
 			if (summary === undefined) break;
 			if (this.fits(this.assemble(projection, kept, summary), target)) break;
 		}
@@ -83,12 +88,12 @@ export class OldestFirstCompactionStrategy extends CompactionStrategy {
 	}
 
 	/** A summarizer that fails costs the summary, never the compaction. */
-	private async summaryOf(dropped: readonly ContextBlock[]): Promise<ContextBlock | undefined> {
+	private async summaryOf(context: RunContext, dropped: readonly ContextBlock[]): Promise<ContextBlock | undefined> {
 		if (this.summarizer === undefined) return undefined;
 		const first = dropped[0];
 		if (first === undefined) return undefined;
 		try {
-			const text = await this.summarizer.summarize([...dropped]);
+			const text = await this.summarizer.summarize(context, [...dropped]);
 			if (text.trim().length === 0) return undefined;
 			return ContextBlock.summary(new UserMessage(text), first.firstRevision);
 		} catch {

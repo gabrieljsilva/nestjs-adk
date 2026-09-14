@@ -7,6 +7,7 @@ import {
 	type JournalRecord,
 	type Session,
 	SessionAlreadyExistsError,
+	type SessionContext,
 	type SessionHeadRecord,
 	type SessionId,
 	SessionNotFoundError,
@@ -49,24 +50,18 @@ class RowStorage extends SessionStorage {
 		return StorageCapabilities.concurrent({ snapshots: true, checkpoints: true });
 	}
 
-	public async create(session: Session): Promise<void> {
+	public async create(_context: SessionContext, session: Session): Promise<void> {
 		if (this.heads.has(session.id.value)) throw new SessionAlreadyExistsError(session.id.value);
 		this.heads.set(session.id.value, this.codecs.head.encode(session));
 		this.journals.set(session.id.value, []);
 	}
 
-	public async find(sessionId: SessionId): Promise<Session | undefined> {
-		const head = this.heads.get(sessionId.value);
+	public async find(context: SessionContext): Promise<Session | undefined> {
+		const head = this.heads.get(context.sessionId.value);
 		return head === undefined ? undefined : this.codecs.head.decode(head);
 	}
 
-	public async findOrFail(sessionId: SessionId): Promise<Session> {
-		const session = await this.find(sessionId);
-		if (session === undefined) throw new SessionNotFoundError(sessionId.value);
-		return session;
-	}
-
-	public async append(command: AppendEventsCommand): Promise<AppendEventsResult> {
+	public async append(_context: SessionContext, command: AppendEventsCommand): Promise<AppendEventsResult> {
 		const head = this.headOrFail(command.sessionId);
 		const rows = this.journals.get(command.sessionId.value) ?? [];
 
@@ -89,7 +84,8 @@ class RowStorage extends SessionStorage {
 		return new AppendEventsResult(committed, SessionRevision.of(revision));
 	}
 
-	public async *readEvents(sessionId: SessionId, afterRevision: SessionRevision): AsyncIterable<StoredSessionEvent> {
+	public async *readEvents(context: SessionContext, afterRevision: SessionRevision): AsyncIterable<StoredSessionEvent> {
+		const sessionId = context.sessionId;
 		const rows = this.journals.get(sessionId.value);
 		if (rows === undefined) throw new SessionNotFoundError(sessionId.value);
 		for (const row of rows) {
@@ -98,24 +94,25 @@ class RowStorage extends SessionStorage {
 		}
 	}
 
-	public async delete(sessionId: SessionId): Promise<void> {
+	public async delete(context: SessionContext): Promise<void> {
+		const sessionId = context.sessionId;
 		this.heads.delete(sessionId.value);
 		this.journals.delete(sessionId.value);
 		this.snapshots.delete(sessionId.value);
 		this.checkpoints.delete(sessionId.value);
 	}
 
-	public async saveSnapshot(snapshot: SessionSnapshot): Promise<void> {
+	public async saveSnapshot(_context: SessionContext, snapshot: SessionSnapshot): Promise<void> {
 		this.headOrFail(snapshot.sessionId);
 		this.snapshots.set(snapshot.sessionId.value, this.codecs.snapshot.encode(snapshot));
 	}
 
-	public async findSnapshot(sessionId: SessionId): Promise<SessionSnapshot | undefined> {
-		const record = this.snapshots.get(sessionId.value);
+	public async findSnapshot(context: SessionContext): Promise<SessionSnapshot | undefined> {
+		const record = this.snapshots.get(context.sessionId.value);
 		return record === undefined ? undefined : this.codecs.snapshot.decode(record);
 	}
 
-	public async saveCheckpoint(checkpoint: ContextCheckpoint): Promise<void> {
+	public async saveCheckpoint(_context: SessionContext, checkpoint: ContextCheckpoint): Promise<void> {
 		this.headOrFail(checkpoint.sessionId);
 		const record = this.codecs.checkpoint.encode(checkpoint);
 		const kept = this.checkpoints.get(checkpoint.sessionId.value) ?? new Map<string, CheckpointRecord>();
@@ -123,9 +120,9 @@ class RowStorage extends SessionStorage {
 		this.checkpoints.set(checkpoint.sessionId.value, kept);
 	}
 
-	public async findCheckpoint(sessionId: SessionId): Promise<ContextCheckpoint | undefined> {
+	public async findCheckpoint(context: SessionContext): Promise<ContextCheckpoint | undefined> {
 		let furthest: CheckpointRecord | undefined;
-		for (const record of this.checkpoints.get(sessionId.value)?.values() ?? []) {
+		for (const record of this.checkpoints.get(context.sessionId.value)?.values() ?? []) {
 			if (furthest === undefined || record.coveredRevision > furthest.coveredRevision) furthest = record;
 		}
 		return furthest === undefined ? undefined : this.codecs.checkpoint.decode(furthest);

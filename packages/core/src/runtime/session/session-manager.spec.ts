@@ -18,6 +18,7 @@ import { EventCorrelation } from "../../domain/event/event-correlation";
 import { EventHeader } from "../../domain/event/event-header";
 import { SessionEventBatch } from "../../domain/event/session-event-batch";
 import type { StoredSessionEvent } from "../../domain/event/stored-session-event";
+import { SessionContext } from "../../domain/run/session-context";
 import { SessionNotFoundError } from "../../domain/session/errors/session-not-found.error";
 import { PendingCall } from "../../domain/session/pending-call";
 import { Session } from "../../domain/session/session";
@@ -33,11 +34,12 @@ const NOW = Instant.fromIso("2026-01-01T00:00:00.000Z");
 const SUPPORT = AgentName.from("support");
 const BILLING = AgentName.from("billing");
 const ID = SessionId.from("s-1");
+const CTX = SessionContext.fromSessionId(ID);
 
 class RecordingPublisher extends SessionEventPublisher {
 	public readonly seen: StoredSessionEvent[] = [];
 
-	public async publish(committed: readonly StoredSessionEvent[]): Promise<void> {
+	public async publish(_context: SessionContext, committed: readonly StoredSessionEvent[]): Promise<void> {
 		this.seen.push(...committed);
 	}
 
@@ -82,7 +84,7 @@ function suspended(id: string): AgentRunSuspended {
 
 async function storageWithSession(): Promise<InMemorySessionStorage> {
 	const storage = new InMemorySessionStorage();
-	await storage.create(Session.start(ID, SUPPORT, NOW));
+	await storage.create(CTX, Session.start(ID, SUPPORT, NOW));
 	return storage;
 }
 
@@ -100,7 +102,7 @@ describe("SessionManager lookup", () => {
 	it("answers the head of a conversation that exists", async () => {
 		const manager = new SessionManager(await storageWithSession());
 
-		const session = await manager.find(ID);
+		const session = await manager.find(CTX);
 
 		expect(session?.id.value).toBe(ID.value);
 		expect(session?.rootAgent.equals(SUPPORT)).toBe(true);
@@ -109,13 +111,13 @@ describe("SessionManager lookup", () => {
 	it("answers nothing for an identifier no conversation uses", async () => {
 		const manager = new SessionManager(new InMemorySessionStorage());
 
-		expect(await manager.find(ID)).toBeUndefined();
+		expect(await manager.find(CTX)).toBeUndefined();
 	});
 
 	it("refuses the same absence when the caller has nothing to do about it", async () => {
 		const manager = new SessionManager(new InMemorySessionStorage());
 
-		const error = await manager.findOrFail(ID).catch((reason) => reason);
+		const error = await manager.findOrFail(CTX).catch((reason) => reason);
 
 		expect(error).toBeInstanceOf(SessionNotFoundError);
 	});
@@ -123,7 +125,7 @@ describe("SessionManager lookup", () => {
 	it("reads the head without replaying the journal behind it", async () => {
 		const storage = await storageWithSession();
 		const manager = new SessionManager(storage);
-		await manager.commit(ID, SessionRevision.initial(), SessionEventBatch.of([created("e-1")]), SessionState.initial());
+		await manager.commit(CTX, SessionRevision.initial(), SessionEventBatch.of([created("e-1")]), SessionState.initial());
 		let replayed = 0;
 		const counting = Object.create(storage, {
 			readEvents: {
@@ -134,7 +136,7 @@ describe("SessionManager lookup", () => {
 			},
 		}) as SessionStorage;
 
-		await new SessionManager(counting).find(ID);
+		await new SessionManager(counting).find(CTX);
 
 		expect(replayed).toBe(0);
 	});
@@ -146,7 +148,7 @@ describe("SessionManager commit", () => {
 		const manager = new SessionManager(storage);
 
 		const state = await manager.commit(
-			ID,
+			CTX,
 			SessionRevision.initial(),
 			SessionEventBatch.of([created("e-1")]),
 			SessionState.initial(),
@@ -161,7 +163,7 @@ describe("SessionManager commit", () => {
 		const publisher = new RecordingPublisher();
 		const manager = new SessionManager(storage, new StateProjector(), publisher);
 
-		await manager.commit(ID, SessionRevision.initial(), SessionEventBatch.of([created("e-1")]), SessionState.initial());
+		await manager.commit(CTX, SessionRevision.initial(), SessionEventBatch.of([created("e-1")]), SessionState.initial());
 
 		expect(publisher.seen.map((stored) => stored.revision.value)).toEqual([1]);
 	});
@@ -171,10 +173,10 @@ describe("SessionManager commit", () => {
 		const manager = new SessionManager(storage, new StateProjector(), new FailingPublisher());
 
 		await expect(
-			manager.commit(ID, SessionRevision.initial(), SessionEventBatch.of([created("e-1")]), SessionState.initial()),
+			manager.commit(CTX, SessionRevision.initial(), SessionEventBatch.of([created("e-1")]), SessionState.initial()),
 		).rejects.toThrow("observability is down");
 
-		expect((await storage.findOrFail(ID)).revision.value).toBe(1);
+		expect((await storage.findOrFail(CTX)).revision.value).toBe(1);
 	});
 
 	it("does not bother the publisher with an empty batch", async () => {
@@ -182,7 +184,7 @@ describe("SessionManager commit", () => {
 		const manager = new SessionManager(storage, new StateProjector(), new FailingPublisher());
 
 		await expect(
-			manager.commit(ID, SessionRevision.initial(), SessionEventBatch.empty(), SessionState.initial()),
+			manager.commit(CTX, SessionRevision.initial(), SessionEventBatch.empty(), SessionState.initial()),
 		).resolves.toBeDefined();
 	});
 });
@@ -192,17 +194,17 @@ describe("SessionManager snapshot", () => {
 		const storage = await storageWithSession();
 		const manager = managerEvery(storage, 2);
 
-		await manager.commit(ID, SessionRevision.initial(), SessionEventBatch.of([created("e-1")]), SessionState.initial());
-		expect(await storage.findSnapshot(ID)).toBeUndefined();
+		await manager.commit(CTX, SessionRevision.initial(), SessionEventBatch.of([created("e-1")]), SessionState.initial());
+		expect(await storage.findSnapshot(CTX)).toBeUndefined();
 
 		await manager.commit(
-			ID,
+			CTX,
 			SessionRevision.of(1),
 			SessionEventBatch.of([new AgentTransferred(header("e-2"), SUPPORT, BILLING)]),
 			SessionState.initial().at(SessionRevision.of(1)),
 		);
 
-		const snapshot = await storage.findSnapshot(ID);
+		const snapshot = await storage.findSnapshot(CTX);
 		expect(snapshot?.revision.value).toBe(2);
 		expect(snapshot?.projectorVersion).toBe(StateProjector.VERSION);
 	});
@@ -211,9 +213,14 @@ describe("SessionManager snapshot", () => {
 		const storage = await storageWithSession();
 		const manager = managerEvery(storage, 50);
 
-		await manager.commit(ID, SessionRevision.initial(), SessionEventBatch.of([suspended("e-1")]), SessionState.initial());
+		await manager.commit(
+			CTX,
+			SessionRevision.initial(),
+			SessionEventBatch.of([suspended("e-1")]),
+			SessionState.initial(),
+		);
 
-		const snapshot = await storage.findSnapshot(ID);
+		const snapshot = await storage.findSnapshot(CTX);
 		expect(snapshot?.revision.value).toBe(1);
 		expect(snapshot?.state.isAwaitingApproval).toBe(true);
 	});
@@ -222,13 +229,13 @@ describe("SessionManager snapshot", () => {
 		const storage = await storageWithSession();
 		const manager = managerEvery(storage, 1);
 		await manager.commit(
-			ID,
+			CTX,
 			SessionRevision.initial(),
 			SessionEventBatch.of([created("e-1"), new AgentTransferred(header("e-2"), SUPPORT, BILLING)]),
 			SessionState.initial(),
 		);
 
-		const rehydrated = await manager.rehydrate(ID);
+		const rehydrated = await manager.rehydrate(CTX);
 
 		expect(rehydrated.replayedFromSnapshot).toBe(true);
 		expect(rehydrated.state.revision.value).toBe(2);
@@ -237,27 +244,27 @@ describe("SessionManager snapshot", () => {
 
 	it("keeps the run when the storage refuses the snapshot", async () => {
 		const storage = new SnapshotRefusingStorage();
-		await storage.create(Session.start(ID, SUPPORT, NOW));
+		await storage.create(CTX, Session.start(ID, SUPPORT, NOW));
 		const manager = managerEvery(storage, 1);
 
 		const state = await manager.commit(
-			ID,
+			CTX,
 			SessionRevision.initial(),
 			SessionEventBatch.of([created("e-1")]),
 			SessionState.initial(),
 		);
 
 		expect(state.revision.value).toBe(1);
-		expect(await storage.findSnapshot(ID)).toBeUndefined();
+		expect(await storage.findSnapshot(CTX)).toBeUndefined();
 	});
 
 	it("never writes one for an empty batch", async () => {
 		const storage = await storageWithSession();
 		const manager = managerEvery(storage, 1);
 
-		await manager.commit(ID, SessionRevision.initial(), SessionEventBatch.empty(), SessionState.initial());
+		await manager.commit(CTX, SessionRevision.initial(), SessionEventBatch.empty(), SessionState.initial());
 
-		expect(await storage.findSnapshot(ID)).toBeUndefined();
+		expect(await storage.findSnapshot(CTX)).toBeUndefined();
 	});
 });
 
@@ -266,13 +273,13 @@ describe("SessionManager rehydrate", () => {
 		const storage = await storageWithSession();
 		const manager = new SessionManager(storage);
 		await manager.commit(
-			ID,
+			CTX,
 			SessionRevision.initial(),
 			SessionEventBatch.of([created("e-1"), new AgentTransferred(header("e-2"), SUPPORT, BILLING)]),
 			SessionState.initial(),
 		);
 
-		const rehydrated = await manager.rehydrate(ID);
+		const rehydrated = await manager.rehydrate(CTX);
 
 		expect(rehydrated.replayedFromSnapshot).toBe(false);
 		expect(rehydrated.state.revision.value).toBe(2);
@@ -282,11 +289,11 @@ describe("SessionManager rehydrate", () => {
 	it("lands on the same state twice for the same journal", async () => {
 		const storage = await storageWithSession();
 		const manager = new SessionManager(storage);
-		await manager.commit(ID, SessionRevision.initial(), SessionEventBatch.of([created("e-1")]), SessionState.initial());
+		await manager.commit(CTX, SessionRevision.initial(), SessionEventBatch.of([created("e-1")]), SessionState.initial());
 
 		const checksum = new StateChecksum();
-		const first = await manager.rehydrate(ID);
-		const second = await manager.rehydrate(ID);
+		const first = await manager.rehydrate(CTX);
+		const second = await manager.rehydrate(CTX);
 
 		expect(
 			checksum.of(ID, StateProjector.VERSION, first.state).equals(checksum.of(ID, StateProjector.VERSION, second.state)),
@@ -297,7 +304,7 @@ describe("SessionManager rehydrate", () => {
 		const storage = await storageWithSession();
 		const manager = new SessionManager(storage);
 		await manager.commit(
-			ID,
+			CTX,
 			SessionRevision.initial(),
 			SessionEventBatch.of([created("e-1"), new AgentTransferred(header("e-2"), SUPPORT, BILLING)]),
 			SessionState.initial(),
@@ -305,6 +312,7 @@ describe("SessionManager rehydrate", () => {
 
 		const snapshotState = SessionState.initial().withActiveAgent(SUPPORT).at(SessionRevision.of(1));
 		await storage.saveSnapshot(
+			CTX,
 			new SessionSnapshot(
 				ID,
 				SessionRevision.of(1),
@@ -314,7 +322,7 @@ describe("SessionManager rehydrate", () => {
 			),
 		);
 
-		const rehydrated = await manager.rehydrate(ID);
+		const rehydrated = await manager.rehydrate(CTX);
 
 		expect(rehydrated.replayedFromSnapshot).toBe(true);
 		expect(rehydrated.state.revision.value).toBe(2);
@@ -324,32 +332,34 @@ describe("SessionManager rehydrate", () => {
 	it("falls back to a full replay when the snapshot came from another projector", async () => {
 		const storage = await storageWithSession();
 		const manager = new SessionManager(storage);
-		await manager.commit(ID, SessionRevision.initial(), SessionEventBatch.of([created("e-1")]), SessionState.initial());
+		await manager.commit(CTX, SessionRevision.initial(), SessionEventBatch.of([created("e-1")]), SessionState.initial());
 
 		const state = SessionState.initial().at(SessionRevision.of(1));
 		await storage.saveSnapshot(
+			CTX,
 			new SessionSnapshot(ID, SessionRevision.of(1), 99, state, new StateChecksum().of(ID, 99, state)),
 		);
 
-		const rehydrated = await manager.rehydrate(ID);
+		const rehydrated = await manager.rehydrate(CTX);
 
 		expect(rehydrated.replayedFromSnapshot).toBe(false);
 		expect(rehydrated.state.activeAgent?.value).toBe("support");
-		expect(await storage.findSnapshot(ID)).toBeDefined();
+		expect(await storage.findSnapshot(CTX)).toBeDefined();
 	});
 
 	it("falls back to a full replay when the checksum does not match the state", async () => {
 		const storage = await storageWithSession();
 		const manager = new SessionManager(storage);
-		await manager.commit(ID, SessionRevision.initial(), SessionEventBatch.of([created("e-1")]), SessionState.initial());
+		await manager.commit(CTX, SessionRevision.initial(), SessionEventBatch.of([created("e-1")]), SessionState.initial());
 
 		const tampered = SessionState.initial().withActiveAgent(BILLING).at(SessionRevision.of(1));
 		const wrongDigest = new StateChecksum().of(ID, StateProjector.VERSION, SessionState.initial());
 		await storage.saveSnapshot(
+			CTX,
 			new SessionSnapshot(ID, SessionRevision.of(1), StateProjector.VERSION, tampered, wrongDigest),
 		);
 
-		const rehydrated = await manager.rehydrate(ID);
+		const rehydrated = await manager.rehydrate(CTX);
 
 		expect(rehydrated.replayedFromSnapshot).toBe(false);
 		expect(rehydrated.state.activeAgent?.value).toBe("support");

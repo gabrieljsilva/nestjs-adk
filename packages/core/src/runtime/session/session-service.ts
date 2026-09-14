@@ -1,6 +1,7 @@
 import type { SessionId } from "../../common/identity/session-id";
 import type { AgentName } from "../../domain/agent/agent-name";
 import type { ContextBudget } from "../../domain/context/context-budget";
+import { SessionContext } from "../../domain/run/session-context";
 import type { CreateSessionInput } from "../../domain/session/create-session-input";
 import type { Session } from "../../domain/session/session";
 import type { SessionInspection } from "../../domain/session/session-inspection";
@@ -45,10 +46,10 @@ export class SessionService {
 	}
 
 	public async find(sessionId: SessionId): Promise<Session | undefined> {
-		return this.sessions.find(sessionId);
+		return this.sessions.find(SessionContext.fromSessionId(sessionId));
 	}
 
 	public async findOrFail(sessionId: SessionId): Promise<Session> {
-		return this.sessions.findOrFail(sessionId);
+		return this.sessions.findOrFail(SessionContext.fromSessionId(sessionId));
 	}
 }

@@ -114,7 +114,7 @@ describe("AI: sales, tools and the answer they produce", () => {
 
 		const priced = run.cost.byModel[0];
 		if (priced === undefined) throw new Error("the run was not priced");
-		const price = await new LiteLLMPricingSource().priceOf(ModelIdentity.of("openai", "gpt-5.6-luna"));
+		const price = await new LiteLLMPricingSource().findPrice(undefined, ModelIdentity.of("openai", "gpt-5.6-luna"));
 		if (price === undefined) throw new Error("the catalog does not know the model");
 
 		const { inputTokens, outputTokens, cachedInputTokens } = priced.usage;

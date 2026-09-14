@@ -15,6 +15,7 @@ import { ModelIdentity } from "../../domain/model/model-identity";
 import { ModelUsage } from "../../domain/model/model-usage";
 import { PromptMeasurement } from "../../domain/model/prompt-measurement";
 import { UnknownContextWindow } from "../../domain/model/unknown-context-window";
+import { SessionContext } from "../../domain/run/session-context";
 import { SessionNotFoundError } from "../../domain/session/errors/session-not-found.error";
 import { Session } from "../../domain/session/session";
 import { JournalFixture } from "../../support/context/journal.fixture";
@@ -50,8 +51,9 @@ function measurementOf(inputTokens: number, model = GEMINI): PromptMeasurement {
 async function storageWith(measurement?: PromptMeasurement): Promise<InMemorySessionStorage> {
 	const journal = new JournalFixture(CHAT).user("hi").assistant("hello", measurement);
 	const storage = new InMemorySessionStorage();
-	await storage.create(Session.start(CHAT, SUPPORT, NOW));
+	await storage.create(SessionContext.fromSessionId(CHAT), Session.start(CHAT, SUPPORT, NOW));
 	await storage.append(
+		SessionContext.fromSessionId(CHAT),
 		new AppendEventsCommand(
 			CHAT,
 			SessionRevision.initial(),

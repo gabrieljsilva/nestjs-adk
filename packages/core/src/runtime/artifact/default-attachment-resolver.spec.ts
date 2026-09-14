@@ -5,6 +5,7 @@ import { SessionRevision } from "../../common/revision/session-revision";
 import { AttachmentReference } from "../../domain/model/attachment-reference";
 import { AttachmentRequest } from "../../domain/model/attachment-request";
 import { MediaPart } from "../../domain/model/media-part";
+import { SessionContext } from "../../domain/run/session-context";
 import { DefaultAttachmentResolver } from "./default-attachment-resolver";
 
 const PIXEL = "iVBORw0KGgo=";
@@ -20,12 +21,14 @@ function requestOf(reference: AttachmentReference, part?: MediaPart): Attachment
 	);
 }
 
+const CTX = SessionContext.fromSessionId(SessionId.from("s-1"));
+
 describe("DefaultAttachmentResolver", () => {
 	it("answers with what the runtime materialized, which is today's behaviour", async () => {
 		const part = MediaPart.image("image/png", PIXEL);
 		const resolver = new DefaultAttachmentResolver();
 
-		const projection = await resolver.resolve(requestOf(AttachmentReference.artifact(ArtifactId.from("a-1")), part));
+		const projection = await resolver.resolve(CTX, requestOf(AttachmentReference.artifact(ArtifactId.from("a-1")), part));
 
 		expect(projection.isMedia).toBe(true);
 		expect(projection.part).toBe(part);
@@ -34,7 +37,7 @@ describe("DefaultAttachmentResolver", () => {
 	it("omits what no longer materializes, exactly as before the port existed", async () => {
 		const resolver = new DefaultAttachmentResolver();
 
-		const projection = await resolver.resolve(requestOf(AttachmentReference.artifact(ArtifactId.from("a-404"))));
+		const projection = await resolver.resolve(CTX, requestOf(AttachmentReference.artifact(ArtifactId.from("a-404"))));
 
 		expect(projection.isMedia).toBe(false);
 		expect(projection.isNote).toBe(false);
@@ -43,7 +46,7 @@ describe("DefaultAttachmentResolver", () => {
 	it("projects an external reference as a note naming the gap, because it cannot reach the file", async () => {
 		const resolver = new DefaultAttachmentResolver();
 
-		const projection = await resolver.resolve(requestOf(AttachmentReference.external("file-7", "image/png")));
+		const projection = await resolver.resolve(CTX, requestOf(AttachmentReference.external("file-7", "image/png")));
 
 		expect(projection.text).toBe("[attachment image/png: no attachment resolver is configured]");
 	});

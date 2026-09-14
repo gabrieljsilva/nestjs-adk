@@ -141,7 +141,7 @@ export class GetWeatherTool extends AdkTool<typeof schema> {
 
 The tool is a normal provider, so it injects services, repositories and anything else. Whatever `execute` returns goes back to the model, as long as it is serializable.
 
-The two arguments come from different places. `input` comes from the model, which chose the values from the schema, and it is parsed before `execute` runs: `.default()` applies, coercions happen, and keys the model invented are dropped. `context` comes from the runtime and carries `sessionId`, `runId`, `agent`, `callId` and `signal`.
+The two arguments come from different places. `input` comes from the model, which chose the values from the schema, and it is parsed before `execute` runs: `.default()` applies, coercions happen, and keys the model invented are dropped. `context` comes from the runtime and carries `sessionId`, `runId`, `agent`, `callId`, `signal`, `actor` and the session's `metadata`.
 
 Nothing sensitive should be in the schema, because the model would be the one filling it in. A tenant id belongs to a repository the tool injects, keyed by something the runtime knows, and never to an argument the model can write. That is also why the parse drops undeclared keys: telling you to keep a tenant id out of the schema would mean little if a `{ ...input }` spread could carry a smuggled one into your query.
 
@@ -632,13 +632,16 @@ import { SessionStorage, StorageCodecs, StoredSessionEvent } from "@nestjs-adk/c
 class PrismaSessionStorage extends SessionStorage {
 	private readonly codecs = StorageCodecs.standard();
 
-	public async *readEvents(sessionId: SessionId, after: SessionRevision) {
+	public async *readEvents(context: SessionContext, after: SessionRevision) {
+		const sessionId = context.sessionId;
 		for await (const row of this.cursorOf(sessionId, after)) {
 			yield new StoredSessionEvent(sessionId, SessionRevision.of(row.revision), this.codecs.journal.decode(row));
 		}
 	}
 }
 ```
+
+Every method of the port takes a `SessionContext` first, and it names the session, so nothing here is passed an id alongside one. What it adds over an id is the conversation's own metadata: an adapter that prefixes a bucket by tenant or picks a shard reads `context.metadata.find(TENANT)` instead of being told to guess. On a read that has not happened yet the metadata is empty, since it is the fold of the journal about to be read; a write always carries what the run already folded. `ArtifactStorage` is the same shape, `deleteAll(context)` included. Build one with `SessionContext.fromSessionId(id)`.
 
 `decode` takes the row your driver handed back, whichever shape it is in: a JSON column that arrived parsed and one that arrived as text are both accepted. What comes back is the event class the runtime decides on, which is the part that cannot be approximated. A plain object with the right fields passes every check in the runtime without matching one, and the conversation reads back as empty instead of failing.
 
@@ -828,12 +831,12 @@ class ToolCards extends ToolCallObserver {
 		super();
 	}
 
-	public async requested(call: ToolCallNotice): Promise<void> {
+	public async requested(context: RunContext, call: ToolCallNotice): Promise<void> {
 		if (call.isInternal) return;
 		await this.cards.draw(call.callId.value, call.toolName, call.effect?.name, call.isHeld);
 	}
 
-	public async settled(result: ToolResultNotice): Promise<void> {
+	public async settled(context: RunContext, result: ToolResultNotice): Promise<void> {
 		if (result.isInternal) return;
 		await this.cards.finish(result.callId.value, result.output, result.isRefused ? result.reason : undefined);
 	}
@@ -842,7 +845,7 @@ class ToolCards extends ToolCallObserver {
 const run = support.stream("refund order 42", { sessionId, actor, toolCalls: new ToolCards(cards) });
 ```
 
-`requested` arrives once the approval gate has screened the turn and before anything of it runs. `call.tool` is the `ToolDefinition` the model named (absent for a tool nobody declared), and `call.isHeld` is the gate's own verdict, so an interface knows on the spot whether to draw a button on the card without asking the policy a second time. `settled` follows each result as it is produced; `failed` and `isRefused` tell an error from a refusal, and `reason` carries the text the model was told.
+`context` is the run: the conversation, its metadata, who asked, the stop button and, for a delegation, the run that asked for it. Every port the runtime consults takes it first, so an observer, a storage and a pricing source all read the same facts. `requested` arrives once the approval gate has screened the turn and before anything of it runs. `call.tool` is the `ToolDefinition` the model named (absent for a tool nobody declared), and `call.isHeld` is the gate's own verdict, so an interface knows on the spot whether to draw a button on the card without asking the policy a second time. `settled` follows each result as it is produced; `failed` and `isRefused` tell an error from a refusal, and `reason` carries the text the model was told.
 
 A held call is requested in the run that suspended and settles in the run that released it, so `approve` and `reject` take `toolCalls` too. Nothing is stored between the two: a decision made later, on any instance, brings its own observer, and the turn it releases was in the journal all along.
 
@@ -871,7 +874,7 @@ A consumer is told about everything that happened, in order, after it was commit
 export class RunAudit extends SessionEventConsumer {
 	public readonly name = "audit";
 
-	public async consume(event: PublishedEvent): Promise<void> {
+	public async consume(context: SessionContext, event: PublishedEvent): Promise<void> {
 		await this.log.write(event.type, event.payload);
 	}
 }
@@ -879,7 +882,7 @@ export class RunAudit extends SessionEventConsumer {
 runtime: RuntimeOptions.from({ consumers: [new RunAudit()] });
 ```
 
-Events are the journal, so a consumer sees what was recorded rather than what was intended. A consumer that throws does not take the run with it, and `consumerNotices` is where those failures are reported. `contextNotices` does the same for a context whose size nobody could measure.
+A consumer gets a `SessionContext` and not a `RunContext`: publication happens after the commit, from a publisher that outlives every run, so the conversation and its metadata are the part that is still true. Events are the journal, so a consumer sees what was recorded rather than what was intended. A consumer that throws does not take the run with it, and `consumerNotices` is where those failures are reported. `contextNotices` does the same for a context whose size nobody could measure.
 
 To see what a run would send without paying for it, ask the agent to explain it:
 
@@ -943,7 +946,7 @@ Declaring no source at all is the same story: every run answers a cost of zero w
 
 ```ts
 export class LoggingNotices extends PricingNoticeSink {
-	public report(notice: ModelUnpriced): void {
+	public report(context: SessionContext | undefined, notice: ModelUnpriced): void {
 		this.logger.warn(notice.message);
 		// "google/gemini-9-imaginary billed 813 tokens that were left out of the total: unknown-model."
 	}
@@ -958,7 +961,7 @@ The catalog is community data read at runtime, so whatever upstream publishes be
 
 ```ts
 export class ContractPricing extends PricingSource {
-	public async priceOf(model: ModelIdentity): Promise<ModelPrice | undefined> {
+	public async findPrice(context: SessionContext | undefined, model: ModelIdentity): Promise<ModelPrice | undefined> {
 		const agreed = this.rates[model.model];
 		if (agreed === undefined) return undefined;
 		return ModelPrice.of(TokenRate.fromUsdPerToken(agreed.in), TokenRate.fromUsdPerToken(agreed.out));
@@ -966,7 +969,7 @@ export class ContractPricing extends PricingSource {
 }
 ```
 
-Returning `undefined` is a normal answer and not a failure. There is one source for the whole module and no per agent or per model override: a bill that can be overridden in three places is a bill nobody can explain, and the cases that want one are better served by a source of your own.
+The context is absent for exactly one caller: an embedding asked for outside a run, which has a model and a usage but no conversation to name. Returning `undefined` is a normal answer and not a failure. There is one source for the whole module and no per agent or per model override: a bill that can be overridden in three places is a bill nobody can explain, and the cases that want one are better served by a source of your own.
 
 ## Embeddings
 
@@ -1152,6 +1155,7 @@ Everything the package exports, and nothing else: a name that is not here is not
 
 | Symbol | What it is for |
 | --- | --- |
+| `RunContext`, `SessionContext` | Where a run is happening, and the conversation half of it that outlives one |
 | `SessionStorage`, `StorageCapabilities` | Where the journal lives, and what a port can do |
 | `InMemorySessionStorage`, `SqliteSessionStorage`, `SqliteConnection` | The two the library ships, both for development and tests |
 | `ArtifactStorage`, `InMemoryArtifactStorage` | Where a large result or an upload lives |

@@ -22,6 +22,12 @@ An object that is not an instance of those classes falls through every branch wi
 
 This is the reason the surface is codecs. Anything that lets an adapter build an event by hand is a way to reach that failure.
 
+## Every method takes the context first
+
+`create`, `find`, `append`, `readEvents`, `delete`, `saveSnapshot`, `findSnapshot`, `saveCheckpoint` and `findCheckpoint` all take a `SessionContext` as their first parameter, and it names the session: nothing here is passed an id alongside one. `findOrFail` is not abstract, because the error every implementer would otherwise write is the same error.
+
+What the context adds over an id is the session's own metadata, which is how an adapter routes a write, prefixes a bucket or picks a shard without the runtime having to know it shards. On a read that has not happened yet the metadata is empty, since it is the fold of the journal about to be read; a write always carries what the run already folded. `ArtifactStorage` is the same shape, including `deleteAll(context)` for a session being removed outside any run. See [[run-context]].
+
 ## Codecs, not parts
 
 `StorageCodecs.standard()` answers with one codec per collection a storage keeps: `journal`, `snapshot`, `head` and `checkpoint`.
@@ -61,6 +67,8 @@ private eventOf(eventId: string): SessionEvent {
 }
 ```
 
+The suite builds its contexts through `SessionContext.fromSessionId`, which is exported, for the same reason it builds its events through a codec: it may hold nothing an implementer could not hold.
+
 The suite also decodes a `session.metadata-set` row whose payload holds a nested object rather than text, because the journal record's payload is the one column that is not a plain value: an adapter that stringifies it on the way in and forgets on the way out passes every case written against a flat payload and loses the session's metadata.
 
 If the published surface ever stops being sufficient, this file stops compiling. That makes it the standing proof of the section above, and it is also more durable than the alternative: a row written at schema version 1 is upcast on the way through, so the suite survives a payload change that constructing the event class would not.
@@ -69,4 +77,4 @@ The core cannot import a sibling package, which `package-boundaries.spec.ts` enf
 
 The four deliberately broken adapters under `packages/testing/src/faulty/` are not exported. They are the test of the suite, not part of it.
 
-Related: [[session-snapshots]], [[context-projection]], [[module-boundaries]], [[layer-boundaries]].
+Related: [[run-context]], [[session-snapshots]], [[context-projection]], [[module-boundaries]], [[layer-boundaries]].

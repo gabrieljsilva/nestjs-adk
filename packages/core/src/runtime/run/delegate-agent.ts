@@ -1,6 +1,8 @@
 import { ToolCallId } from "../../common/identity/tool-call-id";
 import type { ModelResolver } from "../../contracts/model-resolver";
 import { DelegationNotDeclaredError } from "../../domain/agent/errors/delegation-not-declared.error";
+import { RunContext } from "../../domain/run/run-context";
+import { SessionContext } from "../../domain/run/session-context";
 import type { AgentResult } from "../../domain/session/agent-result";
 import type { DelegateInput } from "../../domain/session/delegate-input";
 import { PendingCall } from "../../domain/session/pending-call";
@@ -44,24 +46,18 @@ export class DelegateAgent {
 		if (!parent.delegation.allows(input.to)) {
 			throw new DelegationNotDeclaredError(parent.name.value, input.to.value, parent.delegation.names);
 		}
-		const rehydrated = await this.sessions.rehydrate(input.sessionId);
+		const rehydrated = await this.sessions.rehydrate(SessionContext.fromSessionId(input.sessionId));
 		const started = this.runs.start(input.sessionId, parent.name);
 		const progress = new RunProgress(rehydrated.state);
 		const opened = new OpenedSession(rehydrated.session, rehydrated.state, false);
+		const context = RunContext.fromOpenedSession(rehydrated.session, rehydrated.state, started.run);
 
 		try {
-			const scope = await this.scopes.create(
-				parent,
-				this.models.resolve(parent),
-				started,
-				undefined,
-				undefined,
-				rehydrated.state.metadata,
-			);
+			const scope = await this.scopes.create(context, parent, this.models.resolve(parent), started);
 			const answers = await this.delegations.runAll(scope, opened, progress, [this.callOf(input)]);
-			return await this.results.answering(started, progress, answers.values().next().value ?? "");
+			return await this.results.answering(context, started, progress, answers.values().next().value ?? "");
 		} catch (error) {
-			await this.settler.settle(input.sessionId, progress.state, started, error);
+			await this.settler.settle(context, progress.state, started, error);
 			throw error;
 		} finally {
 			this.runs.finish(started.run);

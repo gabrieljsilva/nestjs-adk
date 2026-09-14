@@ -32,7 +32,11 @@ The test for whether a split earns its file is whether the two halves change for
 
 ## What a run resolved once travels as a value
 
-`RunScope` carries what a run decided before it began: definition, model, started run, catalog, skills, limits and breaker. Without it, every signature grew to seven parameters and every new capability changed all of them.
+`RunScope` carries what a run *resolved* before it began: definition, model, started run, catalog, skills, limits and breaker. Without it, every signature grew to seven parameters and every new capability changed all of them.
+
+What it does not carry is where the run is happening. That is a `RunContext`, built once in the use case and held by the scope rather than copied into it, so `sessionId`, `actor`, `signal` and `run` are getters onto one value instead of four fields that can drift. See [[run-context]] for the two halves, the lifecycle and the rule that no service keeps one in a field.
+
+`TurnLoop.commit` answers with a scope rather than nothing, because a tool of the turn may have written session metadata: the fold moves on that commit, and the rest of the run has to read what it wrote.
 
 The breaker travels there too, and it is the one mutable thing in the bundle. It counts within one run and means nothing outside it, so it has the same lifetime as everything beside it.
 
@@ -77,4 +81,4 @@ A cancelled run ends by throwing, and `RunJournal.terminal` reads the cancellati
 
 `NativeStackFixture` wires the whole native stack the way the composition wires it. A suite that assembles the pieces itself proves the pieces, and the assembly is where an ordering mistake actually lives.
 
-Related: [[tool-approval]], [[context-projection]], [[layer-boundaries]], [[services-over-functions]].
+Related: [[run-context]], [[tool-approval]], [[context-projection]], [[layer-boundaries]], [[services-over-functions]].

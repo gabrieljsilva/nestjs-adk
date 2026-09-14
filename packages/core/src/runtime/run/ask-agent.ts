@@ -6,6 +6,7 @@ import type { AgentDefinition } from "../../domain/agent/agent-definition";
 import { UnsupportedCapabilityError } from "../../domain/model/errors/unsupported-capability.error";
 import type { LlmModel } from "../../domain/model/llm-model";
 import { ModelCapability } from "../../domain/model/model-capability";
+import { RunContext } from "../../domain/run/run-context";
 import type { AgentResult } from "../../domain/session/agent-result";
 import type { AttachmentStore } from "../artifact/attachment-store";
 import type { AgentCatalog } from "../catalog/agent-catalog";
@@ -76,20 +77,22 @@ export class AskAgent {
 
 			const opened = existing ?? (await this.opener.open(command, sessionId));
 			const from = command.transferTo === undefined ? undefined : entry.name;
-			const attached = await this.attachments.store(
-				opened.session.id,
-				command.input.attachments,
-				command.input.references,
-			);
+			// Built once, here, from the session as it was opened plus what the command carried.
+			const context = RunContext.fromOpenedSession(opened.session, opened.state, started.run, {
+				signal: started.cancellation.signal,
+				actor: command.actor,
+			}).withActiveAgent(definition.name);
+			const attached = await this.attachments.store(context, command.input.attachments, command.input.references);
 			const progress = new RunProgress(
 				await this.sessions.commit(
-					opened.session.id,
+					context,
 					opened.session.revision,
 					this.journal.opening(started, definition.name, model.descriptor().identity, command, opened, from, attached),
 					opened.state,
 				),
 			);
 			return await this.execute(
+				context.withMetadata(progress.state.metadata),
 				definition,
 				model,
 				started,
@@ -139,6 +142,7 @@ export class AskAgent {
 
 	/** From here on the run has a journal entry, so every ending it can reach gets recorded. */
 	private async execute(
+		context: RunContext,
 		definition: AgentDefinition,
 		model: LlmModel,
 		started: StartedRun,
@@ -150,20 +154,12 @@ export class AskAgent {
 	): Promise<AgentResult> {
 		try {
 			const remote = await sources.open(opened.session.id, started.run.id, started.cancellation.signal);
-			const scope = await this.scopes.create(
-				definition,
-				model,
-				started,
-				remote,
-				command.limits,
-				progress.state.metadata,
-				command.actor,
-			);
+			const scope = await this.scopes.create(context, definition, model, started, remote, command.limits);
 			await this.reportUnauthorized(scope, progress, sources);
 			await this.loop.run(scope, opened, progress, observers);
-			return await this.results.after(started, progress);
+			return await this.results.after(scope.context, started, progress);
 		} catch (error) {
-			await this.settler.settle(opened.session.id, progress.state, started, error);
+			await this.settler.settle(context, progress.state, started, error);
 			throw error;
 		}
 	}
@@ -177,7 +173,7 @@ export class AskAgent {
 		if (sources.unauthorized.length === 0) return;
 		progress.advanced(
 			await this.sessions.commit(
-				scope.sessionId,
+				scope.context,
 				progress.state.revision,
 				this.journal.reauth(scope.started, sources.unauthorized),
 				progress.state,

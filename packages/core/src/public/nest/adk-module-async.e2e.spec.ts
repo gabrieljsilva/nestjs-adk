@@ -4,6 +4,7 @@ import { Test, type TestingModule } from "@nestjs/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { InMemorySessionStorage } from "../../adapters/storage/in-memory-session-storage";
 import { SessionStorage } from "../../contracts/session-storage";
+import type { SessionContext } from "../../domain/run/session-context";
 import type { Session } from "../../domain/session/session";
 import { RecordingModel } from "../../support/nest/recording-model.fixture";
 import { AdkModule } from "./adk-module";
@@ -32,9 +33,9 @@ class VaultSessionStorage extends InMemorySessionStorage {
 		super();
 	}
 
-	public override async create(session: Session): Promise<void> {
+	public override async create(context: SessionContext, session: Session): Promise<void> {
 		this.created.push(`${this.vault.prefix}:${session.id.value}`);
-		await super.create(session);
+		await super.create(context, session);
 	}
 }
 

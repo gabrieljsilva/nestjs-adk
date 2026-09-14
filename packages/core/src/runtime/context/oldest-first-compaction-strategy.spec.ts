@@ -4,7 +4,9 @@ import { CompactionDecision } from "../../domain/context/compaction-decision";
 import type { ContextBlock } from "../../domain/context/context-block";
 import { ContextCategory } from "../../domain/context/context-category";
 import { ContextProjection } from "../../domain/context/context-projection";
+import type { RunContext } from "../../domain/run/run-context";
 import { JournalFixture } from "../../support/context/journal.fixture";
+import { RunContextFixture } from "../../support/run/run-context.fixture";
 import { ContextMeasurer } from "./context-measurer";
 import { ContextProjector } from "./context-projector";
 import { OldestFirstCompactionStrategy } from "./oldest-first-compaction-strategy";
@@ -18,14 +20,14 @@ class FixedSummarizer extends ContextSummarizer {
 		super();
 	}
 
-	public async summarize(blocks: readonly ContextBlock[]): Promise<string> {
+	public async summarize(_context: RunContext, blocks: readonly ContextBlock[]): Promise<string> {
 		this.seen = blocks.length;
 		return this.text;
 	}
 }
 
 class FailingSummarizer extends ContextSummarizer {
-	public async summarize(): Promise<string> {
+	public async summarize(_context: RunContext): Promise<string> {
 		throw new Error("the summarizer is down");
 	}
 }
@@ -36,12 +38,14 @@ async function longConversation(turns: number): Promise<ContextProjection> {
 		journal.user(`question ${turn} `.repeat(4));
 		journal.assistant(`answer ${turn} `.repeat(4));
 	}
-	return ContextProjection.of(await new ContextProjector().project(journal.stream()));
+	return ContextProjection.of(await new ContextProjector().project(RUN, journal.stream()));
 }
 
 function charactersOf(projection: ContextProjection): number {
 	return measurer.measure(projection);
 }
+
+const RUN = RunContextFixture.run();
 
 describe("OldestFirstCompactionStrategy", () => {
 	it("names and versions itself, which is what a checkpoint records", () => {
@@ -56,6 +60,7 @@ describe("OldestFirstCompactionStrategy", () => {
 		const target = Math.floor(charactersOf(projection) * 0.3);
 
 		const compacted = await new OldestFirstCompactionStrategy(measurer).compact(
+			RUN,
 			projection,
 			CompactionDecision.keepShare(0.3, 2),
 		);
@@ -68,6 +73,7 @@ describe("OldestFirstCompactionStrategy", () => {
 		const projection = await longConversation(10);
 
 		const compacted = await new OldestFirstCompactionStrategy(measurer).compact(
+			RUN,
 			projection,
 			CompactionDecision.keepShare(0.01, 3),
 		);
@@ -82,9 +88,10 @@ describe("OldestFirstCompactionStrategy", () => {
 			.toolCall("c-1", "search", { q: "x".repeat(40) })
 			.toolResult("c-1", "search", { hits: "y".repeat(40) })
 			.assistant("recent");
-		const projection = ContextProjection.of(await new ContextProjector().project(journal.stream()));
+		const projection = ContextProjection.of(await new ContextProjector().project(RUN, journal.stream()));
 
 		const compacted = await new OldestFirstCompactionStrategy(measurer).compact(
+			RUN,
 			projection,
 			CompactionDecision.keepShare(0.05, 1),
 		);
@@ -96,9 +103,10 @@ describe("OldestFirstCompactionStrategy", () => {
 
 	it("keeps an open obligation even when the target demands more room", async () => {
 		const journal = new JournalFixture().user("older ".repeat(20)).toolCall("c-1", "search", { q: "x".repeat(40) });
-		const projection = ContextProjection.of(await new ContextProjector().project(journal.stream()));
+		const projection = ContextProjection.of(await new ContextProjector().project(RUN, journal.stream()));
 
 		const compacted = await new OldestFirstCompactionStrategy(measurer).compact(
+			RUN,
 			projection,
 			CompactionDecision.keepShare(0.01, 0),
 		);
@@ -110,7 +118,7 @@ describe("OldestFirstCompactionStrategy", () => {
 		const projection = await longConversation(10);
 		const before = projection.blocks.length;
 
-		await new OldestFirstCompactionStrategy(measurer).compact(projection, CompactionDecision.keepShare(0.3, 2));
+		await new OldestFirstCompactionStrategy(measurer).compact(RUN, projection, CompactionDecision.keepShare(0.3, 2));
 
 		expect(projection.blocks).toHaveLength(before);
 	});
@@ -120,6 +128,7 @@ describe("OldestFirstCompactionStrategy", () => {
 		const summarizer = new FixedSummarizer("earlier: the user asked ten questions");
 
 		const compacted = await new OldestFirstCompactionStrategy(measurer, summarizer).compact(
+			RUN,
 			projection,
 			CompactionDecision.keepShare(0.5, 2),
 		);
@@ -134,6 +143,7 @@ describe("OldestFirstCompactionStrategy", () => {
 		const target = Math.floor(charactersOf(projection) * 0.2);
 
 		const compacted = await new OldestFirstCompactionStrategy(measurer, new FixedSummarizer("z".repeat(4000))).compact(
+			RUN,
 			projection,
 			CompactionDecision.keepShare(0.2, 2),
 		);
@@ -146,6 +156,7 @@ describe("OldestFirstCompactionStrategy", () => {
 		const projection = await longConversation(10);
 
 		const compacted = await new OldestFirstCompactionStrategy(measurer, new FailingSummarizer()).compact(
+			RUN,
 			projection,
 			CompactionDecision.keepShare(0.3, 2),
 		);
@@ -157,6 +168,7 @@ describe("OldestFirstCompactionStrategy", () => {
 		const projection = await longConversation(2);
 
 		const compacted = await new OldestFirstCompactionStrategy(measurer).compact(
+			RUN,
 			projection,
 			CompactionDecision.keepShare(1, 2),
 		);

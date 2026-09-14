@@ -203,6 +203,8 @@ export { ToolCatalog } from "./runtime/tool/tool-catalog";
 export { ToolSchema } from "./domain/tool/tool-schema";
 export { ToolHandler } from "./domain/tool/tool-handler";
 export { ToolContext } from "./domain/tool/tool-context";
+export { RunContext } from "./domain/run/run-context";
+export { SessionContext } from "./domain/run/session-context";
 export { ToolDefinition } from "./domain/tool/tool-definition";
 export { ToolOutput } from "./domain/tool/tool-output";
 export { ToolOutcome } from "./domain/tool/tool-outcome";

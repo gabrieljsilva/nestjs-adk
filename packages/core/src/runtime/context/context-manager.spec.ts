@@ -20,9 +20,11 @@ import { PromptMeasurement } from "../../domain/model/prompt-measurement";
 import { ToolDeclaration } from "../../domain/model/tool-declaration";
 import { UnknownContextWindow } from "../../domain/model/unknown-context-window";
 import { PromptInstructions } from "../../domain/prompt/prompt-instructions";
+import { SessionContext } from "../../domain/run/session-context";
 import { Session } from "../../domain/session/session";
 import { JournalFixture } from "../../support/context/journal.fixture";
 import { StubModel } from "../../support/model/stub-model.fixture";
+import { RunContextFixture } from "../../support/run/run-context.fixture";
 import { ContextManager } from "./context-manager";
 import { ContextMeasurer } from "./context-measurer";
 import { ContextProjector } from "./context-projector";
@@ -34,6 +36,14 @@ import { StablePrefixDigest } from "./stable-prefix-digest";
 const NOW = Instant.fromIso("2026-01-01T00:00:00.000Z");
 const measurer = new ContextMeasurer();
 
+function ctxOf(journal: JournalFixture): SessionContext {
+	return SessionContext.fromSessionId(journal.sessionId);
+}
+
+function runOf(journal: JournalFixture) {
+	return RunContextFixture.run(journal.sessionId);
+}
+
 /**
  * A call the provider counted, over exactly the text a journal projects to.
  *
@@ -41,7 +51,7 @@ const measurer = new ContextMeasurer();
  * it would have compaction scale the previous turn by a factor nothing produced.
  */
 async function measured(journal: JournalFixture, inputTokens: number): Promise<PromptMeasurement> {
-	const blocks = await new ContextProjector().project(journal.stream());
+	const blocks = await new ContextProjector().project(ctxOf(journal), journal.stream());
 	const characters = measurer.measure(ContextProjection.of(blocks));
 	const measurement = PromptMeasurement.from(ModelUsage.of(inputTokens, 50), characters);
 	if (measurement === undefined) throw new Error("the fixture asked for a measurement of nothing");
@@ -51,7 +61,7 @@ async function measured(journal: JournalFixture, inputTokens: number): Promise<P
 class RecordingSink extends ContextNoticeSink {
 	public readonly notices: ContextWindowUnknown[] = [];
 
-	public report(notice: ContextWindowUnknown): void {
+	public report(_context: SessionContext | undefined, notice: ContextWindowUnknown): void {
 		this.notices.push(notice);
 	}
 }
@@ -74,8 +84,9 @@ function managerOf(storage: SessionStorage, notifier = new ContextWindowNotifier
 }
 
 async function storageWith(journal: JournalFixture, storage: InMemorySessionStorage): Promise<InMemorySessionStorage> {
-	await storage.create(Session.start(journal.sessionId, AgentName.from("support"), NOW));
+	await storage.create(ctxOf(journal), Session.start(journal.sessionId, AgentName.from("support"), NOW));
 	await storage.append(
+		ctxOf(journal),
 		new AppendEventsCommand(
 			journal.sessionId,
 			SessionRevision.initial(),
@@ -99,7 +110,7 @@ describe("ContextManager", () => {
 		const journal = new JournalFixture().user("hi").assistant("hello");
 		const manager = managerOf(await storageWith(journal, new InMemorySessionStorage()));
 
-		const prepared = await manager.prepare(new PrepareContextCommand(journal.sessionId, new StubModel()));
+		const prepared = await manager.prepare(new PrepareContextCommand(runOf(journal), new StubModel()));
 
 		expect(prepared.request.messages.map((message) => message.text)).toEqual(["hi", "hello"]);
 		expect(prepared.compacted).toBe(false);
@@ -110,7 +121,7 @@ describe("ContextManager", () => {
 		const journal = new JournalFixture().user("hi");
 		const manager = managerOf(await storageWith(journal, new InMemorySessionStorage()));
 		const command = new PrepareContextCommand(
-			journal.sessionId,
+			runOf(journal),
 			new StubModel(),
 			[new ToolDeclaration("search", "finds things", {})],
 			PromptInstructions.from("be brief"),
@@ -128,7 +139,7 @@ describe("ContextManager", () => {
 		const manager = managerOf(await storageWith(journal, new InMemorySessionStorage()));
 		const model = new StubModel(ModelContextWindow.of(1000, 200));
 		const command = new PrepareContextCommand(
-			journal.sessionId,
+			runOf(journal),
 			model,
 			[],
 			undefined,
@@ -145,7 +156,7 @@ describe("ContextManager", () => {
 		const manager = managerOf(await storageWith(journal, new InMemorySessionStorage()));
 		const model = new StubModel(ModelContextWindow.of(30, 10));
 
-		const prepared = await manager.prepare(new PrepareContextCommand(journal.sessionId, model));
+		const prepared = await manager.prepare(new PrepareContextCommand(runOf(journal), model));
 
 		expect(prepared.budget.isMeasured).toBe(false);
 	});
@@ -154,7 +165,7 @@ describe("ContextManager", () => {
 		const journal = new JournalFixture().user("hi");
 		const manager = managerOf(await storageWith(journal, new InMemorySessionStorage()));
 		const command = new PrepareContextCommand(
-			journal.sessionId,
+			runOf(journal),
 			new StubModel(ModelContextWindow.of(1000, 200)),
 			[],
 			undefined,
@@ -175,8 +186,8 @@ describe("ContextManager", () => {
 		const manager = managerOf(await storageWith(journal, new InMemorySessionStorage()), new ContextWindowNotifier(sink));
 		const model = new StubModel(new UnknownContextWindow(), ModelIdentity.of("acme", "windowless"));
 
-		await manager.prepare(new PrepareContextCommand(journal.sessionId, model));
-		await manager.prepare(new PrepareContextCommand(journal.sessionId, model));
+		await manager.prepare(new PrepareContextCommand(runOf(journal), model));
+		await manager.prepare(new PrepareContextCommand(runOf(journal), model));
 
 		expect(sink.notices).toHaveLength(1);
 	});
@@ -185,8 +196,8 @@ describe("ContextManager", () => {
 		const journal = new JournalFixture().user("hi").toolCall("c-1", "search").toolResult("c-1", "search", { hits: 1 });
 		const manager = managerOf(await storageWith(journal, new InMemorySessionStorage()));
 
-		const first = await manager.prepare(new PrepareContextCommand(journal.sessionId, new StubModel()));
-		const second = await manager.prepare(new PrepareContextCommand(journal.sessionId, new StubModel()));
+		const first = await manager.prepare(new PrepareContextCommand(runOf(journal), new StubModel()));
+		const second = await manager.prepare(new PrepareContextCommand(runOf(journal), new StubModel()));
 
 		expect(first.request.messages.map((message) => message.text)).toEqual(
 			second.request.messages.map((message) => message.text),
@@ -199,7 +210,7 @@ describe("ContextManager", () => {
 		const storage = await storageWith(journal, new InMemorySessionStorage());
 		const manager = managerOf(storage);
 		const command = new PrepareContextCommand(
-			journal.sessionId,
+			runOf(journal),
 			new StubModel(),
 			[],
 			undefined,
@@ -208,13 +219,13 @@ describe("ContextManager", () => {
 			await measured(journal, 1200),
 		);
 
-		const uncompacted = await manager.prepare(new PrepareContextCommand(journal.sessionId, new StubModel()));
+		const uncompacted = await manager.prepare(new PrepareContextCommand(runOf(journal), new StubModel()));
 		const prepared = await manager.prepare(command);
 
 		expect(uncompacted.compacted).toBe(false);
 		expect(prepared.compacted).toBe(true);
 		expect(prepared.characters).toBeLessThan(uncompacted.characters);
-		const checkpoint = await storage.findCheckpoint(journal.sessionId);
+		const checkpoint = await storage.findCheckpoint(ctxOf(journal));
 		expect(checkpoint?.strategy).toBe("oldest-first");
 		expect(checkpoint?.coveredRevision.value).toBe(20);
 	});
@@ -224,9 +235,9 @@ describe("ContextManager", () => {
 		const storage = await storageWith(journal, new InMemorySessionStorage());
 		const manager = managerOf(storage);
 		const prompt = PromptInstructions.from("be brief");
-		const plain = new PrepareContextCommand(journal.sessionId, new StubModel(), [], undefined, prompt);
+		const plain = new PrepareContextCommand(runOf(journal), new StubModel(), [], undefined, prompt);
 		const compacting = new PrepareContextCommand(
-			journal.sessionId,
+			runOf(journal),
 			new StubModel(),
 			[],
 			undefined,
@@ -247,7 +258,7 @@ describe("ContextManager", () => {
 		const storage = await storageWith(journal, new InMemorySessionStorage());
 		const manager = managerOf(storage);
 		const command = new PrepareContextCommand(
-			journal.sessionId,
+			runOf(journal),
 			new StubModel(),
 			[],
 			undefined,
@@ -257,7 +268,7 @@ describe("ContextManager", () => {
 		);
 
 		const first = await manager.prepare(command);
-		const second = await manager.prepare(new PrepareContextCommand(journal.sessionId, new StubModel()));
+		const second = await manager.prepare(new PrepareContextCommand(runOf(journal), new StubModel()));
 
 		expect(second.compacted).toBe(false);
 		expect(second.request.messages).toHaveLength(first.request.messages.length);
@@ -270,7 +281,7 @@ describe("ContextManager", () => {
 		const manager = managerOf(storage);
 		await manager.prepare(
 			new PrepareContextCommand(
-				journal.sessionId,
+				runOf(journal),
 				new StubModel(),
 				[],
 				undefined,
@@ -281,7 +292,7 @@ describe("ContextManager", () => {
 		);
 
 		const prepared = await manager.prepare(
-			new PrepareContextCommand(journal.sessionId, new StubModel(), [], undefined, PromptInstructions.from("new")),
+			new PrepareContextCommand(runOf(journal), new StubModel(), [], undefined, PromptInstructions.from("new")),
 		);
 
 		expect(prepared.request.messages).toHaveLength(20);
@@ -291,13 +302,14 @@ describe("ContextManager", () => {
 		const journal = new JournalFixture().user("hi").assistant("hello");
 		const storage = await storageWith(journal, new InMemorySessionStorage());
 		const digest = new StablePrefixDigest().of(
-			(await managerOf(storage).prepare(new PrepareContextCommand(journal.sessionId, new StubModel()))).projection,
+			(await managerOf(storage).prepare(new PrepareContextCommand(runOf(journal), new StubModel()))).projection,
 		);
 		await storage.saveCheckpoint(
+			ctxOf(journal),
 			new ContextCheckpoint(journal.sessionId, SessionRevision.of(2), "oldest-first", 99, digest, []),
 		);
 
-		const prepared = await managerOf(storage).prepare(new PrepareContextCommand(journal.sessionId, new StubModel()));
+		const prepared = await managerOf(storage).prepare(new PrepareContextCommand(runOf(journal), new StubModel()));
 
 		expect(prepared.request.messages).toHaveLength(2);
 	});
@@ -306,6 +318,7 @@ describe("ContextManager", () => {
 		const journal = new JournalFixture().user("hi").assistant("hello");
 		const storage = await storageWith(journal, new InMemorySessionStorage());
 		await storage.saveCheckpoint(
+			ctxOf(journal),
 			new ContextCheckpoint(
 				journal.sessionId,
 				SessionRevision.of(2),
@@ -316,7 +329,7 @@ describe("ContextManager", () => {
 			),
 		);
 
-		const prepared = await managerOf(storage).prepare(new PrepareContextCommand(journal.sessionId, new StubModel()));
+		const prepared = await managerOf(storage).prepare(new PrepareContextCommand(runOf(journal), new StubModel()));
 
 		expect(prepared.request.messages).toHaveLength(2);
 	});
@@ -328,7 +341,7 @@ describe("ContextManager", () => {
 
 		const prepared = await manager.prepare(
 			new PrepareContextCommand(
-				journal.sessionId,
+				runOf(journal),
 				new StubModel(),
 				[],
 				undefined,
@@ -349,7 +362,7 @@ describe("ContextManager", () => {
 
 		await manager.prepare(
 			new PrepareContextCommand(
-				journal.sessionId,
+				runOf(journal),
 				new StubModel(),
 				[],
 				undefined,
@@ -365,7 +378,7 @@ describe("ContextManager", () => {
 
 async function collect(storage: SessionStorage, journal: JournalFixture): Promise<string[]> {
 	const ids: string[] = [];
-	for await (const stored of storage.readEvents(journal.sessionId, SessionRevision.initial())) {
+	for await (const stored of storage.readEvents(ctxOf(journal), SessionRevision.initial())) {
 		ids.push(`${stored.revision.value}:${stored.event.id.value}`);
 	}
 	return ids;

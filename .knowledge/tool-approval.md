@@ -47,6 +47,8 @@ The run does not rely on catching it. It asks first, with `allHeld`, and the thr
 
 `ToolCallObserver` (`AskOptions.toolCalls`, `DecisionOptions.toolCalls`) is told each call of a turn after the gate screened it and before anything runs, with `ToolCallNotice.isHeld` being the gate's own answer. An application that renders a decision button reads that field. Asking the policy again from outside the run was how the untimeless API did it before this existed, and two answers to one security question is the bug the field prevents.
 
+Both methods take the run's `RunContext` first, like every other port: `requested(context, notice)` and `settled(context, notice)`. An observer drawing a card for the call reads the conversation and its metadata off the same value the rest of the runtime reads, instead of being handed a notice and left to look the session up.
+
 The observer is per call and never stored, which is what keeps the runtime stateless across instances: the suspension is in the journal, and the decision that releases it, wherever it lands, brings its own observer for the settled results.
 
-Related: [[error-taxonomy]], [[context-projection]], [[layer-boundaries]].
+Related: [[run-context]], [[error-taxonomy]], [[context-projection]], [[layer-boundaries]].

@@ -1,4 +1,4 @@
-import { type PublishedEvent, SessionEventConsumer } from "@nestjs-adk/core";
+import { type PublishedEvent, type SessionContext, SessionEventConsumer } from "@nestjs-adk/core";
 import { RunEvents } from "./run-events";
 
 /**
@@ -14,7 +14,7 @@ export class RunRecorder extends SessionEventConsumer {
 
 	public readonly events = new RunEvents();
 
-	public async consume(event: PublishedEvent): Promise<void> {
+	public async consume(_context: SessionContext, event: PublishedEvent): Promise<void> {
 		this.events.record(event);
 	}
 }

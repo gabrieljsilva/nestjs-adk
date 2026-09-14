@@ -1,4 +1,3 @@
-import type { SessionId } from "../../common/identity/session-id";
 import type { ConsumerNoticeSink } from "../../contracts/consumer-notice-sink";
 import type { SessionEventConsumer } from "../../contracts/session-event-consumer";
 import { SessionEventPublisher } from "../../contracts/session-event-publisher";
@@ -8,6 +7,7 @@ import type { SessionEvent } from "../../domain/event/session-event";
 import { SessionEventCodecs } from "../../domain/event/session-event-codecs";
 import type { SessionEventRegistry } from "../../domain/event/session-event-registry";
 import type { StoredSessionEvent } from "../../domain/event/stored-session-event";
+import type { SessionContext } from "../../domain/run/session-context";
 import { ConsumerTimeoutError } from "./errors/consumer-timeout.error";
 import { EventRedactor } from "./event-redactor";
 import { NoOpConsumerNoticeSink } from "./no-op-consumer-notice-sink";
@@ -49,15 +49,16 @@ export class EventPublisher extends SessionEventPublisher {
 	}
 
 	/** One event at a time, so every consumer sees a batch in the order the journal recorded it. */
-	public async publish(committed: readonly StoredSessionEvent[]): Promise<void> {
+	public async publish(context: SessionContext, committed: readonly StoredSessionEvent[]): Promise<void> {
 		if (!this.hasConsumers) return;
-		await this.deliver(committed.map((stored) => PublishedEvent.durable(stored, this.payloadOf(stored.event))));
+		const events = committed.map((stored) => PublishedEvent.durable(stored, this.payloadOf(stored.event)));
+		await this.deliver(context, events);
 	}
 
 	/** A fact that never reached the journal, and never will: a chunk, a notice, a progress step. */
-	public async emit(sessionId: SessionId, event: SessionEvent): Promise<void> {
+	public async emit(context: SessionContext, event: SessionEvent): Promise<void> {
 		if (!this.hasConsumers) return;
-		await this.deliver([PublishedEvent.runtime(sessionId, event, this.payloadOf(event))]);
+		await this.deliver(context, [PublishedEvent.runtime(context.sessionId, event, this.payloadOf(event))]);
 	}
 
 	/**
@@ -69,9 +70,9 @@ export class EventPublisher extends SessionEventPublisher {
 		await Promise.all(this.consumers.map((consumer) => this.flushOne(consumer)));
 	}
 
-	private async deliver(events: readonly PublishedEvent[]): Promise<void> {
+	private async deliver(context: SessionContext, events: readonly PublishedEvent[]): Promise<void> {
 		if (events.length === 0) return;
-		await Promise.all(this.consumers.map((consumer) => this.consume(consumer, events)));
+		await Promise.all(this.consumers.map((consumer) => this.consume(context, consumer, events)));
 	}
 
 	/**
@@ -81,29 +82,37 @@ export class EventPublisher extends SessionEventPublisher {
 	 * that by the size of the batch, and a commit of ten events would hold the run for ten
 	 * timeouts before anybody found out the exporter was gone.
 	 */
-	private async consume(consumer: SessionEventConsumer, events: readonly PublishedEvent[]): Promise<void> {
+	private async consume(
+		context: SessionContext,
+		consumer: SessionEventConsumer,
+		events: readonly PublishedEvent[],
+	): Promise<void> {
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		try {
 			await Promise.race([
-				this.deliverInOrder(consumer, events),
+				this.deliverInOrder(context, consumer, events),
 				new Promise<never>((_resolve, reject) => {
 					timer = setTimeout(() => reject(new ConsumerTimeoutError(consumer.name, this.timeoutMs)), this.timeoutMs);
 				}),
 			]);
 		} catch (error) {
-			this.report(consumer, BATCH, error);
+			this.report(context, consumer, BATCH, error);
 		} finally {
 			if (timer !== undefined) clearTimeout(timer);
 		}
 	}
 
 	/** In order, and one event that fails does not cost the consumer the rest of the batch. */
-	private async deliverInOrder(consumer: SessionEventConsumer, events: readonly PublishedEvent[]): Promise<void> {
+	private async deliverInOrder(
+		context: SessionContext,
+		consumer: SessionEventConsumer,
+		events: readonly PublishedEvent[],
+	): Promise<void> {
 		for (const event of events) {
 			try {
-				await consumer.consume(event);
+				await consumer.consume(context, event);
 			} catch (error) {
-				this.report(consumer, event.type, error);
+				this.report(context, consumer, event.type, error);
 			}
 		}
 	}
@@ -113,7 +122,7 @@ export class EventPublisher extends SessionEventPublisher {
 		try {
 			await consumer.flush();
 		} catch (error) {
-			this.report(consumer, "flush", error);
+			this.report(undefined, consumer, "flush", error);
 		}
 	}
 
@@ -121,11 +130,16 @@ export class EventPublisher extends SessionEventPublisher {
 	 * A sink that throws while being told about a failure would take the failure with it,
 	 * out through the publisher and into a commit the journal has already accepted.
 	 */
-	private report(consumer: SessionEventConsumer, eventType: string, error: unknown): void {
+	private report(
+		context: SessionContext | undefined,
+		consumer: SessionEventConsumer,
+		eventType: string,
+		error: unknown,
+	): void {
 		const reason = error instanceof Error ? error.message : String(error);
 		const timedOut = error instanceof ConsumerTimeoutError;
 		try {
-			this.notices.report(new ConsumerFailed(consumer.name, eventType, reason, timedOut));
+			this.notices.report(context, new ConsumerFailed(consumer.name, eventType, reason, timedOut));
 		} catch {
 			return;
 		}

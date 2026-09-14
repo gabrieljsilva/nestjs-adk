@@ -6,11 +6,13 @@ import type { ArtifactContent } from "../../domain/artifact/artifact-content";
 import type { ArtifactReference } from "../../domain/artifact/artifact-reference";
 import { AttachmentReference } from "../../domain/model/attachment-reference";
 import { MediaPart } from "../../domain/model/media-part";
+import { SessionContext } from "../../domain/run/session-context";
 import { SequenceIdGenerator } from "../../support/sequence-id-generator";
 import { AttachmentStore } from "./attachment-store";
 import { AttachmentNotStoredError } from "./errors/attachment-not-stored.error";
 
 const SESSION = SessionId.from("s-1");
+const CTX = SessionContext.fromSessionId(SESSION);
 const PIXEL = "iVBORw0KGgo=";
 
 class RefusingArtifactStorage extends ArtifactStorage {
@@ -39,10 +41,7 @@ describe("AttachmentStore", () => {
 	it("answers with one id per attachment, in the order they were attached", async () => {
 		const store = new AttachmentStore(storageOf());
 
-		const stored = await store.store(SESSION, [
-			MediaPart.image("image/png", PIXEL),
-			MediaPart.image("image/jpeg", PIXEL),
-		]);
+		const stored = await store.store(CTX, [MediaPart.image("image/png", PIXEL), MediaPart.image("image/jpeg", PIXEL)]);
 
 		expect(stored).toHaveLength(2);
 		expect(stored[0]?.artifactId?.value).not.toBe(stored[1]?.artifactId?.value);
@@ -52,26 +51,26 @@ describe("AttachmentStore", () => {
 		const storage = storageOf();
 		const store = new AttachmentStore(storage);
 
-		const stored = await store.store(SESSION, [MediaPart.image("image/png", PIXEL)]);
+		const stored = await store.store(CTX, [MediaPart.image("image/png", PIXEL)]);
 		const id = stored[0]?.artifactId;
 		if (id === undefined) throw new Error("expected one id");
-		const reference = await storage.find(SESSION, id);
+		const reference = await storage.find(CTX, id);
 		if (reference === undefined) throw new Error("expected the artifact to be readable");
 
-		const content = await storage.read(SESSION, reference);
+		const content = await storage.read(CTX, reference);
 		expect(content.text).toBe(PIXEL);
 		expect(content.mediaType).toBe("image/png");
 	});
 
 	it("writes nothing when there is nothing attached", async () => {
-		expect(await new AttachmentStore(storageOf()).store(SESSION, [])).toEqual([]);
+		expect(await new AttachmentStore(storageOf()).store(CTX, [])).toEqual([]);
 	});
 
 	it("records a link as the address it already was, without writing anything", async () => {
 		const storage = storageOf();
 		const store = new AttachmentStore(storage);
 
-		const stored = await store.store(SESSION, [MediaPart.link("https://cdn.example/x.png", "image/png")]);
+		const stored = await store.store(CTX, [MediaPart.link("https://cdn.example/x.png", "image/png")]);
 
 		expect(stored[0]?.isLink).toBe(true);
 		expect(stored[0]?.url).toBe("https://cdn.example/x.png");
@@ -81,7 +80,7 @@ describe("AttachmentStore", () => {
 	it("takes a link even when nothing can be written, because nothing has to be", async () => {
 		const store = new AttachmentStore(new RefusingArtifactStorage());
 
-		const stored = await store.store(SESSION, [MediaPart.link("https://cdn.example/x.png", "image/png")]);
+		const stored = await store.store(CTX, [MediaPart.link("https://cdn.example/x.png", "image/png")]);
 
 		expect(stored[0]?.isLink).toBe(true);
 	});
@@ -89,7 +88,7 @@ describe("AttachmentStore", () => {
 	it("ends the command when the storage refuses, because there is no inline fallback", async () => {
 		const store = new AttachmentStore(new RefusingArtifactStorage());
 
-		await expect(store.store(SESSION, [MediaPart.image("image/png", PIXEL)])).rejects.toBeInstanceOf(
+		await expect(store.store(CTX, [MediaPart.image("image/png", PIXEL)])).rejects.toBeInstanceOf(
 			AttachmentNotStoredError,
 		);
 	});
@@ -98,7 +97,7 @@ describe("AttachmentStore", () => {
 		const store = new AttachmentStore(storageOf());
 		const external = AttachmentReference.external("file-7", "image/png");
 
-		const stored = await store.store(SESSION, [MediaPart.image("image/png", PIXEL)], [external]);
+		const stored = await store.store(CTX, [MediaPart.image("image/png", PIXEL)], [external]);
 
 		expect(stored).toHaveLength(2);
 		expect(stored[0]?.artifactId).toBeDefined();
@@ -109,7 +108,7 @@ describe("AttachmentStore", () => {
 		const store = new AttachmentStore(new RefusingArtifactStorage());
 		const external = AttachmentReference.external("file-7", "image/png");
 
-		const stored = await store.store(SESSION, [], [external]);
+		const stored = await store.store(CTX, [], [external]);
 
 		expect(stored).toEqual([external]);
 	});

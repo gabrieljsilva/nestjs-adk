@@ -50,4 +50,6 @@ A loop runs turns, a turn delegates, a delegation runs turns. No construction or
 
 **A delegated run that suspends fails** with `DelegationSuspendedError`. Approval resumes a run by opening a new one that points back at the suspended one, and a child run has no entry point: it only exists inside the turn that asked for it. Swallowing the suspension would leave a session reading as awaiting a decision nobody can act on. An agent that needs approval inside delegated work should be reached by transfer instead.
 
-Related: [[agent-transfer]], [[run-orchestration]], [[context-projection]].
+**The child's context is the parent's, with a new run in it.** `RunContext.delegatedTo(run, signal)` keeps the conversation, its metadata and its revision, moves `activeAgent` to the child's agent, and points `parent` at the run that asked. There is no child session to copy metadata into: both runs fold the same journal, which is the read-only inheritance the design wanted, and `depth` is read off the child run rather than counted anywhere. See [[run-context]].
+
+Related: [[run-context]], [[agent-transfer]], [[run-orchestration]], [[context-projection]].

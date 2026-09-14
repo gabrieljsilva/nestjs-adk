@@ -15,6 +15,7 @@ import { AgentName } from "../../domain/agent/agent-name";
 import { DeclaredAgent } from "../../domain/agent/declared-agent";
 import type { SessionEvent } from "../../domain/event/session-event";
 import type { LlmModel } from "../../domain/model/llm-model";
+import { SessionContext } from "../../domain/run/session-context";
 import type { SkillDefinition } from "../../domain/skill/skill-definition";
 import { AdkApprovalPolicy } from "../../domain/tool/adk-approval-policy";
 import { EffectApprovalPolicy } from "../../domain/tool/effect-approval-policy";
@@ -191,7 +192,10 @@ export class NativeStackFixture {
 
 	public async journalOf(sessionId: SessionId): Promise<SessionEvent[]> {
 		const events: SessionEvent[] = [];
-		for await (const stored of this.storage.readEvents(sessionId, SessionRevision.initial())) {
+		for await (const stored of this.storage.readEvents(
+			SessionContext.fromSessionId(sessionId),
+			SessionRevision.initial(),
+		)) {
 			events.push(stored.event);
 		}
 		return events;

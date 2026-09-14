@@ -1,6 +1,6 @@
-import type { SessionId } from "../common/identity/session-id";
 import type { SessionEvent } from "../domain/event/session-event";
 import type { StoredSessionEvent } from "../domain/event/stored-session-event";
+import type { SessionContext } from "../domain/run/session-context";
 
 /**
  * Where committed events go to be observed.
@@ -10,7 +10,7 @@ import type { StoredSessionEvent } from "../domain/event/stored-session-event";
  * when an application needs it, is an outbox in the adapter, not a rollback here.
  */
 export abstract class SessionEventPublisher {
-	public abstract publish(committed: readonly StoredSessionEvent[]): Promise<void>;
+	public abstract publish(context: SessionContext, committed: readonly StoredSessionEvent[]): Promise<void>;
 
 	/**
 	 * A fact that never reached the journal and never will.
@@ -19,5 +19,5 @@ export abstract class SessionEventPublisher {
 	 * run that ended and could not record it is the one an observer most needs to hear
 	 * about, and staying silent would leave it looking like a run still going.
 	 */
-	public abstract emit(sessionId: SessionId, event: SessionEvent): Promise<void>;
+	public abstract emit(context: SessionContext, event: SessionEvent): Promise<void>;
 }

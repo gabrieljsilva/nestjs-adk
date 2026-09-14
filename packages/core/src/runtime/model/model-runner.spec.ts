@@ -23,6 +23,7 @@ import { ToolResultMessage } from "../../domain/model/tool-result-message";
 import { UnavailableFailure } from "../../domain/model/unavailable-failure";
 import { UnknownFailure } from "../../domain/model/unknown-failure";
 import { UserMessage } from "../../domain/model/user-message";
+import { RunContextFixture } from "../../support/run/run-context.fixture";
 import { ModelRunCommand } from "./model-run-command";
 import { ModelRunner } from "./model-runner";
 
@@ -100,7 +101,7 @@ class RecordingPolicy extends AgentFailoverPolicy {
 }
 
 function commandOf(model: LlmModel, failover?: AgentFailoverPolicy): ModelRunCommand {
-	return new ModelRunCommand(RUN, AGENT, model, request, failover);
+	return new ModelRunCommand(CONTEXT, RUN, AGENT, model, request, failover);
 }
 
 async function collect(runner: ModelRunner, command: ModelRunCommand): Promise<string[]> {
@@ -115,6 +116,8 @@ async function collect(runner: ModelRunner, command: ModelRunCommand): Promise<s
 }
 
 const runner = new ModelRunner();
+
+const CONTEXT = RunContextFixture.run();
 
 describe("ModelRunner", () => {
 	it("answers from the primary model when nothing fails", async () => {
@@ -157,7 +160,9 @@ describe("ModelRunner", () => {
 		const primary = new ScriptedModel("primary", [], new RateLimitedFailure("slow down"));
 		const fallback = new ScriptedModel("fallback", [ModelChunk.text("shipped"), ModelChunk.finish("stop")]);
 
-		await runner.run(new ModelRunCommand(RUN, AGENT, primary, inherited, new SequentialFailoverPolicy([fallback])));
+		await runner.run(
+			new ModelRunCommand(CONTEXT, RUN, AGENT, primary, inherited, new SequentialFailoverPolicy([fallback])),
+		);
 
 		expect(fallback.requests.at(0)).toBe(inherited);
 		expect(fallback.requests.at(0)?.messages.at(1)).toBeInstanceOf(ToolCallMessage);
@@ -227,7 +232,14 @@ describe("ModelRunner", () => {
 		const primary = new ScriptedModel("primary");
 		const fallback = new ScriptedModel("fallback");
 
-		const command = new ModelRunCommand(RUN, AGENT, primary, withTools, new SequentialFailoverPolicy([fallback]));
+		const command = new ModelRunCommand(
+			CONTEXT,
+			RUN,
+			AGENT,
+			primary,
+			withTools,
+			new SequentialFailoverPolicy([fallback]),
+		);
 		const failure = await runner.run(command).catch((error) => error);
 
 		expect(failure).toBeInstanceOf(UnsupportedCapabilityError);

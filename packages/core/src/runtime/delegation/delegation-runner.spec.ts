@@ -14,11 +14,13 @@ import { AgentName } from "../../domain/agent/agent-name";
 import { DeclaredAgent } from "../../domain/agent/declared-agent";
 import { DelegationNotDeclaredError } from "../../domain/agent/errors/delegation-not-declared.error";
 import type { LlmModel } from "../../domain/model/llm-model";
+import { SessionContext } from "../../domain/run/session-context";
 import { AgentMaxDelegationDepthError } from "../../domain/session/errors/agent-max-delegation-depth.error";
 import { PendingCall } from "../../domain/session/pending-call";
 import { Session } from "../../domain/session/session";
 import { SessionState } from "../../domain/session/session-state";
 import { FakeClock } from "../../support/fake-clock";
+import { RunContextFixture } from "../../support/run/run-context.fixture";
 import { ScriptedModel } from "../../support/run/scripted-model.fixture";
 import { SequenceIdGenerator } from "../../support/sequence-id-generator";
 import { AgentCatalog } from "../catalog/agent-catalog";
@@ -30,6 +32,7 @@ import { RunEventFactory } from "../run/run-event-factory";
 import { RunJournal } from "../run/run-journal";
 import { RunProgress } from "../run/run-progress";
 import { RunScopeFactory } from "../run/run-scope-factory";
+import type { StartedRun } from "../run/started-run";
 import { OpenedSession } from "../session/opened-session";
 import { SessionManager } from "../session/session-manager";
 import { DelegatedTurnLoop } from "./delegated-turn-loop";
@@ -102,8 +105,12 @@ function stack(support: AgentDefinition, models: ModelResolver = new FixedResolv
 
 async function openedSession(sessions: SessionManager): Promise<OpenedSession> {
 	const session = Session.start(SESSION, SUPPORT, NOW);
-	await sessions.create(session);
+	await sessions.create(SessionContext.fromSessionId(SESSION), session);
 	return new OpenedSession(session, SessionState.initial(), true);
+}
+
+function contextOf(started: StartedRun) {
+	return RunContextFixture.run(SESSION, { agent: SUPPORT, runId: started.run.id.value });
 }
 
 function delegateCall(agentName: string, task = "find the policy"): PendingCall {
@@ -117,7 +124,7 @@ describe("DelegationRunner", () => {
 		built.runner.uses(new AnsweringLoop("the window is 30 days"));
 		const opened = await openedSession(built.sessions);
 		const started = built.runs.start(SESSION, SUPPORT);
-		const scope = await built.scopes.create(declared, MODEL, started);
+		const scope = await built.scopes.create(contextOf(started), declared, MODEL, started);
 
 		const answers = await built.runner.runAll(scope, opened, new RunProgress(opened.state), [delegateCall("researcher")]);
 
@@ -138,12 +145,13 @@ describe("DelegationRunner", () => {
 		built.runner.uses(new AnsweringLoop());
 		const opened = await openedSession(built.sessions);
 		const started = built.runs.start(SESSION, SUPPORT);
-		const scope = await built.scopes.create(declared, MODEL, started);
+		const scope = await built.scopes.create(contextOf(started), declared, MODEL, started);
 
 		await built.runner.runAll(scope, opened, new RunProgress(opened.state), [delegateCall("researcher")]);
 
 		const written: unknown[] = [];
-		for await (const event of built.storage.readEvents(SESSION, SessionRevision.initial())) written.push(event);
+		for await (const event of built.storage.readEvents(SessionContext.fromSessionId(SESSION), SessionRevision.initial()))
+			written.push(event);
 
 		expect(resolver.calls).toBe(1);
 		expect(JSON.stringify(written)).toContain("model-1");
@@ -154,7 +162,12 @@ describe("DelegationRunner", () => {
 		const built = stack(declared);
 		built.runner.uses(new AnsweringLoop());
 		const opened = await openedSession(built.sessions);
-		const scope = await built.scopes.create(declared, MODEL, built.runs.start(SESSION, SUPPORT));
+		const scope = await built.scopes.create(
+			contextOf(built.runs.start(SESSION, SUPPORT)),
+			declared,
+			MODEL,
+			built.runs.start(SESSION, SUPPORT),
+		);
 
 		const answers = await built.runner.runAll(scope, opened, new RunProgress(opened.state), [
 			new PendingCall(ToolCallId.from("c-1"), "lookup_order", {}),
@@ -168,12 +181,17 @@ describe("DelegationRunner", () => {
 		const built = stack(declared);
 		built.runner.uses(new AnsweringLoop());
 		const opened = await openedSession(built.sessions);
-		const scope = await built.scopes.create(declared, MODEL, built.runs.start(SESSION, SUPPORT));
+		const scope = await built.scopes.create(
+			contextOf(built.runs.start(SESSION, SUPPORT)),
+			declared,
+			MODEL,
+			built.runs.start(SESSION, SUPPORT),
+		);
 
 		await expect(
 			built.runner.runAll(scope, opened, new RunProgress(opened.state), [delegateCall("researcher")]),
 		).rejects.toBeInstanceOf(DelegationNotDeclaredError);
-		expect((await built.storage.findOrFail(SESSION)).revision.value).toBe(0);
+		expect((await built.storage.findOrFail(SessionContext.fromSessionId(SESSION))).revision.value).toBe(0);
 	});
 
 	it("opens the child one level deeper than whoever asked", async () => {
@@ -182,7 +200,12 @@ describe("DelegationRunner", () => {
 		const loop = new AnsweringLoop();
 		built.runner.uses(loop);
 		const opened = await openedSession(built.sessions);
-		const scope = await built.scopes.create(declared, MODEL, built.runs.start(SESSION, SUPPORT));
+		const scope = await built.scopes.create(
+			contextOf(built.runs.start(SESSION, SUPPORT)),
+			declared,
+			MODEL,
+			built.runs.start(SESSION, SUPPORT),
+		);
 
 		await built.runner.runAll(scope, opened, new RunProgress(opened.state), [delegateCall("researcher")]);
 
@@ -195,7 +218,7 @@ describe("DelegationRunner", () => {
 		built.runner.uses(new AnsweringLoop());
 		const opened = await openedSession(built.sessions);
 		const started = built.runs.start(SESSION, SUPPORT);
-		let scope = await built.scopes.create(declared, MODEL, started);
+		let scope = await built.scopes.create(contextOf(started), declared, MODEL, started);
 		for (let level = 0; level < 3; level += 1) {
 			const child = built.runs.delegate(scope.started, SUPPORT, CorrelationId.from(`c-${level}`));
 			scope = await built.scopes.delegated(scope, child, declared, MODEL);
@@ -210,7 +233,12 @@ describe("DelegationRunner", () => {
 		const declared = agent(SUPPORT, AgentDelegationPolicy.to([RESEARCHER]));
 		const built = stack(declared);
 		const opened = await openedSession(built.sessions);
-		const scope = await built.scopes.create(declared, MODEL, built.runs.start(SESSION, SUPPORT));
+		const scope = await built.scopes.create(
+			contextOf(built.runs.start(SESSION, SUPPORT)),
+			declared,
+			MODEL,
+			built.runs.start(SESSION, SUPPORT),
+		);
 
 		await expect(
 			built.runner.runAll(scope, opened, new RunProgress(opened.state), [delegateCall("researcher")]),

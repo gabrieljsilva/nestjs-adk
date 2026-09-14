@@ -91,7 +91,7 @@ export class TurnExecutor {
 
 	private async settle(scope: RunScope, outcome: ToolOutcome, observer?: ToolCallObserver): Promise<void> {
 		if (observer === undefined) return;
-		await observer.settled(ToolResultNotice.of(outcome, scope.catalog.find(outcome.toolName)));
+		await observer.settled(scope.context, ToolResultNotice.of(outcome, scope.catalog.find(outcome.toolName)));
 	}
 
 	/**
@@ -139,14 +139,10 @@ export class TurnExecutor {
 
 	private commandOf(scope: RunScope, call: PendingCall, approved: boolean): ToolExecutionCommand {
 		return new ToolExecutionCommand(
-			scope.sessionId,
-			scope.run.id,
-			scope.agent,
+			scope.context,
 			scope.catalog,
 			new ToolInvocation(call.callId, call.toolName, call.args),
-			scope.signal,
 			approved,
-			scope.actor,
 		);
 	}
 

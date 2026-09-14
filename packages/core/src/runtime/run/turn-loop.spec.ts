@@ -9,6 +9,7 @@ import { ToolResultProduced } from "../../domain/event/catalog/tool-result-produ
 import { EmptyModelResponseError } from "../../domain/model/errors/empty-model-response.error";
 import { ModelChunk } from "../../domain/model/model-chunk";
 import { ToolCallDelta } from "../../domain/model/tool-call-delta";
+import type { RunContext } from "../../domain/run/run-context";
 import { AgentRunStatus } from "../../domain/session/agent-run-status";
 import { AskInput } from "../../domain/session/ask-input";
 import { AgentMaxIterationsError } from "../../domain/session/errors/agent-max-iterations.error";
@@ -66,12 +67,12 @@ class LoggingObserver extends ToolCallObserver {
 		super();
 	}
 
-	public requested(call: ToolCallNotice): void {
+	public requested(_context: RunContext, call: ToolCallNotice): void {
 		this.log.push(`requested ${call.toolName}`);
 		this.requests.push(call);
 	}
 
-	public settled(result: ToolResultNotice): void {
+	public settled(_context: RunContext, result: ToolResultNotice): void {
 		this.log.push(`settled ${result.toolName}`);
 		this.results.push(result);
 	}
@@ -255,7 +256,7 @@ describe("TurnLoop", () => {
 		it("ends the run with whatever the observer threw", async () => {
 			const stack = stackOf(callsThenAnswers());
 			const observer = new (class extends LoggingObserver {
-				public override requested(): void {
+				public override requested(_context: RunContext): void {
 					throw new Error("the card could not be drawn");
 				}
 			})();

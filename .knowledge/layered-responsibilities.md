@@ -28,7 +28,7 @@ The high-level API of one module. Each method does one thing and says so in its 
 
 Suffix: `Service` for the module API; collaborators keep their role name.
 
-A service never stores a per-run context in a field. It receives the context as a parameter and forgets it when the method returns. Two runs share one service instance, so a field is state that leaks between them, and that is the rule that keeps the lib stateless. Same reason as the no-global-state rule in [[module-boundaries]].
+A service never stores a per-run context in a field. It receives the `RunContext` as its first parameter and forgets it when the method returns. Two runs share one service instance, so a field is state that leaks between them, and that is the rule that keeps the lib stateless. Same reason as the no-global-state rule in [[module-boundaries]]. `run-context-statelessness.spec.ts` enforces it over `runtime/`; [[run-context]] has the four exemptions and why each one is a run rather than a collaborator.
 
 ## Repository
 

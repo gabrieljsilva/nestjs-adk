@@ -28,7 +28,7 @@ export class PricedEmbedder {
 
 	public async embed(text: string): Promise<PricedEmbedding> {
 		const billed = await this.callOf(text);
-		return new PricedEmbedding(billed.vector, await this.costs.report([billed.billed]));
+		return new PricedEmbedding(billed.vector, await this.costs.report(undefined, [billed.billed]));
 	}
 
 	/**

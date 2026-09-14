@@ -4,6 +4,7 @@ import { SessionRevision } from "../../common/revision/session-revision";
 import { AttachmentReference } from "../../domain/model/attachment-reference";
 import { AttachmentRequest } from "../../domain/model/attachment-request";
 import { MediaPart } from "../../domain/model/media-part";
+import { SessionContext } from "../../domain/run/session-context";
 import { InlineAttachmentResolver } from "./inline-attachment-resolver";
 
 const PIXEL = "iVBORw0KGgo=";
@@ -19,12 +20,14 @@ function requestOf(reference: AttachmentReference, stored?: MediaPart): Attachme
 	);
 }
 
+const CTX = SessionContext.fromSessionId(SessionId.from("s-1"));
+
 describe("InlineAttachmentResolver", () => {
 	it("fetches an external file server side and inlines it, so no address ever travels", async () => {
 		const part = MediaPart.image("image/png", PIXEL);
 		const resolver = new InlineAttachmentResolver(async (externalId) => (externalId === "file-7" ? part : undefined));
 
-		const projection = await resolver.resolve(requestOf(AttachmentReference.external("file-7", "image/png")));
+		const projection = await resolver.resolve(CTX, requestOf(AttachmentReference.external("file-7", "image/png")));
 
 		expect(projection.part).toBe(part);
 	});
@@ -32,7 +35,7 @@ describe("InlineAttachmentResolver", () => {
 	it("says the file is gone instead of saying nothing", async () => {
 		const resolver = new InlineAttachmentResolver(async () => undefined);
 
-		const projection = await resolver.resolve(requestOf(AttachmentReference.external("file-7", "image/png")));
+		const projection = await resolver.resolve(CTX, requestOf(AttachmentReference.external("file-7", "image/png")));
 
 		expect(projection.text).toBe("[attachment image/png: no longer available]");
 	});
@@ -44,7 +47,7 @@ describe("InlineAttachmentResolver", () => {
 			return undefined;
 		});
 
-		await resolver.resolve(requestOf(AttachmentReference.external("file-7", "image/png")));
+		await resolver.resolve(CTX, requestOf(AttachmentReference.external("file-7", "image/png")));
 
 		expect(seen).toEqual([true]);
 	});
@@ -54,8 +57,8 @@ describe("InlineAttachmentResolver", () => {
 		const resolver = new InlineAttachmentResolver(async () => undefined);
 
 		const reference = AttachmentReference.link("https://cdn.example/x.png", "image/png");
-		const materialized = await resolver.resolve(requestOf(reference, part));
-		const gone = await resolver.resolve(requestOf(reference));
+		const materialized = await resolver.resolve(CTX, requestOf(reference, part));
+		const gone = await resolver.resolve(CTX, requestOf(reference));
 
 		expect(materialized.part).toBe(part);
 		expect(gone.isMedia).toBe(false);

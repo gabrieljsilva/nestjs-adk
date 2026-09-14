@@ -11,6 +11,7 @@ import { EmbeddingVector } from "../../domain/embedding/embedding-vector";
 import { MeteredEmbedding } from "../../domain/embedding/metered-embedding";
 import { ModelIdentity } from "../../domain/model/model-identity";
 import { ModelUsage } from "../../domain/model/model-usage";
+import { SessionContext } from "../../domain/run/session-context";
 import { CostCalculator } from "../../runtime/cost/cost-calculator";
 import { PricedEmbedder } from "../../runtime/cost/priced-embedder";
 import { RunCostReporter } from "../../runtime/cost/run-cost-reporter";
@@ -42,7 +43,7 @@ class ReportingEmbedder extends MeteredEmbedder {
 }
 
 class KnowsEmbeddings extends PricingSource {
-	public async priceOf(model: ModelIdentity): Promise<ModelPrice | undefined> {
+	public async findPrice(_context: SessionContext | undefined, model: ModelIdentity): Promise<ModelPrice | undefined> {
 		return model.equals(EMBEDDING_MODEL) ? ModelPrice.of(TokenRate.fromUsdPerToken(1e-8), TokenRate.zero()) : undefined;
 	}
 }

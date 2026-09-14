@@ -13,6 +13,7 @@ import { SessionCreated } from "../../domain/event/catalog/session-created";
 import { EventCorrelation } from "../../domain/event/event-correlation";
 import { EventHeader } from "../../domain/event/event-header";
 import { SessionEventBatch } from "../../domain/event/session-event-batch";
+import { SessionContext } from "../../domain/run/session-context";
 import { AskInput } from "../../domain/session/ask-input";
 import { SessionClosedError } from "../../domain/session/errors/session-closed.error";
 import { Session } from "../../domain/session/session";
@@ -38,6 +39,7 @@ async function beginJournalOf(storage: InMemorySessionStorage): Promise<void> {
 		new EventCorrelation(AgentRunId.from("r-1"), AgentId.from("support"), CorrelationId.from("c-1")),
 	);
 	await storage.append(
+		SessionContext.fromSessionId(SESSION),
 		new AppendEventsCommand(
 			SESSION,
 			SessionRevision.initial(),
@@ -53,12 +55,12 @@ describe("SessionOpener", () => {
 		const opened = await openerOf(storage).open(new AgentRunCommand(SUPPORT, AskInput.of("hi")), SESSION);
 
 		expect(opened.isNew).toBe(true);
-		expect(await storage.find(SESSION)).toBeDefined();
+		expect(await storage.find(SessionContext.fromSessionId(SESSION))).toBeDefined();
 	});
 
 	it("continues the session a command names, without creating a second one", async () => {
 		const storage = new InMemorySessionStorage();
-		await storage.create(Session.start(SESSION, SUPPORT, NOW));
+		await storage.create(SessionContext.fromSessionId(SESSION), Session.start(SESSION, SUPPORT, NOW));
 		await beginJournalOf(storage);
 
 		const opened = await openerOf(storage).open(new AgentRunCommand(SUPPORT, AskInput.of("again", SESSION)), SESSION);
@@ -69,7 +71,7 @@ describe("SessionOpener", () => {
 
 	it("treats a session opened ahead of time as one whose journal still has to begin", async () => {
 		const storage = new InMemorySessionStorage();
-		await storage.create(Session.start(SESSION, SUPPORT, NOW));
+		await storage.create(SessionContext.fromSessionId(SESSION), Session.start(SESSION, SUPPORT, NOW));
 
 		const opened = await openerOf(storage).open(new AgentRunCommand(SUPPORT, AskInput.of("first", SESSION)), SESSION);
 
@@ -78,7 +80,10 @@ describe("SessionOpener", () => {
 
 	it("refuses a session that no longer accepts commands, before anything is written", async () => {
 		const storage = new InMemorySessionStorage();
-		await storage.create(Session.start(SESSION, SUPPORT, NOW).withStatus(SessionStatus.CLOSED));
+		await storage.create(
+			SessionContext.fromSessionId(SESSION),
+			Session.start(SESSION, SUPPORT, NOW).withStatus(SessionStatus.CLOSED),
+		);
 
 		const error = await openerOf(storage)
 			.open(new AgentRunCommand(SUPPORT, AskInput.of("again", SESSION)), SESSION)

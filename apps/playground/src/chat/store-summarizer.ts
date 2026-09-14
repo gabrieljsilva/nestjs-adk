@@ -5,6 +5,7 @@ import {
 	ModelExecutor,
 	ModelRequest,
 	PromptInstructions,
+	type RunContext,
 	UserMessage,
 } from "@nestjs-adk/core";
 
@@ -37,11 +38,11 @@ export class StoreSummarizer extends ContextSummarizer {
 		super();
 	}
 
-	public async summarize(blocks: readonly ContextBlock[]): Promise<string> {
+	public async summarize(context: RunContext, blocks: readonly ContextBlock[]): Promise<string> {
 		const conversation = this.transcriptOf(blocks);
 		if (conversation.length === 0) return "";
 
-		const response = await this.executor.execute(this.model, this.requestFor(conversation));
+		const response = await this.executor.execute(context, this.model, this.requestFor(conversation));
 		return response.text.trim();
 	}
 

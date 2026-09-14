@@ -6,6 +6,7 @@ import type { ModelChunk } from "../../domain/model/model-chunk";
 import type { ModelDescriptor } from "../../domain/model/model-descriptor";
 import type { ModelRequest } from "../../domain/model/model-request";
 import type { ModelResponse } from "../../domain/model/model-response";
+import type { RunContext } from "../../domain/run/run-context";
 import { JsonStructuredOutputValidator } from "./json-structured-output-validator";
 import { MediaFit } from "./media-fit";
 import { ModelChunkAggregator } from "./model-chunk-aggregator";
@@ -32,14 +33,20 @@ export class ModelExecutor {
 		private readonly media: MediaFit = new MediaFit(),
 	) {}
 
-	public async execute(model: LlmModel, request: ModelRequest, signal?: AbortSignal): Promise<ModelResponse> {
-		const turn = this.stream(model, request, signal);
+	public async execute(
+		context: RunContext | undefined,
+		model: LlmModel,
+		request: ModelRequest,
+		signal?: AbortSignal,
+	): Promise<ModelResponse> {
+		const turn = this.stream(context, model, request, signal);
 		let step = await turn.next();
 		while (step.done !== true) step = await turn.next();
 		return step.value;
 	}
 
 	public async *stream(
+		context: RunContext | undefined,
 		model: LlmModel,
 		request: ModelRequest,
 		signal?: AbortSignal,
@@ -57,7 +64,7 @@ export class ModelExecutor {
 		if (!request.wantsStructuredOutput) return aggregator.toResponse(descriptor.identity);
 		return aggregator.toResponse(
 			descriptor.identity,
-			this.validator.validate(request.outputSchema, aggregator.aggregatedText),
+			this.validator.validate(context, request.outputSchema, aggregator.aggregatedText),
 		);
 	}
 

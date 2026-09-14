@@ -1,6 +1,7 @@
 import { AttachmentResolver } from "../../contracts/attachment-resolver";
 import { AttachmentProjection } from "../../domain/model/attachment-projection";
 import type { AttachmentRequest } from "../../domain/model/attachment-request";
+import type { SessionContext } from "../../domain/run/session-context";
 
 /**
  * What runs when the application declared no resolver, which is today's behaviour.
@@ -13,7 +14,7 @@ import type { AttachmentRequest } from "../../domain/model/attachment-request";
  * to be able to see.
  */
 export class DefaultAttachmentResolver extends AttachmentResolver {
-	public async resolve(request: AttachmentRequest): Promise<AttachmentProjection> {
+	public async resolve(_context: SessionContext, request: AttachmentRequest): Promise<AttachmentProjection> {
 		if (request.reference.isExternal) {
 			return AttachmentProjection.noteFor(request.reference, "no attachment resolver is configured");
 		}

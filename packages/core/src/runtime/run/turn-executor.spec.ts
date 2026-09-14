@@ -16,6 +16,7 @@ import { ToolHandler } from "../../domain/tool/tool-handler";
 import { ToolSchema } from "../../domain/tool/tool-schema";
 import { FakeClock } from "../../support/fake-clock";
 import { NativeStackFixture } from "../../support/run/native-stack.fixture";
+import { RunContextFixture } from "../../support/run/run-context.fixture";
 import { ScriptedModel } from "../../support/run/scripted-model.fixture";
 import { SequenceIdGenerator } from "../../support/sequence-id-generator";
 import { ArtifactOffloader } from "../artifact/artifact-offloader";
@@ -73,7 +74,11 @@ async function scopeOf(tools: readonly ToolDefinition[], skills: readonly SkillD
 		NativeStackFixture.AGENT,
 	);
 	const definition = NativeStackFixture.definitionOf(model, undefined, tools, skills);
-	return await new RunScopeFactory().create(definition, model, started, [], RunLimits.none());
+	const context = RunContextFixture.run(started.run.sessionId, {
+		agent: started.run.agent,
+		runId: started.run.id.value,
+	});
+	return await new RunScopeFactory().create(context, definition, model, started, [], RunLimits.none());
 }
 
 function executorOf(): TurnExecutor {

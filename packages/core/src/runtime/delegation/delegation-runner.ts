@@ -133,7 +133,7 @@ export class DelegationRunner {
 		task: string,
 	): Promise<RunProgress> {
 		const state = await this.sessions.commit(
-			opened.session.id,
+			scope.context,
 			progress.state.revision,
 			this.journal.delegation(scope.started, child, task, target.name, model.descriptor().identity),
 			progress.state,
@@ -150,7 +150,7 @@ export class DelegationRunner {
 		childProgress: RunProgress,
 	): Promise<void> {
 		const closed = await this.sessions.commit(
-			opened.session.id,
+			scope.context,
 			childProgress.state.revision,
 			SessionEventBatch.of([this.journal.delegationEnd(scope.started, child, COMPLETED)]),
 			childProgress.state,

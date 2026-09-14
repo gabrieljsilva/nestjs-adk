@@ -1,8 +1,8 @@
-import type { SessionId } from "../../common/identity/session-id";
 import type { ArtifactStorage } from "../../contracts/artifact-storage";
 import { ArtifactContent } from "../../domain/artifact/artifact-content";
 import { OffloadPolicy } from "../../domain/artifact/offload-policy";
 import { OffloadedContent } from "../../domain/artifact/offloaded-content";
+import type { SessionContext } from "../../domain/run/session-context";
 
 /**
  * Moves a result out of the context when it is too large to belong there.
@@ -22,10 +22,10 @@ export class ArtifactOffloader {
 		private readonly policy: OffloadPolicy = OffloadPolicy.byDefault(),
 	) {}
 
-	public async offload(sessionId: SessionId, text: string, mediaType?: string): Promise<OffloadedContent> {
+	public async offload(context: SessionContext, text: string, mediaType?: string): Promise<OffloadedContent> {
 		if (!this.policy.shouldOffload(text.length)) return OffloadedContent.inline(text);
 		try {
-			return OffloadedContent.offloaded(await this.storage.put(sessionId, ArtifactContent.of(text, mediaType)));
+			return OffloadedContent.offloaded(await this.storage.put(context, ArtifactContent.of(text, mediaType)));
 		} catch {
 			return OffloadedContent.inline(text);
 		}

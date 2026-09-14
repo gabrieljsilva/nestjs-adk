@@ -1,12 +1,17 @@
-import { AppendEventsCommand, type AppendEventsResult, InMemorySessionStorage } from "@nestjs-adk/core";
+import {
+	AppendEventsCommand,
+	type AppendEventsResult,
+	InMemorySessionStorage,
+	type SessionContext,
+} from "@nestjs-adk/core";
 
 /**
  * Breaks optimistic concurrency by writing at the current head whatever `expectedRevision` says, while still
  * declaring durable capabilities: two writers would both commit and the second would erase the first decision.
  */
 export class NoOccSessionStorage extends InMemorySessionStorage {
-	public override async append(command: AppendEventsCommand): Promise<AppendEventsResult> {
-		const session = await this.findOrFail(command.sessionId);
-		return super.append(new AppendEventsCommand(command.sessionId, session.revision, command.batch));
+	public override async append(context: SessionContext, command: AppendEventsCommand): Promise<AppendEventsResult> {
+		const session = await this.findOrFail(context);
+		return super.append(context, new AppendEventsCommand(command.sessionId, session.revision, command.batch));
 	}
 }

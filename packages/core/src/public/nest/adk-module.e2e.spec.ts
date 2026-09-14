@@ -14,6 +14,7 @@ import { TokenRate } from "../../domain/cost/token-rate";
 import type { PublishedEvent } from "../../domain/event/published-event";
 import type { LlmModel } from "../../domain/model/llm-model";
 import { ModelIdentity } from "../../domain/model/model-identity";
+import { SessionContext } from "../../domain/run/session-context";
 import { FakeClock } from "../../support/fake-clock";
 import { RecordingModel } from "../../support/nest/recording-model.fixture";
 import { ToolCallingModel } from "../../support/nest/tool-calling-model.fixture";
@@ -200,7 +201,7 @@ describe("AdkModule over the native runtime", () => {
 		const seen: string[] = [];
 		class Recorder extends SessionEventConsumer {
 			public readonly name = "recorder";
-			public async consume(event: PublishedEvent): Promise<void> {
+			public async consume(_context: SessionContext, event: PublishedEvent): Promise<void> {
 				seen.push(event.type);
 			}
 		}
@@ -538,7 +539,7 @@ describe("AdkModule over the native runtime", () => {
 	/** The cost of a run reaches the application through the same handle its answer does. */
 	it("answers what the run cost, priced by the source the module declared", async () => {
 		class KnowsThePrimary extends PricingSource {
-			public async priceOf(model: ModelIdentity): Promise<ModelPrice | undefined> {
+			public async findPrice(_context: SessionContext | undefined, model: ModelIdentity): Promise<ModelPrice | undefined> {
 				return model.model === "primary"
 					? ModelPrice.of(TokenRate.fromUsdPerToken(1e-7), TokenRate.fromUsdPerToken(4e-7))
 					: undefined;

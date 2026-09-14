@@ -21,6 +21,8 @@ import { ModelIdentity } from "../domain/model/model-identity";
 import { ModelRequest } from "../domain/model/model-request";
 import { ModelUsage } from "../domain/model/model-usage";
 import { PromptInstructions } from "../domain/prompt/prompt-instructions";
+import type { RunContext } from "../domain/run/run-context";
+import { SessionContext } from "../domain/run/session-context";
 import { AskInput } from "../domain/session/ask-input";
 import { RunLimits } from "../domain/session/run-limits";
 import { RuntimeOptions } from "../runtime/composition/runtime-options";
@@ -76,7 +78,7 @@ class AboveThreshold extends AdkCompactionPolicy {
 class NamingSummarizer implements ContextSummarizer {
 	public calls = 0;
 
-	public async summarize(blocks: readonly ContextBlock[]): Promise<string> {
+	public async summarize(_context: RunContext, blocks: readonly ContextBlock[]): Promise<string> {
 		this.calls += 1;
 		return `SUMMARY(${blocks.length})`;
 	}
@@ -153,7 +155,10 @@ describe("auto compaction, against a scripted model", () => {
 		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("three", first.sessionId)));
 
 		const said: string[] = [];
-		for await (const stored of storage.readEvents(first.sessionId, SessionRevision.initial())) {
+		for await (const stored of storage.readEvents(
+			SessionContext.fromSessionId(first.sessionId),
+			SessionRevision.initial(),
+		)) {
 			said.push(stored.event.type);
 		}
 		expect(said.filter((type) => type === "session.user-message-received")).toHaveLength(3);

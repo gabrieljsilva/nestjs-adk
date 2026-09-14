@@ -38,6 +38,7 @@ import { ModelUsage } from "../domain/model/model-usage";
 import { ToolCallDelta } from "../domain/model/tool-call-delta";
 import { ToolResultMessage } from "../domain/model/tool-result-message";
 import { PromptInstructions } from "../domain/prompt/prompt-instructions";
+import { SessionContext } from "../domain/run/session-context";
 import { AgentRunStatus } from "../domain/session/agent-run-status";
 import { ApproveInput } from "../domain/session/approve-input";
 import { AskInput } from "../domain/session/ask-input";
@@ -277,7 +278,7 @@ class RecordingConsumer extends SessionEventConsumer {
 	public readonly seen: PublishedEvent[] = [];
 	public flushed = 0;
 
-	public async consume(event: PublishedEvent): Promise<void> {
+	public async consume(_context: SessionContext, event: PublishedEvent): Promise<void> {
 		this.seen.push(event);
 	}
 
@@ -313,8 +314,8 @@ class RefusingSessionStorage extends InMemorySessionStorage {
 class CountingSessionStorage extends InMemorySessionStorage {
 	public replayed = 0;
 
-	public async *readEvents(sessionId: SessionId, afterRevision: SessionRevision): AsyncIterable<StoredSessionEvent> {
-		for await (const stored of super.readEvents(sessionId, afterRevision)) {
+	public async *readEvents(context: SessionContext, afterRevision: SessionRevision): AsyncIterable<StoredSessionEvent> {
+		for await (const stored of super.readEvents(context, afterRevision)) {
 			this.replayed += 1;
 			yield stored;
 		}
@@ -330,12 +331,12 @@ class FlakySessionStorage extends InMemorySessionStorage {
 		this.refusals = refuseAfter;
 	}
 
-	public async append(command: AppendEventsCommand): Promise<AppendEventsResult> {
+	public async append(context: SessionContext, command: AppendEventsCommand): Promise<AppendEventsResult> {
 		if (this.refusals > 0) {
 			this.refusals -= 1;
 			if (this.refusals === 0) throw new Error("the journal lost the race");
 		}
-		return super.append(command);
+		return super.append(context, command);
 	}
 }
 
@@ -363,14 +364,15 @@ function writeApprovingOptions(): RuntimeOptions {
 /** Every event type the journal holds, in the order it recorded them. */
 async function eventTypesOf(storage: InMemorySessionStorage, sessionId: SessionId): Promise<readonly string[]> {
 	const types: string[] = [];
-	for await (const stored of storage.readEvents(sessionId, SessionRevision.initial())) types.push(stored.event.type);
+	for await (const stored of storage.readEvents(SessionContext.fromSessionId(sessionId), SessionRevision.initial()))
+		types.push(stored.event.type);
 	return types;
 }
 
 /** Every tool result the journal holds, in the order it recorded them. */
 async function resultCallIdsOf(storage: InMemorySessionStorage, sessionId: SessionId): Promise<readonly string[]> {
 	const ids: string[] = [];
-	for await (const stored of storage.readEvents(sessionId, SessionRevision.initial())) {
+	for await (const stored of storage.readEvents(SessionContext.fromSessionId(sessionId), SessionRevision.initial())) {
 		if (stored.event instanceof ToolResultProduced) ids.push(stored.event.callId.value);
 	}
 	return ids;
@@ -931,9 +933,11 @@ describe("AdkRuntimeHost over the native runtime", () => {
 
 		const suspended = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("refund order 42")));
 
-		const snapshot = await storage.findSnapshot(suspended.sessionId);
+		const snapshot = await storage.findSnapshot(SessionContext.fromSessionId(suspended.sessionId));
 		expect(snapshot?.state.isAwaitingApproval).toBe(true);
-		expect(snapshot?.revision.value).toBe((await storage.findOrFail(suspended.sessionId)).revision.value);
+		expect(snapshot?.revision.value).toBe(
+			(await storage.findOrFail(SessionContext.fromSessionId(suspended.sessionId))).revision.value,
+		);
 	});
 
 	it("answers where a suspended session stands without replaying its journal", async () => {
@@ -1006,7 +1010,10 @@ describe("AdkRuntimeHost over the native runtime", () => {
 		expect(offered).toContain("refund_order");
 		expect(offered).not.toContain("lookup_order");
 		const runIds = new Set<string>();
-		for await (const stored of storage.readEvents(result.sessionId, SessionRevision.initial())) {
+		for await (const stored of storage.readEvents(
+			SessionContext.fromSessionId(result.sessionId),
+			SessionRevision.initial(),
+		)) {
 			runIds.add(stored.event.correlation.runId.value);
 		}
 		expect(runIds.size).toBe(1);
@@ -1165,7 +1172,11 @@ describe("AdkRuntimeHost over the native runtime", () => {
 		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("how long do I have?")));
 
 		const stored = [];
-		for await (const event of storage.readEvents(result.sessionId, SessionRevision.initial())) stored.push(event);
+		for await (const event of storage.readEvents(
+			SessionContext.fromSessionId(result.sessionId),
+			SessionRevision.initial(),
+		))
+			stored.push(event);
 		const opened = stored.find((event) => event.event instanceof DelegationStarted)?.event;
 		const childRunId = opened instanceof DelegationStarted ? opened.childRunId.value : "";
 		const childEvents = stored.filter((event) => event.event.correlation.runId.value === childRunId);
@@ -1228,7 +1239,10 @@ describe("AdkRuntimeHost over the native runtime", () => {
 		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("how long do I have?")));
 
 		const measured = [];
-		for await (const event of storage.readEvents(result.sessionId, SessionRevision.initial())) {
+		for await (const event of storage.readEvents(
+			SessionContext.fromSessionId(result.sessionId),
+			SessionRevision.initial(),
+		)) {
 			const inner = event.event;
 			if (inner instanceof AssistantMessageProduced && inner.measurement?.model?.model === "child") {
 				measured.push(inner.measurement);
@@ -1318,7 +1332,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			step = await turn.next();
 		}
 
-		const head = await storage.findOrFail(step.value.sessionId);
+		const head = await storage.findOrFail(SessionContext.fromSessionId(step.value.sessionId));
 		const types = await eventTypesOf(storage, step.value.sessionId);
 		expect(chunks).toBeGreaterThan(0);
 		expect(head.revision.value).toBe(types.length);

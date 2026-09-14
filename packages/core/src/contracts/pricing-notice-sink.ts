@@ -1,4 +1,5 @@
 import type { ModelUnpriced } from "../domain/cost/model-unpriced";
+import type { SessionContext } from "../domain/run/session-context";
 
 /**
  * Where the fact that a call could not be priced goes.
@@ -10,7 +11,11 @@ import type { ModelUnpriced } from "../domain/cost/model-unpriced";
  *
  * Like every sink here, it is off the path of a decision. Nothing it does, including throwing,
  * changes what the runtime does next.
+ *
+ * The context is the conversation the call was made in. It is absent for exactly one caller:
+ * an embedding asked for outside a run, which has a model and a usage but no conversation to
+ * name. Everything a run does carries one.
  */
 export abstract class PricingNoticeSink {
-	public abstract report(notice: ModelUnpriced): void;
+	public abstract report(context: SessionContext | undefined, notice: ModelUnpriced): void;
 }

@@ -5,6 +5,7 @@ import {
 	AgentRegistry,
 	type ContextBlock,
 	ContextSummarizer,
+	type RunContext,
 	RunLimits,
 	SessionStorage,
 	SqliteConnection,
@@ -30,7 +31,7 @@ import { StoreDatabase } from "./shared/store-database";
 
 /** Says what it replaced, so a test can find the summary among the messages without a provider. */
 class NamingSummarizer extends ContextSummarizer {
-	public async summarize(blocks: readonly ContextBlock[]): Promise<string> {
+	public async summarize(context: RunContext, blocks: readonly ContextBlock[]): Promise<string> {
 		return `NOTES FROM ${blocks.length} TRECHOS`;
 	}
 }

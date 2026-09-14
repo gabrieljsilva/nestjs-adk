@@ -1,6 +1,7 @@
 import type { ContextNoticeSink } from "../../contracts/context-notice-sink";
 import { ContextWindowUnknown } from "../../domain/context/context-window-unknown";
 import type { ModelDescriptor } from "../../domain/model/model-descriptor";
+import type { SessionContext } from "../../domain/run/session-context";
 import { NoOpContextNoticeSink } from "./no-op-context-notice-sink";
 
 /**
@@ -15,11 +16,11 @@ export class ContextWindowNotifier {
 
 	public constructor(private readonly sink: ContextNoticeSink = new NoOpContextNoticeSink()) {}
 
-	public reportIfUnknown(descriptor: ModelDescriptor): void {
+	public reportIfUnknown(context: SessionContext, descriptor: ModelDescriptor): void {
 		if (descriptor.contextWindow.isKnown) return;
 		const model = descriptor.identity.toString();
 		if (this.reported.has(model)) return;
 		this.reported.add(model);
-		this.sink.report(new ContextWindowUnknown(descriptor.identity));
+		this.sink.report(context, new ContextWindowUnknown(descriptor.identity));
 	}
 }

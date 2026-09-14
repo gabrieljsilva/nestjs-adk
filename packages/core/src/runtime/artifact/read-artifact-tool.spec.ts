@@ -6,13 +6,16 @@ import { ToolCallId } from "../../common/identity/tool-call-id";
 import { AgentName } from "../../domain/agent/agent-name";
 import { ArtifactContent } from "../../domain/artifact/artifact-content";
 import { ArtifactNotFoundError } from "../../domain/artifact/errors/artifact-not-found.error";
+import { SessionContext } from "../../domain/run/session-context";
 import { ToolContext } from "../../domain/tool/tool-context";
 import type { ToolDefinition } from "../../domain/tool/tool-definition";
 import { SequenceIdGenerator } from "../../support/sequence-id-generator";
 import { ReadArtifactTool } from "./read-artifact-tool";
 
 const SESSION = SessionId.from("s-1");
+const CTX = SessionContext.fromSessionId(SESSION);
 const OTHER = SessionId.from("s-2");
+const OTHER_CTX = SessionContext.fromSessionId(OTHER);
 const report = ArtifactContent.of("a very long report", "text/markdown");
 
 function contextOf(sessionId: SessionId): ToolContext {
@@ -38,7 +41,7 @@ describe("ReadArtifactTool", () => {
 
 	it("gives back the content whole", async () => {
 		const { tool, storage } = toolOf();
-		const reference = await storage.put(SESSION, report);
+		const reference = await storage.put(CTX, report);
 
 		const read = await tool.handler.invoke({ artifactId: reference.id.value }, contextOf(SESSION));
 
@@ -47,7 +50,7 @@ describe("ReadArtifactTool", () => {
 
 	it("does not read an artifact of another session, even with the right id", async () => {
 		const { tool, storage } = toolOf();
-		const reference = await storage.put(SESSION, report);
+		const reference = await storage.put(CTX, report);
 
 		const error = await tool.handler
 			.invoke({ artifactId: reference.id.value }, contextOf(OTHER))

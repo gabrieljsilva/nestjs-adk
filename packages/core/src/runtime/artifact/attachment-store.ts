@@ -1,9 +1,9 @@
-import type { SessionId } from "../../common/identity/session-id";
 import { ArtifactStorage } from "../../contracts/artifact-storage";
 import { ArtifactContent } from "../../domain/artifact/artifact-content";
 import type { ArtifactReference } from "../../domain/artifact/artifact-reference";
 import { AttachmentReference } from "../../domain/model/attachment-reference";
 import type { MediaPart } from "../../domain/model/media-part";
+import type { SessionContext } from "../../domain/run/session-context";
 import { AttachmentNotStoredError } from "./errors/attachment-not-stored.error";
 
 /**
@@ -39,24 +39,24 @@ export class AttachmentStore {
 	 * bytes is the application that minted it.
 	 */
 	public async store(
-		sessionId: SessionId,
+		context: SessionContext,
 		attachments: readonly MediaPart[],
 		references: readonly AttachmentReference[] = [],
 	): Promise<readonly AttachmentReference[]> {
 		const stored: AttachmentReference[] = [];
-		for (const part of attachments) stored.push(await this.referenceOf(sessionId, part));
+		for (const part of attachments) stored.push(await this.referenceOf(context, part));
 		return [...stored, ...references];
 	}
 
-	private async referenceOf(sessionId: SessionId, part: MediaPart): Promise<AttachmentReference> {
+	private async referenceOf(context: SessionContext, part: MediaPart): Promise<AttachmentReference> {
 		const url = part.url;
 		if (url !== undefined) return AttachmentReference.link(url, part.mediaType);
-		return AttachmentReference.artifact(await this.putOne(sessionId, part));
+		return AttachmentReference.artifact(await this.putOne(context, part));
 	}
 
-	private async putOne(sessionId: SessionId, part: MediaPart) {
+	private async putOne(context: SessionContext, part: MediaPart) {
 		try {
-			const reference = await this.storage.put(sessionId, ArtifactContent.of(part.base64, part.mediaType));
+			const reference = await this.storage.put(context, ArtifactContent.of(part.base64, part.mediaType));
 			return reference.id;
 		} catch (error) {
 			throw new AttachmentNotStoredError(part.mediaType, error);

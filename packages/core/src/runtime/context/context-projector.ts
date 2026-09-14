@@ -12,6 +12,7 @@ import { AssistantMessage } from "../../domain/model/assistant-message";
 import { ToolCallMessage } from "../../domain/model/tool-call-message";
 import { ToolResultMessage } from "../../domain/model/tool-result-message";
 import { UserMessage } from "../../domain/model/user-message";
+import type { SessionContext } from "../../domain/run/session-context";
 import { AttachmentReader } from "../artifact/attachment-reader";
 import { ResolvedAttachments } from "../artifact/resolved-attachments";
 
@@ -38,6 +39,7 @@ export class ContextProjector {
 	public constructor(private readonly attachments: AttachmentReader = AttachmentReader.none()) {}
 
 	public async project(
+		context: SessionContext,
 		events: AsyncIterable<StoredSessionEvent>,
 		currentRun?: AgentRunId,
 		acceptsRemoteUrl = false,
@@ -66,7 +68,7 @@ export class ContextProjector {
 			if (!(event instanceof ToolCallRequested) && this.isConversational(event)) breath = undefined;
 			if (event instanceof UserMessageReceived) {
 				blocks.push(
-					ContextBlock.conversation(await this.said(stored, event, currentRun, acceptsRemoteUrl), stored.revision),
+					ContextBlock.conversation(await this.said(context, stored, event, currentRun, acceptsRemoteUrl), stored.revision),
 				);
 				continue;
 			}
@@ -94,7 +96,7 @@ export class ContextProjector {
 				continue;
 			}
 			if (event instanceof ToolResultProduced) {
-				await this.close(blocks, pending, event, stored, currentRun, acceptsRemoteUrl);
+				await this.close(context, blocks, pending, event, stored, currentRun, acceptsRemoteUrl);
 			}
 		}
 
@@ -109,6 +111,7 @@ export class ContextProjector {
 	 * message. A note stands in after the words, the way `MediaFit` writes its placeholder.
 	 */
 	private async said(
+		context: SessionContext,
 		stored: StoredSessionEvent,
 		event: UserMessageReceived,
 		currentRun?: AgentRunId,
@@ -116,7 +119,7 @@ export class ContextProjector {
 	): Promise<UserMessage> {
 		if (!event.hasAttachments) return new UserMessage(event.text);
 		const resolved = await this.attachments.read(
-			stored.sessionId,
+			context,
 			event.attachments,
 			stored.revision,
 			this.isCurrent(stored, currentRun),
@@ -153,6 +156,7 @@ export class ContextProjector {
 	}
 
 	private async close(
+		context: SessionContext,
 		blocks: ContextBlock[],
 		pending: Map<string, number>,
 		event: ToolResultProduced,
@@ -168,7 +172,7 @@ export class ContextProjector {
 		// A note joins the output under a synthetic key, the way the offloader writes its placeholder.
 		const resolved = event.hasAttachments
 			? await this.attachments.read(
-					stored.sessionId,
+					context,
 					event.attachments,
 					stored.revision,
 					this.isCurrent(stored, currentRun),

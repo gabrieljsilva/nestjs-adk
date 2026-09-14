@@ -1,4 +1,5 @@
 import type { ContextWindowUnknown } from "../domain/context/context-window-unknown";
+import type { SessionContext } from "../domain/run/session-context";
 
 /**
  * Where a context notice goes.
@@ -8,5 +9,5 @@ import type { ContextWindowUnknown } from "../domain/context/context-window-unkn
  * failing, changes what the runtime does next.
  */
 export abstract class ContextNoticeSink {
-	public abstract report(notice: ContextWindowUnknown): void;
+	public abstract report(context: SessionContext, notice: ContextWindowUnknown): void;
 }

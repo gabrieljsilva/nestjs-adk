@@ -8,11 +8,14 @@ import { ToolDeclaration } from "../../domain/model/tool-declaration";
 import { UserMessage } from "../../domain/model/user-message";
 import { PromptInstructions } from "../../domain/prompt/prompt-instructions";
 import { JournalFixture } from "../../support/context/journal.fixture";
+import { RunContextFixture } from "../../support/run/run-context.fixture";
 import { ContextMeasurer } from "./context-measurer";
 import { ContextProjector } from "./context-projector";
 
 const measurer = new ContextMeasurer();
 const R1 = SessionRevision.of(1);
+
+const RUN = RunContextFixture.run();
 
 describe("ContextMeasurer", () => {
 	it("counts the instructions, the prompt and the conversation as one size", () => {
@@ -41,7 +44,7 @@ describe("ContextMeasurer", () => {
 			.user("find it")
 			.toolCall("c-1", "search", { q: "x" })
 			.toolResult("c-1", "search", { hits: 1 });
-		const blocks = await new ContextProjector().project(journal.stream());
+		const blocks = await new ContextProjector().project(RUN, journal.stream());
 
 		const conversationOnly = measurer.measure(ContextProjection.of(blocks.slice(0, 1)));
 
