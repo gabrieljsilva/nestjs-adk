@@ -9,6 +9,8 @@ import { DelegationCompletedCodec } from "./codecs/delegation-completed.codec";
 import { DelegationStartedCodec } from "./codecs/delegation-started.codec";
 import { ModelReroutedCodec } from "./codecs/model-rerouted.codec";
 import { SessionCreatedCodec } from "./codecs/session-created.codec";
+import { SessionMetadataDeletedCodec } from "./codecs/session-metadata-deleted.codec";
+import { SessionMetadataSetCodec } from "./codecs/session-metadata-set.codec";
 import { SkillActivatedCodec } from "./codecs/skill-activated.codec";
 import { ToolApprovalDeniedCodec } from "./codecs/tool-approval-denied.codec";
 import { ToolApprovalGrantedCodec } from "./codecs/tool-approval-granted.codec";
@@ -30,6 +32,8 @@ export class SessionEventCodecs {
 	public static registry(): SessionEventRegistry {
 		return new SessionEventRegistry()
 			.register(new SessionCreatedCodec())
+			.register(new SessionMetadataSetCodec())
+			.register(new SessionMetadataDeletedCodec())
 			.register(new UserMessageReceivedCodec())
 			.register(new AssistantMessageProducedCodec())
 			.register(new AgentRunStartedCodec())

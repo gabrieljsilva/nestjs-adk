@@ -78,7 +78,12 @@ export { AgentResult } from "./domain/session/agent-result";
 export { AgentRunStatus } from "./domain/session/agent-run-status";
 export { RunLimits } from "./domain/session/run-limits";
 export { InvalidRunLimitError } from "./domain/session/errors/invalid-run-limit.error";
-export { SessionOwner } from "./domain/session/session-owner";
+export { SessionMetadata } from "./domain/session/session-metadata";
+export { MetadataKey } from "./domain/session/metadata-key";
+export type { MetadataValue } from "./domain/session/metadata-value";
+export { InvalidMetadataKeyError } from "./domain/session/errors/invalid-metadata-key.error";
+export { InvalidMetadataValueError } from "./domain/session/errors/invalid-metadata-value.error";
+export { MetadataValueTooLargeError } from "./domain/session/errors/metadata-value-too-large.error";
 export { CreateSessionInput } from "./domain/session/create-session-input";
 // Reachable as `RuntimeServices.sessions`, which is what an application without NestJS holds.
 export { SessionService } from "./runtime/session/session-service";

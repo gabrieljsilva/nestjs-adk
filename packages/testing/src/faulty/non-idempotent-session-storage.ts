@@ -48,7 +48,7 @@ export class NonIdempotentSessionStorage extends InMemorySessionStorage {
 			agentId: "a-faulty",
 			correlationId: "c-faulty",
 			causationId: undefined,
-			payload: { rootAgent: "faulty", owner: null },
+			payload: { rootAgent: "faulty", actorId: null },
 		});
 	}
 }

@@ -5,14 +5,16 @@ import { AgentRunSuspended } from "../../domain/event/catalog/agent-run-suspende
 import { AgentTransferred } from "../../domain/event/catalog/agent-transferred";
 import { AssistantMessageProduced } from "../../domain/event/catalog/assistant-message-produced";
 import { SessionCreated } from "../../domain/event/catalog/session-created";
+import { SessionMetadataDeleted } from "../../domain/event/catalog/session-metadata-deleted";
+import { SessionMetadataSet } from "../../domain/event/catalog/session-metadata-set";
 import { ToolApprovalDenied } from "../../domain/event/catalog/tool-approval-denied";
 import { ToolApprovalGranted } from "../../domain/event/catalog/tool-approval-granted";
 import type { StoredSessionEvent } from "../../domain/event/stored-session-event";
 import { PendingTurn } from "../../domain/session/pending-turn";
 import type { SessionState } from "../../domain/session/session-state";
 
-/** The version that started projecting the suspended turn rather than one held call. */
-const VERSION = 4;
+/** The version that started folding the durable metadata a session carries. */
+const VERSION = 5;
 
 /**
  * Folds the journal into the state it implies.
@@ -45,6 +47,8 @@ export class StateProjector {
 		const event = stored.event;
 		if (event instanceof SessionCreated) return state.withActiveAgent(event.rootAgent);
 		if (event instanceof AgentTransferred) return state.withActiveAgent(event.to);
+		if (event instanceof SessionMetadataSet) return state.withMetadata(state.metadata.with(event.key, event.value));
+		if (event instanceof SessionMetadataDeleted) return state.withMetadata(state.metadata.without(event.key));
 		if (event instanceof AssistantMessageProduced && event.measurement !== undefined) {
 			return state.withLastPrompt(event.measurement);
 		}

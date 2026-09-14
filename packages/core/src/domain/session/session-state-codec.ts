@@ -5,8 +5,10 @@ import { AgentName } from "../agent/agent-name";
 import { ModelIdentity } from "../model/model-identity";
 import { ModelUsage } from "../model/model-usage";
 import { PromptMeasurement } from "../model/prompt-measurement";
+import type { MetadataValue } from "./metadata-value";
 import { PendingCall } from "./pending-call";
 import { PendingTurn } from "./pending-turn";
+import { SessionMetadata } from "./session-metadata";
 import { SessionState } from "./session-state";
 import { StateValues } from "./state-values";
 
@@ -26,6 +28,7 @@ export class SessionStateCodec {
 			activeAgent: state.activeAgent?.value,
 			lastPrompt: this.encodePrompt(state),
 			pendingTurn: this.encodeTurn(state),
+			metadata: state.metadata.entries().map(([key, value]) => [key, value]),
 		};
 	}
 
@@ -36,6 +39,7 @@ export class SessionStateCodec {
 			this.optionalText(payload.activeAgent) === undefined ? undefined : AgentName.from(this.text(payload.activeAgent)),
 			this.decodePrompt(payload.lastPrompt),
 			this.decodeTurn(payload.pendingTurn),
+			this.decodeMetadata(payload.metadata),
 		);
 	}
 
@@ -104,6 +108,25 @@ export class SessionStateCodec {
 			decision === "granted" || decision === "denied" ? decision : undefined,
 			this.optionalText(Reflect.get(Object(value), "reason")),
 		);
+	}
+
+	/**
+	 * Entries a row could not hold are dropped rather than refused.
+	 *
+	 * A snapshot is a shortcut, so the worst a drifted one may cost is a replay of the
+	 * journal, which is what the checksum beside it already forces. Throwing here would turn
+	 * an optimization into a session nobody can read.
+	 */
+	private decodeMetadata(value: unknown): SessionMetadata {
+		if (!Array.isArray(value)) return SessionMetadata.empty();
+		const entries: Array<readonly [string, MetadataValue]> = [];
+		for (const entry of value) {
+			if (!Array.isArray(entry)) continue;
+			const key = entry[0];
+			const held = entry[1];
+			if (typeof key === "string" && SessionMetadata.isValue(held)) entries.push([key, held]);
+		}
+		return SessionMetadata.fromEntries(entries);
 	}
 
 	private pairs(value: unknown): ReadonlyArray<readonly [string, string]> {

@@ -30,6 +30,7 @@ A row marked `target` describes a decision the code has not reached yet. It is s
 | `pattern` `target` | [[context-projection]] | How a journal becomes the context a model reads, how it is measured, when it is compacted by default, and what compaction may never touch |
 | `pattern` | [[tool-approval]] | How a run stops in front of a human, what it stores while it waits, and what runs when the answer arrives |
 | `pattern` | [[run-orchestration]] | How a command becomes a run, which class owns which decision, and why the public surface holds none of them |
+| `pattern` | [[session-metadata]] | What an application may store on a conversation, why it is events rather than a column, and what a key is allowed to hold |
 | `pattern` | [[session-snapshots]] | Why a snapshot is always disposable, when the runtime writes one, and what invalidates every snapshot at once |
 | `pattern` | [[agent-transfer]] | How a session changes hands, how an edge is declared and when it is resolved, and what a handover deliberately does not change |
 | `convention` | [[agent-suites]] | Where the real-provider tests live, why they run through the example application, and what a Gemini model can actually finish |

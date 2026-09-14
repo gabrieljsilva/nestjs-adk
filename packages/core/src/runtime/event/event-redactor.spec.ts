@@ -50,6 +50,23 @@ describe("EventRedactor", () => {
 		expect(Object.hasOwn(redacted, "apiKey")).toBe(true);
 	});
 
+	/** Session metadata names its own key, so the list has to be read against `key` too. */
+	it("masks the value of a payload whose key names a credential", () => {
+		const redacted = redactor.redact({ key: "token", value: "sk-live" });
+
+		expect(redacted).toEqual({ key: "token", value: "[redacted]" });
+	});
+
+	it("leaves the value of a payload whose key names anything else", () => {
+		const redacted = redactor.redact({ key: "memberId", value: "gabriel" });
+
+		expect(redacted).toEqual({ key: "memberId", value: "gabriel" });
+	});
+
+	it("leaves a key that names a credential alone when there is no value beside it", () => {
+		expect(redactor.redact({ key: "token" })).toEqual({ key: "token" });
+	});
+
 	it("does not touch the payload it was given", () => {
 		const payload = { apiKey: "sk-live" };
 

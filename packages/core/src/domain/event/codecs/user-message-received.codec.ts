@@ -6,8 +6,8 @@ import { EventSchemaVersion } from "../event-schema-version";
 import { SessionEventCodec } from "../session-event-codec";
 import { AttachmentReferenceCodec } from "./attachment-reference.codec";
 
-/** The version that started recording an external attachment, resolved by the application. */
-const SCHEMA_VERSION = 4;
+/** Matches the event: version 5 is the one that names the actor the question was asked with. */
+const SCHEMA_VERSION = 5;
 
 /** Codec for the message the user sent into the session, with what came attached to it. */
 export class UserMessageReceivedCodec extends SessionEventCodec<UserMessageReceived> {
@@ -17,15 +17,23 @@ export class UserMessageReceivedCodec extends SessionEventCodec<UserMessageRecei
 	private readonly attachments = new AttachmentReferenceCodec();
 
 	public encode(event: UserMessageReceived): Record<string, unknown> {
-		if (!event.hasAttachments) return { text: event.text };
+		const actorId = event.actorId ?? null;
+		if (!event.hasAttachments) return { text: event.text, actorId };
 		return {
 			text: event.text,
+			actorId,
 			attachments: event.attachments.map((reference) => this.attachments.encode(reference)),
 		};
 	}
 
 	public decode(payload: Readonly<Record<string, unknown>>, header: EventHeader): UserMessageReceived {
-		return new UserMessageReceived(header, this.readText(payload, "text"), this.readAttachments(payload));
+		return new UserMessageReceived(
+			header,
+			this.readText(payload, "text"),
+			this.readAttachments(payload),
+			// Absent before version 5, which recorded what was said without saying who said it.
+			this.readOptionalText(payload, "actorId"),
+		);
 	}
 
 	/** Absent means a message that had nothing attached, which is every message written before v2. */

@@ -12,10 +12,11 @@ import { ApproveInput } from "../../domain/session/approve-input";
 import { AskInput } from "../../domain/session/ask-input";
 import { CreateSessionInput } from "../../domain/session/create-session-input";
 import { DelegateInput } from "../../domain/session/delegate-input";
+import type { MetadataValue } from "../../domain/session/metadata-value";
 import { RejectInput } from "../../domain/session/reject-input";
 import type { Session } from "../../domain/session/session";
 import type { SessionInspection } from "../../domain/session/session-inspection";
-import { SessionOwner } from "../../domain/session/session-owner";
+import { SessionMetadata } from "../../domain/session/session-metadata";
 import type { Actor } from "../../domain/tool/actor";
 import type { RuntimeServices } from "../../runtime/composition/runtime-services";
 import { AgentRunCommand } from "../../runtime/run/agent-run-command";
@@ -49,14 +50,22 @@ export interface AskOptions {
 	 */
 	sources?: readonly ToolSource[];
 	/**
-	 * Who this conversation belongs to, as the application identifies its own users.
+	 * What the application knows about this conversation, written as durable facts on it.
 	 *
-	 * It is recorded on the session, so it is read when the session is started and remembered
-	 * from then on: continuing a conversation keeps the owner it was opened with. An agent that
-	 * builds its prompt per run receives it, which is how the instruction reaches the data
-	 * about whoever is asking without any of it travelling through the message.
+	 * Each key is journaled on the same commit as the question, so it survives a restart,
+	 * means the same in any process, and is lost with the turn when the run fails. Last write
+	 * per key wins, so a question that repeats a key it was opened with changes nothing, and
+	 * one that carries a new value replaces it.
+	 *
+	 * It is where the key an application looks its own data up by goes. An agent that builds
+	 * its prompt per run reads it back as `context.metadata`, which is how the instruction
+	 * reaches the data about whoever is asking without any of it travelling through the
+	 * message. The lib itself never interprets a key.
+	 *
+	 * Values are JSON: a string, a number, a boolean, `null`, an array or a plain object.
+	 * Anything else, and anything over sixteen kibibytes serialized, is refused here.
 	 */
-	owner?: string;
+	metadata?: Readonly<Record<string, MetadataValue>>;
 	/**
 	 * The stop button of whoever is asking.
 	 *
@@ -92,12 +101,13 @@ export interface CreateSessionOptions {
 	 */
 	sessionId?: SessionId | string;
 	/**
-	 * Who this conversation belongs to, as the application identifies its own users.
+	 * What the application knows about this conversation, written before anything is asked.
 	 *
-	 * It is recorded on the session and remembered from then on, so an `owner` sent with a
-	 * later question is ignored and an agent that builds its prompt per run receives this one.
+	 * These are the only events a conversation opened ahead of time has, and they are written
+	 * under the run that opened it. A later question that names the same key replaces the
+	 * value, because last write per key is what a journal folds to.
 	 */
-	owner?: string;
+	metadata?: Readonly<Record<string, MetadataValue>>;
 }
 
 /** Who decided, and what has to be open for the turn that follows to run. */
@@ -163,7 +173,7 @@ export class AgentHandle {
 	 * also when observers hear anything about this conversation.
 	 */
 	public async createSession(options: CreateSessionOptions = {}): Promise<Session> {
-		return this.runtime.sessions.create(this.name, CreateSessionInput.of(options.sessionId, options.owner));
+		return this.runtime.sessions.create(this.name, CreateSessionInput.fromOptions(options.sessionId, options.metadata));
 	}
 
 	/** The conversation an id names, or nothing when it names none. Reads the head alone. */
@@ -257,9 +267,15 @@ export class AgentHandle {
 		const sessionId = asked.sessionId === undefined ? undefined : AgentHandle.sessionOf(asked.sessionId);
 		return new AgentRunCommand(
 			this.name,
-			AskInput.with(message, asked.media ?? [], sessionId, undefined, asked.attachments ?? []),
+			AskInput.with(
+				message,
+				asked.media ?? [],
+				sessionId,
+				undefined,
+				asked.attachments ?? [],
+				SessionMetadata.fromRecord(asked.metadata ?? {}),
+			),
 			undefined,
-			asked.owner === undefined ? undefined : SessionOwner.from(asked.owner),
 			undefined,
 			undefined,
 			asked.sources ?? [],

@@ -11,6 +11,7 @@ import { AgentResult } from "../../domain/session/agent-result";
 import { AgentRunStatus } from "../../domain/session/agent-run-status";
 import type { ApproveInput } from "../../domain/session/approve-input";
 import type { CreateSessionInput } from "../../domain/session/create-session-input";
+import { MetadataKey } from "../../domain/session/metadata-key";
 import type { RejectInput } from "../../domain/session/reject-input";
 import { Session } from "../../domain/session/session";
 import type { RuntimeServices } from "../../runtime/composition/runtime-services";
@@ -69,7 +70,7 @@ class RecordingSessions {
 
 	public async create(agent: AgentName, input: CreateSessionInput): Promise<Session> {
 		this.opened.push({ agent, input });
-		return Session.start(input.sessionId ?? SessionId.from("generated"), agent, NOW, input.owner);
+		return Session.start(input.sessionId ?? SessionId.from("generated"), agent, NOW);
 	}
 
 	public async find(sessionId: SessionId): Promise<Session | undefined> {
@@ -144,11 +145,11 @@ describe("AdkAgent", () => {
 	it("opens a conversation as itself, under the identifier the application chose", async () => {
 		const { agent, sessions } = boundAgent();
 
-		const session = await agent.createSession({ sessionId: "chat-42", owner: "gabriel" });
+		const session = await agent.createSession({ sessionId: "chat-42", metadata: { memberId: "gabriel" } });
 
 		expect(sessions.opened[0]?.agent).toBe(SUPPORT);
 		expect(session.id.value).toBe("chat-42");
-		expect(session.owner?.value).toBe("gabriel");
+		expect(sessions.opened[0]?.input.metadata.find(MetadataKey.fromName("memberId"))).toBe("gabriel");
 	});
 
 	it("lets the runtime name a conversation the caller did not", async () => {
@@ -167,12 +168,12 @@ describe("AdkAgent", () => {
 		expect(sessions.lookups.map((lookup) => lookup.verb)).toEqual(["find", "findOrFail"]);
 	});
 
-	it("carries the session owner through the options, since the session is what remembers it", async () => {
+	it("carries the metadata through the options, since the journal is what remembers it", async () => {
 		const { agent, runner } = boundAgent();
 
-		await agent.ask("hi", { owner: "user-7" });
+		await agent.ask("hi", { metadata: { memberId: "user-7" } });
 
-		expect(runner.commands[0]?.owner?.value).toBe("user-7");
+		expect(runner.commands[0]?.metadata.find(MetadataKey.fromName("memberId"))).toBe("user-7");
 	});
 
 	/** The sources a suspended run had were closed when it suspended, so a decision declares them again. */

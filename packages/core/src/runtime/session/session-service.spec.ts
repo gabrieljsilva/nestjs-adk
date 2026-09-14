@@ -14,6 +14,12 @@ import { StubModel } from "../../support/model/stub-model.fixture";
 import { SequenceIdGenerator } from "../../support/sequence-id-generator";
 import { AgentCatalog } from "../catalog/agent-catalog";
 import { InspectContextBudget } from "../context/inspect-context-budget";
+import { ActiveRunTracker } from "../lifecycle/active-run-tracker";
+import { RuntimeLifecycle } from "../lifecycle/runtime-lifecycle";
+import { ShutdownOptions } from "../lifecycle/shutdown-options";
+import { AgentRunFactory } from "../run/agent-run-factory";
+import { RunEventFactory } from "../run/run-event-factory";
+import { RunJournal } from "../run/run-journal";
 import { CreateSession } from "./create-session";
 import { InspectSession } from "./inspect-session";
 import { SessionManager } from "./session-manager";
@@ -35,8 +41,17 @@ function catalogOf(): AgentCatalog {
 function serviceOf(storage: InMemorySessionStorage = new InMemorySessionStorage()): SessionService {
 	const sessions = new SessionManager(storage);
 	const inspecting = new InspectSession(sessions);
+	const clock = new FakeClock(NOW);
+	const tracker = new ActiveRunTracker();
+	const lifecycle = new RuntimeLifecycle(tracker, ShutdownOptions.waitIndefinitely(), clock);
 	return new SessionService(
-		new CreateSession(sessions, new FakeClock(NOW), new SequenceIdGenerator("s")),
+		new CreateSession(
+			sessions,
+			clock,
+			new SequenceIdGenerator("s"),
+			new AgentRunFactory(new SequenceIdGenerator("run"), clock, tracker, lifecycle),
+			new RunJournal(new RunEventFactory(new SequenceIdGenerator("e"), clock)),
+		),
 		inspecting,
 		sessions,
 		new InspectContextBudget(inspecting, catalogOf()),
@@ -47,15 +62,15 @@ describe("SessionService", () => {
 	it("opens a conversation under the identifier it was given", async () => {
 		const service = serviceOf();
 
-		const session = await service.create(SUPPORT, CreateSessionInput.of("chat-42", "gabriel"));
+		const session = await service.create(SUPPORT, CreateSessionInput.fromOptions("chat-42"));
 
 		expect(session.id.value).toBe("chat-42");
-		expect(session.owner?.value).toBe("gabriel");
+		expect(session.rootAgent.equals(SUPPORT)).toBe(true);
 	});
 
 	it("finds a conversation by identifier, reading only its head", async () => {
 		const service = serviceOf();
-		await service.create(SUPPORT, CreateSessionInput.of("chat-42"));
+		await service.create(SUPPORT, CreateSessionInput.fromOptions("chat-42"));
 
 		const found = await service.find(SessionId.from("chat-42"));
 
@@ -76,7 +91,7 @@ describe("SessionService", () => {
 
 	it("inspects a conversation that was opened and never asked anything", async () => {
 		const service = serviceOf();
-		await service.create(SUPPORT, CreateSessionInput.of("chat-42"));
+		await service.create(SUPPORT, CreateSessionInput.fromOptions("chat-42"));
 
 		const inspection = await service.inspect(SessionId.from("chat-42"));
 
@@ -86,7 +101,7 @@ describe("SessionService", () => {
 
 	it("answers the window of the agent for a conversation nobody has asked anything in", async () => {
 		const service = serviceOf();
-		await service.create(SUPPORT, CreateSessionInput.of("chat-42"));
+		await service.create(SUPPORT, CreateSessionInput.fromOptions("chat-42"));
 
 		const budget = await service.budget(SUPPORT, SessionId.from("chat-42"));
 

@@ -366,7 +366,7 @@ export class SupportAgent extends AdkAgent {
 	}
 
 	protected override async prompt(context: PromptContext): Promise<string> {
-		const customer = this.customers.execute(context.owner?.value ?? "");
+		const customer = this.customers.execute(context.metadata.find(CUSTOMER_ID) ?? "");
 		return this.prompting.renderFromFileOrFail("support.md", {
 			name: customer.name,
 			plan: customer.plan,
@@ -375,11 +375,17 @@ export class SupportAgent extends AdkAgent {
 }
 ```
 
-The method receives a `PromptContext`: the session id, the run id, the agent about to answer, the session's `owner`, the `actor` the question was asked with and the signal that stops the run. The owner is the key you look your own data up by, and you set it when the conversation starts:
+The method receives a `PromptContext`: the session id, the run id, the agent about to answer, the session's `metadata`, the `actor` the question was asked with and the signal that stops the run.
+
+Metadata is what your application knows about the conversation, and it is where the key you look your own data up by goes. You declare the key once so nothing reads a raw string, and you write it when the conversation starts:
 
 ```ts
-await support.ask("where is my order?", { owner: user.email });
+export const CUSTOMER_ID = MetadataKey.fromName<string>("customerId", (v): v is string => typeof v === "string");
+
+await support.ask("where is my order?", { metadata: { customerId: user.email } });
 ```
+
+Every key is journaled on the same commit as the question, so it survives a restart, means the same in any process, and is lost with the turn when the run fails. Last write per key wins, so a later question that says nothing about a key keeps the value, and one that names it again replaces it. Values are JSON: a string, a number, a boolean, `null`, an array or a plain object, up to sixteen kibibytes serialized per key. The lib never interprets a key of yours.
 
 Putting the customer's data in the system prompt rather than in the message is the point. Text in the message is text the model has been told to treat as somebody else's words, and a name pasted into it is a place where a user can try to give instructions. Text in the system prompt is instruction.
 
@@ -573,7 +579,7 @@ Honour `signal` by stopping your upstream call when it fires. Keep the class sta
 Pass a `sessionId` and the conversation continues; leave it out and a new one starts. Every run is journaled as events, and the history is replayed into the model's context on the next one.
 
 ```ts
-const first = await support.ask("where is my order?", { owner: user.email });
+const first = await support.ask("where is my order?", { metadata: { customerId: user.email } });
 const second = await support.ask("and the other one?", first.sessionId);
 ```
 
@@ -583,12 +589,12 @@ When your application already has an identifier for the conversation, usually th
 
 ```ts
 const chat = await this.chats.create({ userId: user.id });
-await support.createSession({ sessionId: chat.id, owner: user.email });
+await support.createSession({ sessionId: chat.id, metadata: { customerId: user.email } });
 
 const answer = await support.ask("where is my order?", chat.id);
 ```
 
-`createSession` writes the head of the conversation and nothing else: the journal still begins with the first question, which is also when observers hear about it. Leave `sessionId` out and the runtime names the conversation, which is the way to get the identifier before anything is asked.
+`createSession` writes the head of the conversation, and the metadata you gave it as events under the run that opened it. Nothing else: the journal's conversation still begins with the first question, which is also when observers hear a `SessionCreated`. Leave `sessionId` out and the runtime names the conversation, which is the way to get the identifier before anything is asked.
 
 An identifier that already names a conversation is refused with `SessionAlreadyExistsError`, and the existing conversation is untouched. Two requests opening the same chat is the ordinary case rather than the exotic one: one wins, the other reads the error as already done.
 
@@ -599,8 +605,9 @@ Reading a conversation by identifier comes in the two usual shapes, and both ans
 ```ts
 const maybe = await support.findSessionById(chat.id); // Session | undefined
 const session = await support.findSessionByIdOrFail(chat.id); // throws SessionNotFoundError
-session.owner?.value;
 ```
+
+The head says which agent roots the conversation, where it stands and how far its journal got. It does not say who owns it: the lib never checks that, so authorizing a `sessionId` before you call is your application's job, and whatever identifies the person belongs in the metadata above. `inspect(sessionId)` answers the projected side, metadata included.
 
 Storage goes through `SessionStorage`. `InMemorySessionStorage` is the default and is right while a process is running. `SqliteSessionStorage` is the same thing on disk, for development and for tests that want a conversation to survive a restart. Neither is meant to carry production traffic: for that you implement the port against the database you already run.
 
@@ -1066,8 +1073,8 @@ Everything the package exports, and nothing else: a name that is not here is not
 | --- | --- |
 | `AgentRegistry` | Reaches an agent by name, for a class that extends something else |
 | `AgentHandle` | One agent as an application holds it: `ask`, `stream`, `approve`, `reject`, `delegate`, `inspect`, `explain`, `createSession`, `findSessionById`, `findSessionByIdOrFail` |
-| `AskOptions` | `sessionId`, `media`, `attachments`, `sources`, `owner`, `signal` |
-| `CreateSessionOptions` | `sessionId` and `owner`, for a conversation opened before anything is asked |
+| `AskOptions` | `sessionId`, `media`, `attachments`, `sources`, `metadata`, `actor`, `signal`, `toolCalls` |
+| `CreateSessionOptions` | `sessionId` and `metadata`, for a conversation opened before anything is asked |
 | `DecisionOptions` | `by`, `sources` and `signal`, for an approval or a rejection |
 | `AgentResult` | What a run answered: text, ids, status, awaiting, cost |
 | `AgentRunStatus` | Completed, suspended, failed |
@@ -1075,14 +1082,15 @@ Everything the package exports, and nothing else: a name that is not here is not
 | `SessionInspection` | Where a conversation stands, without running anything |
 | `ContextBudget` | How full the window is, without running anything |
 | `SessionId`, `AgentRunId`, `ToolCallId`, `AgentName` | The identities that appear in every result and event |
-| `SessionOwner`, `SessionRevision` | Who a conversation belongs to, and where its journal is |
+| `SessionMetadata`, `MetadataKey` | What your application knows about a conversation, and the typed key it is kept under |
+| `SessionRevision` | Where the journal of a conversation stands |
 | `RunLimits` | Iterations, consecutive tool failures, invalid arguments |
 
 ### Prompts
 
 | Symbol | What it is for |
 | --- | --- |
-| `PromptContext` | What `prompt()` receives: session, run, agent, owner, actor, signal |
+| `PromptContext` | What `prompt()` receives: session, run, agent, metadata, actor, signal |
 | `AgentPrompting` | `render`, `renderFromFile`, `renderFromFileOrFail`, reached as `this.prompting` |
 | `PromptSource` | Implement it to serve prompts from anywhere |
 | `FileSystemPromptSource` | The default: `.md` files from a directory |

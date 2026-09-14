@@ -1,11 +1,17 @@
-import { AdkAgent, Agent, type PromptContext } from "@nestjs-adk/core";
+import { AdkAgent, Agent, MetadataKey, type PromptContext } from "@nestjs-adk/core";
 import { FindMemberUseCase } from "./find-member.use-case";
+
+/** The key the club writes the member under, declared once so nothing reads a raw string. */
+export const MEMBER_ID = MetadataKey.fromName<string>(
+	"memberId",
+	(value): value is string => typeof value === "string",
+);
 
 /**
  * The desk that knows who it is talking to.
  *
  * Its prompt is a file with the member's own data interpolated into it, built once for each
- * run from the session's owner. The data reaches the system prompt rather than the message,
+ * run from the session's own metadata. The data reaches the system prompt rather than the message,
  * which is the difference that matters: the model reads a name it was instructed with
  * instead of a name somebody typed at it.
  *
@@ -23,7 +29,7 @@ export class ClubAgent extends AdkAgent {
 	}
 
 	protected override async prompt(context: PromptContext): Promise<string> {
-		const member = this.members.execute(context.owner?.value ?? "");
+		const member = this.members.execute(context.metadata.find(MEMBER_ID) ?? "");
 		return this.prompting.renderFromFileOrFail("club-concierge.md", {
 			name: member.name,
 			tier: member.tier,

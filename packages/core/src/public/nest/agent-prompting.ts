@@ -12,7 +12,7 @@ import { PromptTemplate } from "../../domain/prompt/prompt-template";
  *
  * ```ts
  * protected async prompt(context: PromptContext): Promise<string> {
- *   const customer = await this.customers.findByOwner(context.owner);
+ *   const customer = await this.customers.findByOwner(context.metadata.find(OWNER_ID));
  *   return this.prompting.renderFromFileOrFail("support.md", { name: customer.name });
  * }
  * ```

@@ -56,7 +56,7 @@ export class DelegateAgent {
 				started,
 				undefined,
 				undefined,
-				rehydrated.session.owner,
+				rehydrated.state.metadata,
 			);
 			const answers = await this.delegations.runAll(scope, opened, progress, [this.callOf(input)]);
 			return await this.results.answering(started, progress, answers.values().next().value ?? "");

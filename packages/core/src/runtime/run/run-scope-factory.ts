@@ -5,7 +5,7 @@ import type { LlmModel } from "../../domain/model/llm-model";
 import { PromptContext } from "../../domain/prompt/prompt-context";
 import type { PromptInstructions } from "../../domain/prompt/prompt-instructions";
 import { RunLimits } from "../../domain/session/run-limits";
-import type { SessionOwner } from "../../domain/session/session-owner";
+import { SessionMetadata } from "../../domain/session/session-metadata";
 import type { Actor } from "../../domain/tool/actor";
 import type { ToolDefinition } from "../../domain/tool/tool-definition";
 import { DelegateToAgentTool } from "../delegation/delegate-to-agent-tool";
@@ -58,7 +58,7 @@ export class RunScopeFactory {
 		started: StartedRun,
 		remote: readonly ToolDefinition[] = [],
 		callLimits?: RunLimits,
-		owner?: SessionOwner,
+		metadata: SessionMetadata = SessionMetadata.empty(),
 		actor?: Actor,
 	): Promise<RunScope> {
 		const skills = SkillCatalog.of(definition.skills);
@@ -73,8 +73,8 @@ export class RunScopeFactory {
 			new ToolBreaker(limits),
 			remote,
 			this.compactionFor(definition),
-			owner,
-			await this.promptFor(definition, started, owner, actor),
+			metadata,
+			await this.promptFor(definition, started, metadata, actor),
 			actor,
 		);
 	}
@@ -100,8 +100,8 @@ export class RunScopeFactory {
 			scope.breaker,
 			scope.remote,
 			this.compactionFor(definition),
-			scope.owner,
-			await this.promptFor(definition, scope.started, scope.owner, scope.actor),
+			scope.metadata,
+			await this.promptFor(definition, scope.started, scope.metadata, scope.actor),
 			scope.actor,
 		);
 	}
@@ -132,8 +132,8 @@ export class RunScopeFactory {
 			new ToolBreaker(limits),
 			parent.remote,
 			this.compactionFor(definition),
-			parent.owner,
-			await this.promptFor(definition, child, parent.owner, parent.actor),
+			parent.metadata,
+			await this.promptFor(definition, child, parent.metadata, parent.actor),
 			parent.actor,
 		);
 	}
@@ -163,13 +163,20 @@ export class RunScopeFactory {
 	private async promptFor(
 		definition: AgentDefinition,
 		started: StartedRun,
-		owner?: SessionOwner,
+		metadata: SessionMetadata = SessionMetadata.empty(),
 		actor?: Actor,
 	): Promise<PromptInstructions | undefined> {
 		const builder = definition.promptBuilder;
 		if (builder === undefined) return undefined;
 		return await builder.build(
-			new PromptContext(started.run.sessionId, started.run.id, definition.name, owner, started.cancellation.signal, actor),
+			new PromptContext(
+				started.run.sessionId,
+				started.run.id,
+				definition.name,
+				metadata,
+				started.cancellation.signal,
+				actor,
+			),
 		);
 	}
 

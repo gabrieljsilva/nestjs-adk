@@ -4,6 +4,7 @@ import { MediaTooLargeError } from "../model/errors/media-too-large.error";
 import { MediaLimits } from "../model/media-limits";
 import type { MediaPart } from "../model/media-part";
 import { EmptyMessageError } from "./errors/empty-message.error";
+import { SessionMetadata } from "./session-metadata";
 
 /**
  * The command that starts a run.
@@ -18,6 +19,8 @@ export class AskInput {
 		public readonly attachments: readonly MediaPart[],
 		/** Names of files the application owns, resolved by it on every projection. */
 		public readonly references: readonly AttachmentReference[],
+		/** What the application wants written about the session, on the same commit as the question. */
+		public readonly metadata: SessionMetadata = SessionMetadata.empty(),
 	) {}
 
 	public static of(message: string, sessionId?: SessionId): AskInput {
@@ -40,6 +43,7 @@ export class AskInput {
 		sessionId?: SessionId,
 		limits: MediaLimits = MediaLimits.byDefault(),
 		references: readonly AttachmentReference[] = [],
+		metadata: SessionMetadata = SessionMetadata.empty(),
 	): AskInput {
 		const trimmed = message.trim();
 		if (trimmed.length === 0) throw new EmptyMessageError();
@@ -48,7 +52,7 @@ export class AskInput {
 		if (total > limits.maxTotalEncodedBytes) {
 			throw new MediaTooLargeError("total", total, limits.maxTotalEncodedBytes);
 		}
-		return new AskInput(trimmed, sessionId, [...attachments], [...references]);
+		return new AskInput(trimmed, sessionId, [...attachments], [...references], metadata);
 	}
 
 	public get hasAttachments(): boolean {

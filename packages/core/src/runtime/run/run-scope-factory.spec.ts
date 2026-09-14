@@ -10,8 +10,9 @@ import { WindowShareCompactionPolicy } from "../../domain/context/window-share-c
 import { PromptBuilder } from "../../domain/prompt/prompt-builder";
 import type { PromptContext } from "../../domain/prompt/prompt-context";
 import { PromptInstructions } from "../../domain/prompt/prompt-instructions";
+import { MetadataKey } from "../../domain/session/metadata-key";
 import { RunLimits } from "../../domain/session/run-limits";
-import { SessionOwner } from "../../domain/session/session-owner";
+import { SessionMetadata } from "../../domain/session/session-metadata";
 import { SkillDefinition } from "../../domain/skill/skill-definition";
 import { Actor } from "../../domain/tool/actor";
 import { ParsedArguments } from "../../domain/tool/parsed-arguments";
@@ -75,7 +76,8 @@ class NamedCompaction extends AdkCompactionPolicy {
 	}
 }
 
-const OWNER = SessionOwner.from("user-7");
+const MEMBER = MetadataKey.fromName<string>("memberId", (value): value is string => typeof value === "string");
+const METADATA = SessionMetadata.empty().with(MEMBER, "user-7");
 
 /** Records every context it was handed, because when and how often it was called is the assertion. */
 class CountingPrompt extends PromptBuilder {
@@ -334,12 +336,12 @@ describe("RunScopeFactory", () => {
 			const builder = new CountingPrompt("You are support.");
 			const started = startedRun();
 
-			await new RunScopeFactory().create(building(builder), model, started, [], undefined, OWNER);
+			await new RunScopeFactory().create(building(builder), model, started, [], undefined, METADATA);
 
 			expect(builder.seen[0]?.sessionId.value).toBe("s-1");
 			expect(builder.seen[0]?.runId.value).toBe(started.run.id.value);
 			expect(builder.seen[0]?.agent.value).toBe(NativeStackFixture.AGENT.value);
-			expect(builder.seen[0]?.owner?.value).toBe("user-7");
+			expect(builder.seen[0]?.metadata.find(MEMBER)).toBe("user-7");
 			expect(builder.seen[0]?.signal).toBe(started.cancellation.signal);
 		});
 
@@ -347,7 +349,7 @@ describe("RunScopeFactory", () => {
 			const builder = new CountingPrompt("You are support.");
 			const actor = Actor.of("u-1", { workspaceId: "w-1" });
 
-			await new RunScopeFactory().create(building(builder), model, startedRun(), [], undefined, OWNER, actor);
+			await new RunScopeFactory().create(building(builder), model, startedRun(), [], undefined, METADATA, actor);
 
 			expect(builder.seen[0]?.actor).toBe(actor);
 		});
@@ -365,29 +367,29 @@ describe("RunScopeFactory", () => {
 		});
 
 		/** A handover is a different agent answering, so the prompt is that agent's own. */
-		it("resolves again for the agent that received a handover, with the owner it inherited", async () => {
+		it("resolves again for the agent that received a handover, with the metadata it inherited", async () => {
 			const receiving = new CountingPrompt("You are billing.");
 			const factory = new RunScopeFactory();
-			const scope = await factory.create(prompted("You are support."), model, startedRun(), [], undefined, OWNER);
+			const scope = await factory.create(prompted("You are support."), model, startedRun(), [], undefined, METADATA);
 
 			const switched = await factory.switched(scope, building(receiving), model);
 
 			expect(switched.instructions?.text).toBe("You are billing.");
-			expect(switched.owner?.value).toBe("user-7");
-			expect(receiving.seen[0]?.owner?.value).toBe("user-7");
+			expect(switched.metadata.find(MEMBER)).toBe("user-7");
+			expect(receiving.seen[0]?.metadata.find(MEMBER)).toBe("user-7");
 		});
 
 		it("resolves the child's own prompt for a delegation, against the child's run", async () => {
 			const child = new CountingPrompt("You are the researcher.");
 			const factory = new RunScopeFactory();
-			const parent = await factory.create(prompted("You are support."), model, startedRun(), [], undefined, OWNER);
+			const parent = await factory.create(prompted("You are support."), model, startedRun(), [], undefined, METADATA);
 			const childRun = startedRun();
 
 			const delegated = await factory.delegated(parent, childRun, building(child), model);
 
 			expect(delegated.instructions?.text).toBe("You are the researcher.");
 			expect(child.seen[0]?.runId.value).toBe(childRun.run.id.value);
-			expect(child.seen[0]?.owner?.value).toBe("user-7");
+			expect(child.seen[0]?.metadata.find(MEMBER)).toBe("user-7");
 		});
 	});
 });

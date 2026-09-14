@@ -25,18 +25,27 @@ function artifact(id: string): AttachmentReference {
 }
 
 describe("UserMessageReceivedCodec", () => {
-	it("is the version that records an external attachment the application resolves", () => {
-		expect(codec.schemaVersion.value).toBe(4);
+	it("is the version that names the actor the question was asked with", () => {
+		expect(codec.schemaVersion.value).toBe(5);
+	});
+
+	it("names the actor, and only the id, because claims are read at the call", () => {
+		expect(codec.encode(new UserMessageReceived(header, "hi", [], "u-1"))).toEqual({ text: "hi", actorId: "u-1" });
+	});
+
+	/** Absent before version 5, which recorded what was said without saying who said it. */
+	it("decodes a row written before anybody was named as a message with no actor", () => {
+		expect(codec.decode({ text: "hi" }, header).actorId).toBeUndefined();
 	});
 
 	it("leaves the field out when nothing was attached, because most messages attach nothing", () => {
-		expect(codec.encode(new UserMessageReceived(header, "hi"))).toEqual({ text: "hi" });
+		expect(codec.encode(new UserMessageReceived(header, "hi"))).toEqual({ text: "hi", actorId: null });
 	});
 
 	it("writes the ids, and never the bytes behind them", () => {
 		const event = new UserMessageReceived(header, "look", [artifact("a-1"), artifact("a-2")]);
 
-		expect(codec.encode(event)).toEqual({ text: "look", attachments: [{ id: "a-1" }, { id: "a-2" }] });
+		expect(codec.encode(event)).toEqual({ text: "look", actorId: null, attachments: [{ id: "a-1" }, { id: "a-2" }] });
 	});
 
 	it("writes a link as the address it already was, with the type nothing else knows", () => {
@@ -46,6 +55,7 @@ describe("UserMessageReceivedCodec", () => {
 
 		expect(codec.encode(event)).toEqual({
 			text: "look",
+			actorId: null,
 			attachments: [{ url: "https://cdn.example/x.png", mediaType: "image/png" }],
 		});
 	});

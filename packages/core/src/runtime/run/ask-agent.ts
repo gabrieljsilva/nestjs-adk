@@ -63,7 +63,7 @@ export class AskAgent {
 		// it now. The read writes nothing, so a command a draining runtime is about to refuse
 		// still creates nothing; a conversation that does not exist yet is not read at all.
 		const existing = command.input.sessionId === undefined ? undefined : await this.opener.open(command, sessionId);
-		const entry = existing === undefined ? called : this.ownerOf(existing, called);
+		const entry = existing === undefined ? called : this.resolveActiveAgent(existing, called);
 
 		const started = this.runs.start(sessionId, entry.name, command.signal);
 		const sources = new ToolSourceScope(this.sources, command.sources);
@@ -114,12 +114,12 @@ export class AskAgent {
 	 *
 	 * This is what makes a handover mean something after the turn it happened in. Answering as
 	 * the agent the caller named would let any code walk around the declared graph by holding a
-	 * different handle, and would leave the owner recorded in the session disagreeing with the
+	 * different handle, and would leave the agent recorded in the session disagreeing with the
 	 * agent that just spoke, which is what a resumed approval reads.
 	 */
-	private ownerOf(opened: OpenedSession, called: AgentDefinition): AgentDefinition {
-		const owner = opened.state.activeAgent ?? opened.session.rootAgent;
-		return owner.equals(called.name) ? called : this.catalog.findOrFail(owner);
+	private resolveActiveAgent(opened: OpenedSession, called: AgentDefinition): AgentDefinition {
+		const active = opened.state.activeAgent ?? opened.session.rootAgent;
+		return active.equals(called.name) ? called : this.catalog.findOrFail(active);
 	}
 
 	/**
@@ -156,7 +156,7 @@ export class AskAgent {
 				started,
 				remote,
 				command.limits,
-				opened.session.owner,
+				progress.state.metadata,
 				command.actor,
 			);
 			await this.reportUnauthorized(scope, progress, sources);

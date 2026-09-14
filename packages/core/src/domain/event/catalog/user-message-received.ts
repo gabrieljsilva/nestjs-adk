@@ -3,8 +3,8 @@ import type { EventHeader } from "../event-header";
 import { EventSchemaVersion } from "../event-schema-version";
 import { SessionEvent } from "../session-event";
 
-/** The version that started recording an external attachment, resolved by the application. */
-const SCHEMA_VERSION = 4;
+/** The version that started naming the actor the question was asked with. */
+const SCHEMA_VERSION = 5;
 
 /**
  * The user sent a message into the session.
@@ -24,6 +24,8 @@ export class UserMessageReceived extends SessionEvent {
 		header: EventHeader,
 		public readonly text: string,
 		public readonly attachments: readonly AttachmentReference[] = [],
+		/** The id of whoever asked, and only the id: claims are read at the call, never replayed. */
+		public readonly actorId?: string,
 	) {
 		super(header.id, header.occurredAt, header.correlation);
 	}

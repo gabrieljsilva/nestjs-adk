@@ -189,7 +189,7 @@ export class RuntimeFactory {
 				catalog,
 				resolver,
 				container.get(AgentRunner),
-				this.sessionServiceOf(catalog, sessions, clock, ids),
+				this.sessionServiceOf(catalog, sessions, clock, ids, runs, journal),
 				container.get(AgentRunFactory),
 				container.get(EventPublisher),
 				container.get(ArtifactOffloader),
@@ -211,10 +211,12 @@ export class RuntimeFactory {
 		sessions: SessionManager,
 		clock: Clock,
 		ids: IdGenerator,
+		runs: AgentRunFactory,
+		journal: RunJournal,
 	): SessionService {
 		const inspecting = new InspectSession(sessions);
 		return new SessionService(
-			new CreateSession(sessions, clock, ids),
+			new CreateSession(sessions, clock, ids, runs, journal),
 			inspecting,
 			sessions,
 			new InspectContextBudget(inspecting, catalog),

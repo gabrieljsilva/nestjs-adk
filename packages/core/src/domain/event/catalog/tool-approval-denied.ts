@@ -3,8 +3,8 @@ import type { EventHeader } from "../event-header";
 import { EventSchemaVersion } from "../event-schema-version";
 import { SessionEvent } from "../session-event";
 
-/** The version that started naming the tool that was refused. */
-const SCHEMA_VERSION = 2;
+/** The version that names the actor who decided rather than free text about them alone. */
+const SCHEMA_VERSION = 3;
 
 /**
  * A held tool call was refused, and the run continues without it.
@@ -22,9 +22,11 @@ export class ToolApprovalDenied extends SessionEvent {
 	public constructor(
 		header: EventHeader,
 		public readonly callId: ToolCallId,
-		public readonly deniedBy: string | undefined,
+		public readonly decidedBy: string | undefined,
 		public readonly reason: string,
 		public readonly toolName = "",
+		/** The id of whoever refused, and only the id, for the same reason an approval carries one. */
+		public readonly actorId?: string,
 	) {
 		super(header.id, header.occurredAt, header.correlation);
 	}

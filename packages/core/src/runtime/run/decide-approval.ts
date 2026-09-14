@@ -92,7 +92,15 @@ export class DecideApproval {
 				rehydrated.session.revision,
 				SessionEventBatch.of([
 					this.journal.started(started, definition.name, model.descriptor().identity),
-					this.journal.decision(started, callId, decision, by, reason, rehydrated.state.pendingTurn.find(callId)?.toolName),
+					this.journal.decision(
+						started,
+						callId,
+						decision,
+						by,
+						reason,
+						rehydrated.state.pendingTurn.find(callId)?.toolName,
+						actor?.id,
+					),
 				]),
 				rehydrated.state,
 			),
@@ -134,7 +142,7 @@ export class DecideApproval {
 		if (!turn.isDecided) return this.staySuspended(started, progress, turn);
 
 		const remote = await sources.open(session.id, started.run.id, started.cancellation.signal);
-		const scope = await this.scopes.create(definition, model, started, remote, undefined, session.owner, actor);
+		const scope = await this.scopes.create(definition, model, started, remote, undefined, progress.state.metadata, actor);
 		await this.commit(scope, progress, await this.executor.execute(scope, turn.calls, true, undefined, observers.tools));
 
 		await this.loop.run(scope, new OpenedSession(session, progress.state, false), progress, observers);

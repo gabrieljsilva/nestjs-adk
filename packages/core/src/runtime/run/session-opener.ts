@@ -1,5 +1,4 @@
 import type { SessionId } from "../../common/identity/session-id";
-import { SessionRevision } from "../../common/revision/session-revision";
 import type { Clock } from "../../common/time/clock";
 import { SessionClosedError } from "../../domain/session/errors/session-closed.error";
 import { Session } from "../../domain/session/session";
@@ -33,26 +32,26 @@ export class SessionOpener {
 		if (!rehydrated.session.acceptsCommands) {
 			throw new SessionClosedError(sessionId.value, rehydrated.session.status.toString());
 		}
-		return new OpenedSession(rehydrated.session, rehydrated.state, SessionOpener.isUnwritten(rehydrated.session));
+		return new OpenedSession(rehydrated.session, rehydrated.state, SessionOpener.isUnwritten(rehydrated.state));
 	}
 
 	private async start(command: AgentRunCommand, sessionId: SessionId): Promise<OpenedSession> {
-		const session = Session.start(sessionId, command.agent, this.clock.now(), command.owner);
+		const session = Session.start(sessionId, command.agent, this.clock.now());
 		await this.sessions.create(session);
-		return new OpenedSession(session, SessionState.initial(), SessionOpener.isUnwritten(session));
+		return new OpenedSession(session, SessionState.initial(), true);
 	}
 
 	/**
 	 * Whether this session's journal is still empty, which is what decides if the run about
 	 * to happen has to record the conversation beginning.
 	 *
-	 * It is read off the journal rather than remembered from who wrote the head, and that is
-	 * the whole point: a session opened by `CreateSession` minutes earlier and one created by
-	 * this very command are both at revision zero, and both need their first run to say so.
-	 * It also covers the run that created a head and then failed before committing anything,
-	 * which under the old reading could never record its own beginning.
+	 * It is read off the projection rather than from the revision, and that is the whole
+	 * point: a session opened by `CreateSession` with metadata on it has a journal and still
+	 * has no beginning, and only `SessionCreated` and a transfer ever name an active agent. It
+	 * also covers the run that created a head and then failed before committing anything,
+	 * which under a revision reading could never record its own beginning.
 	 */
-	private static isUnwritten(session: Session): boolean {
-		return !session.revision.isAfter(SessionRevision.initial());
+	private static isUnwritten(state: SessionState): boolean {
+		return state.activeAgent === undefined;
 	}
 }

@@ -9,6 +9,7 @@ import type { LlmModel } from "../../domain/model/llm-model";
 import { MissingPromptVariablesError } from "../../domain/prompt/errors/missing-prompt-variables.error";
 import { PromptNotFoundError } from "../../domain/prompt/errors/prompt-not-found.error";
 import type { PromptContext } from "../../domain/prompt/prompt-context";
+import { MetadataKey } from "../../domain/session/metadata-key";
 import { FakeClock } from "../../support/fake-clock";
 import { RecordingModel } from "../../support/nest/recording-model.fixture";
 import { ToolCallingModel } from "../../support/nest/tool-calling-model.fixture";
@@ -23,6 +24,8 @@ import { Skill } from "./decorators/skill.decorator";
 import { TransfersTo } from "./decorators/transfers-to.decorator";
 import { AmbiguousAgentPromptError } from "./errors/ambiguous-agent-prompt.error";
 import { ConflictingPromptOptionsError } from "./errors/conflicting-prompt-options.error";
+
+const MEMBER = MetadataKey.fromName<string>("memberId", (value): value is string => typeof value === "string");
 
 const PROMPTS = join(dirname(fileURLToPath(import.meta.url)), "fixtures", "prompts");
 
@@ -63,7 +66,7 @@ class SupportAgent extends AdkAgent {
 	protected override async prompt(context: PromptContext): Promise<string> {
 		this.seen.push(context);
 		return this.prompting.renderFromFileOrFail("support.md", {
-			name: this.customers.nameOf(context.owner?.value),
+			name: this.customers.nameOf(context.metadata.find(MEMBER)),
 		});
 	}
 
@@ -145,32 +148,35 @@ describe("an agent that builds its prompt per run", () => {
 		const model = new RecordingModel("hello there");
 		const booted = await bootWith(model);
 
-		await booted.get(AgentRegistry).get("support").ask("hi", { owner: "user-7" });
+		await booted
+			.get(AgentRegistry)
+			.get("support")
+			.ask("hi", { metadata: { memberId: "user-7" } });
 
 		expect(model.requests[0]?.instructions?.text).toContain("talking to Ana");
 	});
 
-	it("hands the agent the session, the run, its own name and the owner", async () => {
+	it("hands the agent the session, the run, its own name and the metadata", async () => {
 		const booted = await bootWith(new RecordingModel());
 		const support = booted.get(SupportAgent);
 
-		const result = await support.ask("hi", { owner: "user-7" });
+		const result = await support.ask("hi", { metadata: { memberId: "user-7" } });
 
 		expect(support.seen[0]?.sessionId.value).toBe(result.sessionId.value);
 		expect(support.seen[0]?.runId.value).toBe(result.runId.value);
 		expect(support.seen[0]?.agent.value).toBe("support");
-		expect(support.seen[0]?.owner?.value).toBe("user-7");
+		expect(support.seen[0]?.metadata.find(MEMBER)).toBe("user-7");
 	});
 
-	/** The owner lives on the session, so a conversation continued tomorrow builds for the same person. */
-	it("keeps the owner across the turns of a continued conversation", async () => {
+	/** The metadata lives in the journal, so a conversation continued tomorrow builds for the same person. */
+	it("keeps the metadata across the turns of a continued conversation", async () => {
 		const booted = await bootWith(new RecordingModel());
 		const support = booted.get(SupportAgent);
 
-		const first = await support.ask("hi", { owner: "user-7" });
+		const first = await support.ask("hi", { metadata: { memberId: "user-7" } });
 		await support.ask("and then?", first.sessionId);
 
-		expect(support.seen[1]?.owner?.value).toBe("user-7");
+		expect(support.seen[1]?.metadata.find(MEMBER)).toBe("user-7");
 	});
 
 	/**
@@ -182,7 +188,7 @@ describe("an agent that builds its prompt per run", () => {
 		const booted = await bootWith(new ToolCallingModel("delegate_to_agent", { agentName: "research", task: "check" }));
 		const support = booted.get(SupportAgent);
 
-		await support.ask("hi", { owner: "user-7" });
+		await support.ask("hi", { metadata: { memberId: "user-7" } });
 
 		expect(support.seen).toHaveLength(1);
 	});
@@ -191,7 +197,7 @@ describe("an agent that builds its prompt per run", () => {
 		const booted = await bootWith(new RecordingModel());
 		const support = booted.get(SupportAgent);
 
-		const first = await support.ask("hi", { owner: "user-7" });
+		const first = await support.ask("hi", { metadata: { memberId: "user-7" } });
 		await support.ask("again", first.sessionId);
 
 		expect(support.seen).toHaveLength(2);
@@ -219,7 +225,10 @@ describe("an agent that builds its prompt per run", () => {
 		const model = new RecordingModel();
 		const booted = await bootWith(model);
 
-		await booted.get(AgentRegistry).get("support").ask("hi", { owner: "user-7" });
+		await booted
+			.get(AgentRegistry)
+			.get("support")
+			.ask("hi", { metadata: { memberId: "user-7" } });
 
 		const instructions = model.requests[0]?.instructions?.text ?? "";
 		expect(instructions.indexOf("talking to Ana")).toBeLessThan(instructions.indexOf("friendly tone"));
@@ -248,7 +257,10 @@ describe("an agent that builds its prompt per run", () => {
 			const model = new ToolCallingModel("transfer_to_agent", { agentName: "billing" }, "that is billed");
 			const booted = await bootWith(model);
 
-			await booted.get(AgentRegistry).get("support").ask("who charged me?", { owner: "user-7" });
+			await booted
+				.get(AgentRegistry)
+				.get("support")
+				.ask("who charged me?", { metadata: { memberId: "user-7" } });
 
 			expect(model.requests[0]?.instructions?.text).toContain("talking to Ana");
 			expect(model.requests[1]?.instructions?.text).toContain("You are billing");
@@ -258,7 +270,10 @@ describe("an agent that builds its prompt per run", () => {
 			const model = new ToolCallingModel("delegate_to_agent", { agentName: "research", task: "check the recall" });
 			const booted = await bootWith(model);
 
-			await booted.get(AgentRegistry).get("support").ask("is it recalled?", { owner: "user-7" });
+			await booted
+				.get(AgentRegistry)
+				.get("support")
+				.ask("is it recalled?", { metadata: { memberId: "user-7" } });
 
 			expect(model.requests[1]?.instructions?.text).toBe("You are the research desk. Answer with facts and nothing else.");
 		});

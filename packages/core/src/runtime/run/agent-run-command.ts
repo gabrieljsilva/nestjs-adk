@@ -4,7 +4,7 @@ import type { AgentName } from "../../domain/agent/agent-name";
 import type { LlmModel } from "../../domain/model/llm-model";
 import type { AskInput } from "../../domain/session/ask-input";
 import { RunLimits } from "../../domain/session/run-limits";
-import type { SessionOwner } from "../../domain/session/session-owner";
+import type { SessionMetadata } from "../../domain/session/session-metadata";
 import type { Actor } from "../../domain/tool/actor";
 
 /**
@@ -23,7 +23,6 @@ export class AgentRunCommand {
 		public readonly agent: AgentName,
 		public readonly input: AskInput,
 		public readonly limits: RunLimits = RunLimits.none(),
-		public readonly owner?: SessionOwner,
 		public readonly model?: LlmModel,
 		/**
 		 * Hands the session to another agent before this message is answered.
@@ -58,5 +57,10 @@ export class AgentRunCommand {
 
 	public get continuesSession(): boolean {
 		return this.input.continuesSession;
+	}
+
+	/** What this command says about the session, which is part of what it asked rather than of who asked. */
+	public get metadata(): SessionMetadata {
+		return this.input.metadata;
 	}
 }

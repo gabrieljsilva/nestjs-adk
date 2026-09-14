@@ -4,6 +4,7 @@ import type { AgentName } from "../agent/agent-name";
 import type { PromptMeasurement } from "../model/prompt-measurement";
 import { ApprovalStatus } from "./approval-status";
 import type { Session } from "./session";
+import type { SessionMetadata } from "./session-metadata";
 import type { SessionState } from "./session-state";
 import type { StateValues } from "./state-values";
 
@@ -31,6 +32,8 @@ export class SessionInspection {
 		public readonly activeAgent: AgentName,
 		public readonly approval: ApprovalStatus,
 		public readonly values: StateValues,
+		/** What the application knows about this session, as durable as the conversation itself. */
+		public readonly metadata: SessionMetadata,
 		public readonly lastPrompt?: PromptMeasurement,
 	) {}
 
@@ -41,6 +44,7 @@ export class SessionInspection {
 			state.activeAgent ?? session.rootAgent,
 			turn === undefined ? ApprovalStatus.none() : ApprovalStatus.of(turn),
 			state.values,
+			state.metadata,
 			state.lastPrompt,
 		);
 	}

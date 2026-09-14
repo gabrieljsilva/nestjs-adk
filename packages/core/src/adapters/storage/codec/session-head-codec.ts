@@ -3,7 +3,6 @@ import { SessionRevision } from "../../../common/revision/session-revision";
 import { Instant } from "../../../common/time/instant";
 import { AgentName } from "../../../domain/agent/agent-name";
 import { Session } from "../../../domain/session/session";
-import { SessionOwner } from "../../../domain/session/session-owner";
 import { SessionStatus } from "../../../domain/session/session-status";
 import { UnreadableStoredValueError } from "./errors/unreadable-stored-value.error";
 import { SessionHeadRecord } from "./session-head-record";
@@ -29,7 +28,6 @@ export class SessionHeadCodec {
 			session.revision.value,
 			session.createdAt.toIso(),
 			session.updatedAt.toIso(),
-			session.owner?.value,
 		);
 	}
 
@@ -43,7 +41,6 @@ export class SessionHeadCodec {
 			SessionRevision.of(record.revision),
 			Instant.fromIso(record.createdAt),
 			Instant.fromIso(record.updatedAt),
-			record.owner === undefined ? undefined : SessionOwner.from(record.owner),
 		);
 	}
 

@@ -1039,7 +1039,6 @@ describe("AdkRuntimeHost over the native runtime", () => {
 				AskInput.of("I was charged twice", first.sessionId),
 				RunLimits.none(),
 				undefined,
-				undefined,
 				BILLING,
 			),
 		);
@@ -1066,14 +1065,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 
 		await expect(
 			runtime.runner.ask(
-				new AgentRunCommand(
-					SUPPORT,
-					AskInput.of("route me", first.sessionId),
-					RunLimits.none(),
-					undefined,
-					undefined,
-					BILLING,
-				),
+				new AgentRunCommand(SUPPORT, AskInput.of("route me", first.sessionId), RunLimits.none(), undefined, BILLING),
 			),
 		).rejects.toBeInstanceOf(TransferNotDeclaredError);
 

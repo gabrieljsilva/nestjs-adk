@@ -6,8 +6,10 @@ import { AgentName } from "../agent/agent-name";
 import { ModelIdentity } from "../model/model-identity";
 import { ModelUsage } from "../model/model-usage";
 import { PromptMeasurement } from "../model/prompt-measurement";
+import { MetadataKey } from "./metadata-key";
 import { PendingCall } from "./pending-call";
 import { PendingTurn } from "./pending-turn";
+import { SessionMetadata } from "./session-metadata";
 import { SessionState } from "./session-state";
 import { SessionStateCodec } from "./session-state-codec";
 import { StateValues } from "./state-values";
@@ -86,5 +88,26 @@ describe("SessionStateCodec", () => {
 		expect(restored.revision.value).toBe(2);
 		expect(restored.values.size).toBe(0);
 		expect(restored.pendingTurn).toBeUndefined();
+	});
+
+	it("carries the metadata a session holds, so a snapshot means what the journal means", () => {
+		const restored = roundTrip(
+			SessionState.initial().withMetadata(SessionMetadata.fromRecord({ memberId: "ana", seats: 3 })),
+		);
+
+		expect(restored.metadata.find(MetadataKey.fromName("memberId"))).toBe("ana");
+		expect(restored.metadata.size).toBe(2);
+	});
+
+	/** A snapshot is a shortcut, so an entry it cannot hold costs a replay and never a refusal. */
+	it("drops an entry no session could have written, rather than refusing the snapshot", () => {
+		const restored = codec.decode({ revision: 2, metadata: [["memberId", "ana"], ["broken", undefined], "nonsense"] });
+
+		expect(restored.metadata.size).toBe(1);
+		expect(restored.metadata.has("memberId")).toBe(true);
+	});
+
+	it("answers no metadata for a payload written before a session carried any", () => {
+		expect(codec.decode({ revision: 2 }).metadata.isEmpty).toBe(true);
 	});
 });

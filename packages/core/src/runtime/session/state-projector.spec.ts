@@ -13,6 +13,8 @@ import { AgentRunSuspended } from "../../domain/event/catalog/agent-run-suspende
 import { AgentTransferred } from "../../domain/event/catalog/agent-transferred";
 import { AssistantMessageProduced } from "../../domain/event/catalog/assistant-message-produced";
 import { SessionCreated } from "../../domain/event/catalog/session-created";
+import { SessionMetadataDeleted } from "../../domain/event/catalog/session-metadata-deleted";
+import { SessionMetadataSet } from "../../domain/event/catalog/session-metadata-set";
 import { ToolApprovalDenied } from "../../domain/event/catalog/tool-approval-denied";
 import { ToolApprovalGranted } from "../../domain/event/catalog/tool-approval-granted";
 import { UserMessageReceived } from "../../domain/event/catalog/user-message-received";
@@ -23,6 +25,7 @@ import { StoredSessionEvent } from "../../domain/event/stored-session-event";
 import { ModelIdentity } from "../../domain/model/model-identity";
 import { ModelUsage } from "../../domain/model/model-usage";
 import { PromptMeasurement } from "../../domain/model/prompt-measurement";
+import { MetadataKey } from "../../domain/session/metadata-key";
 import { PendingCall } from "../../domain/session/pending-call";
 import { SessionState } from "../../domain/session/session-state";
 import { StateProjector } from "./state-projector";
@@ -35,6 +38,7 @@ const projector = new StateProjector();
 const LOOKUP = ToolCallId.from("c-1");
 const REFUND = ToolCallId.from("c-2");
 const CLOSE = ToolCallId.from("c-3");
+const MEMBER = MetadataKey.fromName<string>("memberId", (value): value is string => typeof value === "string");
 
 function suspension(): AgentRunSuspended {
 	return new AgentRunSuspended(header("e-1"), "waiting", [
@@ -64,7 +68,7 @@ function stored(revision: number, event: SessionEvent): StoredSessionEvent {
 
 describe("StateProjector", () => {
 	it("declares a version, since snapshots are tied to it", () => {
-		expect(StateProjector.VERSION).toBe(4);
+		expect(StateProjector.VERSION).toBe(5);
 	});
 
 	it("carries forward the size a provider reported for the last prompt", () => {
@@ -193,5 +197,52 @@ describe("StateProjector", () => {
 		]);
 
 		expect(state.pendingTurn).toBeUndefined();
+	});
+
+	describe("the metadata it folds", () => {
+		it("starts with none, because a session says nothing until somebody writes it", () => {
+			expect(SessionState.initial().metadata.isEmpty).toBe(true);
+		});
+
+		it("keeps what a write put there", () => {
+			const state = projector.applyAll(SessionState.initial(), [
+				stored(1, new SessionMetadataSet(header("e-1"), "memberId", "gabriel")),
+			]);
+
+			expect(state.metadata.find(MEMBER)).toBe("gabriel");
+		});
+
+		/** Last write per key is what makes a replay and a snapshot land on the same map. */
+		it("keeps the last write of a key, whatever came before it", () => {
+			const state = projector.applyAll(SessionState.initial(), [
+				stored(1, new SessionMetadataSet(header("e-1"), "memberId", "gabriel")),
+				stored(2, new SessionMetadataSet(header("e-2"), "memberId", "ana")),
+			]);
+
+			expect(state.metadata.find(MEMBER)).toBe("ana");
+		});
+
+		it("forgets a key a deletion named, and leaves the rest where they are", () => {
+			const state = projector.applyAll(SessionState.initial(), [
+				stored(1, new SessionMetadataSet(header("e-1"), "memberId", "gabriel")),
+				stored(2, new SessionMetadataSet(header("e-2"), "locale", "pt-BR")),
+				stored(3, new SessionMetadataDeleted(header("e-3"), "memberId")),
+			]);
+
+			expect(state.metadata.has("memberId")).toBe(false);
+			expect(state.metadata.has("locale")).toBe(true);
+		});
+
+		it("survives everything else the journal folds", () => {
+			const state = projector.applyAll(SessionState.initial(), [
+				stored(1, new SessionCreated(header("e-1"), SUPPORT, undefined)),
+				stored(2, new SessionMetadataSet(header("e-2"), "memberId", "gabriel")),
+				stored(3, new AgentTransferred(header("e-3"), SUPPORT, BILLING)),
+				stored(4, new AgentRunCompleted(header("e-4"), "stop")),
+			]);
+
+			expect(state.metadata.find(MEMBER)).toBe("gabriel");
+			expect(state.activeAgent?.value).toBe("billing");
+		});
 	});
 });

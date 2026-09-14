@@ -117,13 +117,13 @@ describe("AgentHandle", () => {
 	it("opens a conversation under the agent it is a handle on", async () => {
 		const { calls, handle } = spyingRuntime();
 
-		await handle.createSession({ sessionId: "chat-42", owner: "gabriel" });
+		await handle.createSession({ sessionId: "chat-42", metadata: { memberId: "gabriel" } });
 
 		const payload = Object(calls[0]?.payload);
 		expect(Reflect.get(payload, "agent")).toBe(SUPPORT);
 		const input = Object(Reflect.get(payload, "input"));
 		expect(Reflect.get(Object(Reflect.get(input, "sessionId")), "value")).toBe("chat-42");
-		expect(Reflect.get(Object(Reflect.get(input, "owner")), "value")).toBe("gabriel");
+		expect(Reflect.get(Object(Reflect.get(input, "metadata")), "size")).toBe(1);
 	});
 
 	it("opens a conversation the runtime names, when the caller named none", async () => {

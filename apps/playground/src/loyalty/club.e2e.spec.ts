@@ -31,7 +31,7 @@ describe("the Nébula Club, whose prompts are built per run", () => {
 		await using bed = await clubBed();
 		const club = bed.agent(ClubAgent);
 
-		await club.ask("how many points do I have?", { owner: ANA });
+		await club.ask("how many points do I have?", { metadata: { memberId: ANA } });
 
 		expect(club.lastInstruction()).toContain("talking to Ana");
 		expect(club.lastInstruction()).toContain("a gold member and earn 2 points per real");
@@ -41,18 +41,18 @@ describe("the Nébula Club, whose prompts are built per run", () => {
 		await using bed = await clubBed();
 		const club = bed.agent(ClubAgent);
 
-		await club.ask("what is my tier?", { owner: "bruno@nebula.games" });
+		await club.ask("what is my tier?", { metadata: { memberId: "bruno@nebula.games" } });
 
 		expect(club.lastInstruction()).toContain("talking to Bruno");
 		expect(club.lastInstruction()).toContain("earn 4 points per real");
 	});
 
-	/** The owner is recorded on the session, so continuing it keeps building for the same person. */
+	/** The member is recorded in the journal, so continuing the session keeps building for the same person. */
 	it("keeps building for the same member when the conversation carries on", async () => {
 		await using bed = await clubBed();
 		const club = bed.agent(ClubAgent);
 
-		await club.ask("how many points do I have?", { owner: ANA });
+		await club.ask("how many points do I have?", { metadata: { memberId: ANA } });
 		await club.ask("and how do they expire?");
 
 		expect(club.lastInstruction()).toContain("talking to Ana");
@@ -87,8 +87,8 @@ describe("the Nébula Club, whose prompts are built per run", () => {
 		await using bed = await clubBed();
 		const club = bed.get(ClubAgent);
 
-		const [first] = await club.explain("how many points do I have?", { owner: ANA });
-		const [second] = await club.explain("and what is my tier?", { owner: ANA });
+		const [first] = await club.explain("how many points do I have?", { metadata: { memberId: ANA } });
+		const [second] = await club.explain("and what is my tier?", { metadata: { memberId: ANA } });
 
 		expect([first, second]).toHaveStablePrefix(0.8);
 	});
@@ -97,14 +97,16 @@ describe("the Nébula Club, whose prompts are built per run", () => {
 		it("fails the run for somebody the club does not know", async () => {
 			await using bed = await clubBed();
 
-			await expect(bed.agent(ClubAgent).ask("who am I?", { owner: STRANGER })).rejects.toBeInstanceOf(MemberNotFoundError);
+			await expect(bed.agent(ClubAgent).ask("who am I?", { metadata: { memberId: STRANGER } })).rejects.toBeInstanceOf(
+				MemberNotFoundError,
+			);
 		});
 
 		/** A member who never filled their profile in leaves a required variable with nothing to fill it. */
 		it("fails naming the variable when the member has no name", async () => {
 			await using bed = await clubBed();
 
-			await expect(bed.agent(ClubAgent).ask("who am I?", { owner: QUIET })).rejects.toBeInstanceOf(
+			await expect(bed.agent(ClubAgent).ask("who am I?", { metadata: { memberId: QUIET } })).rejects.toBeInstanceOf(
 				MissingPromptVariablesError,
 			);
 		});
@@ -113,7 +115,7 @@ describe("the Nébula Club, whose prompts are built per run", () => {
 			await using bed = await clubBed();
 			const club = bed.agent(ClubAgent);
 
-			await expect(club.ask("who am I?", { owner: STRANGER })).rejects.toThrow();
+			await expect(club.ask("who am I?", { metadata: { memberId: STRANGER } })).rejects.toThrow();
 
 			expect(bed.script(ClubAgent)?.requests).toEqual([]);
 		});
@@ -121,13 +123,15 @@ describe("the Nébula Club, whose prompts are built per run", () => {
 		it("fails naming the file when the prompts directory is not where the prompts are", async () => {
 			await using bed = await clubBed("/nebula/no-prompts-here");
 
-			await expect(bed.agent(ClubAgent).ask("who am I?", { owner: ANA })).rejects.toBeInstanceOf(PromptNotFoundError);
+			await expect(bed.agent(ClubAgent).ask("who am I?", { metadata: { memberId: ANA } })).rejects.toBeInstanceOf(
+				PromptNotFoundError,
+			);
 		});
 
 		it("says where it looked, so the wrong directory is the message rather than a guess", async () => {
 			await using bed = await clubBed("/nebula/no-prompts-here");
 
-			await expect(bed.agent(ClubAgent).ask("who am I?", { owner: ANA })).rejects.toThrowError(
+			await expect(bed.agent(ClubAgent).ask("who am I?", { metadata: { memberId: ANA } })).rejects.toThrowError(
 				/\/nebula\/no-prompts-here\/club-concierge\.md/,
 			);
 		});

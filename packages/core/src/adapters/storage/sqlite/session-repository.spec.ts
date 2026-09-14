@@ -4,7 +4,6 @@ import { SessionRevision } from "../../../common/revision/session-revision";
 import { Instant } from "../../../common/time/instant";
 import { AgentName } from "../../../domain/agent/agent-name";
 import { Session } from "../../../domain/session/session";
-import { SessionOwner } from "../../../domain/session/session-owner";
 import { SessionHeadCodec } from "../codec/session-head-codec";
 import { SessionRepository } from "./session-repository";
 import { SqliteConnection } from "./sqlite-connection";
@@ -26,14 +25,6 @@ describe("SessionRepository", () => {
 		expect(found?.rootAgent.value).toBe("support");
 		expect(found?.acceptsCommands).toBe(true);
 		expect(found?.createdAt.toIso()).toBe(NOW.toIso());
-	});
-
-	it("keeps the owner a session was opened with", () => {
-		const sessions = repository();
-		const owner = SessionOwner.from("gabriel");
-		sessions.insert(Session.start(ID, AgentName.from("support"), NOW, owner));
-
-		expect(sessions.find(ID)?.owner?.value).toBe("gabriel");
 	});
 
 	it("finds nothing for a session that was never inserted", () => {

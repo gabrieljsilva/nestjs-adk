@@ -32,6 +32,11 @@ const MAX_DEPTH = 8;
  * provider conventionally uses; by type, for anything wrapped in `Secret`, which works
  * under a name nobody anticipated. Structure is preserved either way: a consumer still
  * sees that the field was there, which is what makes an audit trail readable.
+ *
+ * A payload that carries a name and its value as two fields is covered by the same list.
+ * Session metadata is written that way, so the name a key was given sits in `key` rather
+ * than in the position a field name occupies, and a rule that only looked at field names
+ * would publish a credential stored under `token` while masking a field called `token`.
  */
 export class EventRedactor {
 	public redact(payload: Readonly<Record<string, unknown>>): Readonly<Record<string, unknown>> {
@@ -39,11 +44,22 @@ export class EventRedactor {
 	}
 
 	private record(payload: Readonly<Record<string, unknown>>, depth: number): Record<string, unknown> {
+		const named = this.namesItsOwnValue(payload);
 		const redacted: Record<string, unknown> = {};
 		for (const [key, value] of Object.entries(payload)) {
-			redacted[key] = REDACTED_FIELDS.has(key.toLowerCase()) ? MASK : this.value(value, depth + 1);
+			redacted[key] = this.isRedacted(key) || (named && key === "value") ? MASK : this.value(value, depth + 1);
 		}
 		return redacted;
+	}
+
+	/** A payload of the shape `{ key, value }`, where the name to judge is what `key` holds. */
+	private namesItsOwnValue(payload: Readonly<Record<string, unknown>>): boolean {
+		const key = payload.key;
+		return "value" in payload && typeof key === "string" && this.isRedacted(key);
+	}
+
+	private isRedacted(name: string): boolean {
+		return REDACTED_FIELDS.has(name.toLowerCase());
 	}
 
 	private value(value: unknown, depth: number): unknown {

@@ -16,7 +16,7 @@ An adapter can serialize a `SessionEvent` by hand and read it back as an object 
 Both projectors decide by concrete class:
 
 - `ContextProjector` builds what the model reads by matching `UserMessageReceived`, `AssistantMessageProduced`, `ToolCallRequested` and `ToolResultProduced`;
-- `StateProjector` builds what the runtime decides on by matching `SessionCreated`, `AgentTransferred`, `AgentRunSuspended` and the approval events.
+- `StateProjector` builds what the runtime decides on by matching `SessionCreated`, `AgentTransferred`, `SessionMetadataSet`, `SessionMetadataDeleted`, `AgentRunSuspended` and the approval events.
 
 An object that is not an instance of those classes falls through every branch without entering one. There is no error. A conversation with twenty turns rehydrates into an empty context and the agent answers as if it were the first message, on a full journal; a session suspended in front of a human comes back with nothing pending, and the approval is refused for a call that is sitting in the database.
 
@@ -60,6 +60,8 @@ private eventOf(eventId: string): SessionEvent {
 	return this.codecs.journal.decode({ eventId, type: "session.created", schemaVersion: 1, ... });
 }
 ```
+
+The suite also decodes a `session.metadata-set` row whose payload holds a nested object rather than text, because the journal record's payload is the one column that is not a plain value: an adapter that stringifies it on the way in and forgets on the way out passes every case written against a flat payload and loses the session's metadata.
 
 If the published surface ever stops being sufficient, this file stops compiling. That makes it the standing proof of the section above, and it is also more durable than the alternative: a row written at schema version 1 is upcast on the way through, so the suite survives a payload change that constructing the event class would not.
 

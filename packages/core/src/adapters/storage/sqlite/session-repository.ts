@@ -21,14 +21,13 @@ export class SessionRepository {
 	public insert(session: Session): void {
 		const record = this.codec.encode(session);
 		this.connection.run(
-			"INSERT INTO sessions (id, root_agent, status, revision, created_at, updated_at, owner) VALUES (?, ?, ?, ?, ?, ?, ?)",
+			"INSERT INTO sessions (id, root_agent, status, revision, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
 			record.id,
 			record.rootAgent,
 			record.status,
 			record.revision,
 			record.createdAt,
 			record.updatedAt,
-			record.owner ?? null,
 		);
 	}
 
@@ -60,7 +59,6 @@ export class SessionRepository {
 			revision: row.integer("revision"),
 			createdAt: row.text("created_at"),
 			updatedAt: row.text("updated_at"),
-			owner: row.optionalText("owner"),
 		});
 	}
 }

@@ -11,6 +11,7 @@ import { DelegationCompleted } from "../../domain/event/catalog/delegation-compl
 import { DelegationStarted } from "../../domain/event/catalog/delegation-started";
 import { ModelRerouted } from "../../domain/event/catalog/model-rerouted";
 import { SessionCreated } from "../../domain/event/catalog/session-created";
+import { SessionMetadataSet } from "../../domain/event/catalog/session-metadata-set";
 import { SkillActivated } from "../../domain/event/catalog/skill-activated";
 import { ToolApprovalDenied } from "../../domain/event/catalog/tool-approval-denied";
 import { ToolApprovalGranted } from "../../domain/event/catalog/tool-approval-granted";
@@ -27,6 +28,7 @@ import type { ModelIdentity } from "../../domain/model/model-identity";
 import { PromptMeasurement } from "../../domain/model/prompt-measurement";
 import type { ApprovalDecision, PendingCall } from "../../domain/session/pending-call";
 import type { PendingTurn } from "../../domain/session/pending-turn";
+import type { SessionMetadata } from "../../domain/session/session-metadata";
 import type { SkillDefinition } from "../../domain/skill/skill-definition";
 import type { ToolSourceAuthError } from "../../domain/tool/errors/tool-source-auth.error";
 import { ToolOutcome } from "../../domain/tool/tool-outcome";
@@ -67,15 +69,26 @@ export class RunJournal {
 	): SessionEventBatch {
 		const events: SessionEvent[] = [];
 		if (opened.isNew) {
-			// The owner comes from the session and not from the command: a conversation opened
-			// ahead of time was told who owns it then, and the question that begins its journal
-			// carries nothing about it.
-			events.push(new SessionCreated(this.headerOf(started), transferredFrom ?? agent, opened.session.owner?.value));
+			events.push(new SessionCreated(this.headerOf(started), transferredFrom ?? agent, command.actor?.id));
 		}
+		// Written before the question so a reader of the journal has the facts the turn ran under
+		// before it has the turn, and so a run that fails loses the write together with the turn.
+		events.push(...this.metadata(started, command.metadata));
 		if (transferredFrom !== undefined) events.push(this.transfer(started, transferredFrom, agent));
-		events.push(new UserMessageReceived(this.headerOf(started), command.input.message, attachments));
+		events.push(new UserMessageReceived(this.headerOf(started), command.input.message, attachments, command.actor?.id));
 		events.push(this.started(started, agent, model));
 		return SessionEventBatch.of(events);
+	}
+
+	/**
+	 * One event per key the caller wants written, which is what makes last write per key win.
+	 *
+	 * A key set again later is another event and the fold keeps the newer one, so nothing here
+	 * has to read what the session already holds: a metadata write is a fact about what was
+	 * asked, not a decision taken against a state that may have moved.
+	 */
+	public metadata(started: StartedRun, metadata: SessionMetadata): readonly SessionEvent[] {
+		return metadata.entries().map(([key, value]) => new SessionMetadataSet(this.headerOf(started), key, value));
 	}
 
 	public started(started: StartedRun, agent: AgentName, model: ModelIdentity): AgentRunStarted {
@@ -138,10 +151,11 @@ export class RunJournal {
 		by?: string,
 		reason?: string,
 		toolName = "",
+		actorId?: string,
 	): SessionEvent {
 		const header = this.headerOf(started);
-		if (decision === "granted") return new ToolApprovalGranted(header, callId, by);
-		return new ToolApprovalDenied(header, callId, by, reason ?? "", toolName);
+		if (decision === "granted") return new ToolApprovalGranted(header, callId, by, actorId);
+		return new ToolApprovalDenied(header, callId, by, reason ?? "", toolName, actorId);
 	}
 
 	public result(started: StartedRun, outcome: ToolOutcome): ToolResultProduced {

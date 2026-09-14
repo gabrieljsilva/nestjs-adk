@@ -4,6 +4,7 @@ import type { AgentName } from "../agent/agent-name";
 import type { PromptMeasurement } from "../model/prompt-measurement";
 import type { ApprovalDecision } from "./pending-call";
 import type { PendingTurn } from "./pending-turn";
+import { SessionMetadata } from "./session-metadata";
 import { StateValues } from "./state-values";
 
 /**
@@ -23,6 +24,8 @@ export class SessionState {
 		public readonly activeAgent?: AgentName,
 		public readonly lastPrompt?: PromptMeasurement,
 		public readonly pendingTurn?: PendingTurn,
+		/** What the application knows about this session, folded from the metadata events. */
+		public readonly metadata: SessionMetadata = SessionMetadata.empty(),
 	) {}
 
 	public static initial(): SessionState {
@@ -35,24 +38,29 @@ export class SessionState {
 		activeAgent?: AgentName,
 		lastPrompt?: PromptMeasurement,
 		pendingTurn?: PendingTurn,
+		metadata: SessionMetadata = SessionMetadata.empty(),
 	): SessionState {
-		return new SessionState(revision, values, activeAgent, lastPrompt, pendingTurn);
+		return new SessionState(revision, values, activeAgent, lastPrompt, pendingTurn, metadata);
 	}
 
 	public at(revision: SessionRevision): SessionState {
-		return new SessionState(revision, this.values, this.activeAgent, this.lastPrompt, this.pendingTurn);
+		return new SessionState(revision, this.values, this.activeAgent, this.lastPrompt, this.pendingTurn, this.metadata);
 	}
 
 	public withValues(values: StateValues): SessionState {
-		return new SessionState(this.revision, values, this.activeAgent, this.lastPrompt, this.pendingTurn);
+		return new SessionState(this.revision, values, this.activeAgent, this.lastPrompt, this.pendingTurn, this.metadata);
+	}
+
+	public withMetadata(metadata: SessionMetadata): SessionState {
+		return new SessionState(this.revision, this.values, this.activeAgent, this.lastPrompt, this.pendingTurn, metadata);
 	}
 
 	public withActiveAgent(agent: AgentName): SessionState {
-		return new SessionState(this.revision, this.values, agent, this.lastPrompt, this.pendingTurn);
+		return new SessionState(this.revision, this.values, agent, this.lastPrompt, this.pendingTurn, this.metadata);
 	}
 
 	public withLastPrompt(measurement: PromptMeasurement): SessionState {
-		return new SessionState(this.revision, this.values, this.activeAgent, measurement, this.pendingTurn);
+		return new SessionState(this.revision, this.values, this.activeAgent, measurement, this.pendingTurn, this.metadata);
 	}
 
 	public awaiting(turn: PendingTurn): SessionState {
@@ -75,6 +83,6 @@ export class SessionState {
 	}
 
 	private withTurn(turn?: PendingTurn): SessionState {
-		return new SessionState(this.revision, this.values, this.activeAgent, this.lastPrompt, turn);
+		return new SessionState(this.revision, this.values, this.activeAgent, this.lastPrompt, turn, this.metadata);
 	}
 }

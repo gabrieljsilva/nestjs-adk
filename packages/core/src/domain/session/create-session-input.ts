@@ -1,5 +1,6 @@
 import { SessionId } from "../../common/identity/session-id";
-import { SessionOwner } from "./session-owner";
+import type { MetadataValue } from "./metadata-value";
+import { SessionMetadata } from "./session-metadata";
 
 /**
  * The command that opens a conversation before anything is asked in it.
@@ -15,19 +16,21 @@ import { SessionOwner } from "./session-owner";
 export class CreateSessionInput {
 	private constructor(
 		public readonly sessionId: SessionId | undefined,
-		public readonly owner: SessionOwner | undefined,
+		/** What the application knows about this conversation, written as events on the first commit. */
+		public readonly metadata: SessionMetadata,
 	) {}
 
 	/**
 	 * A session id may be the string an HTTP request carried, so it does not have to be
-	 * parsed twice by the caller. Whatever shape it arrives in, nothing past this point
-	 * deals with unvalidated input.
+	 * parsed twice by the caller. Metadata arrives as the literal an application writes
+	 * inline. Whatever shape either arrives in, nothing past this point deals with
+	 * unvalidated input.
 	 */
-	public static of(sessionId?: SessionId | string, owner?: string): CreateSessionInput {
-		return new CreateSessionInput(
-			CreateSessionInput.idOf(sessionId),
-			owner === undefined ? undefined : SessionOwner.from(owner),
-		);
+	public static fromOptions(
+		sessionId?: SessionId | string,
+		metadata: Readonly<Record<string, MetadataValue>> = {},
+	): CreateSessionInput {
+		return new CreateSessionInput(CreateSessionInput.idOf(sessionId), SessionMetadata.fromRecord(metadata));
 	}
 
 	private static idOf(sessionId?: SessionId | string): SessionId | undefined {

@@ -30,7 +30,7 @@ The count comes from the revision rather than from the distance to the last snap
 
 ## Changing the projector invalidates every snapshot
 
-`StateProjector.VERSION` is part of the checksum. Adding an event to the projection, or changing what an existing one folds into, means bumping it, and every snapshot ever written stops being usable at that moment.
+`StateProjector.VERSION` is part of the checksum. Adding an event to the projection, or changing what an existing one folds into, means bumping it, and every snapshot ever written stops being usable at that moment. It is at 5, which is the version that folds `SessionMetadataSet` and `SessionMetadataDeleted` into `SessionState.metadata`; `SessionStateCodec` carries that map, and an entry it cannot read is dropped rather than refused, because a snapshot that throws turns a shortcut into a session nobody can open.
 
 That is the intended behavior, not a cost to avoid. The fallback is a full replay, which is what a session without a snapshot does anyway. What must never happen is a projector change landing without the version bump, because then old snapshots load into a shape that no longer means the same thing.
 

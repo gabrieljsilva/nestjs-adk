@@ -61,7 +61,7 @@ Both are matched by one regular expression with the required form first, and the
 
 The reason this exists at all. Without it, an application that wants an agent to know who it is talking to concatenates the name into the user's message, which puts data in the one place a model has been told to treat as somebody else's words. Building the prompt from an injected repository keeps it in the system prompt, where it is instruction.
 
-The key for that lookup is `PromptContext.owner`, which is the session's owner and not an argument of the current call: a conversation continued tomorrow builds for the same person it was opened for. `AskOptions.owner` is how an application sets it when the session starts.
+The key for that lookup is `PromptContext.metadata`, the session's own durable facts folded from the journal rather than an argument of the current call: a conversation continued tomorrow builds for the same person it was opened for. `AskOptions.metadata` and `CreateSessionOptions.metadata` are how an application writes it, under a `MetadataKey` it declared. See [[session-metadata]].
 
 `PromptContext.actor` is the other one, and it is the argument of the current call: who is asking now, with the claims the application put on the actor. It is the same actor every tool of the run receives, so a prompt that names a workspace or a role reads the claims the tools are judged by, and an application does not keep them in a map keyed by session id to reach the prompt.
 

@@ -9,7 +9,7 @@ import { EventCorrelation } from "./event-correlation";
 import { EventHeader } from "./event-header";
 import { SessionEventCodecs } from "./session-event-codecs";
 
-const CATALOG_SIZE = 19;
+const CATALOG_SIZE = 21;
 
 const header = new EventHeader(
 	EventId.from("e-1"),

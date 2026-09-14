@@ -109,7 +109,6 @@ function askUnder(signal: AbortSignal, sessionId?: SessionId): AgentRunCommand {
 		undefined,
 		undefined,
 		undefined,
-		undefined,
 		[],
 		signal,
 	);

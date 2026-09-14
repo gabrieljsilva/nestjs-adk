@@ -6,7 +6,7 @@ import type { LlmModel } from "../../domain/model/llm-model";
 import type { PromptInstructions } from "../../domain/prompt/prompt-instructions";
 import type { AgentRun } from "../../domain/session/agent-run";
 import type { RunLimits } from "../../domain/session/run-limits";
-import type { SessionOwner } from "../../domain/session/session-owner";
+import { SessionMetadata } from "../../domain/session/session-metadata";
 import type { Actor } from "../../domain/tool/actor";
 import type { ToolDefinition } from "../../domain/tool/tool-definition";
 import type { SkillCatalog } from "../skill/skill-catalog";
@@ -38,8 +38,8 @@ export class RunScope {
 		public readonly remote: readonly ToolDefinition[] = [],
 		/** Already resolved from the module and the agent, so the loop never asks twice. */
 		public readonly compaction?: AdkCompactionPolicy,
-		/** Who the session belongs to, carried so a handover and a delegation build for the same person. */
-		public readonly owner?: SessionOwner,
+		/** The session's durable metadata, carried so a handover and a delegation read the same facts. */
+		public readonly metadata: SessionMetadata = SessionMetadata.empty(),
 		/** What the agent's own `prompt()` answered for this run, when it has one. */
 		private readonly resolved?: PromptInstructions,
 		/** Who asked, handed to every tool of this run, a handover and a delegation included. */

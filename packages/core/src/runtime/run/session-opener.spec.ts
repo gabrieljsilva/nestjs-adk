@@ -1,9 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { InMemorySessionStorage } from "../../adapters/storage/in-memory-session-storage";
+import { AgentId } from "../../common/identity/agent-id";
+import { AgentRunId } from "../../common/identity/agent-run-id";
+import { CorrelationId } from "../../common/identity/correlation-id";
+import { EventId } from "../../common/identity/event-id";
 import { SessionId } from "../../common/identity/session-id";
 import { SessionRevision } from "../../common/revision/session-revision";
 import { Instant } from "../../common/time/instant";
+import { AppendEventsCommand } from "../../contracts/append-events-command";
 import { AgentName } from "../../domain/agent/agent-name";
+import { SessionCreated } from "../../domain/event/catalog/session-created";
+import { EventCorrelation } from "../../domain/event/event-correlation";
+import { EventHeader } from "../../domain/event/event-header";
+import { SessionEventBatch } from "../../domain/event/session-event-batch";
 import { AskInput } from "../../domain/session/ask-input";
 import { SessionClosedError } from "../../domain/session/errors/session-closed.error";
 import { Session } from "../../domain/session/session";
@@ -21,6 +30,22 @@ function openerOf(storage: InMemorySessionStorage): SessionOpener {
 	return new SessionOpener(new SessionManager(storage), new FakeClock(NOW));
 }
 
+/** A journal that has begun is one holding the beginning, which is what names an active agent. */
+async function beginJournalOf(storage: InMemorySessionStorage): Promise<void> {
+	const header = new EventHeader(
+		EventId.from("e-1"),
+		NOW,
+		new EventCorrelation(AgentRunId.from("r-1"), AgentId.from("support"), CorrelationId.from("c-1")),
+	);
+	await storage.append(
+		new AppendEventsCommand(
+			SESSION,
+			SessionRevision.initial(),
+			SessionEventBatch.of([new SessionCreated(header, SUPPORT, undefined)]),
+		),
+	);
+}
+
 describe("SessionOpener", () => {
 	it("starts a session for a command that names none, and says it is new", async () => {
 		const storage = new InMemorySessionStorage();
@@ -33,7 +58,8 @@ describe("SessionOpener", () => {
 
 	it("continues the session a command names, without creating a second one", async () => {
 		const storage = new InMemorySessionStorage();
-		await storage.create(Session.start(SESSION, SUPPORT, NOW).at(SessionRevision.of(1)));
+		await storage.create(Session.start(SESSION, SUPPORT, NOW));
+		await beginJournalOf(storage);
 
 		const opened = await openerOf(storage).open(new AgentRunCommand(SUPPORT, AskInput.of("again", SESSION)), SESSION);
 

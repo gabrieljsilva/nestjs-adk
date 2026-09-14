@@ -8,10 +8,12 @@ import { AgentName } from "../agent/agent-name";
 import { ModelIdentity } from "../model/model-identity";
 import { ModelUsage } from "../model/model-usage";
 import { PromptMeasurement } from "../model/prompt-measurement";
+import { MetadataKey } from "./metadata-key";
 import { PendingCall } from "./pending-call";
 import { PendingTurn } from "./pending-turn";
 import { Session } from "./session";
 import { SessionInspection } from "./session-inspection";
+import { SessionMetadata } from "./session-metadata";
 import { SessionState } from "./session-state";
 import { SessionStatus } from "./session-status";
 import { StateValues } from "./state-values";
@@ -81,5 +83,11 @@ describe("SessionInspection", () => {
 
 	it("says a closed session takes no more commands", () => {
 		expect(SessionInspection.of(sessionOf(SessionStatus.CLOSED), SessionState.initial()).acceptsCommands).toBe(false);
+	});
+
+	it("carries the metadata the application wrote on the session", () => {
+		const state = SessionState.initial().withMetadata(SessionMetadata.fromRecord({ memberId: "ana" }));
+
+		expect(SessionInspection.of(sessionOf(), state).metadata.find(MetadataKey.fromName("memberId"))).toBe("ana");
 	});
 });

@@ -44,13 +44,13 @@ describe("JournalCodec", () => {
 		expect(record).toEqual({
 			eventId: "e-1",
 			type: UserMessageReceived.TYPE,
-			schemaVersion: 4,
+			schemaVersion: 5,
 			occurredAt: OCCURRED_AT,
 			runId: "run-1",
 			agentId: "support",
 			correlationId: "corr-1",
 			causationId: undefined,
-			payload: { text: "hi" },
+			payload: { text: "hi", actorId: null },
 		});
 	});
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SessionRevision } from "../../common/revision/session-revision";
 import { AgentName } from "../agent/agent-name";
+import { SessionMetadata } from "./session-metadata";
 import { SessionState } from "./session-state";
 import { StateValues } from "./state-values";
 
@@ -50,5 +51,14 @@ describe("SessionState", () => {
 		expect(next.activeAgent?.value).toBe("risk");
 		expect(next.values.get("k")).toBe("v");
 		expect(state.activeAgent).toBeUndefined();
+	});
+
+	it("replaces the metadata without losing anything else about the session", () => {
+		const state = SessionState.initial().withActiveAgent(AgentName.from("risk"));
+		const next = state.withMetadata(SessionMetadata.fromRecord({ memberId: "ana" }));
+
+		expect(next.metadata.has("memberId")).toBe(true);
+		expect(next.activeAgent?.value).toBe("risk");
+		expect(state.metadata.isEmpty).toBe(true);
 	});
 });

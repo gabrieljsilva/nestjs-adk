@@ -19,7 +19,7 @@ describe("SqliteConnection", () => {
 	it("hands back the first row, or nothing when there is none", () => {
 		const connection = new SqliteConnection();
 		connection.run(
-			"INSERT INTO sessions VALUES (?, ?, ?, ?, ?, ?, ?)",
+			"INSERT INTO sessions VALUES (?, ?, ?, ?, ?, ?)",
 			"s-1",
 			"support",
 
@@ -27,7 +27,6 @@ describe("SqliteConnection", () => {
 			0,
 			"t",
 			"t",
-			null,
 		);
 
 		expect(new StoredRow(connection.first("SELECT * FROM sessions WHERE id = ?", "s-1")).text("id")).toBe("s-1");
@@ -41,7 +40,7 @@ describe("SqliteConnection", () => {
 		expect(() =>
 			connection.transaction(() => {
 				connection.run(
-					"INSERT INTO sessions VALUES (?, ?, ?, ?, ?, ?, ?)",
+					"INSERT INTO sessions VALUES (?, ?, ?, ?, ?, ?)",
 					"s-1",
 					"a",
 
@@ -49,7 +48,6 @@ describe("SqliteConnection", () => {
 					0,
 					"t",
 					"t",
-					null,
 				);
 				throw new Error("halfway");
 			}),
@@ -64,7 +62,7 @@ describe("SqliteConnection", () => {
 
 		connection.transaction(() => {
 			connection.run(
-				"INSERT INTO sessions VALUES (?, ?, ?, ?, ?, ?, ?)",
+				"INSERT INTO sessions VALUES (?, ?, ?, ?, ?, ?)",
 				"s-1",
 				"a",
 
@@ -72,7 +70,6 @@ describe("SqliteConnection", () => {
 				0,
 				"t",
 				"t",
-				null,
 			);
 		});
 

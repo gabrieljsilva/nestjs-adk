@@ -3,7 +3,8 @@ import { AgentRunId } from "../../common/identity/agent-run-id";
 import { SessionId } from "../../common/identity/session-id";
 import { AgentName } from "../../domain/agent/agent-name";
 import { PromptContext } from "../../domain/prompt/prompt-context";
-import { SessionOwner } from "../../domain/session/session-owner";
+import { MetadataKey } from "../../domain/session/metadata-key";
+import { SessionMetadata } from "../../domain/session/session-metadata";
 import { AdkAgent } from "./adk-agent";
 import { MethodPromptBuilder } from "./method-prompt-builder";
 
@@ -11,8 +12,10 @@ const CONTEXT = new PromptContext(
 	SessionId.from("s-1"),
 	AgentRunId.from("r-1"),
 	AgentName.from("support"),
-	SessionOwner.from("user-7"),
+	SessionMetadata.empty().with("memberId", "user-7"),
 );
+
+const MEMBER = MetadataKey.fromName<string>("memberId", (value): value is string => typeof value === "string");
 
 class SilentAgent extends AdkAgent {}
 
@@ -21,7 +24,7 @@ class GreetingAgent extends AdkAgent {
 
 	protected override async prompt(context: PromptContext): Promise<string> {
 		this.calls += 1;
-		return `You are ${context.agent.value}, answering ${context.owner?.value ?? "nobody"}.`;
+		return `You are ${context.agent.value}, answering ${context.metadata.find(MEMBER) ?? "nobody"}.`;
 	}
 }
 

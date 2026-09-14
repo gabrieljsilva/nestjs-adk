@@ -7,6 +7,7 @@ import {
 	ContractSuite,
 	Instant,
 	JournalCorruptedError,
+	MetadataKey,
 	Session,
 	SessionAlreadyExistsError,
 	type SessionEvent,
@@ -42,9 +43,40 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 
 	public cases(create: () => SessionStorage): ContractCase[] {
 		const capabilities = create().capabilities();
-		const shared = [...this.sharedCases(create), ...(capabilities.checkpoints ? this.checkpointCases(create) : [])];
+		const shared = [
+			...this.sharedCases(create),
+			...(capabilities.snapshots ? this.snapshotCases(create) : []),
+			...(capabilities.checkpoints ? this.checkpointCases(create) : []),
+		];
 		if (!capabilities.supportsConcurrentWriters) return shared;
 		return [...shared, ...this.durableCases(create)];
+	}
+
+	/** Only for an adapter that said it keeps snapshots, which every one of them may refuse to. */
+	private snapshotCases(create: () => SessionStorage): ContractCase[] {
+		return [
+			new ContractCase("brings a snapshot back meaning what it meant when it was written", async () => {
+				const storage = create();
+				await storage.create(this.sessionOf("s-1"));
+				await storage.append(this.commandOf("s-1", 0, "e-1"));
+
+				await storage.saveSnapshot(this.snapshotOf("s-1", 1));
+
+				const found = await storage.findSnapshot(SessionId.from("s-1"));
+				assert.ok(found !== undefined, "a storage that declares snapshots must answer the one it was given");
+				assert.equal(found.revision.value, 1, "a snapshot read at another revision is a session meaning something else");
+				assert.equal(
+					found.projectorVersion,
+					PROJECTOR_VERSION,
+					"the projector version is what makes a stale snapshot refusable",
+				);
+				assert.equal(
+					found.state.metadata.find(MetadataKey.fromName("memberId")),
+					"gabriel",
+					"the durable metadata of a session must survive the shortcut to it",
+				);
+			}),
+		];
 	}
 
 	/** Only for an adapter that said it keeps compaction checkpoints. */
@@ -120,6 +152,30 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 	/** What every adapter owes, whatever it claims to support. */
 	private sharedCases(create: () => SessionStorage): ContractCase[] {
 		return [
+			new ContractCase("round trips every event of the catalog, whatever its payload holds", async () => {
+				const storage = create();
+				await storage.create(this.sessionOf("s-1"));
+
+				await storage.append(
+					new AppendEventsCommand(
+						SessionId.from("s-1"),
+						SessionRevision.of(0),
+						SessionEventBatch.of([this.metadataEventOf("e-1"), this.metadataDeletionOf("e-2")]),
+					),
+				);
+
+				const journal = await this.journalOf(storage, "s-1");
+				assert.deepEqual(
+					journal.map((stored) => stored.event.type),
+					["session.metadata-set", "session.metadata-deleted"],
+					"an event must come back as the type it was written under",
+				);
+				assert.deepEqual(
+					this.codecs.journal.encode(journal[0]?.event ?? this.metadataEventOf("e-1")).payload,
+					{ key: "memberId", value: { tier: "gold", seats: 3, tags: ["a"], active: true, seat: null } },
+					"a nested payload must come back byte for byte, or the state it folds into changes meaning",
+				);
+			}),
 			new ContractCase("refuses a duplicated create and leaves the existing session untouched", async () => {
 				const storage = create();
 				await storage.create(this.sessionOf("s-1"));
@@ -324,7 +380,36 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 			agentId: "a-1",
 			correlationId: "c-1",
 			causationId: undefined,
-			payload: { rootAgent, owner: null },
+			payload: { rootAgent, actorId: null },
+		});
+	}
+
+	/** A payload that is not a string, to prove the row is more than text on the way back. */
+	private metadataEventOf(eventId: string): SessionEvent {
+		return this.codecs.journal.decode({
+			eventId,
+			type: "session.metadata-set",
+			schemaVersion: 1,
+			occurredAt: NOW.toIso(),
+			runId: "r-1",
+			agentId: "a-1",
+			correlationId: "c-1",
+			causationId: undefined,
+			payload: { key: "memberId", value: { tier: "gold", seats: 3, tags: ["a"], active: true, seat: null } },
+		});
+	}
+
+	private metadataDeletionOf(eventId: string): SessionEvent {
+		return this.codecs.journal.decode({
+			eventId,
+			type: "session.metadata-deleted",
+			schemaVersion: 1,
+			occurredAt: NOW.toIso(),
+			runId: "r-1",
+			agentId: "a-1",
+			correlationId: "c-1",
+			causationId: undefined,
+			payload: { key: "memberId" },
 		});
 	}
 
@@ -348,7 +433,7 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 			projectorVersion: PROJECTOR_VERSION,
 			checksumAlgorithm: "sha-256",
 			checksumValue: "contract-suite",
-			state: { revision, values: [] },
+			state: { revision, values: [], metadata: [["memberId", "gabriel"]] },
 		});
 	}
 

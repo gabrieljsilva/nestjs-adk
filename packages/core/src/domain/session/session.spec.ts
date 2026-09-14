@@ -5,7 +5,6 @@ import { Instant } from "../../common/time/instant";
 import { AgentName } from "../agent/agent-name";
 import { InvertedSessionTimestampsError } from "./errors/inverted-session-timestamps.error";
 import { Session } from "./session";
-import { SessionOwner } from "./session-owner";
 import { SessionStatus } from "./session-status";
 
 const ID = SessionId.from("s-1");
@@ -23,30 +22,15 @@ describe("Session start", () => {
 		expect(session.updatedAt.toIso()).toBe(CREATED.toIso());
 		expect(session.acceptsCommands).toBe(true);
 	});
-
-	/** The identifier is what finds a conversation again, so nothing here needs an owner. */
-	it("opens without an owner, and opens with one when the application named it", () => {
-		expect(Session.start(ID, SUPPORT, CREATED).owner).toBeUndefined();
-		expect(Session.start(ID, SUPPORT, CREATED, SessionOwner.from("gabriel")).owner?.value).toBe("gabriel");
-	});
 });
 
 describe("Session restore", () => {
 	it("brings back every part it was given", () => {
-		const session = Session.restore(
-			ID,
-			SUPPORT,
-			SessionStatus.SUSPENDED,
-			SessionRevision.of(7),
-			CREATED,
-			LATER,
-			SessionOwner.from("gabriel"),
-		);
+		const session = Session.restore(ID, SUPPORT, SessionStatus.SUSPENDED, SessionRevision.of(7), CREATED, LATER);
 
 		expect(session.status).toBe(SessionStatus.SUSPENDED);
 		expect(session.revision.value).toBe(7);
 		expect(session.updatedAt.toIso()).toBe(LATER.toIso());
-		expect(session.owner?.value).toBe("gabriel");
 	});
 
 	/** A row saying it changed before it existed is a corrupt row, not a session. */
@@ -65,12 +49,11 @@ describe("Session restore", () => {
 
 describe("Session copies", () => {
 	it("moves the revision and the moment it moved, keeping everything else", () => {
-		const advanced = Session.start(ID, SUPPORT, CREATED, SessionOwner.from("gabriel")).at(SessionRevision.of(3), LATER);
+		const advanced = Session.start(ID, SUPPORT, CREATED).at(SessionRevision.of(3), LATER);
 
 		expect(advanced.revision.value).toBe(3);
 		expect(advanced.updatedAt.toIso()).toBe(LATER.toIso());
 		expect(advanced.createdAt.toIso()).toBe(CREATED.toIso());
-		expect(advanced.owner?.value).toBe("gabriel");
 		expect(advanced.status).toBe(SessionStatus.ACTIVE);
 	});
 

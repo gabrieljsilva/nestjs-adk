@@ -11,6 +11,7 @@ import { AgentRunStarted } from "../../domain/event/catalog/agent-run-started";
 import { AgentRunSuspended } from "../../domain/event/catalog/agent-run-suspended";
 import { AssistantMessageProduced } from "../../domain/event/catalog/assistant-message-produced";
 import { SessionCreated } from "../../domain/event/catalog/session-created";
+import { SessionMetadataSet } from "../../domain/event/catalog/session-metadata-set";
 import { ToolApprovalDenied } from "../../domain/event/catalog/tool-approval-denied";
 import { ToolApprovalGranted } from "../../domain/event/catalog/tool-approval-granted";
 import { ToolApprovalRequested } from "../../domain/event/catalog/tool-approval-requested";
@@ -22,8 +23,9 @@ import { AskInput } from "../../domain/session/ask-input";
 import { PendingCall } from "../../domain/session/pending-call";
 import { PendingTurn } from "../../domain/session/pending-turn";
 import { Session } from "../../domain/session/session";
-import { SessionOwner } from "../../domain/session/session-owner";
+import { SessionMetadata } from "../../domain/session/session-metadata";
 import { SessionState } from "../../domain/session/session-state";
+import { Actor } from "../../domain/tool/actor";
 import { ToolSourceAuthError } from "../../domain/tool/errors/tool-source-auth.error";
 import { ToolOutcome } from "../../domain/tool/tool-outcome";
 import { FakeClock } from "../../support/fake-clock";
@@ -83,25 +85,51 @@ describe("RunJournal", () => {
 		]);
 	});
 
-	it("names the owner the session carries, not the one the question did", () => {
-		const owned = new OpenedSession(
-			Session.start(SESSION, NativeStackFixture.AGENT, NOW, SessionOwner.from("gabriel")),
-			SessionState.initial(),
-			true,
-		);
-
+	/** Only the id: an actor's claims are read at the call, and a copy of them would outlive that. */
+	it("names the actor the question was asked with, on the beginning and on the question", () => {
 		const batch = journal.opening(
 			startedRun(),
 			NativeStackFixture.AGENT,
 			MODEL,
-			new AgentRunCommand(NativeStackFixture.AGENT, AskInput.of("first", SESSION)),
-			owned,
+			new AgentRunCommand(
+				NativeStackFixture.AGENT,
+				AskInput.of("first", SESSION),
+				undefined,
+				undefined,
+				undefined,
+				[],
+				undefined,
+				Actor.of("u-1", { role: "admin" }),
+			),
+			openedSession(true),
 		);
 
 		const created = batch.events[0];
 		expect(created).toBeInstanceOf(SessionCreated);
-		if (!(created instanceof SessionCreated)) return;
-		expect(created.owner).toBe("gabriel");
+		if (created instanceof SessionCreated) expect(created.actorId).toBe("u-1");
+
+		const asked = batch.events.find((event) => event instanceof UserMessageReceived);
+		expect(asked).toBeInstanceOf(UserMessageReceived);
+		if (asked instanceof UserMessageReceived) expect(asked.actorId).toBe("u-1");
+	});
+
+	it("writes one event per metadata key the question carried, before the question itself", () => {
+		const batch = journal.opening(
+			startedRun(),
+			NativeStackFixture.AGENT,
+			MODEL,
+			new AgentRunCommand(
+				NativeStackFixture.AGENT,
+				AskInput.with("first", [], SESSION, undefined, [], SessionMetadata.fromRecord({ memberId: "gabriel" })),
+			),
+			openedSession(false),
+		);
+
+		expect(batch.events.map((event) => event.type)).toEqual([
+			SessionMetadataSet.TYPE,
+			UserMessageReceived.TYPE,
+			AgentRunStarted.TYPE,
+		]);
 	});
 
 	it("records no session for a conversation that already existed", () => {

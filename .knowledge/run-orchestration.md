@@ -61,7 +61,7 @@ So `OpenedSession.isNew` is not "I created this in this call". It is **"this jou
 - a session opened by `createSession` minutes or days earlier;
 - a session whose head was written by a run that then died before committing, which under the old reading could never record its beginning again.
 
-`RunJournal.opening` reads the owner from `opened.session`, never from the command, for the same reason: a conversation opened ahead of time was told who owns it then, and the question that begins its journal carries nothing about it. Reading the command would write an event with no owner onto a session that has one, and a consumer projecting a read model off the journal would disagree with the head.
+`RunJournal.opening` writes the metadata the command carried before the question itself, so a reader of the journal has the facts the turn ran under before it has the turn, and a run that fails loses the write together with the turn. `SessionCreated` and `UserMessageReceived` carry `command.actor?.id` and only the id: an actor's claims are the application's vocabulary, read by a policy at the moment of the call, and a copy of them frozen in a journal would be an authorization decision nobody revisits. See [[session-metadata]].
 
 What deliberately did **not** change is `ask`. A question naming a session that does not exist is still refused. Creating on an unknown id would read as convenience and cost the only signal that separates a stale identifier from a legitimate one, which is the same argument that keeps `InspectSession` refusing rather than answering empty.
 

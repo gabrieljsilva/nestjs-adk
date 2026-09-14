@@ -7,11 +7,13 @@ import { SessionId } from "../../common/identity/session-id";
 import { SessionRevision } from "../../common/revision/session-revision";
 import { SessionEventConsumer } from "../../contracts/session-event-consumer";
 import { SessionCreated } from "../../domain/event/catalog/session-created";
+import { SessionMetadataSet } from "../../domain/event/catalog/session-metadata-set";
 import { UserMessageReceived } from "../../domain/event/catalog/user-message-received";
 import type { PublishedEvent } from "../../domain/event/published-event";
 import type { SessionEvent } from "../../domain/event/session-event";
 import { SessionAlreadyExistsError } from "../../domain/session/errors/session-already-exists.error";
 import { SessionNotFoundError } from "../../domain/session/errors/session-not-found.error";
+import { MetadataKey } from "../../domain/session/metadata-key";
 import { FakeClock } from "../../support/fake-clock";
 import { RecordingModel } from "../../support/nest/recording-model.fixture";
 import { SequenceIdGenerator } from "../../support/sequence-id-generator";
@@ -21,6 +23,7 @@ import { AdkModuleOptions } from "./adk-module-options";
 import { Agent } from "./decorators/agent.decorator";
 
 const CHAT = "chat-42";
+const MEMBER = MetadataKey.fromName<string>("memberId", (value): value is string => typeof value === "string");
 
 @Agent({ name: "support", description: "Handles orders.", prompt: "Be brief." })
 class SupportAgent extends AdkAgent {}
@@ -126,36 +129,58 @@ describe("a conversation the application opens itself", () => {
 		expect((await support.findSessionById(session.id))?.id.value).toBe(session.id.value);
 	});
 
-	it("belongs to the owner it was opened with, whatever a later question claims", async () => {
+	/** Last write per key is what the journal folds to, so the newer question wins. */
+	it("replaces a metadata key a later question names again", async () => {
 		const support = await boot();
-		await support.createSession({ sessionId: CHAT, owner: "gabriel" });
+		await support.createSession({ sessionId: CHAT, metadata: { memberId: "gabriel" } });
 
-		await support.ask("where is my order?", { sessionId: CHAT, owner: "somebody-else" });
+		await support.ask("where is my order?", { sessionId: CHAT, metadata: { memberId: "somebody-else" } });
 
-		expect((await support.findSessionByIdOrFail(CHAT)).owner?.value).toBe("gabriel");
+		expect((await support.inspect(CHAT)).metadata.find(MEMBER)).toBe("somebody-else");
 	});
 
-	it("carries that owner into the journal, where a consumer reads it", async () => {
+	it("keeps the metadata a conversation was opened with when a question says nothing about it", async () => {
 		const support = await boot();
-		await support.createSession({ sessionId: CHAT, owner: "gabriel" });
+		await support.createSession({ sessionId: CHAT, metadata: { memberId: "gabriel" } });
 
 		await support.ask("where is my order?", CHAT);
 
-		const beginning = (await journalOf(CHAT)).find((event) => event instanceof SessionCreated);
-		expect(beginning).toBeInstanceOf(SessionCreated);
-		if (!(beginning instanceof SessionCreated)) return;
-		expect(beginning.owner).toBe("gabriel");
+		expect((await support.inspect(CHAT)).metadata.find(MEMBER)).toBe("gabriel");
+	});
+
+	it("carries the metadata into the journal, where a consumer reads it", async () => {
+		const support = await boot();
+		await support.createSession({ sessionId: CHAT });
+
+		await support.ask("where is my order?", { sessionId: CHAT, metadata: { memberId: "gabriel" } });
+
+		const written = (await journalOf(CHAT)).find((event) => event instanceof SessionMetadataSet);
+		expect(written).toBeInstanceOf(SessionMetadataSet);
+		if (!(written instanceof SessionMetadataSet)) return;
+		expect(written.key).toBe("memberId");
+		expect(written.value).toBe("gabriel");
+	});
+
+	it("still records the conversation beginning after a session opened with metadata", async () => {
+		const support = await boot();
+		await support.createSession({ sessionId: CHAT, metadata: { memberId: "gabriel" } });
+
+		await support.ask("where is my order?", CHAT);
+
+		expect((await journalOf(CHAT)).filter((event) => event instanceof SessionCreated)).toHaveLength(1);
 	});
 
 	it("refuses to open the same chat twice, leaving the conversation it already has", async () => {
 		const support = await boot();
-		await support.createSession({ sessionId: CHAT, owner: "gabriel" });
+		await support.createSession({ sessionId: CHAT, metadata: { memberId: "gabriel" } });
 		await support.ask("where is my order?", CHAT);
 
-		const error = await support.createSession({ sessionId: CHAT, owner: "somebody-else" }).catch((reason) => reason);
+		const error = await support
+			.createSession({ sessionId: CHAT, metadata: { memberId: "somebody-else" } })
+			.catch((reason) => reason);
 
 		expect(error).toBeInstanceOf(SessionAlreadyExistsError);
-		expect((await support.findSessionByIdOrFail(CHAT)).owner?.value).toBe("gabriel");
+		expect((await support.inspect(CHAT)).metadata.find(MEMBER)).toBe("gabriel");
 		expect((await journalOf(CHAT)).map((event) => event.type)).toContain(UserMessageReceived.TYPE);
 	});
 
@@ -181,13 +206,12 @@ describe("a conversation the application opens itself", () => {
 		expect(error).toBeInstanceOf(SessionNotFoundError);
 	});
 
-	it("answers who owns an open conversation, which agent roots it and that it takes commands", async () => {
+	it("answers which agent roots an open conversation and that it takes commands", async () => {
 		const support = await boot();
-		await support.createSession({ sessionId: CHAT, owner: "gabriel" });
+		await support.createSession({ sessionId: CHAT });
 
 		const session = await support.findSessionByIdOrFail(CHAT);
 
-		expect(session.owner?.value).toBe("gabriel");
 		expect(session.rootAgent.value).toBe("support");
 		expect(session.acceptsCommands).toBe(true);
 	});
