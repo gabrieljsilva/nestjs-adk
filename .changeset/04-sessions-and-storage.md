@@ -10,7 +10,7 @@ Until now the runtime insisted on naming every conversation: a session was born 
 
 ```ts
 const chat = await this.chats.create({ userId: user.id });
-await support.createSession({ sessionId: chat.id, owner: user.email });
+await support.createSession({ sessionId: chat.id, metadata: { ownerId: user.email } });
 
 await support.ask("where is my order?", chat.id);
 ```
