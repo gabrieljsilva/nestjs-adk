@@ -6,10 +6,7 @@
 		"node": ">=20"
 	},
 	"packageManager": "npm@11.9.0",
-	"workspaces": [
-		"packages/*",
-		"apps/*"
-	],
+	"workspaces": ["packages/*", "apps/*"],
 	"license": "MIT",
 	"overrides": {
 		"brace-expansion": "^5.0.8",

@@ -12,11 +12,13 @@ The lib is built around one concept: the agent. Everything else (tools, skills, 
 
 | Layer | Knows about | Example |
 | --- | --- | --- |
-| Classes | Nothing about any framework | `CostCalculator`, `InstructionBuilder` |
-| Module | The internal container only | `pricing.module.ts` |
+| Classes | Nothing about any framework | `RunCostReporter`, `PromptBuilder` |
+| Module | The internal container only | the composition files under `runtime/composition/` |
 | Nest adapter | NestJS and the internal container | `AdkModule` |
 
 A class receives its dependencies in the constructor and never imports the container. See [[services-over-functions]]. The module file does the wiring. The Nest adapter is the only place that imports `@nestjs/common` or `@nestjs/core`.
+
+This split is about who knows the framework. Which responsibility a class carries is the separate question [[layered-responsibilities]] answers: an edge, a use case, a service or a repository. A Nest adapter is always an edge, and the service a module exports is always the Service layer.
 
 ## What a module exports
 
@@ -62,18 +64,21 @@ If the internal container also resolved from Nest, the two graphs would depend o
 
 A module never stores state in a static field, in a module level variable, or in a singleton imported at the top of a file. State lives in an instance, and the instance arrives through the constructor. Global state makes two containers in the same process overwrite each other, and it makes tests depend on the order they run.
 
-## The provider SDK is one engine, not the foundation
+## A provider SDK is one adapter, never the foundation
 
-The same reasoning applies to `@google/adk`: today it owns the agentic loop (Runner, LlmAgent, compaction, streaming modes), and every correction the lib needs becomes another `BaseLlm` wrapper around its contract. The target is a native engine implementing `AdkEngine` directly over the neutral `AdkModel` contract (`packages/core/src/lib/types/model-io.ts`), with the ADK remaining as one engine behind the same abstraction. Semantics, such as model failover, keep moving into the core as they are touched; the loop itself is the remaining piece.
+The same reasoning applies to a vendor SDK. The lib no longer depends on `@google/adk`: it owns the agentic loop itself, and a provider reaches it through the neutral model contract. `@nestjs-adk/google` is the Gemini adapter and holds every Gemini specific mapping (`packages/google/src/gemini-request-mapper.ts`, `gemini-failure-mapper.ts`, `gemini-stream-mapper.ts`). Nothing in the core knows a provider name.
+
+Keep it that way: a semantic that a second provider would also need belongs in the core, not in the adapter that discovered it. Model failover is in the core for that reason.
 
 ## What is still missing
 
-This guideline is `status: target`. Today the core depends on NestJS in about thirty places:
+This guideline is `status: target` for one reason only: the module split itself.
 
-- `@Injectable()` decorates almost every class, including `InMemorySessionStore`, `Similarity` and `ContextCollector`.
-- `Type` from `@nestjs/common` is used as the base class type in `model-specs.ts`, `agent-definition.ts` and `options.ts`.
-- `AgentRegistry` uses `DiscoveryService` and `ModuleRef` (`packages/core/src/lib/registry/agent-registry.ts:1`), which is the discovery step described above and belongs in the Nest adapter.
-- `RunLogger` and `AdkEmbedder` use the Nest `Logger`.
-- `AdkEmbedder.setActive()` (`packages/core/src/lib/module/adk.module.ts:65`) keeps the active embedder in static state, which the section above forbids.
+What already holds, verified on 2026-09-14: no file under `packages/core/src` or `packages/google/src` imports `@nestjs/*` outside `public/nest` and `adapters/nest`; there is no static mutable state in the core; `@wirely/core` is a plain dependency (`packages/core/package.json:45`) and no container type appears in the public surface.
 
-Until the migration finishes, new code follows this guideline and does not add new imports of `@nestjs/common` outside the adapter.
+What does not hold yet:
+
+- `packages/mcp/src/lib/` and `packages/testing/src/` import `@nestjs/*` throughout, outside any `nest/` folder. Both packages are Nest-facing by design, so the fix is to move the Nest-aware classes into a `nest/` folder inside each package rather than to remove the imports.
+- The core is not split into modules yet. `contracts/`, `domain/`, `runtime/` and `adapters/` are layer-first folders, so no module owns a boundary, exports one service, or keeps the rest of its classes private. The grouping happens in the folder reorganization, and the one-service rule follows it.
+
+Until the split lands, new code follows this guideline and does not add a `@nestjs/*` import outside a `nest/` folder.

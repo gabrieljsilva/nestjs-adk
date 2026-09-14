@@ -17,9 +17,12 @@ A row marked `target` describes a decision the code has not reached yet. It is s
 | `entity` `target` | [[llm-model]] | Definition, minimum contract and first-class features of an LLM model |
 | `convention` | [[writing-guidelines]] | Format, frontmatter schema and linking rules every file in `.knowledge/` must follow |
 | `convention` `target` | [[comments-and-jsdoc]] | When code comments are allowed and what public API documentation must explain |
-| `convention` `target` | [[api-naming]] | Semantic names for internal entrypoints, methods, predicates and fallible lookups |
+| `convention` `target` | [[api-naming]] | Verb-first method names, factories that name their source, and the failure semantics a name has to carry |
 | `convention` `target` | [[type-safety]] | TypeScript restrictions and class-based data contracts across architectural layers |
-| `convention` `target` | [[layer-boundaries]] | Responsibilities and dependency direction of the six architectural layers |
+| `convention` `target` | [[layer-boundaries]] | Which folder a symbol lives in, and the dependency direction between the six folders |
+| `convention` `target` | [[layered-responsibilities]] | What an edge, a use case, a service and a repository may each contain, and why dirty code moves inward |
+| `convention` `target` | [[file-categories]] | Why every file name ends with the category of what it holds, and the categories this lib has |
+| `convention` | [[component-heuristics]] | The four numbers that open a design question about a class, and why line count is not one of them |
 | `convention` `target` | [[testing-conventions]] | What earns a spec, what each level of test is responsible for, and where each one runs |
 | `convention` `target` | [[error-taxonomy]] | Ownership, declaration and propagation of errors, and how an adapter classifies a provider failure |
 | `convention` `target` | [[services-over-functions]] | Behavior lives in classes with explicit dependencies and free functions stay at unavoidable language boundaries |
@@ -39,7 +42,7 @@ A row marked `target` describes a decision the code has not reached yet. It is s
 | `pattern` | [[test-bed]] | How a test replaces the model of one agent, what a run is asserted on, and why the bed refuses to boot |
 | `pattern` | [[tool-doubles]] | How a substituted tool keeps its declaration, what a double has to preserve, and when a listed tool fails the boot |
 | `pitfall` | [[cross-provider-history]] | What breaks when a history written by one model is replayed to another, and where the adapter compensates |
-
+| `pitfall` | [[tool-result-injection]] | Why text a tool returns is untrusted, where it reaches the model unmarked, and what the lib does not defend |
 | `pattern` | [[agent-prompting]] | Where an agent's prompt is built, why once per agent per run, and what a variable in it costs |
 | `pitfall` | [[money-precision]] | Why an amount is an integer count of pico dollars in a bigint, and where the single lossy step is allowed to be |
 | `pattern` | [[run-pricing]] | Where a call is collected, when it is priced, and why nothing about a bill can fail a run |

@@ -1,6 +1,6 @@
 ---
 title: Layer boundaries
-description: Responsibilities and dependency direction of the public API, contracts, domain, runtime, adapters and support layers
+description: Which folder a symbol lives in, and the dependency direction between the six folders
 type: convention
 status: target
 tags: [core, architecture, layers]
@@ -19,7 +19,7 @@ Move data through the layers in one direction. Cross every boundary with validat
 | Adapters | Implements contracts for providers, persistence, MCP and telemetry |
 | Support | Provides test doubles, fixtures, builders and assertions |
 
-The Public API is the equivalent of an inbound controller. Runtime is the application layer. Contracts and Adapters form the ports and adapters boundary.
+These six are folders: they say where a symbol lives. The responsibility a class carries is the other axis, and [[layered-responsibilities]] names it: Edge, UseCase, Service, Repository. The two line up. Public API holds the Edge classes, Runtime holds the UseCase and Service classes, Contracts declares the Repository ports and Adapters implements them. Domain holds no layer at all, because a value object calls nothing.
 
 ```mermaid
 flowchart LR
@@ -47,4 +47,10 @@ Mechanical code may exist at lower levels, but it stays behind a declarative ser
 
 ## What is still missing
 
-The current package mixes NestJS, provider code, runtime coordination and domain behavior. The refactor must move each symbol to its owning layer.
+The folders exist and hold the right things. What is missing is inside them.
+
+- The six folders are layer-first (`domain/session`, `runtime/session`, `adapters/storage`), so a reader looking for one concept opens three trees. The grouping by concept is a later move, and the module-first tree is a decision still open.
+- Nothing in the file names says which layer a class is in. `AskAgent` and `SessionManager` sit in the same folder and are a use case and a service. See [[file-categories]].
+- The responsibilities are not separated yet inside the Runtime folder: use cases still contain loops, branches and arithmetic that belong in the services under them. That is the move [[layered-responsibilities]] describes, and it is what drops the large constructors [[component-heuristics]] flags.
+
+Nothing asserts the dependency rules above. `packages/core/src/package-boundaries.spec.ts` walks the tree and asserts only that the core imports no sibling package; the rule that Runtime never imports an Adapter is still a review question. The same tree walk is what the category spec of [[file-categories]] will reuse.
