@@ -1,3 +1,4 @@
+import type { ToolCallObserver } from "../../contracts/tool-call-observer";
 import { AgentName } from "../../domain/agent/agent-name";
 import type { SessionEvent } from "../../domain/event/session-event";
 import { SessionEventBatch } from "../../domain/event/session-event-batch";
@@ -5,7 +6,8 @@ import type { PendingCall } from "../../domain/session/pending-call";
 import type { SkillDefinition } from "../../domain/skill/skill-definition";
 import { ToolEffect } from "../../domain/tool/tool-effect";
 import { ToolInvocation } from "../../domain/tool/tool-invocation";
-import type { ToolOutcome } from "../../domain/tool/tool-outcome";
+import { ToolOutcome } from "../../domain/tool/tool-outcome";
+import { ToolResultNotice } from "../../domain/tool/tool-result-notice";
 import { ActivateSkillTool } from "../skill/activate-skill-tool";
 import type { SkillCatalog } from "../skill/skill-catalog";
 import { ToolExecutionCommand } from "../tool/tool-execution-command";
@@ -42,13 +44,14 @@ export class TurnExecutor {
 		calls: readonly PendingCall[],
 		approved: boolean,
 		delegated: ReadonlyMap<string, string> = new Map(),
+		observer?: ToolCallObserver,
 	): Promise<SessionEventBatch> {
 		const events: SessionEvent[] = [];
 		for (const group of this.groupsOf(scope, calls, delegated)) {
 			const produced =
 				group.length === 1
-					? [await this.runOne(scope, group[0], approved, delegated)]
-					: await Promise.all(group.map((call) => this.runOne(scope, call, approved, delegated)));
+					? [await this.runOne(scope, group[0], approved, delegated, observer)]
+					: await Promise.all(group.map((call) => this.runOne(scope, call, approved, delegated, observer)));
 			for (const one of produced) events.push(...one);
 		}
 		return SessionEventBatch.of(events);
@@ -60,14 +63,22 @@ export class TurnExecutor {
 		call: PendingCall | undefined,
 		approved: boolean,
 		delegated: ReadonlyMap<string, string>,
+		observer?: ToolCallObserver,
 	): Promise<readonly SessionEvent[]> {
 		if (call === undefined) return [];
-		if (call.isDenied) return [this.journal.refusal(scope.started, call)];
+		if (call.isDenied) {
+			await this.settle(scope, ToolOutcome.refused(call.callId, call.toolName, call.reason ?? ""), observer);
+			return [this.journal.refusal(scope.started, call)];
+		}
 
 		const answer = delegated.get(call.callId.value);
-		if (answer !== undefined) return [this.journal.delegatedResult(scope.started, call, answer)];
+		if (answer !== undefined) {
+			await this.settle(scope, ToolOutcome.succeeded(call.callId, call.toolName, { answer }, answer), observer);
+			return [this.journal.delegatedResult(scope.started, call, answer)];
+		}
 
 		const outcome = await this.tools.execute(this.commandOf(scope, call, approved), scope.breaker);
+		await this.settle(scope, outcome, observer);
 		const events: SessionEvent[] = [this.journal.result(scope.started, outcome)];
 
 		const activated = this.activatedBy(call, outcome, scope.skills);
@@ -76,6 +87,11 @@ export class TurnExecutor {
 		const target = this.transferredBy(call, outcome, scope);
 		if (target !== undefined) events.push(this.journal.transfer(scope.started, scope.agent, target));
 		return events;
+	}
+
+	private async settle(scope: RunScope, outcome: ToolOutcome, observer?: ToolCallObserver): Promise<void> {
+		if (observer === undefined) return;
+		await observer.settled(ToolResultNotice.of(outcome, scope.catalog.find(outcome.toolName)));
 	}
 
 	/**
@@ -130,6 +146,7 @@ export class TurnExecutor {
 			new ToolInvocation(call.callId, call.toolName, call.args),
 			scope.signal,
 			approved,
+			scope.actor,
 		);
 	}
 

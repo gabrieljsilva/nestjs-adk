@@ -1,3 +1,4 @@
+import type { ToolCallObserver } from "../../contracts/tool-call-observer";
 import type { PreparedModelContext } from "../../domain/context/prepared-model-context";
 import { BilledCall } from "../../domain/cost/billed-call";
 import type { SessionEventBatch } from "../../domain/event/session-event-batch";
@@ -5,7 +6,9 @@ import { EmptyModelResponseError } from "../../domain/model/errors/empty-model-r
 import type { ModelChunk } from "../../domain/model/model-chunk";
 import { AgentMaxIterationsError } from "../../domain/session/errors/agent-max-iterations.error";
 import { AgentMaxTransfersError } from "../../domain/session/errors/agent-max-transfers.error";
+import type { PendingCall } from "../../domain/session/pending-call";
 import type { SessionState } from "../../domain/session/session-state";
+import { ToolCallNotice } from "../../domain/tool/tool-call-notice";
 import type { ContextManager } from "../context/context-manager";
 import { PrepareContextCommand } from "../context/prepare-context-command";
 import { DelegatedTurnLoop } from "../delegation/delegated-turn-loop";
@@ -74,6 +77,7 @@ export class TurnLoop extends DelegatedTurnLoop {
 			const calls = outcome.response.toolCalls;
 			const empty = outcome.response.isEmpty;
 			if (outcome.response.hasText) progress.said(outcome.response.text);
+			if (outcome.response.structuredOutput !== undefined) progress.answered(outcome.response.structuredOutput);
 
 			await this.commit(
 				current,
@@ -92,7 +96,8 @@ export class TurnLoop extends DelegatedTurnLoop {
 				throw new AgentMaxIterationsError(current.agent.value, current.limits.maxIterations ?? iterations);
 			}
 
-			const turn = this.gate.screen(current.catalog, calls);
+			const turn = this.gate.screen(current.catalog, calls, current.actor);
+			await this.announce(current, turn, observers.tools);
 			if (this.gate.holdsAny(turn)) {
 				await this.commit(current, progress, this.journal.suspension(current.started, turn));
 				progress.suspend();
@@ -101,7 +106,7 @@ export class TurnLoop extends DelegatedTurnLoop {
 
 			// Delegations commit as they run, so they happen before the results of this turn exist.
 			const delegated = await this.delegations.runAll(current, opened, progress, turn);
-			const batch = await this.executor.execute(current, turn, false, delegated);
+			const batch = await this.executor.execute(current, turn, false, delegated, observers.tools);
 			await this.commit(current, progress, batch);
 
 			const target = this.agents.requestedIn(batch);
@@ -130,6 +135,17 @@ export class TurnLoop extends DelegatedTurnLoop {
 		return step.value;
 	}
 
+	/**
+	 * Tells whoever is watching what the model asked for, before any of it runs or suspends.
+	 *
+	 * It comes after the gate and not before, so the notice carries the verdict: an interface
+	 * that draws a card for the call knows on the spot whether to draw a button on it.
+	 */
+	private async announce(scope: RunScope, turn: readonly PendingCall[], observer?: ToolCallObserver): Promise<void> {
+		if (observer === undefined) return;
+		for (const call of turn) await observer.requested(ToolCallNotice.of(call, scope.catalog.find(call.toolName)));
+	}
+
 	private async commit(scope: RunScope, progress: RunProgress, batch: SessionEventBatch): Promise<void> {
 		progress.advanced(await this.sessions.commit(scope.sessionId, progress.state.revision, batch, progress.state));
 	}
@@ -148,6 +164,7 @@ export class TurnLoop extends DelegatedTurnLoop {
 				scope.compaction,
 				measured,
 				scope.run.id,
+				scope.definition.outputSchema,
 			),
 		);
 	}

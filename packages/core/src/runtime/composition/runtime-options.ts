@@ -10,8 +10,10 @@ import type { ToolSource } from "../../contracts/tool-source";
 import { OffloadPolicy } from "../../domain/artifact/offload-policy";
 import type { AdkCompactionPolicy } from "../../domain/context/adk-compaction-policy";
 import { RunLimits } from "../../domain/session/run-limits";
+import type { AdkAccessPolicy } from "../../domain/tool/adk-access-policy";
 import type { AdkApprovalPolicy } from "../../domain/tool/adk-approval-policy";
 import { EffectApprovalPolicy } from "../../domain/tool/effect-approval-policy";
+import { OpenAccessPolicy } from "../../domain/tool/open-access-policy";
 import { ShutdownOptions } from "../lifecycle/shutdown-options";
 import { SnapshotPolicy } from "../session/snapshot/snapshot-policy";
 
@@ -36,6 +38,8 @@ export interface RuntimeOptionsPatch {
 	pricing?: PricingSource;
 	pricingNotices?: PricingNoticeSink;
 	attachments?: AttachmentResolver;
+	/** Who may call which tool. Consulted on every invocation, by the agent loop and by an MCP server alike. */
+	access?: AdkAccessPolicy;
 }
 
 /**
@@ -70,6 +74,7 @@ export class RuntimeOptions {
 		public readonly pricingNotices?: PricingNoticeSink,
 		/** What an attachment becomes on each projection. Without it, stored bytes inline and links pass through. */
 		public readonly attachments?: AttachmentResolver,
+		public readonly access: AdkAccessPolicy = new OpenAccessPolicy(),
 	) {}
 
 	/** Options built from names instead of positions, with the same defaults as declaring none. */
@@ -100,6 +105,7 @@ export class RuntimeOptions {
 			patch.pricing ?? this.pricing,
 			patch.pricingNotices ?? this.pricingNotices,
 			patch.attachments ?? this.attachments,
+			patch.access ?? this.access,
 		);
 	}
 }

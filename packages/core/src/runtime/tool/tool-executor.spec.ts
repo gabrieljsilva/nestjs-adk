@@ -8,10 +8,14 @@ import { ToolCallId } from "../../common/identity/tool-call-id";
 import { AgentName } from "../../domain/agent/agent-name";
 import { OffloadPolicy } from "../../domain/artifact/offload-policy";
 import { RunLimits } from "../../domain/session/run-limits";
+import { Actor } from "../../domain/tool/actor";
+import { AdkAccessPolicy } from "../../domain/tool/adk-access-policy";
+import { AdkApprovalPolicy } from "../../domain/tool/adk-approval-policy";
 import { EffectApprovalPolicy } from "../../domain/tool/effect-approval-policy";
 import { ToolApprovalRequiredError } from "../../domain/tool/errors/tool-approval-required.error";
 import { ToolInvalidArgsError } from "../../domain/tool/errors/tool-invalid-args.error";
 import { ToolRepeatedFailureError } from "../../domain/tool/errors/tool-repeated-failure.error";
+import { ToolAccess } from "../../domain/tool/tool-access";
 import type { ToolContext } from "../../domain/tool/tool-context";
 import { ToolDefinition } from "../../domain/tool/tool-definition";
 import { ToolEffect } from "../../domain/tool/tool-effect";
@@ -23,6 +27,7 @@ import { ToolBreaker } from "./tool-breaker";
 import { ToolCatalog } from "./tool-catalog";
 import { ToolExecutionCommand } from "./tool-execution-command";
 import { ToolExecutor } from "./tool-executor";
+import { ToolGate } from "./tool-gate";
 
 const SESSION = SessionId.from("s-1");
 const RUN = AgentRunId.from("run-1");
@@ -58,7 +63,7 @@ function refundOf(handler: ToolHandler, effect: ToolEffect = ToolEffect.WRITE): 
 	return new ToolDefinition("refund", "Refunds an order", schema, effect, handler);
 }
 
-function commandOf(tool: ToolDefinition, args: unknown, approved = false): ToolExecutionCommand {
+function commandOf(tool: ToolDefinition, args: unknown, approved = false, actor?: Actor): ToolExecutionCommand {
 	return new ToolExecutionCommand(
 		SESSION,
 		RUN,
@@ -67,10 +72,30 @@ function commandOf(tool: ToolDefinition, args: unknown, approved = false): ToolE
 		new ToolInvocation(CALL, tool.name, args),
 		undefined,
 		approved,
+		actor,
 	);
 }
 
-function executorOf(approvals = EffectApprovalPolicy.never(), offload = OffloadPolicy.byDefault()): ToolExecutor {
+class OwnersOnly extends AdkAccessPolicy {
+	public decide(_tool: ToolDefinition, _invocation: ToolInvocation, actor: Actor | undefined): ToolAccess {
+		return actor?.claims.role === "owner" ? ToolAccess.granted() : ToolAccess.denied("owners only");
+	}
+}
+
+function guardedExecutorOf(approvals = EffectApprovalPolicy.never()): ToolExecutor {
+	const storage = new InMemoryArtifactStorage(new SequenceIdGenerator("a"));
+	return new ToolExecutor(
+		new ArtifactOffloader(storage, OffloadPolicy.byDefault()),
+		approvals,
+		undefined,
+		new ToolGate(new OwnersOnly()),
+	);
+}
+
+function executorOf(
+	approvals: AdkApprovalPolicy = EffectApprovalPolicy.never(),
+	offload = OffloadPolicy.byDefault(),
+): ToolExecutor {
 	const storage = new InMemoryArtifactStorage(new SequenceIdGenerator("a"));
 	return new ToolExecutor(new ArtifactOffloader(storage, offload), approvals);
 }
@@ -301,5 +326,97 @@ describe("ToolExecutor", () => {
 
 		expect(outcome.wasOffloaded).toBe(false);
 		expect(outcome.contextOutput).toBe(long);
+	});
+
+	it("hands the tool who the call runs on behalf of", async () => {
+		const handler = new RecordingHandler();
+		const actor = Actor.of("u-1", { role: "owner" });
+
+		await executorOf().execute(
+			commandOf(refundOf(handler), { orderId: "A-1" }, false, actor),
+			new ToolBreaker(RunLimits.none()),
+		);
+
+		expect(handler.lastContext?.actor).toBe(actor);
+	});
+
+	it("carries no actor when the caller declared none", async () => {
+		const handler = new RecordingHandler();
+
+		await executorOf().execute(commandOf(refundOf(handler), { orderId: "A-1" }), new ToolBreaker(RunLimits.none()));
+
+		expect(handler.lastContext?.actor).toBeUndefined();
+	});
+
+	it("tells the model a call was refused instead of running it, when the access policy says no", async () => {
+		const handler = new RecordingHandler();
+		const breaker = new ToolBreaker(RunLimits.none());
+
+		const outcome = await guardedExecutorOf().execute(
+			commandOf(refundOf(handler), { orderId: "A-1" }, false, Actor.of("u-2", { role: "member" })),
+			breaker,
+		);
+
+		expect(outcome.failed).toBe(true);
+		expect(outcome.contextOutput).toBe("owners only");
+		expect(outcome.output).toEqual({ refused: true, reason: "owners only" });
+		expect(handler.calls).toBe(0);
+	});
+
+	it("runs the call the access policy grants", async () => {
+		const handler = new RecordingHandler({ status: "refunded" });
+
+		const outcome = await guardedExecutorOf().execute(
+			commandOf(refundOf(handler), { orderId: "A-1" }, false, Actor.of("u-1", { role: "owner" })),
+			new ToolBreaker(RunLimits.none()),
+		);
+
+		expect(outcome.failed).toBe(false);
+		expect(handler.calls).toBe(1);
+	});
+
+	it("hands the approval policy who is asking, so what one person runs freely another has to confirm", async () => {
+		class OwnersRunFree extends AdkApprovalPolicy {
+			public requires(_tool: ToolDefinition, _invocation: ToolInvocation, actor?: Actor): boolean {
+				return actor?.claims.role !== "owner";
+			}
+		}
+		const handler = new RecordingHandler({ status: "refunded" });
+		const executor = executorOf(new OwnersRunFree());
+
+		const owner = await executor.execute(
+			commandOf(refundOf(handler), { orderId: "A-1" }, false, Actor.of("u-1", { role: "owner" })),
+			new ToolBreaker(RunLimits.none()),
+		);
+		expect(owner.failed).toBe(false);
+
+		await expect(
+			executor.execute(
+				commandOf(refundOf(handler), { orderId: "A-1" }, false, Actor.of("u-2", { role: "member" })),
+				new ToolBreaker(RunLimits.none()),
+			),
+		).rejects.toThrow(ToolApprovalRequiredError);
+	});
+
+	it("refuses access before asking anybody to approve, so nobody approves a call the actor could not make", async () => {
+		const handler = new RecordingHandler();
+
+		const outcome = await guardedExecutorOf(EffectApprovalPolicy.destructiveOnly()).execute(
+			commandOf(refundOf(handler, ToolEffect.DESTRUCTIVE), { orderId: "A-1" }, false, Actor.of("u-2", { role: "member" })),
+			new ToolBreaker(RunLimits.none()),
+		);
+
+		expect(outcome.failed).toBe(true);
+		expect(handler.calls).toBe(0);
+	});
+
+	it("ends the run when the model keeps asking for what it was refused", async () => {
+		const handler = new RecordingHandler();
+		const breaker = new ToolBreaker(RunLimits.of(undefined, 2));
+		const executor = guardedExecutorOf();
+		const command = commandOf(refundOf(handler), { orderId: "A-1" }, false, Actor.of("u-2", { role: "member" }));
+
+		await executor.execute(command, breaker);
+		await expect(executor.execute(command, breaker)).rejects.toThrow(ToolRepeatedFailureError);
 	});
 });

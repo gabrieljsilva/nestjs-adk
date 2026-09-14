@@ -265,9 +265,13 @@ export const adkMatchers = {
 expect.extend(adkMatchers);
 
 declare module "vitest" {
+	// `Matchers` and not `Assertion`: since vitest 4 `Assertion` is only re-exported from
+	// `@vitest/expect`, and an augmentation aimed at the re-export merges into nothing, so every
+	// `expect(x).toHaveRunTool` fails to type-check while running fine. vitest folds `Matchers`
+	// into both `Assertion` and `AsymmetricMatchersContaining`, which is why there is one block.
 	// The parameter is declared without its default on purpose: repeating vitest's own
 	// `= any` would be the one place this package erases a type.
-	interface Assertion<T> {
+	interface Matchers<T> {
 		toHaveRunTool(tool: string, args?: Record<string, unknown>): T;
 		toHaveRequestedTool(tool: string): T;
 		toHaveDeniedTool(tool: string): T;
@@ -281,11 +285,5 @@ declare module "vitest" {
 		toBeSimilarTo(expected: EmbeddingVector, minimum?: number): T;
 		toHaveStablePrefix(minimum: number): T;
 		toSatisfyRubric(judge: LlmJudge, criteria: string | JudgeRubric): Promise<T>;
-	}
-
-	interface AsymmetricMatchersContaining {
-		toHaveRunTool(tool: string, args?: Record<string, unknown>): void;
-		toHaveRequestedTool(tool: string): void;
-		toAwaitApproval(tool?: string): void;
 	}
 }

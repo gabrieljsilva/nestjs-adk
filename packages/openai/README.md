@@ -47,6 +47,9 @@ new OpenAiModel("meta-llama/llama-4-70b", {
 new OpenAiModel("qwen3", { baseURL: "http://localhost:11434/v1", apiKey: "ollama" });
 ```
 
+A thinking model behind a compatible endpoint, DeepSeek among them, streams its reasoning ahead of a tool call and wants it back with the call on the next request of the turn. The adapter keeps it on the call and replays it as `reasoning_content` whenever `baseURL` is set; `replaysReasoning` overrides either way, and the official API never receives it.
+
+
 Nothing else changes: tools, streaming, sessions, approvals and cost all work the same, because the runtime only ever sees an `LlmModel`.
 
 ## The context window

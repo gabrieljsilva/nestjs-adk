@@ -38,6 +38,15 @@ describe("ToolOutcome", () => {
 		expect(outcome.output.error).toBe("the order was already refunded");
 	});
 
+	it("reports a refusal apart from an error, and still as a failure the model does not retry", () => {
+		const outcome = ToolOutcome.refused(CALL, "refund", "the order stays open");
+
+		expect(outcome.failed).toBe(true);
+		expect(outcome.contextOutput).toBe("the order stays open");
+		expect(outcome.output).toEqual({ refused: true, reason: "the order stays open" });
+		expect(outcome.output.error).toBeUndefined();
+	});
+
 	it("ties every outcome to the call that asked for it", () => {
 		expect(ToolOutcome.failed(CALL, "refund", "x").callId.value).toBe("c-1");
 	});

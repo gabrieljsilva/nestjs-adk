@@ -149,7 +149,7 @@ describe("TurnExecutor", () => {
 		expect(order).toEqual([]);
 		const result = batch.events[0];
 		expect(result).toBeInstanceOf(ToolResultProduced);
-		if (result instanceof ToolResultProduced) expect(result.output.error).toBe("not authorized");
+		if (result instanceof ToolResultProduced) expect(result.output).toEqual({ refused: true, reason: "not authorized" });
 	});
 
 	it("journals the activation next to the result that carried the skill", async () => {

@@ -125,18 +125,32 @@ describe("NestAgentScanner", () => {
 		expect(() => new NestAgentScanner().scan(providers, MODEL)).toThrow(/lists PlainService/);
 	});
 
-	/** A name where a class belongs: the mistake of reading `tools` as the names the model calls. */
-	it("refuses a tool listed by name instead of by class, and prints the name", () => {
+	it("gives the agent a shared tool it listed by the name the tool declared, without importing the class", () => {
 		class NamingAgent {}
 		Reflect.defineMetadata(
 			AGENT_METADATA,
-			{ name: "naming", description: "Lists a string.", tools: ["lookup_order"] },
+			{ name: "naming", description: "Lists a name.", tools: ["lookup_order"] },
+			NamingAgent,
+		);
+		const providers = [...scanned(), new ScannedProvider("NamingAgent", NamingAgent, new NamingAgent())];
+
+		const [support, naming] = new NestAgentScanner().scan(providers, MODEL);
+
+		expect(naming?.tools?.map((tool) => tool.name)).toEqual(["lookup_order"]);
+		expect(naming?.tools?.[0]).toBe(support?.tools?.[0]);
+	});
+
+	it("refuses a name no tool declared, and prints it", () => {
+		class NamingAgent {}
+		Reflect.defineMetadata(
+			AGENT_METADATA,
+			{ name: "naming", description: "Lists a stranger.", tools: ["refund_order"] },
 			NamingAgent,
 		);
 
 		expect(() =>
 			new NestAgentScanner().scan([new ScannedProvider("NamingAgent", NamingAgent, new NamingAgent())], MODEL),
-		).toThrow(/lists lookup_order among its tools/);
+		).toThrow(/lists refund_order among its tools/);
 	});
 
 	it("reads a skill declared on the agent", () => {
@@ -157,6 +171,15 @@ describe("NestAgentScanner", () => {
 		const [agent] = new NestAgentScanner().scan(scanned(), MODEL);
 
 		expect(agent?.model).toBe(MODEL);
+	});
+
+	it("refuses an agent with no model when the module declared no default either", () => {
+		class ModellessAgent {}
+		Reflect.defineMetadata(AGENT_METADATA, { name: "modelless", description: "d" }, ModellessAgent);
+
+		expect(() =>
+			new NestAgentScanner().scan([new ScannedProvider("ModellessAgent", ModellessAgent, new ModellessAgent())]),
+		).toThrowError(/has no model/);
 	});
 
 	it("takes the model instance an agent declared for itself", () => {

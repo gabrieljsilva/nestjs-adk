@@ -5,6 +5,7 @@ import type { OpenAiChatRequest } from "./openai-chat-request";
 import { OpenAiClientFactory } from "./openai-client-factory";
 import { OpenAiFailureMapper } from "./openai-failure-mapper";
 import type { OpenAiOptions } from "./openai-options";
+import { OpenAiReasoningTrace } from "./openai-reasoning-trace";
 import { OpenAiStreamMapper } from "./openai-stream-mapper";
 import { OpenAiTransport } from "./openai-transport";
 
@@ -38,9 +39,10 @@ export class SdkOpenAiTransport extends OpenAiTransport {
 
 	public async *stream(request: OpenAiChatRequest, signal?: AbortSignal): AsyncIterable<ModelChunk> {
 		const stream = await this.open(request, signal);
+		const trace = new OpenAiReasoningTrace();
 		try {
 			for await (const raw of stream) {
-				for (const chunk of this.chunks.toChunks(raw)) yield chunk;
+				for (const chunk of this.chunks.toChunks(raw, trace)) yield chunk;
 			}
 		} catch (error) {
 			throw new ModelCallFailedError(this.failures.toFailure(error), request.model);

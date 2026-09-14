@@ -14,6 +14,7 @@ The unit of projection is [[context-projection|the block]], never the message. A
 
 - a user or assistant message is one closed block;
 - a tool call and the result answering it are one closed block, because a result without its call is an answer to nothing and a call without its result is a question the model already asked;
+- calls the model made in one breath, back to back with nothing conversational between them, are one block too, calls first and every result after them: that is the turn the provider produced and reads back, and a thinking model's reasoning belongs to that turn and not to a pair cut out of it;
 - a call still waiting for its result is an open block, an obligation the run made.
 
 A result whose call is missing stops the projection with a typed error. It is corruption, not an edge case.

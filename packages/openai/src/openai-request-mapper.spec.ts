@@ -98,6 +98,7 @@ describe("OpenAiRequestMapper", () => {
 
 		expect(call).toEqual({
 			role: "assistant",
+			content: "",
 			tool_calls: [{ id: "call-1", type: "function", function: { name: "refund", arguments: '{"orderId":"42"}' } }],
 		});
 		expect(result).toEqual({ role: "tool", tool_call_id: "call-1", content: '{"ok":true}' });
@@ -188,5 +189,38 @@ describe("OpenAiRequestMapper", () => {
 
 		expect(mapper.toChatRequest("gpt-5", new ModelRequest([])).hasTools).toBe(false);
 		expect(mapper.toChatRequest("gpt-5", withTool).hasTools).toBe(true);
+	});
+
+	it("folds calls made in one breath into one assistant turn, and keeps a later call apart", () => {
+		const request = new ModelRequest([
+			new ToolCallMessage(CALL, "refund", { orderId: "42" }),
+			new ToolCallMessage(ToolCallId.from("call-2"), "notify", { orderId: "42" }),
+			new ToolResultMessage(CALL, "refund", { ok: true }, false),
+			new ToolResultMessage(ToolCallId.from("call-2"), "notify", { ok: true }, false),
+			new ToolCallMessage(ToolCallId.from("call-3"), "close", {}),
+		]);
+
+		const messages = mapper.toChatRequest("gpt-5", request).messages;
+
+		expect(messages.map((message) => message.role)).toEqual(["assistant", "tool", "tool", "assistant"]);
+		expect(Reflect.get(Object(messages[0]), "tool_calls")).toHaveLength(2);
+		expect(Reflect.get(Object(messages[3]), "tool_calls")).toHaveLength(1);
+	});
+
+	it("replays a call's reasoning to a compatible endpoint and never to the official API", () => {
+		const request = new ModelRequest([new ToolCallMessage(CALL, "refund", { orderId: "42" }, "I should refund")]);
+
+		const [compatible] = mapper.toChatRequest("deepseek", request, { baseURL: "https://api.deepseek.com/v1" }).messages;
+		const [official] = mapper.toChatRequest("gpt-5", request).messages;
+		const [forced] = mapper.toChatRequest("gpt-5", request, { replaysReasoning: true }).messages;
+		const [silenced] = mapper.toChatRequest("x", request, {
+			baseURL: "http://gateway",
+			replaysReasoning: false,
+		}).messages;
+
+		expect(Reflect.get(Object(compatible), "reasoning_content")).toBe("I should refund");
+		expect(Reflect.get(Object(official), "reasoning_content")).toBeUndefined();
+		expect(Reflect.get(Object(forced), "reasoning_content")).toBe("I should refund");
+		expect(Reflect.get(Object(silenced), "reasoning_content")).toBeUndefined();
 	});
 });

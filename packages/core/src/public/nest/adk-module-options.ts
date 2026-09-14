@@ -9,8 +9,10 @@ import type { RuntimeOptions } from "../../runtime/composition/runtime-options";
 
 /** The full literal form of the options; `from` turns one into the class. */
 export interface AdkModuleOptionsInput {
-	/** The model an agent that declared none answers on. */
-	defaultModel: LlmModel;
+	/** The model an agent that declared none answers on. Optional: an application whose every
+	 * agent declares its own model has nothing to put here, and the scanner refuses at boot
+	 * the one agent that declared none. */
+	defaultModel?: LlmModel;
 	storage?: SessionStorage;
 	artifacts?: ArtifactStorage;
 	clock?: Clock;
@@ -50,7 +52,7 @@ export type AdkModuleOptionsPatch = Partial<AdkModuleOptionsInput>;
 export class AdkModuleOptions {
 	public constructor(
 		/** The model an agent that declared none answers on. */
-		public readonly defaultModel: LlmModel,
+		public readonly defaultModel?: LlmModel,
 		public readonly storage?: SessionStorage,
 		public readonly artifacts?: ArtifactStorage,
 		public readonly clock?: Clock,

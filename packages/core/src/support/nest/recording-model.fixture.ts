@@ -10,8 +10,8 @@ import { ModelUsage } from "../../domain/model/model-usage";
 
 /**
  * Answers a fixed sentence and keeps every request it was given.
- * It declares tools so a suite can assert what an agent offered, which is most of what
- * there is to check about wiring.
+ * It declares tools and structured output so a suite can assert what an agent offered and what
+ * shape it asked for, which is most of what there is to check about wiring.
  */
 export class RecordingModel extends LlmModel {
 	public readonly requests: ModelRequest[] = [];
@@ -24,7 +24,10 @@ export class RecordingModel extends LlmModel {
 		return new ModelDescriptor(
 			ModelIdentity.of("acme", "primary"),
 			ModelContextWindow.of(100_000, 4000),
-			ModelCapabilities.of([[ModelCapability.TOOLS, true]]),
+			ModelCapabilities.of([
+				[ModelCapability.TOOLS, true],
+				[ModelCapability.STRUCTURED_OUTPUT, true],
+			]),
 		);
 	}
 

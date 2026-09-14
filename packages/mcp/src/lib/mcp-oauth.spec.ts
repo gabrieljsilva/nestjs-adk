@@ -1,4 +1,5 @@
-import { McpDiscoveryError, McpOAuth } from "./mcp-oauth";
+import { McpDiscoveryError } from "./errors/mcp-discovery.error";
+import { McpOAuth } from "./mcp-oauth";
 
 /**
  * Every route the flow can take, answered by exact URL. Discovery walks several candidates in order,

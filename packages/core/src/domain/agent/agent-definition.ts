@@ -39,6 +39,16 @@ export class AgentDefinition {
 		 * a definition can treat a builder as the whole answer.
 		 */
 		public readonly promptBuilder?: PromptBuilder,
+		/**
+		 * The shape this agent answers in, as a JSON schema the provider is told to enforce.
+		 *
+		 * It lives here and not on a call because it is what the agent *is*, not how one run
+		 * behaves: an agent that answers data answers data to a transfer, to a delegation and to
+		 * the turn that follows an approval, and each of those builds its scope without the
+		 * command that started the run. A per-call schema would be silently absent in exactly
+		 * those three places.
+		 */
+		public readonly outputSchema?: object,
 	) {}
 
 	public static of(
@@ -50,9 +60,20 @@ export class AgentDefinition {
 		tools: readonly ToolDefinition[] = [],
 		skills: readonly SkillDefinition[] = [],
 		promptBuilder?: PromptBuilder,
+		outputSchema?: object,
 	): AgentDefinition {
 		if (model === undefined) throw new MissingAgentModelError(name.value);
-		return new AgentDefinition(name, description, model, instructions, policies, [...tools], [...skills], promptBuilder);
+		return new AgentDefinition(
+			name,
+			description,
+			model,
+			instructions,
+			policies,
+			[...tools],
+			[...skills],
+			promptBuilder,
+			outputSchema,
+		);
 	}
 
 	public get failover(): AgentFailoverPolicy | undefined {
@@ -73,6 +94,11 @@ export class AgentDefinition {
 
 	public get delegation(): AgentDelegationPolicy {
 		return this.policies.delegation;
+	}
+
+	/** Whether this agent answers data rather than prose, which the model has to support. */
+	public get wantsStructuredOutput(): boolean {
+		return this.outputSchema !== undefined;
 	}
 
 	/** Absence of a prompt is a valid composition, never a default text. */

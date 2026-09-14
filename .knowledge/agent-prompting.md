@@ -63,6 +63,8 @@ The reason this exists at all. Without it, an application that wants an agent to
 
 The key for that lookup is `PromptContext.owner`, which is the session's owner and not an argument of the current call: a conversation continued tomorrow builds for the same person it was opened for. `AskOptions.owner` is how an application sets it when the session starts.
 
+`PromptContext.actor` is the other one, and it is the argument of the current call: who is asking now, with the claims the application put on the actor. It is the same actor every tool of the run receives, so a prompt that names a workspace or a role reads the claims the tools are judged by, and an application does not keep them in a map keyed by session id to reach the prompt.
+
 ## Path resolution
 
 `FileSystemPromptSource` resolves an absolute path as it is, a `./` or `../` path from the working directory, and anything else under the prompts directory (`./prompts` by default).

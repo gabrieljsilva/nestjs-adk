@@ -2,6 +2,7 @@ import { CanonicalJson } from "../../common/serialization/canonical-json";
 import { OffloadedContent } from "../../domain/artifact/offloaded-content";
 import type { AttachmentReference } from "../../domain/model/attachment-reference";
 import type { MediaPart } from "../../domain/model/media-part";
+import type { Actor } from "../../domain/tool/actor";
 import { AdkApprovalPolicy } from "../../domain/tool/adk-approval-policy";
 import { EffectApprovalPolicy } from "../../domain/tool/effect-approval-policy";
 import { ToolApprovalRequiredError } from "../../domain/tool/errors/tool-approval-required.error";
@@ -16,6 +17,7 @@ import { AttachmentStore } from "../artifact/attachment-store";
 import type { ToolBreaker } from "./tool-breaker";
 import type { ToolCatalog } from "./tool-catalog";
 import type { ToolExecutionCommand } from "./tool-execution-command";
+import { ToolGate } from "./tool-gate";
 
 /** Where a result that is not an object goes, so the journal always holds a record. */
 const SCALAR_FIELD = "value";
@@ -47,6 +49,7 @@ export class ToolExecutor {
 		private readonly approvals: AdkApprovalPolicy = EffectApprovalPolicy.never(),
 		/** Where an image a tool produced is written; without one, a tool can only answer data. */
 		private readonly attachments: AttachmentStore = AttachmentStore.none(),
+		private readonly gate: ToolGate = new ToolGate(),
 	) {}
 
 	/**
@@ -58,10 +61,15 @@ export class ToolExecutor {
 	 * already ran alongside it. All of them, not the first: releasing a turn on one answer
 	 * would run the calls nobody had answered for yet.
 	 */
-	public allHeld(catalog: ToolCatalog, invocations: readonly ToolInvocation[]): readonly ToolInvocation[] {
+	public allHeld(
+		catalog: ToolCatalog,
+		invocations: readonly ToolInvocation[],
+		actor?: Actor,
+	): readonly ToolInvocation[] {
 		return invocations.filter(
 			(invocation) =>
-				catalog.has(invocation.toolName) && this.requiresApproval(catalog.findOrFail(invocation.toolName), invocation),
+				catalog.has(invocation.toolName) &&
+				this.requiresApproval(catalog.findOrFail(invocation.toolName), invocation, actor),
 		);
 	}
 
@@ -73,23 +81,27 @@ export class ToolExecutor {
 			return this.fail(command, breaker, reason, UNKNOWN_TOOL);
 		}
 
-		const parsed = tool.schema.parse(invocation.args);
-		if (!parsed.isValid) {
-			breaker.recordInvalidArgs(tool.name, parsed.reason);
-			return ToolOutcome.failed(invocation.callId, tool.name, parsed.reason);
+		const admission = await this.gate.admit(tool, invocation, command.actor);
+		if (!admission.isAdmitted) {
+			if (admission.wasDenied) {
+				breaker.recordFailure(tool.name, admission.reason);
+				return ToolOutcome.refused(invocation.callId, tool.name, admission.reason);
+			}
+			breaker.recordInvalidArgs(tool.name, admission.reason);
+			return ToolOutcome.failed(invocation.callId, tool.name, admission.reason);
 		}
 		breaker.recordValidArgs(tool.name);
 
-		if (!command.approved && this.requiresApproval(tool, invocation)) {
+		if (!command.approved && this.requiresApproval(tool, invocation, command.actor)) {
 			throw new ToolApprovalRequiredError(tool.name, invocation.callId.value, tool.effect.name);
 		}
 
-		return this.invoke(command, tool, parsed.values, breaker);
+		return this.invoke(command, tool, admission.values, breaker);
 	}
 
 	/** A tool the runtime owns answers to no policy: nothing an application wrote declared it. */
-	private requiresApproval(tool: ToolDefinition, invocation: ToolInvocation): boolean {
-		return !tool.internal && this.approvals.requires(tool, invocation);
+	private requiresApproval(tool: ToolDefinition, invocation: ToolInvocation, actor?: Actor): boolean {
+		return !tool.internal && this.approvals.requires(tool, invocation, actor);
 	}
 
 	private find(command: ToolExecutionCommand): ToolDefinition | undefined {
@@ -105,7 +117,14 @@ export class ToolExecutor {
 		breaker: ToolBreaker,
 	): Promise<ToolOutcome> {
 		const invocation = command.invocation;
-		const context = new ToolContext(command.sessionId, command.runId, command.agent, invocation.callId, command.signal);
+		const context = new ToolContext(
+			command.sessionId,
+			command.runId,
+			command.agent,
+			invocation.callId,
+			command.signal,
+			command.actor,
+		);
 
 		let answered: unknown;
 		try {

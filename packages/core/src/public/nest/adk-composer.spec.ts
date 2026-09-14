@@ -22,6 +22,7 @@ import { AdkModuleOptions } from "./adk-module-options";
 import { AdkTool } from "./adk-tool";
 import { AgentRegistry } from "./agent-registry";
 import { Agent } from "./decorators/agent.decorator";
+import { McpController } from "./decorators/mcp-controller.decorator";
 import { Tool } from "./decorators/tool.decorator";
 
 const schema = z.object({ orderId: z.string() });
@@ -55,6 +56,16 @@ class SupportAgent extends AdkAgent {
 }
 
 /** What the container hands over: the class, the instance it built, and its scope. */
+const auditSchema = z.object({ since: z.string() });
+
+@McpController({ tools: [LookupOrderTool] })
+class OrdersMcpController {
+	@Tool({ name: "audit_orders", description: "Lists what changed.", schema: auditSchema, effect: "read" })
+	public audit(input: z.infer<typeof auditSchema>): unknown {
+		return { since: input.since, changed: 0 };
+	}
+}
+
 function provider(type: object, instance: object, isStatic = true): ContainerProvider {
 	return {
 		name: Reflect.get(type, "name"),
@@ -176,5 +187,24 @@ describe("AdkComposer", () => {
 		await rebased.compose([provider(SupportAgent, agent), provider(LookupOrderTool, tool)]);
 
 		expect(host.runtime.catalog.findOrFail(AgentName.from("support")).model).toBe(replacement);
+	});
+
+	it("publishes what the controllers exposed, next to the agents", async () => {
+		await composer.compose([
+			provider(SupportAgent, agent),
+			provider(LookupOrderTool, tool),
+			provider(OrdersMcpController, new OrdersMcpController()),
+		]);
+
+		expect(host.runtime.exposed.names).toEqual(["lookup_order", "audit_orders"]);
+		expect(host.runtime.exposed.findOrFail("lookup_order")).toBe(
+			host.runtime.catalog.findOrFail(AgentName.from("support")).tools[0],
+		);
+	});
+
+	it("publishes nothing when no controller was declared", async () => {
+		await composer.compose([provider(SupportAgent, agent), provider(LookupOrderTool, tool)]);
+
+		expect(host.runtime.exposed.isEmpty).toBe(true);
 	});
 });

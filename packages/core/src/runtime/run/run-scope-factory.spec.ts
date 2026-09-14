@@ -13,6 +13,7 @@ import { PromptInstructions } from "../../domain/prompt/prompt-instructions";
 import { RunLimits } from "../../domain/session/run-limits";
 import { SessionOwner } from "../../domain/session/session-owner";
 import { SkillDefinition } from "../../domain/skill/skill-definition";
+import { Actor } from "../../domain/tool/actor";
 import { ParsedArguments } from "../../domain/tool/parsed-arguments";
 import { ToolDefinition } from "../../domain/tool/tool-definition";
 import { ToolEffect } from "../../domain/tool/tool-effect";
@@ -340,6 +341,15 @@ describe("RunScopeFactory", () => {
 			expect(builder.seen[0]?.agent.value).toBe(NativeStackFixture.AGENT.value);
 			expect(builder.seen[0]?.owner?.value).toBe("user-7");
 			expect(builder.seen[0]?.signal).toBe(started.cancellation.signal);
+		});
+
+		it("hands the agent who is asking, which is what a prompt naming a workspace reads", async () => {
+			const builder = new CountingPrompt("You are support.");
+			const actor = Actor.of("u-1", { workspaceId: "w-1" });
+
+			await new RunScopeFactory().create(building(builder), model, startedRun(), [], undefined, OWNER, actor);
+
+			expect(builder.seen[0]?.actor).toBe(actor);
 		});
 
 		it("costs no call at all for an agent without a builder", async () => {

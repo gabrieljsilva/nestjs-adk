@@ -9,6 +9,8 @@ import type { RuntimeLifecycle } from "../lifecycle/runtime-lifecycle";
 import type { AgentRunFactory } from "../run/agent-run-factory";
 import type { AgentRunner } from "../run/agent-runner";
 import type { SessionService } from "../session/session-service";
+import type { ToolCatalog } from "../tool/tool-catalog";
+import type { ToolGate } from "../tool/tool-gate";
 
 /**
  * What the composition hands back to the public layer.
@@ -34,5 +36,9 @@ export class RuntimeServices {
 		public readonly lifecycle: RuntimeLifecycle,
 		public readonly tracker: ActiveRunTracker,
 		public readonly limits: RunLimits,
+		/** The door every tool call passes, held here so a server exposing tools admits them exactly as the loop does. */
+		public readonly gate: ToolGate,
+		/** What `@McpController` classes published, already checked for clashing names. */
+		public readonly exposed: ToolCatalog,
 	) {}
 }

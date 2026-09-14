@@ -1,8 +1,8 @@
 import type { ToolCallId } from "../../common/identity/tool-call-id";
 import type { SessionRevision } from "../../common/revision/session-revision";
 import type { ModelMessage } from "../model/model-message";
-import type { ToolCallMessage } from "../model/tool-call-message";
-import type { ToolResultMessage } from "../model/tool-result-message";
+import { ToolCallMessage } from "../model/tool-call-message";
+import { ToolResultMessage } from "../model/tool-result-message";
 import { ContextCategory } from "./context-category";
 
 /**
@@ -12,6 +12,12 @@ import { ContextCategory } from "./context-category";
  * leaves the model reading an answer to a question it cannot see, or waiting for a
  * result that will never arrive. A call still without its result is an open
  * obligation, and compaction is not allowed to touch it.
+ *
+ * Calls the model made in one breath are one block too, the calls first and the results
+ * after all of them, which is the shape every provider produced them in and reads them
+ * back in: an assistant turn carrying several calls, then one result per call. Split into
+ * pairs, a thinking model finds turns it never reasoned about. The block's `callId` is the
+ * first call's, and closes when the last call is answered.
  *
  * A block can also be pinned, which is the other reason compaction leaves something
  * alone: a skill the model loaded is knowledge it is expected to still have, and
@@ -103,14 +109,30 @@ export class ContextBlock {
 		);
 	}
 
-	/** The block this one becomes once its result arrives. */
-	public answeredBy(result: ToolResultMessage, resultRevision: SessionRevision): ContextBlock {
+	/** The same open block with one more call the model asked for in the same breath. */
+	public alsoCalling(call: ToolCallMessage, revision: SessionRevision): ContextBlock {
 		return new ContextBlock(
 			this.category,
-			[...this.messages, result],
+			[...this.messages, call],
+			this.firstRevision,
+			revision,
+			false,
+			this.callId,
+			this.pinned,
+		);
+	}
+
+	/** The block this one becomes once a result arrives: closed when every call has its own. */
+	public answeredBy(result: ToolResultMessage, resultRevision: SessionRevision): ContextBlock {
+		const messages = [...this.messages, result];
+		const calls = messages.filter((message) => message instanceof ToolCallMessage).length;
+		const results = messages.filter((message) => message instanceof ToolResultMessage).length;
+		return new ContextBlock(
+			this.category,
+			messages,
 			this.firstRevision,
 			resultRevision,
-			true,
+			results >= calls,
 			this.callId,
 			this.pinned,
 		);

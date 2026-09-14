@@ -13,7 +13,9 @@ A model that asked to look an order up and then to refund it meant one thing. If
 
 So the whole turn stops. `ToolExecutor.allHeld` answers every call of the turn a policy holds, and the run suspends before executing any of them, held or not.
 
-Releasing works the same way. A turn is decided when no held call is still awaiting an answer, and only then does anything run: granted calls execute in the order the model asked for them, denied ones produce their refusal as the result, and calls nobody had to answer for run alongside. A turn with two held calls and one answer stays suspended.
+The policy is asked with the tool, the invocation and the actor of the run, in that order, and the actor is optional because a run may have none. It is what lets the same tool pause for one person and run for another: the policy reads a claim the application put on the actor, and the runtime never interprets it.
+
+Releasing works the same way. A turn is decided when no held call is still awaiting an answer, and only then does anything run: granted calls execute in the order the model asked for them, denied ones produce their refusal as the result (`{ refused: true, reason }`, failed so the model does not ask again, and the same shape a policy denial takes in [[tool-access]]), and calls nobody had to answer for run alongside. A turn with two held calls and one answer stays suspended.
 
 ## Suspension is a fact, not a paused process
 
@@ -40,5 +42,11 @@ The run does not rely on catching it. It asks first, with `allHeld`, and the thr
 ## Tools the runtime owns answer to no policy
 
 `ToolDefinition.internal` marks a tool the runtime offers on its own behalf, like `read_artifact` and `activate_skill`. No approval policy applies to it, so a policy written for an application's tools cannot leave a model unable to read what it was told to read. Their results are never offloaded either: taking back out what was just fetched back in is a loop, not a saving.
+
+## The caller hears the verdict, and never recomputes it
+
+`ToolCallObserver` (`AskOptions.toolCalls`, `DecisionOptions.toolCalls`) is told each call of a turn after the gate screened it and before anything runs, with `ToolCallNotice.isHeld` being the gate's own answer. An application that renders a decision button reads that field. Asking the policy again from outside the run was how the untimeless API did it before this existed, and two answers to one security question is the bug the field prevents.
+
+The observer is per call and never stored, which is what keeps the runtime stateless across instances: the suspension is in the journal, and the decision that releases it, wherever it lands, brings its own observer for the settled results.
 
 Related: [[error-taxonomy]], [[context-projection]], [[layer-boundaries]].

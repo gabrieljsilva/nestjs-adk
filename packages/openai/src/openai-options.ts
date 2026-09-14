@@ -33,6 +33,14 @@ export interface OpenAiOptions {
 	/** Held back for the answer out of the declared window. */
 	reservedOutputTokens?: number;
 
+	/**
+	 * Whether a tool call's stored reasoning is sent back as `reasoning_content` on the
+	 * assistant message that replays it. DeepSeek's thinking mode refuses the turn without
+	 * it; the official OpenAI API refuses a message field it does not know. Unset, it
+	 * follows `baseURL`: a compatible endpoint gets it, the official one does not.
+	 */
+	replaysReasoning?: boolean;
+
 	/** Passthrough for body fields this adapter does not model; typed fields win over it. */
 	body?: Record<string, unknown>;
 }

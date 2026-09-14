@@ -29,7 +29,7 @@ import type { ApprovalDecision, PendingCall } from "../../domain/session/pending
 import type { PendingTurn } from "../../domain/session/pending-turn";
 import type { SkillDefinition } from "../../domain/skill/skill-definition";
 import type { ToolSourceAuthError } from "../../domain/tool/errors/tool-source-auth.error";
-import type { ToolOutcome } from "../../domain/tool/tool-outcome";
+import { ToolOutcome } from "../../domain/tool/tool-outcome";
 import type { ModelRunOutcome } from "../model/model-run-outcome";
 import type { OpenedSession } from "../session/opened-session";
 import type { AgentRunCommand } from "./agent-run-command";
@@ -161,9 +161,9 @@ export class RunJournal {
 		return new ToolResultProduced(this.headerOf(started), call.callId, call.toolName, { answer }, false);
 	}
 
-	/** A call somebody refused reads to the model like any other failure, which is what it is. */
+	/** A call somebody refused is answered as a refusal, which the model reads apart from an error. */
 	public refusal(started: StartedRun, call: PendingCall): ToolResultProduced {
-		return new ToolResultProduced(this.headerOf(started), call.callId, call.toolName, { error: call.reason ?? "" }, true);
+		return this.result(started, ToolOutcome.refused(call.callId, call.toolName, call.reason ?? ""));
 	}
 
 	/**

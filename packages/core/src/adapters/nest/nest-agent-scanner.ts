@@ -7,7 +7,6 @@ import { RunLimits } from "../../domain/session/run-limits";
 import type { SkillDefinition } from "../../domain/skill/skill-definition";
 import type { ToolDefinition } from "../../domain/tool/tool-definition";
 import { InvalidAgentMetadataError } from "./errors/invalid-agent-metadata.error";
-import { UnregisteredToolError } from "./errors/unregistered-tool.error";
 import {
 	AGENT_METADATA,
 	DELEGATES_TO_METADATA,
@@ -20,6 +19,7 @@ import type { DiscoveredProvider } from "./nest-component-discovery";
 import { NestSkillFactory } from "./nest-skill-factory";
 import { NestToolFactory } from "./nest-tool-factory";
 import { ScannedProvider } from "./scanned-provider";
+import { SharedToolLookup } from "./shared-tool-lookup";
 
 /**
  * Reads what the decorators wrote and hands back what discovery consumes.
@@ -35,15 +35,18 @@ export class NestAgentScanner {
 		private readonly skills: NestSkillFactory = new NestSkillFactory(),
 	) {}
 
-	public scan(providers: readonly ScannedProvider[], defaultModel: LlmModel): DiscoveredProvider[] {
-		const shared = this.sharedTools(providers);
+	public scan(
+		providers: readonly ScannedProvider[],
+		defaultModel?: LlmModel,
+		shared: Map<unknown, ToolDefinition> = this.sharedTools(providers),
+	): DiscoveredProvider[] {
 		return providers
 			.filter((provider) => Reflect.getMetadata(AGENT_METADATA, provider.type) !== undefined)
 			.map((provider) => this.toDiscovered(provider, shared, defaultModel));
 	}
 
 	/** Tools with a provider of their own, keyed by the class an agent lists in `tools`. */
-	private sharedTools(providers: readonly ScannedProvider[]): Map<unknown, ToolDefinition> {
+	public sharedTools(providers: readonly ScannedProvider[]): Map<unknown, ToolDefinition> {
 		const tools = new Map<unknown, ToolDefinition>();
 		for (const provider of providers) {
 			const metadata = Reflect.getMetadata(TOOL_METADATA, provider.type);
@@ -56,7 +59,7 @@ export class NestAgentScanner {
 	private toDiscovered(
 		provider: ScannedProvider,
 		shared: Map<unknown, ToolDefinition>,
-		defaultModel: LlmModel,
+		defaultModel?: LlmModel,
 	): DiscoveredProvider {
 		const metadata: unknown = Reflect.getMetadata(AGENT_METADATA, provider.type);
 		return {
@@ -71,6 +74,7 @@ export class NestAgentScanner {
 			delegations: Reflect.getMetadata(DELEGATES_TO_METADATA, provider.type),
 			tools: [...this.declaredTools(metadata, shared, provider.name), ...this.ownTools(provider)],
 			skills: this.ownSkills(provider),
+			outputSchema: this.outputSchemaOf(metadata, provider.name),
 		};
 	}
 
@@ -86,9 +90,17 @@ export class NestAgentScanner {
 		return typeof metadata === "object" && metadata !== null ? Reflect.get(metadata, key) : undefined;
 	}
 
-	private modelOf(metadata: unknown, defaultModel: LlmModel, providerName: string): LlmModel {
+	private modelOf(metadata: unknown, defaultModel: LlmModel | undefined, providerName: string): LlmModel {
 		const declared = this.declaredField(metadata, "model");
-		if (declared === undefined) return defaultModel;
+		if (declared === undefined) {
+			if (defaultModel === undefined) {
+				throw new InvalidAgentMetadataError(
+					providerName,
+					"has no model: declare one on @Agent, or a defaultModel on the module.",
+				);
+			}
+			return defaultModel;
+		}
 		if (this.isModel(declared)) return declared;
 		throw new InvalidAgentMetadataError(
 			providerName,
@@ -151,6 +163,20 @@ export class NestAgentScanner {
 		);
 	}
 
+	/**
+	 * Absent means this agent answers prose, which is what most agents do.
+	 *
+	 * The schema itself is not checked here beyond being an object: what a valid schema is belongs
+	 * to the provider, and the OpenAI adapter already refuses the ones strict mode rejects, naming
+	 * the field. Guessing at that here would fail requests over rules only the provider decides.
+	 */
+	private outputSchemaOf(metadata: unknown, providerName: string): object | undefined {
+		const declared = this.declaredField(metadata, "outputSchema");
+		if (declared === undefined) return undefined;
+		if (typeof declared === "object" && declared !== null && !Array.isArray(declared)) return declared;
+		throw new InvalidAgentMetadataError(providerName, "outputSchema is not an object. @Agent takes a JSON schema.");
+	}
+
 	private instructionsOf(metadata: unknown, providerName: string): PromptInstructions | undefined {
 		const prompt = this.declaredField(metadata, "prompt");
 		if (prompt === undefined) return undefined;
@@ -173,23 +199,7 @@ export class NestAgentScanner {
 		const declared = this.declaredField(metadata, "tools");
 		if (declared === undefined) return [];
 		if (!Array.isArray(declared)) throw new InvalidAgentMetadataError(providerName, "tools is not a list.");
-		return declared.map((entry) => {
-			const tool = shared.get(entry);
-			if (tool === undefined) {
-				throw new UnregisteredToolError(
-					providerName,
-					this.nameOf(entry),
-					[...shared.values()].map((registered) => registered.name),
-				);
-			}
-			return tool;
-		});
-	}
-
-	/** A class is named by its own name, and anything else by what it prints as. */
-	private nameOf(entry: unknown): string {
-		const declared = typeof entry === "function" ? Reflect.get(entry, "name") : undefined;
-		return typeof declared === "string" && declared.length > 0 ? declared : String(entry);
+		return new SharedToolLookup(shared).resolveAll(declared, providerName);
 	}
 
 	private ownTools(provider: ScannedProvider): readonly ToolDefinition[] {

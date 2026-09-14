@@ -42,7 +42,13 @@ export class ContextManager {
 		const descriptor = command.model.descriptor();
 		this.notifier.reportIfUnknown(descriptor);
 
-		const prefix = ContextProjection.of([], command.tools, command.runtimeInstructions, command.agentPrompt);
+		const prefix = ContextProjection.of(
+			[],
+			command.tools,
+			command.runtimeInstructions,
+			command.agentPrompt,
+			command.outputSchema,
+		);
 		const prefixDigest = this.digest.of(prefix);
 		const acceptsRemoteUrl = descriptor.capabilities.supports(ModelCapability.MEDIA_URL);
 		const projection = prefix.withBlocks(

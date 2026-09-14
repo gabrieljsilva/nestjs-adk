@@ -1,6 +1,8 @@
 import type { SessionId } from "../../common/identity/session-id";
 import type { ToolCallId } from "../../common/identity/tool-call-id";
+import type { ToolCallObserver } from "../../contracts/tool-call-observer";
 import type { ToolSource } from "../../contracts/tool-source";
+import type { Actor } from "../tool/actor";
 
 /**
  * The command that releases a tool call a human had to authorize.
@@ -18,6 +20,8 @@ export class ApproveInput {
 		public readonly sources: readonly ToolSource[] = [],
 		/** The stop button of the turn this decision releases, which is a run of its own. */
 		public readonly signal?: AbortSignal,
+		public readonly actor?: Actor,
+		public readonly toolCalls?: ToolCallObserver,
 	) {}
 
 	public static of(
@@ -26,7 +30,9 @@ export class ApproveInput {
 		approvedBy?: string,
 		sources: readonly ToolSource[] = [],
 		signal?: AbortSignal,
+		actor?: Actor,
+		toolCalls?: ToolCallObserver,
 	): ApproveInput {
-		return new ApproveInput(sessionId, callId, approvedBy, sources, signal);
+		return new ApproveInput(sessionId, callId, approvedBy, sources, signal, actor, toolCalls);
 	}
 }

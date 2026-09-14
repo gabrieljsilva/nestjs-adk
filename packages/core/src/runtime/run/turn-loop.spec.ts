@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { ToolCallId } from "../../common/identity/tool-call-id";
+import { ToolCallObserver } from "../../contracts/tool-call-observer";
 import { AgentRunCompleted } from "../../domain/event/catalog/agent-run-completed";
 import { AgentRunSuspended } from "../../domain/event/catalog/agent-run-suspended";
 import { ToolApprovalRequested } from "../../domain/event/catalog/tool-approval-requested";
@@ -14,9 +15,11 @@ import { AgentMaxIterationsError } from "../../domain/session/errors/agent-max-i
 import { RunLimits } from "../../domain/session/run-limits";
 import { EffectApprovalPolicy } from "../../domain/tool/effect-approval-policy";
 import { ParsedArguments } from "../../domain/tool/parsed-arguments";
+import type { ToolCallNotice } from "../../domain/tool/tool-call-notice";
 import { ToolDefinition } from "../../domain/tool/tool-definition";
 import { ToolEffect } from "../../domain/tool/tool-effect";
 import { ToolHandler } from "../../domain/tool/tool-handler";
+import type { ToolResultNotice } from "../../domain/tool/tool-result-notice";
 import { ToolSchema } from "../../domain/tool/tool-schema";
 import { NativeStackFixture } from "../../support/run/native-stack.fixture";
 import { TurnScriptModel } from "../../support/run/turn-script-model.fixture";
@@ -52,6 +55,26 @@ function callsThenAnswers(): TurnScriptModel {
 		[ModelChunk.toolCall(new ToolCallDelta(0, "{}", "c-1", "lookup_order")), ModelChunk.finish("tool_calls")],
 		[ModelChunk.text("the order is shipped"), ModelChunk.finish("stop")],
 	]);
+}
+
+/** Writes down what it was told and when, next to what the tool did, because the order is the contract. */
+class LoggingObserver extends ToolCallObserver {
+	public readonly requests: ToolCallNotice[] = [];
+	public readonly results: ToolResultNotice[] = [];
+
+	public constructor(private readonly log: string[] = []) {
+		super();
+	}
+
+	public requested(call: ToolCallNotice): void {
+		this.log.push(`requested ${call.toolName}`);
+		this.requests.push(call);
+	}
+
+	public settled(result: ToolResultNotice): void {
+		this.log.push(`settled ${result.toolName}`);
+		this.results.push(result);
+	}
 }
 
 let handler: CountingHandler;
@@ -120,6 +143,145 @@ describe("TurnLoop", () => {
 		const types = (await stack.journalOf(result.sessionId)).map((event) => event.type);
 		expect(types).toContain(ToolApprovalRequested.TYPE);
 		expect(types.at(-1)).toBe(AgentRunSuspended.TYPE);
+	});
+
+	describe("watching tool calls", () => {
+		it("tells the observer what was asked, with the tool and the gate's verdict, then what it answered", async () => {
+			const stack = stackOf(callsThenAnswers());
+			const observer = new LoggingObserver();
+
+			await stack.runner.ask(
+				new AgentRunCommand(
+					SUPPORT,
+					AskInput.of("where is order 42?"),
+					undefined,
+					undefined,
+					undefined,
+					undefined,
+					[],
+					undefined,
+					undefined,
+					observer,
+				),
+			);
+
+			expect(observer.requests).toHaveLength(1);
+			expect(observer.requests[0]?.toolName).toBe("lookup_order");
+			expect(observer.requests[0]?.tool?.effect).toBe(ToolEffect.READ);
+			expect(observer.requests[0]?.isHeld).toBe(false);
+			expect(observer.results).toHaveLength(1);
+			expect(observer.results[0]?.callId.value).toBe("c-1");
+			expect(observer.results[0]?.output).toEqual({ status: "shipped" });
+			expect(observer.results[0]?.failed).toBe(false);
+		});
+
+		it("announces the call before the tool runs, and the result after it", async () => {
+			const log: string[] = [];
+			const observer = new LoggingObserver(log);
+			handler = new (class extends CountingHandler {
+				public override async invoke(): Promise<unknown> {
+					log.push("ran lookup_order");
+					return super.invoke();
+				}
+			})();
+			const stack = stackOf(callsThenAnswers());
+
+			await stack.runner.ask(
+				new AgentRunCommand(
+					SUPPORT,
+					AskInput.of("where is order 42?"),
+					undefined,
+					undefined,
+					undefined,
+					undefined,
+					[],
+					undefined,
+					undefined,
+					observer,
+				),
+			);
+
+			expect(log).toEqual(["requested lookup_order", "ran lookup_order", "settled lookup_order"]);
+		});
+
+		it("announces a held call as held, and nothing settles because nothing ran", async () => {
+			const stack = stackOf(callsThenAnswers(), ToolEffect.WRITE, EffectApprovalPolicy.from(ToolEffect.WRITE));
+			const observer = new LoggingObserver();
+
+			const result = await stack.runner.ask(
+				new AgentRunCommand(
+					SUPPORT,
+					AskInput.of("refund order 42"),
+					undefined,
+					undefined,
+					undefined,
+					undefined,
+					[],
+					undefined,
+					undefined,
+					observer,
+				),
+			);
+
+			expect(result.status.equals(AgentRunStatus.SUSPENDED)).toBe(true);
+			expect(observer.requests[0]?.isHeld).toBe(true);
+			expect(observer.requests[0]?.effect).toBe(ToolEffect.WRITE);
+			expect(observer.results).toHaveLength(0);
+		});
+
+		it("announces a call to a tool nobody declared as unknown, and its failure as a result", async () => {
+			const model = new TurnScriptModel([
+				[ModelChunk.toolCall(new ToolCallDelta(0, "{}", "c-9", "made_up")), ModelChunk.finish("tool_calls")],
+				[ModelChunk.text("sorry"), ModelChunk.finish("stop")],
+			]);
+			const stack = stackOf(model);
+			const observer = new LoggingObserver();
+
+			await stack.runner.ask(
+				new AgentRunCommand(
+					SUPPORT,
+					AskInput.of("do the thing"),
+					undefined,
+					undefined,
+					undefined,
+					undefined,
+					[],
+					undefined,
+					undefined,
+					observer,
+				),
+			);
+
+			expect(observer.requests[0]?.isKnown).toBe(false);
+			expect(observer.results[0]?.failed).toBe(true);
+		});
+
+		it("ends the run with whatever the observer threw", async () => {
+			const stack = stackOf(callsThenAnswers());
+			const observer = new (class extends LoggingObserver {
+				public override requested(): void {
+					throw new Error("the card could not be drawn");
+				}
+			})();
+
+			await expect(
+				stack.runner.ask(
+					new AgentRunCommand(
+						SUPPORT,
+						AskInput.of("where is order 42?"),
+						undefined,
+						undefined,
+						undefined,
+						undefined,
+						[],
+						undefined,
+						undefined,
+						observer,
+					),
+				),
+			).rejects.toThrow("the card could not be drawn");
+			expect(handler.calls).toBe(0);
+		});
 	});
 
 	it("carries the call the human has to answer for into the suspension", async () => {

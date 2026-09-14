@@ -9,16 +9,9 @@ import { AppModule } from "../../app.module";
 import { ApproveToolCallUseCase } from "../../chat/approve-tool-call.use-case";
 import { RejectToolCallUseCase } from "../../chat/reject-tool-call.use-case";
 import { StoreDatabase } from "../../shared/store-database";
-import { judge, openAILuna } from "../../testing/models";
+import { deepseekFlash, judge, openAILuna } from "../../testing/models";
 import { BillingAgent } from "../billing/billing.agent";
 
-/**
- * Money leaving, with a real model deciding to make it leave.
- *
- * The approval policy holds anything destructive, and `issue_refund` is the only tool the
- * store declares that way. What a fake cannot prove is that a provider asked to refund an
- * order actually calls it, which is the moment the policy has to be there.
- */
 describe("AI: billing, and the human in front of the money", () => {
 	it("stops in front of the human before any money leaves", { timeout: 120_000 }, async () => {
 		const connection = new SqliteConnection();
@@ -157,4 +150,45 @@ describe("AI: billing, and the human in front of the money", () => {
 
 		await expect(resumed.text).toSatisfyRubric(judge, "says the refund was not made, and gives a reason");
 	});
+
+	/**
+	 * Two refunds asked in one breath, on a model that reasons before it calls.
+	 *
+	 * DeepSeek streams its reasoning ahead of the calls and refuses the next request of the
+	 * turn unless the assistant message replaying them brings it back; and it reads the two
+	 * calls as one message, so a history that had split them into pairs was a turn it never
+	 * reasoned about. This case was red on both counts before the projector kept a breath
+	 * together and the adapter carried the thought back, and it is the shape a person
+	 * approving two cards on screen produces.
+	 */
+	it.skipIf(deepseekFlash === undefined)(
+		"lets two refunds leave once a human said yes to each, on a model that thinks first",
+		{ timeout: 180_000 },
+		async () => {
+			if (deepseekFlash === undefined) return;
+			const connection = new SqliteConnection();
+			await using bed = await AdkTestBedBuilder.from(Test.createTestingModule({ imports: [AppModule] }))
+				.overriding(StoreDatabase, new StoreDatabase(connection))
+				.overriding(SessionStorage, new SqliteSessionStorage(connection))
+				.withModel(deepseekFlash)
+				.withConsumers(new RunTranscript())
+				.boot();
+			const run = await bed
+				.agent(BillingAgent)
+				.ask("Refund 349 reais from order A-1042 and 189 reais from order B-2071, both right now.");
+
+			expect(run).toAwaitApproval("issue_refund");
+			const held = run.callsTo("issue_refund");
+			expect(held).toHaveLength(2);
+
+			const approve = bed.get(ApproveToolCallUseCase);
+			const first = await approve.execute(run.sessionId.value, held[0]?.callId ?? "", "manager@nebula.test");
+			const resumed = await approve.execute(run.sessionId.value, held[1]?.callId ?? "", "manager@nebula.test");
+
+			expect(first.status.name).toBe("suspended");
+			expect(resumed.status.name).toBe("completed");
+			expect(bed.events.ran("issue_refund")).toBe(2);
+			expect(bed.get(OrderRepository).findById("A-1042")?.refundedCents).toBe(34_900);
+		},
+	);
 });

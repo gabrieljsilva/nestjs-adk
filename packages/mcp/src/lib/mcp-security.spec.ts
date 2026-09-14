@@ -1,6 +1,7 @@
 import { getDefaultEnvironment } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { McpDiscoveryError } from "./errors/mcp-discovery.error";
 import { EnvAuth } from "./mcp-auth";
-import { McpDiscoveryError, McpOAuth } from "./mcp-oauth";
+import { McpOAuth } from "./mcp-oauth";
 import { createTransport } from "./mcp-transport";
 
 /** The SDK keeps the spawn options private; this is what would actually reach the child process. */
@@ -111,8 +112,11 @@ describe("OAuth discovery against an untrusted server", () => {
 		);
 
 		// RFC 8707: without it, a token for this server can be replayed against any other resource
-		// trusting the same authorization server
-		expect(new URL(url).searchParams.get("resource")).toBe("https://203.0.113.10");
+		// trusting the same authorization server.
+		// RFC 8707 and 9728: the whole URL, path included. Reduced to the origin it names a different
+		// resource on any server not mounted at the root, and the authorization server compares it
+		// literally against what the server published for itself.
+		expect(new URL(url).searchParams.get("resource")).toBe("https://203.0.113.10/mcp");
 	});
 
 	it("keeps PKCE and state on every authorization", async () => {

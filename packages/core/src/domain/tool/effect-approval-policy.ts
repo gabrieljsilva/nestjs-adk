@@ -1,3 +1,4 @@
+import type { Actor } from "./actor";
 import { AdkApprovalPolicy } from "./adk-approval-policy";
 import type { ToolDefinition } from "./tool-definition";
 import { ToolEffect } from "./tool-effect";
@@ -29,7 +30,7 @@ export class EffectApprovalPolicy extends AdkApprovalPolicy {
 		return new EffectApprovalPolicy(ToolEffect.DESTRUCTIVE);
 	}
 
-	public requires(tool: ToolDefinition, _invocation: ToolInvocation): boolean {
+	public requires(tool: ToolDefinition, _invocation: ToolInvocation, _actor?: Actor): boolean {
 		return this.threshold !== undefined && tool.effect.isAtLeast(this.threshold);
 	}
 }

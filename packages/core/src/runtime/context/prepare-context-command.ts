@@ -28,5 +28,7 @@ export class PrepareContextCommand {
 		public readonly lastPrompt?: PromptMeasurement,
 		/** Which run is asking, which is what decides whether a run scoped skill is still loaded. */
 		public readonly runId?: AgentRunId,
+		/** The shape the agent answers in, carried through so the projection can ask for it. */
+		public readonly outputSchema?: object,
 	) {}
 }

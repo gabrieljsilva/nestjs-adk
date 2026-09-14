@@ -3,6 +3,7 @@ import type { Clock } from "../common/time/clock";
 import type { ArtifactStorage } from "../contracts/artifact-storage";
 import type { SessionStorage } from "../contracts/session-storage";
 import type { DeclaredAgent } from "../domain/agent/declared-agent";
+import type { ToolDefinition } from "../domain/tool/tool-definition";
 import { AgentCatalogBuilder } from "../runtime/catalog/agent-catalog-builder";
 import { RuntimeFactory } from "../runtime/composition/runtime-factory";
 import { RuntimeOptions } from "../runtime/composition/runtime-options";
@@ -39,11 +40,12 @@ export class AdkRuntimeHost implements StartedRuntime {
 		clock: Clock,
 		ids: IdGenerator,
 		options: RuntimeOptions = new RuntimeOptions(),
+		exposed: readonly ToolDefinition[] = [],
 	): Promise<RuntimeServices> {
 		const builder = new AgentCatalogBuilder();
 		for (const agent of declared) builder.add(agent);
 
-		this.services = await this.factory.create(builder.build(), storage, artifacts, clock, ids, options);
+		this.services = await this.factory.create(builder.build(), storage, artifacts, clock, ids, options, exposed);
 		return this.services;
 	}
 

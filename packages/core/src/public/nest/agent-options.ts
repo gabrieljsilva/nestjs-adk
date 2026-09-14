@@ -11,15 +11,16 @@ import type { RunLimits } from "../../domain/session/run-limits";
  * deciding whether to hand it work. Everything else has an answer without the developer.
  *
  * `tools` lists classes, because that is what a NestJS application has at hand when it
- * writes the decorator. Turning them into definitions happens after the container is
- * built, where the instances exist.
+ * writes the decorator, or the names those classes declared, for when importing one would
+ * tie two modules into a cycle. Turning them into definitions happens after the container
+ * is built, where the instances exist.
  */
 export interface AgentOptions {
 	name: string;
 	description: string;
 	/** The prompt this agent runs under, verbatim. */
 	prompt?: string;
-	/** Classes decorated with `@Tool`, each already a provider of its own. */
+	/** Classes decorated with `@Tool`, each already a provider of its own, or the names they declared. */
 	tools?: readonly unknown[];
 	/** Answers for this agent alone; without one it answers on the module's default. */
 	model?: LlmModel;
@@ -52,4 +53,31 @@ export interface AgentOptions {
 	 * default says so here rather than the application widening the ceiling for everyone.
 	 */
 	limits?: RunLimits;
+	/**
+	 * The shape this agent answers in, as a JSON schema the provider is told to enforce.
+	 *
+	 * Declared here and not per call on purpose. A transfer, a delegation and the turn that
+	 * follows an approval each build their scope without the command that started the run, so a
+	 * schema passed to `ask` would be silently absent in exactly the places a long run reaches.
+	 * An agent that answers data answers data every time it is asked.
+	 *
+	 * The model has to support it: one that does not declare `STRUCTURED_OUTPUT` fails the run
+	 * rather than answering prose that nobody checked. Providers differ on what they accept —
+	 * OpenAI enforces only the strict subset, with every object closed and every property
+	 * required — and the adapter is what refuses a schema its provider would reject.
+	 *
+	 * ```ts
+	 * @Agent({
+	 *   name: "titler",
+	 *   description: "...",
+	 *   outputSchema: {
+	 *     type: "object",
+	 *     properties: { title: { type: "string" } },
+	 *     required: ["title"],
+	 *     additionalProperties: false,
+	 *   },
+	 * })
+	 * ```
+	 */
+	outputSchema?: object;
 }

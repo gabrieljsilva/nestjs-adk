@@ -4,6 +4,7 @@ import { Clock } from "../../common/time/clock";
 import { ArtifactStorage } from "../../contracts/artifact-storage";
 import { ModelResolver } from "../../contracts/model-resolver";
 import { SessionStorage } from "../../contracts/session-storage";
+import type { ToolDefinition } from "../../domain/tool/tool-definition";
 import { ArtifactOffloader } from "../artifact/artifact-offloader";
 import { AttachmentReader } from "../artifact/attachment-reader";
 import { AttachmentStore } from "../artifact/attachment-store";
@@ -44,7 +45,9 @@ import { CreateSession } from "../session/create-session";
 import { InspectSession } from "../session/inspect-session";
 import { SessionManager } from "../session/session-manager";
 import { SessionService } from "../session/session-service";
+import { ToolCatalog } from "../tool/tool-catalog";
 import { ToolExecutor } from "../tool/tool-executor";
+import { ToolGate } from "../tool/tool-gate";
 import { AgentSwitch } from "../transfer/agent-switch";
 import { TransferGate } from "../transfer/transfer-gate";
 import { RuntimeCompositionFailedError } from "./errors/runtime-composition-failed.error";
@@ -69,6 +72,7 @@ export class RuntimeFactory {
 		clock: Clock,
 		ids: IdGenerator,
 		options: RuntimeOptions = new RuntimeOptions(),
+		exposed: readonly ToolDefinition[] = [],
 	): Promise<RuntimeServices> {
 		const tracker = new ActiveRunTracker();
 		const offloader = new ArtifactOffloader(artifacts, options.offload);
@@ -94,7 +98,8 @@ export class RuntimeFactory {
 		const results = new RunResultFactory(
 			new RunCostReporter(new CostCalculator(), options.pricing, options.pricingNotices),
 		);
-		const turns = new TurnExecutor(new ToolExecutor(offloader, options.approvals, attachments), journal);
+		const gate = new ToolGate(options.access);
+		const turns = new TurnExecutor(new ToolExecutor(offloader, options.approvals, attachments, gate), journal);
 		const delegations = new DelegationRunner(catalog, resolver, runs, scopes, journal, sessions);
 		const loop = new TurnLoop(
 			context,
@@ -192,6 +197,8 @@ export class RuntimeFactory {
 				lifecycle,
 				tracker,
 				options.limits,
+				gate,
+				ToolCatalog.of(exposed),
 			);
 		} catch (cause) {
 			throw new RuntimeCompositionFailedError(cause instanceof Error ? cause.message : String(cause), cause);

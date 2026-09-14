@@ -42,6 +42,17 @@ export class ToolOutcome {
 		return new ToolOutcome(callId, toolName, { error: reason }, reason, true);
 	}
 
+	/**
+	 * A call that did not run because somebody said no: the person who was asked, or the
+	 * access policy. It is still a failed result, so the model does not ask again, but it
+	 * says `refused` and not `error`, because a model told of an error explains a fault
+	 * and retries, and a model told of a refusal says so and moves on. The key is a
+	 * boolean so that the vocabulary is the same in every language the reason is written in.
+	 */
+	public static refused(callId: ToolCallId, toolName: string, reason: string): ToolOutcome {
+		return new ToolOutcome(callId, toolName, { refused: true, reason }, reason, true);
+	}
+
 	public get wasOffloaded(): boolean {
 		return this.reference !== undefined;
 	}

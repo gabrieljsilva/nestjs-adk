@@ -31,7 +31,9 @@ A row marked `target` describes a decision the code has not reached yet. It is s
 | `pattern` | [[agent-transfer]] | How a session changes hands, how an edge is declared and when it is resolved, and what a handover deliberately does not change |
 | `convention` | [[agent-suites]] | Where the real-provider tests live, why they run through the example application, and what a Gemini model can actually finish |
 | `pattern` | [[agent-delegation]] | How one agent has another answer a single task, why neither reads the other's conversation, and where the runtime's only dependency cycle lives |
+| `pattern` | [[structured-output]] | Why an agent declares the shape of its answer instead of a call asking for one, and what a run does with the value |
 | `pattern` | [[multimodal-input]] | How an image reaches a model, why the journal never holds one, and what a tool result cannot carry |
+| `pattern` | [[tool-access]] | How an actor reaches a tool, where the one access rule is asked, and why an MCP server walks the agent's own gate |
 | `pattern` | [[tool-declaration]] | What a shared tool extends, how one schema types both forms of a tool, and why the method form has its own descriptor type |
 | `pitfall` | [[nest-composition-timing]] | Why the runtime is composed in a lifecycle hook and never in a provider, and why the module's options may come from the container |
 | `pattern` | [[test-bed]] | How a test replaces the model of one agent, what a run is asserted on, and why the bed refuses to boot |
@@ -41,4 +43,5 @@ A row marked `target` describes a decision the code has not reached yet. It is s
 | `pattern` | [[agent-prompting]] | Where an agent's prompt is built, why once per agent per run, and what a variable in it costs |
 | `pitfall` | [[money-precision]] | Why an amount is an integer count of pico dollars in a bigint, and where the single lossy step is allowed to be |
 | `pattern` | [[run-pricing]] | Where a call is collected, when it is priced, and why nothing about a bill can fail a run |
+| `pattern` | [[mcp-authorization]] | Where the OAuth flow is split, why a failed renewal is classified rather than reported, and what decides whether cleartext is allowed |
 | `pattern` | [[storage-adapters]] | What a session storage written outside this package is given, why it is codecs and not parts, and how a fabricated event fails in silence |

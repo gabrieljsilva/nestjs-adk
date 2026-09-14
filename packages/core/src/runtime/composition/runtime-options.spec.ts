@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { RunLimits } from "../../domain/session/run-limits";
+import { OpenAccessPolicy } from "../../domain/tool/open-access-policy";
 import { ShutdownOptions } from "../lifecycle/shutdown-options";
 import { RuntimeOptions } from "./runtime-options";
 
@@ -56,5 +57,16 @@ describe("RuntimeOptions", () => {
 
 		expect(patched).not.toBe(declared);
 		expect(declared.limits.hasIterationLimit).toBe(false);
+	});
+
+	it("lets everyone call everything until the application declares an access policy", () => {
+		expect(new RuntimeOptions().access).toBeInstanceOf(OpenAccessPolicy);
+	});
+
+	it("carries the access policy the application declared", () => {
+		const access = new OpenAccessPolicy();
+
+		expect(RuntimeOptions.from({ access }).access).toBe(access);
+		expect(new RuntimeOptions().with({ access }).access).toBe(access);
 	});
 });

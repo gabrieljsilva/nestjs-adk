@@ -6,7 +6,10 @@
 		"node": ">=20"
 	},
 	"packageManager": "npm@11.9.0",
-	"workspaces": ["packages/*", "apps/*"],
+	"workspaces": [
+		"packages/*",
+		"apps/*"
+	],
 	"license": "MIT",
 	"overrides": {
 		"brace-expansion": "^5.0.8",
@@ -42,6 +45,7 @@
 		"@changesets/cli": "^2.29.5",
 		"@nestjs/common": "^11.1.28",
 		"@nestjs/core": "^11.1.28",
+		"@nestjs/platform-express": "^11.1.28",
 		"@nestjs/testing": "^11.1.28",
 		"@rollup/plugin-commonjs": "^28.0.1",
 		"@rollup/plugin-json": "^6.1.0",

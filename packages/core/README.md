@@ -163,6 +163,49 @@ export class SupportAgent extends AdkAgent {
 
 The name defaults to the method name. Everything else works the same.
 
+An agent lists a shared tool by its class, or by the name the tool declared:
+
+```ts
+@Agent({ name: "support", description: "Customer support.", tools: ["get_weather"] })
+```
+
+Both resolve to the same definition, and a name nobody declared fails the boot the way an unregistered class does. The name is for the module that cannot import the class: a tool that lives in the module that also imports the agent's module would close a cycle the decorator evaluates on load, and a string closes nothing.
+
+## Who is calling
+
+A tool that reads a person's data has to know which person. The run does not know either, so the caller says:
+
+```ts
+await this.assistant.ask(message, { sessionId, actor: Actor.of(user.id, { workspaceId, role: user.role }) });
+```
+
+`Actor` is an id and a bag of claims the runtime never reads. It reaches every tool of the run as `context.actor`, handovers and delegations included, and it is what an access policy judges:
+
+```ts
+export class MembersOnly extends AdkAccessPolicy {
+	public decide(tool: ToolDefinition, invocation: ToolInvocation, actor: Actor | undefined): ToolAccess {
+		if (actor?.claims.member === true) return ToolAccess.granted();
+		return ToolAccess.denied(`${tool.name} is for members`);
+	}
+}
+
+AdkModule.forRoot(AdkModuleOptions.from({ defaultModel, runtime: RuntimeOptions.from({ access: new MembersOnly() }) }));
+```
+
+The policy is asked before every invocation, after the arguments were parsed and before any approval is requested: nobody is asked to approve a call the actor could not make. A refusal reaches the model as the tool's answer, with the policy's reason, and the conversation goes on. Without a policy everything is granted, which is what an application that wrote none meant.
+
+The same gate serves an MCP server exposing the same tools, which is the point of putting the rule in one object: `@McpController` declares what is published, exactly as `@Agent` declares what a model is offered, and a client calling a tool goes through the same parse and the same policy as the agent loop. See `@nestjs-adk/mcp` for the server.
+
+```ts
+@McpController({ tools: [ListMeetingsTool] })
+export class MeetingsMcpController {
+	@Tool({ name: "count_meetings", description: "Only clients count.", schema: z.object({}), effect: "read" })
+	public count(_input: Record<string, never>, context: ToolContext): unknown { ... }
+}
+```
+
+A class listed by an agent and by a controller is one tool published twice. A method on the controller is a client-only tool, and a method on the agent never reaches a client. A name two controllers publish fails the boot naming both.
+
 ## Results the model has to look at
 
 Some tools answer with something to be seen rather than read: an image, a PDF, a scanned invoice. Returning it as a normal result does not work, because a tool result is JSON and base64 inside it arrives as characters the model counts but cannot see.
@@ -332,7 +375,7 @@ export class SupportAgent extends AdkAgent {
 }
 ```
 
-The method receives a `PromptContext`: the session id, the run id, the agent about to answer, the session's `owner` and the signal that stops the run. The owner is the key you look your own data up by, and you set it when the conversation starts:
+The method receives a `PromptContext`: the session id, the run id, the agent about to answer, the session's `owner`, the `actor` the question was asked with and the signal that stops the run. The owner is the key you look your own data up by, and you set it when the conversation starts:
 
 ```ts
 await support.ask("where is my order?", { owner: user.email });
@@ -729,7 +772,7 @@ What pauses is policy, declared once for the runtime:
 runtime: RuntimeOptions.from({ approvals: EffectApprovalPolicy.from(ToolEffect.DESTRUCTIVE) });
 ```
 
-It reads as "from this level up, pause". `EffectApprovalPolicy.never()` is the default and pauses nothing. Implement `AdkApprovalPolicy` when the decision needs more than the effect.
+It reads as "from this level up, pause". `EffectApprovalPolicy.never()` is the default and pauses nothing. Implement `AdkApprovalPolicy` when the decision needs more than the effect: `requires(tool, invocation, actor)` also receives who is asking, when the run was given an `actor`, which is how one person's reads run on their own while another's wait for a click.
 
 When the model calls a tool at or above that level, the tool does not run. The run suspends and comes back with the call waiting:
 
@@ -767,6 +810,36 @@ const result = (await run.next()).value; // the AgentResult, same as ask would a
 A `for await` alone discards the return value, which is the one trap here. `ModelChunk` also carries tool calls, usage and the finish reason, so a UI can show a tool running rather than a pause.
 
 Token counts and cost are unaffected by streaming: usage is reported once per turn either way.
+
+## Watching the tool calls of a run
+
+A chunk says the model asked for a tool. It does not say which tool that is, whether the run is about to stop for a decision, or what the tool answered. `toolCalls` is told all three, from inside the run, by the run:
+
+```ts
+class ToolCards extends ToolCallObserver {
+	public constructor(private readonly cards: CardRepository) {
+		super();
+	}
+
+	public async requested(call: ToolCallNotice): Promise<void> {
+		if (call.isInternal) return;
+		await this.cards.draw(call.callId.value, call.toolName, call.effect?.name, call.isHeld);
+	}
+
+	public async settled(result: ToolResultNotice): Promise<void> {
+		if (result.isInternal) return;
+		await this.cards.finish(result.callId.value, result.output, result.isRefused ? result.reason : undefined);
+	}
+}
+
+const run = support.stream("refund order 42", { sessionId, actor, toolCalls: new ToolCards(cards) });
+```
+
+`requested` arrives once the approval gate has screened the turn and before anything of it runs. `call.tool` is the `ToolDefinition` the model named (absent for a tool nobody declared), and `call.isHeld` is the gate's own verdict, so an interface knows on the spot whether to draw a button on the card without asking the policy a second time. `settled` follows each result as it is produced; `failed` and `isRefused` tell an error from a refusal, and `reason` carries the text the model was told.
+
+A held call is requested in the run that suspended and settles in the run that released it, so `approve` and `reject` take `toolCalls` too. Nothing is stored between the two: a decision made later, on any instance, brings its own observer, and the turn it releases was in the journal all along.
+
+`requested` is awaited before the turn runs, which is what lets an observer write a row for the call and find it there when the result comes. An observer that throws ends the run, since it is your code inside your run. A delegated child tells the parent's observer nothing, the way its chunks reach nobody: the parent asked a question and is owed an answer, not the working out.
 
 ## Stopping a run
 
@@ -1009,7 +1082,7 @@ Everything the package exports, and nothing else: a name that is not here is not
 
 | Symbol | What it is for |
 | --- | --- |
-| `PromptContext` | What `prompt()` receives: session, run, agent, owner, signal |
+| `PromptContext` | What `prompt()` receives: session, run, agent, owner, actor, signal |
 | `AgentPrompting` | `render`, `renderFromFile`, `renderFromFileOrFail`, reached as `this.prompting` |
 | `PromptSource` | Implement it to serve prompts from anywhere |
 | `FileSystemPromptSource` | The default: `.md` files from a directory |
@@ -1052,7 +1125,12 @@ Everything the package exports, and nothing else: a name that is not here is not
 
 | Symbol | What it is for |
 | --- | --- |
-| `ToolContext` | What a tool is told about the run calling it |
+| `ToolContext` | What a tool is told about the run calling it, and who it runs on behalf of |
+| `Actor` | Who is calling: an id and claims the runtime never reads |
+| `AdkAccessPolicy`, `OpenAccessPolicy`, `ToolAccess` | Who may call which tool, asked on every path |
+| `ToolGate`, `ToolAdmission` | The door every call goes through: parse, then policy |
+| `McpController`, `McpControllerOptions` | What is published to MCP clients, in the shape `@Agent` uses |
+| `DuplicateExposedToolError` | A name two controllers publish |
 | `ToolOutput` | An answer that carries media alongside the data |
 | `ToolEffect` | `read`, `write`, `destructive` |
 | `AdkApprovalPolicy`, `EffectApprovalPolicy` | What pauses in front of a human |
@@ -1073,6 +1151,8 @@ Everything the package exports, and nothing else: a name that is not here is not
 | `SessionEventConsumer`, `PublishedEvent` | Being told what happened, after it was committed |
 | `ConsumerNoticeSink` | Where a consumer's own failure is reported |
 | `ChunkSink` | Watching the pieces of a turn as they arrive |
+| `ToolCallObserver`, `ToolCallNotice`, `ToolResultNotice` | Being told, from inside one run, which tool was asked for, whether it is held, and what it answered |
+| `ToolOutcome` | What one tool call produced, as a result notice carries it |
 | `Clock`, `SystemClock`, `Instant`, `IdGenerator`, `RandomIdGenerator` | The two things a runtime cannot invent for itself |
 | `Secret` | A value that must not print itself in a log |
 
@@ -1108,7 +1188,7 @@ Writing a `SessionStorage` needs more than the names in its signatures, and the 
 | `ContextNoticeSink` via `RuntimeOptions.contextNotices` | Where an unmeasurable window is reported |
 | `ContextSnapshot`, `ContextSegment` | What `explain` answers, and its parts |
 | `PrefixComparator` | Compares two snapshots, which is how prefix stability is measured |
-| `RunObservers` | Plugging a chunk sink and a context capture into one run |
+| `RunObservers` | Plugging a chunk sink, a context capture and a tool call observer into one run |
 
 ### Cost
 

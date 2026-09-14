@@ -21,8 +21,10 @@ import { ResolvedAttachments } from "../artifact/resolved-attachments";
  * Only conversational facts reach the model: a run that started, an agent that was
  * transferred to or an approval that was granted are history, not something the model
  * has to re read. A result closes the block its call opened, in the position the call
- * held, so the order the model sees is the order the journal recorded. A result whose
- * call is missing stops the projection instead of becoming an answer to nothing.
+ * held, so the order the model sees is the order the journal recorded. Calls requested
+ * back to back with nothing between them were one breath of the model, and they share one
+ * block, results after all of them. A result whose call is missing stops the projection
+ * instead of becoming an answer to nothing.
  *
  * A delegated run is invisible from outside itself: the parent reads the answer as the
  * result of the call it made, and never the conversation the child had to get there.
@@ -44,11 +46,13 @@ export class ContextProjector {
 		const pending = new Map<string, number>();
 		const positions = new Map<string, number>();
 		const delegated = new Set<string>();
+		let breath: number | undefined;
 
 		for await (const stored of events) {
 			const event = stored.event;
 			if (event instanceof DelegationStarted) {
 				delegated.add(event.childRunId.value);
+				breath = undefined;
 				// A delegated run's context begins where its delegation did, not where the session did.
 				if (currentRun?.value === event.childRunId.value) {
 					blocks.length = 0;
@@ -58,6 +62,8 @@ export class ContextProjector {
 				continue;
 			}
 			if (this.belongsToAnother(delegated, stored, currentRun)) continue;
+			// Anything conversational between two calls ends the breath; history does not.
+			if (!(event instanceof ToolCallRequested) && this.isConversational(event)) breath = undefined;
 			if (event instanceof UserMessageReceived) {
 				blocks.push(
 					ContextBlock.conversation(await this.said(stored, event, currentRun, acceptsRemoteUrl), stored.revision),
@@ -78,9 +84,13 @@ export class ContextProjector {
 			}
 			if (event instanceof ToolCallRequested) {
 				const call = new ToolCallMessage(event.callId, event.toolName, event.args, event.signature);
-				pending.set(event.callId.value, blocks.length);
-				positions.set(event.callId.value, blocks.length);
-				blocks.push(ContextBlock.pendingCall(call, stored.revision));
+				const open = breath === undefined ? undefined : blocks[breath];
+				const at = breath !== undefined && open !== undefined ? breath : blocks.length;
+				if (open === undefined) blocks.push(ContextBlock.pendingCall(call, stored.revision));
+				else blocks[at] = open.alsoCalling(call, stored.revision);
+				breath = at;
+				pending.set(event.callId.value, at);
+				positions.set(event.callId.value, at);
 				continue;
 			}
 			if (event instanceof ToolResultProduced) {
@@ -113,6 +123,16 @@ export class ContextProjector {
 			acceptsRemoteUrl,
 		);
 		return new UserMessage(resolved.appendTo(event.text), resolved.media);
+	}
+
+	private isConversational(event: StoredSessionEvent["event"]): boolean {
+		return (
+			event instanceof UserMessageReceived ||
+			event instanceof AssistantMessageProduced ||
+			event instanceof ToolResultProduced ||
+			event instanceof SkillActivated ||
+			event instanceof DelegationStarted
+		);
 	}
 
 	/** True when the event belongs to the run being served, which is what a resolver may key on. */

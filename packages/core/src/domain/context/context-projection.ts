@@ -20,6 +20,8 @@ export class ContextProjection {
 		public readonly tools: readonly ToolDeclaration[],
 		public readonly runtimeInstructions?: PromptInstructions,
 		public readonly agentPrompt?: PromptInstructions,
+		/** The shape the answer must take, when the agent asks for data instead of prose. */
+		public readonly outputSchema?: object,
 	) {}
 
 	public static of(
@@ -27,12 +29,13 @@ export class ContextProjection {
 		tools: readonly ToolDeclaration[] = [],
 		runtimeInstructions?: PromptInstructions,
 		agentPrompt?: PromptInstructions,
+		outputSchema?: object,
 	): ContextProjection {
-		return new ContextProjection([...blocks], [...tools], runtimeInstructions, agentPrompt);
+		return new ContextProjection([...blocks], [...tools], runtimeInstructions, agentPrompt, outputSchema);
 	}
 
 	public withBlocks(blocks: readonly ContextBlock[]): ContextProjection {
-		return new ContextProjection([...blocks], this.tools, this.runtimeInstructions, this.agentPrompt);
+		return new ContextProjection([...blocks], this.tools, this.runtimeInstructions, this.agentPrompt, this.outputSchema);
 	}
 
 	public get messages(): readonly ModelMessage[] {
@@ -58,7 +61,7 @@ export class ContextProjection {
 	 * what a request holds is a fact about one provider's wire format.
 	 */
 	public toRequest(): ModelRequest {
-		return new ModelRequest(new MediaSplitter().split(this.messages), this.tools, this.instructions());
+		return new ModelRequest(new MediaSplitter().split(this.messages), this.tools, this.instructions(), this.outputSchema);
 	}
 
 	/** Runtime instructions come before the agent prompt, and absence stays absence. */

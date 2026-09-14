@@ -37,6 +37,8 @@ export interface DiscoveredProvider {
 	/** Already built: turning a decorated class into a tool belongs to whoever holds the container. */
 	readonly tools?: readonly ToolDefinition[];
 	readonly skills?: readonly SkillDefinition[];
+	/** The JSON schema this agent answers in, when it answers data instead of prose. */
+	readonly outputSchema?: object;
 }
 
 /**
@@ -69,6 +71,7 @@ export class NestComponentDiscovery {
 			provider.tools ?? [],
 			provider.skills ?? [],
 			provider.promptBuilder,
+			provider.outputSchema,
 		);
 		return new DeclaredAgent(definition, provider.providerName);
 	}

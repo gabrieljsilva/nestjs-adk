@@ -14,6 +14,7 @@ import type { SessionState } from "../../domain/session/session-state";
  */
 export class RunProgress {
 	private text = "";
+	private structured?: unknown;
 	private waiting = false;
 	private readonly calls: BilledCall[] = [];
 
@@ -34,6 +35,22 @@ export class RunProgress {
 
 	public said(text: string): void {
 		this.text = text;
+	}
+
+	/**
+	 * What the answer parsed to, for a run that asked for data.
+	 *
+	 * It is kept beside the text rather than instead of it: the text is what the journal records
+	 * and what the model reads back, and re-parsing it at the surface would repeat work the
+	 * validator already did and could disagree with it.
+	 */
+	public answered(output: unknown): void {
+		this.structured = output;
+	}
+
+	/** The parsed answer, or nothing for a run that answered prose. */
+	public get output(): unknown {
+		return this.structured;
 	}
 
 	/**

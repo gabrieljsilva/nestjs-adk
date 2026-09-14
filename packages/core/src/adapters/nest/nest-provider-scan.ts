@@ -1,5 +1,5 @@
 import { UnusableComponentError } from "./errors/unusable-component.error";
-import { AGENT_METADATA, TOOL_METADATA } from "./metadata-keys";
+import { AGENT_METADATA, MCP_CONTROLLER_METADATA, TOOL_METADATA } from "./metadata-keys";
 import { ScannedProvider } from "./scanned-provider";
 
 /**
@@ -76,7 +76,9 @@ export class NestProviderScan {
 
 	private static declaresComponent(type: object): boolean {
 		return (
-			Reflect.getMetadata(AGENT_METADATA, type) !== undefined || Reflect.getMetadata(TOOL_METADATA, type) !== undefined
+			Reflect.getMetadata(AGENT_METADATA, type) !== undefined ||
+			Reflect.getMetadata(TOOL_METADATA, type) !== undefined ||
+			Reflect.getMetadata(MCP_CONTROLLER_METADATA, type) !== undefined
 		);
 	}
 }

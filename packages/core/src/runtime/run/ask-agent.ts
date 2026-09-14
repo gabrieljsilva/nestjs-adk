@@ -89,7 +89,16 @@ export class AskAgent {
 					opened.state,
 				),
 			);
-			return await this.execute(definition, model, started, command, opened, progress, sources, observers);
+			return await this.execute(
+				definition,
+				model,
+				started,
+				command,
+				opened,
+				progress,
+				sources,
+				observers.watchingTools(command.toolCalls),
+			);
 		} finally {
 			await sources.close(started.run.id);
 			this.runs.finish(started.run);
@@ -141,7 +150,15 @@ export class AskAgent {
 	): Promise<AgentResult> {
 		try {
 			const remote = await sources.open(opened.session.id, started.run.id, started.cancellation.signal);
-			const scope = await this.scopes.create(definition, model, started, remote, command.limits, opened.session.owner);
+			const scope = await this.scopes.create(
+				definition,
+				model,
+				started,
+				remote,
+				command.limits,
+				opened.session.owner,
+				command.actor,
+			);
 			await this.reportUnauthorized(scope, progress, sources);
 			await this.loop.run(scope, opened, progress, observers);
 			return await this.results.after(started, progress);

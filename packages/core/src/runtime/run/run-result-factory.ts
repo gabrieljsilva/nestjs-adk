@@ -24,6 +24,7 @@ export class RunResultFactory {
 			progress.answer,
 			progress.state.pendingTurn?.awaiting ?? [],
 			await this.costs.report(progress.billed),
+			progress.output,
 		);
 	}
 
@@ -42,6 +43,7 @@ export class RunResultFactory {
 			text,
 			[],
 			await this.costs.report(progress.billed),
+			progress.output,
 		);
 	}
 }

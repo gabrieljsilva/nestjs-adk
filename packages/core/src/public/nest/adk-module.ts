@@ -252,7 +252,7 @@ export class AdkModule implements OnModuleInit, OnApplicationShutdown {
 					ids: IdGenerator,
 					models: ModelResolver,
 					consumers: readonly SessionEventConsumer[],
-					defaultModel: LlmModel,
+					defaultModel: LlmModel | undefined,
 					patch: RuntimeOptionsPatch,
 				) =>
 					new AdkComposer(host, registry, declared, storage, artifacts, clock, ids, models, consumers, defaultModel, patch),

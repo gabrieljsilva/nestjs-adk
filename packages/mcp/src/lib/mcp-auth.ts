@@ -1,5 +1,9 @@
 import { createHash } from "node:crypto";
 import { Logger } from "@nestjs/common";
+import { McpReauthRequiredError } from "./errors/mcp-reauth-required.error";
+import { McpTokenGrantError } from "./errors/mcp-token-grant.error";
+import type { TargetTrust } from "./mcp-target-guard";
+import { McpTokenEndpoint } from "./oauth/mcp-token-endpoint";
 
 /**
  * Separator between the parts of a digest, written as an escape rather than as a literal byte.
@@ -26,7 +30,15 @@ export interface McpTokens {
 	refreshToken?: string;
 	/** Absent means "no expiry known"; the token is used until the server rejects it. */
 	expiresAt?: Date;
+	/**
+	 * What the provider actually granted, which is not always what was asked for: it may narrow the
+	 * request, and the difference is what an application shows next to the integration.
+	 */
+	scope?: string;
 }
+
+/** How the client authenticates at the token endpoint, as settled during registration. */
+export type McpClientAuthMethod = "client_secret_post" | "client_secret_basic" | "none";
 
 /** The client half of an OAuth registration, kept so a refresh needs no rediscovery. */
 export interface McpClientInfo {
@@ -34,14 +46,17 @@ export interface McpClientInfo {
 	clientSecret?: string;
 	/** Where to exchange and refresh, kept with the client so a refresh needs no rediscovery. */
 	tokenEndpoint: string;
-}
-
-/** Raised when the user has to authorize again. Becomes `ToolSourceAuthError` at the source boundary. */
-export class McpReauthRequiredError extends Error {
-	public constructor(public readonly reason: string) {
-		super(reason);
-		this.name = "McpReauthRequiredError";
-	}
+	/** Defaults to `client_secret_post` when the registration settled on nothing. */
+	authMethod?: McpClientAuthMethod;
+	/**
+	 * When the client secret stops being accepted. Absent means never, which is what a provider says
+	 * by answering zero. Storing it is what turns a lapsed registration into something an operator
+	 * can see coming, instead of every renewal failing at once months later.
+	 */
+	secretExpiresAt?: Date;
+	/** RFC 7592 credentials, kept to be able to delete this registration later. */
+	registrationAccessToken?: string;
+	registrationClientUri?: string;
 }
 
 /**
@@ -135,6 +150,17 @@ export interface OAuthAuthOptions {
 	onRefresh?: (tokens: McpTokens) => void | Promise<void>;
 	/** Renew this many milliseconds before expiry, so a long run does not expire mid-conversation. */
 	skewMs?: number;
+	/** RFC 8707 audience to renew for, when the provider scopes tokens to one resource. */
+	resource?: string;
+	/**
+	 * Allows renewing against a private, loopback or link-local address. Default `false`, matching
+	 * the source's own guard: a token endpoint is reached over the network like any other target.
+	 */
+	allowPrivateNetwork?: boolean;
+	/**
+	 * Replaces the guarded fetch used to renew. A substitute owns the SSRF guard the default applies.
+	 */
+	fetch?: typeof fetch;
 }
 
 /** Renewal is attempted this early, so a token does not expire between resolving and calling. */
@@ -191,34 +217,19 @@ export class OAuthAuth extends AdkMcpAuth {
 		const client = this.options.client;
 		if (!refreshToken || !client) throw new McpReauthRequiredError("access token expired and cannot be renewed");
 
-		const body = new URLSearchParams({
-			grant_type: "refresh_token",
-			refresh_token: refreshToken,
-			client_id: client.clientId,
-			...(client.clientSecret ? { client_secret: client.clientSecret } : {}),
-		});
+		const trust: TargetTrust = this.options.allowPrivateNetwork ? "private-ok" : "user";
+		const endpoint = new McpTokenEndpoint(client, { trust, fetch: this.options.fetch });
 
-		const response = await fetch(client.tokenEndpoint, {
-			method: "POST",
-			headers: { "content-type": "application/x-www-form-urlencoded" },
-			body,
-		});
-
-		if (!response.ok) throw new McpReauthRequiredError(`refresh failed with ${response.status}`);
-
-		const payload = (await response.json()) as {
-			access_token?: string;
-			refresh_token?: string;
-			expires_in?: number;
-		};
-		if (!payload.access_token) throw new McpReauthRequiredError("refresh response carried no access token");
-
-		this.tokens = {
-			accessToken: payload.access_token,
-			// A provider that rotates keeps the old one alive only until now; losing it locks the user out.
-			refreshToken: payload.refresh_token ?? refreshToken,
-			...(payload.expires_in ? { expiresAt: new Date(Date.now() + payload.expires_in * 1000) } : {}),
-		};
+		try {
+			this.tokens = await endpoint.renew(refreshToken, { resource: this.options.resource });
+		} catch (error) {
+			// A rate limited or briefly broken provider revoked nothing. Letting that surface as
+			// "authorize again" would send the user through consent because the provider had a bad
+			// minute, and would have the application discard a credential that still works.
+			if (error instanceof McpTokenGrantError && error.rejection !== "reauth-required") throw error;
+			if (error instanceof McpTokenGrantError) throw new McpReauthRequiredError(error.reason);
+			throw error;
+		}
 
 		await this.options.onRefresh?.(this.tokens);
 	}

@@ -66,8 +66,10 @@ export class AgentRunner {
 	public async approve(input: ApproveInput): Promise<AgentResult> {
 		return this.deciding.handle(input.sessionId, input.callId, "granted", {
 			by: input.approvedBy,
+			actor: input.actor,
 			sources: input.sources,
 			signal: input.signal,
+			toolCalls: input.toolCalls,
 		});
 	}
 
@@ -75,9 +77,11 @@ export class AgentRunner {
 	public async reject(input: RejectInput): Promise<AgentResult> {
 		return this.deciding.handle(input.sessionId, input.callId, "denied", {
 			by: input.deniedBy,
+			actor: input.actor,
 			reason: input.reason,
 			sources: input.sources,
 			signal: input.signal,
+			toolCalls: input.toolCalls,
 		});
 	}
 }

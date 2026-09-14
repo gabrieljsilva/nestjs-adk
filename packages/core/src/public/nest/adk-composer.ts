@@ -1,5 +1,6 @@
 import { NestAgentScanner } from "../../adapters/nest/nest-agent-scanner";
 import { NestComponentDiscovery } from "../../adapters/nest/nest-component-discovery";
+import { NestControllerScanner } from "../../adapters/nest/nest-controller-scanner";
 import type { ContainerProvider } from "../../adapters/nest/nest-provider-scan";
 import { NestProviderScan } from "../../adapters/nest/nest-provider-scan";
 import { FileSystemPromptSource } from "../../adapters/prompt/file-system-prompt-source";
@@ -53,15 +54,19 @@ export class AdkComposer {
 		private readonly scanner: NestAgentScanner = new NestAgentScanner(),
 		private readonly discovery: NestComponentDiscovery = new NestComponentDiscovery(),
 		private readonly prompts: AgentPromptScan = new AgentPromptScan(),
+		private readonly controllers: NestControllerScanner = new NestControllerScanner(),
 	) {}
 
 	/** Answers how many agent classes were bound, which is what a caller can assert on. */
 	public async compose(providers: readonly ContainerProvider[]): Promise<number> {
 		const scanned = this.scan.read(providers);
-		const discovered = this.scanner.scan(scanned, this.defaultModel ?? this.options.defaultModel);
+		const shared = this.scanner.sharedTools(scanned);
+		const discovered = this.scanner.scan(scanned, this.defaultModel ?? this.options.defaultModel, shared);
 		const declared = this.discovery.discover(this.prompts.attach(discovered, scanned));
 
-		await this.host.start(declared, this.storage, this.artifacts, this.clock, this.ids, this.declaredRuntime());
+		const exposed = this.controllers.scan(scanned, shared);
+
+		await this.host.start(declared, this.storage, this.artifacts, this.clock, this.ids, this.declaredRuntime(), exposed);
 		return new AgentBinder(this.registry, new AgentPrompting(this.promptSource())).bind(scanned);
 	}
 

@@ -1,5 +1,6 @@
 import { SessionId } from "../../common/identity/session-id";
 import type { ToolCallId } from "../../common/identity/tool-call-id";
+import type { ToolCallObserver } from "../../contracts/tool-call-observer";
 import type { ToolSource } from "../../contracts/tool-source";
 import type { AgentName } from "../../domain/agent/agent-name";
 import type { ContextBudget } from "../../domain/context/context-budget";
@@ -15,6 +16,7 @@ import { RejectInput } from "../../domain/session/reject-input";
 import type { Session } from "../../domain/session/session";
 import type { SessionInspection } from "../../domain/session/session-inspection";
 import { SessionOwner } from "../../domain/session/session-owner";
+import type { Actor } from "../../domain/tool/actor";
 import type { RuntimeServices } from "../../runtime/composition/runtime-services";
 import { AgentRunCommand } from "../../runtime/run/agent-run-command";
 
@@ -65,6 +67,18 @@ export interface AskOptions {
 	 * it calls anything, which is what makes the button work before the first chunk.
 	 */
 	signal?: AbortSignal;
+	/** Who is asking or deciding. Reaches every tool of the run as `context.actor`, and is what an access policy judges. */
+	actor?: Actor;
+	/**
+	 * Who is told about the tool calls of this run, as they happen.
+	 *
+	 * `requested` arrives once the gate has screened the turn and before anything runs, with
+	 * the tool's definition and whether the call is held for a decision; `settled` follows
+	 * each result. It is how an interface draws a card per call without reading the journal
+	 * back or re-asking the approval policy. It lives as long as this call does and nothing
+	 * about it is stored, so a decision made later, on any instance, brings its own.
+	 */
+	toolCalls?: ToolCallObserver;
 }
 
 /** Everything opening a conversation can be told before anything is asked in it. */
@@ -94,6 +108,10 @@ export interface DecisionOptions {
 	sources?: readonly ToolSource[];
 	/** The stop button of the turn this decision releases, which is a run of its own. */
 	signal?: AbortSignal;
+	/** Who is asking or deciding. Reaches every tool of the run as `context.actor`, and is what an access policy judges. */
+	actor?: Actor;
+	/** Told about the released turn as it settles, and about every turn that follows it. */
+	toolCalls?: ToolCallObserver;
 }
 
 /**
@@ -191,7 +209,15 @@ export class AgentHandle {
 	): Promise<AgentResult> {
 		const decided = AgentHandle.decisionOf(options);
 		return this.runtime.runner.approve(
-			ApproveInput.of(AgentHandle.sessionOf(sessionId), callId, decided.by, decided.sources, decided.signal),
+			ApproveInput.of(
+				AgentHandle.sessionOf(sessionId),
+				callId,
+				decided.by,
+				decided.sources,
+				decided.signal,
+				decided.actor,
+				decided.toolCalls,
+			),
 		);
 	}
 
@@ -203,7 +229,16 @@ export class AgentHandle {
 	): Promise<AgentResult> {
 		const decided = AgentHandle.decisionOf(options);
 		return this.runtime.runner.reject(
-			RejectInput.of(AgentHandle.sessionOf(sessionId), callId, reason, decided.by, decided.sources, decided.signal),
+			RejectInput.of(
+				AgentHandle.sessionOf(sessionId),
+				callId,
+				reason,
+				decided.by,
+				decided.sources,
+				decided.signal,
+				decided.actor,
+				decided.toolCalls,
+			),
 		);
 	}
 
@@ -229,6 +264,8 @@ export class AgentHandle {
 			undefined,
 			asked.sources ?? [],
 			asked.signal,
+			asked.actor,
+			asked.toolCalls,
 		);
 	}
 

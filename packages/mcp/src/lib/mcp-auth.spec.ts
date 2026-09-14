@@ -1,10 +1,26 @@
 import { Logger } from "@nestjs/common";
-import { BearerAuth, EnvAuth, HeaderAuth, McpReauthRequiredError, OAuthAuth } from "./mcp-auth";
+import { McpBlockedTargetError } from "./errors/mcp-blocked-target.error";
+import { McpReauthRequiredError } from "./errors/mcp-reauth-required.error";
+import { McpTokenGrantError } from "./errors/mcp-token-grant.error";
+import { BearerAuth, EnvAuth, HeaderAuth, OAuthAuth } from "./mcp-auth";
 
 const CLIENT = { clientId: "client-1", clientSecret: "secret-1", tokenEndpoint: "https://auth.example.com/token" };
 
 function inMinutes(minutes: number): Date {
 	return new Date(Date.now() + minutes * 60_000);
+}
+
+/**
+ * A real `Response` per call, never a literal: renewal goes through the target guard, which reads
+ * the headers of what came back to decide whether it is a redirect. A hand-made object passes the
+ * assertion and proves nothing about the path the credential actually takes.
+ */
+function answers(payload: Record<string, unknown>, status = 200) {
+	const fetchSpy = vi.fn(
+		async () => new Response(JSON.stringify(payload), { status, headers: { "content-type": "application/json" } }),
+	);
+	vi.stubGlobal("fetch", fetchSpy);
+	return fetchSpy;
 }
 
 describe("static credentials", () => {
@@ -46,13 +62,7 @@ describe("OAuthAuth", () => {
 	});
 
 	it("renews an expired token and reports the new one back", async () => {
-		vi.stubGlobal(
-			"fetch",
-			vi.fn().mockResolvedValue({
-				ok: true,
-				json: async () => ({ access_token: "fresh", refresh_token: "rotated", expires_in: 3600 }),
-			}),
-		);
+		answers({ access_token: "fresh", refresh_token: "rotated", expires_in: 3600 });
 		const saved: unknown[] = [];
 		const auth = new OAuthAuth({
 			tokens: { accessToken: "stale", refreshToken: "old", expiresAt: inMinutes(-5) },
@@ -67,8 +77,7 @@ describe("OAuthAuth", () => {
 	});
 
 	it("renews shortly before expiry, so a long turn does not expire mid-call", async () => {
-		const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ access_token: "fresh" }) });
-		vi.stubGlobal("fetch", fetchSpy);
+		const fetchSpy = answers({ access_token: "fresh" });
 		const auth = new OAuthAuth({
 			tokens: { accessToken: "stale", refreshToken: "old", expiresAt: new Date(Date.now() + 10_000) },
 			client: CLIENT,
@@ -80,7 +89,7 @@ describe("OAuthAuth", () => {
 	});
 
 	it("keeps the previous refresh token when the provider does not rotate it", async () => {
-		vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ access_token: "fresh" }) }));
+		answers({ access_token: "fresh" });
 		const saved: Array<{ refreshToken?: string }> = [];
 		const auth = new OAuthAuth({
 			tokens: { accessToken: "stale", refreshToken: "keep-me", expiresAt: inMinutes(-1) },
@@ -95,11 +104,7 @@ describe("OAuthAuth", () => {
 	});
 
 	it("renews only once, then reuses the token it obtained", async () => {
-		const fetchSpy = vi.fn().mockResolvedValue({
-			ok: true,
-			json: async () => ({ access_token: "fresh", expires_in: 3600 }),
-		});
-		vi.stubGlobal("fetch", fetchSpy);
+		const fetchSpy = answers({ access_token: "fresh", expires_in: 3600 });
 		const auth = new OAuthAuth({
 			tokens: { accessToken: "stale", refreshToken: "old", expiresAt: inMinutes(-1) },
 			client: CLIENT,
@@ -112,11 +117,7 @@ describe("OAuthAuth", () => {
 	});
 
 	it("shares one renewal between concurrent callers", async () => {
-		const fetchSpy = vi.fn().mockResolvedValue({
-			ok: true,
-			json: async () => ({ access_token: "fresh", refresh_token: "rotated", expires_in: 3600 }),
-		});
-		vi.stubGlobal("fetch", fetchSpy);
+		const fetchSpy = answers({ access_token: "fresh", refresh_token: "rotated", expires_in: 3600 });
 		const auth = new OAuthAuth({
 			tokens: { accessToken: "stale", refreshToken: "old", expiresAt: inMinutes(-1) },
 			client: CLIENT,
@@ -141,13 +142,59 @@ describe("OAuthAuth", () => {
 	});
 
 	it("asks for re-authorization when the provider rejects the refresh", async () => {
-		vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+		answers({ error: "invalid_grant", error_description: "refresh token is invalid" }, 400);
 		const auth = new OAuthAuth({
 			tokens: { accessToken: "stale", refreshToken: "revoked", expiresAt: inMinutes(-1) },
 			client: CLIENT,
 		});
 
 		await expect(auth.resolve()).rejects.toBeInstanceOf(McpReauthRequiredError);
+	});
+
+	it("does not ask for re-authorization when the provider was merely rate limited", async () => {
+		// The credential is intact and the next run will very likely open. Reporting this as "sign in
+		// again" both sends the user through consent for nothing and has the application discard a
+		// refresh token that still works.
+		answers({ error: "slow_down" }, 429);
+		const auth = new OAuthAuth({
+			tokens: { accessToken: "stale", refreshToken: "good", expiresAt: inMinutes(-1) },
+			client: CLIENT,
+		});
+
+		await expect(auth.resolve()).rejects.toBeInstanceOf(McpTokenGrantError);
+	});
+
+	it("does not ask for re-authorization when the provider is broken", async () => {
+		answers({}, 502);
+		const auth = new OAuthAuth({
+			tokens: { accessToken: "stale", refreshToken: "good", expiresAt: inMinutes(-1) },
+			client: CLIENT,
+		});
+
+		await expect(auth.resolve()).rejects.toBeInstanceOf(McpTokenGrantError);
+	});
+
+	it("refuses to renew against a private address unless it was allowed", async () => {
+		// The token endpoint came out of the server's own metadata, so it is untrusted input like any
+		// other address the flow reaches: renewal used to be the one request that skipped the guard.
+		answers({ access_token: "fresh" });
+		const auth = new OAuthAuth({
+			tokens: { accessToken: "stale", refreshToken: "good", expiresAt: inMinutes(-1) },
+			client: { clientId: "c", tokenEndpoint: "http://127.0.0.1:9999/token" },
+		});
+
+		await expect(auth.resolve()).rejects.toBeInstanceOf(McpBlockedTargetError);
+	});
+
+	it("renews against a private address when the operator allowed it", async () => {
+		answers({ access_token: "fresh" });
+		const auth = new OAuthAuth({
+			tokens: { accessToken: "stale", refreshToken: "good", expiresAt: inMinutes(-1) },
+			client: { clientId: "c", tokenEndpoint: "http://127.0.0.1:9999/token" },
+			allowPrivateNetwork: true,
+		});
+
+		expect(await auth.resolve()).toEqual({ headers: { Authorization: "Bearer fresh" } });
 	});
 
 	it("warns when a refresh token arrives with nowhere to save the renewal", () => {

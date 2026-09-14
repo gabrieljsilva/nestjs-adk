@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { SessionId } from "../../common/identity/session-id";
 import { ToolCallId } from "../../common/identity/tool-call-id";
+import { ToolCallObserver } from "../../contracts/tool-call-observer";
 import { ToolSource } from "../../contracts/tool-source";
 import { AgentName } from "../../domain/agent/agent-name";
+import { Actor } from "../../domain/tool/actor";
 import type { ToolDefinition } from "../../domain/tool/tool-definition";
 import type { RuntimeServices } from "../../runtime/composition/runtime-services";
 import { AgentHandle } from "./agent-handle";
@@ -20,6 +22,12 @@ class SilentSource extends ToolSource {
 	public async close(): Promise<void> {
 		return undefined;
 	}
+}
+
+class SilentObserver extends ToolCallObserver {
+	public requested(): void {}
+
+	public settled(): void {}
 }
 
 /** Records what the handle asked the runtime for, which is all the handle decides. */
@@ -225,5 +233,45 @@ describe("AgentHandle", () => {
 
 		expect(Reflect.get(Object(calls[0]?.payload), "signal")).toBe(controller.signal);
 		expect(Reflect.get(Object(calls[1]?.payload), "signal")).toBe(controller.signal);
+	});
+
+	it("carries who is asking into the command", async () => {
+		const { calls, handle } = spyingRuntime();
+		const actor = Actor.of("u-1");
+
+		await handle.ask("hi", { actor });
+
+		expect(Reflect.get(Object(calls[0]?.payload), "actor")).toBe(actor);
+	});
+
+	it("carries the observer of a question into the command", async () => {
+		const { calls, handle } = spyingRuntime();
+		const toolCalls = new SilentObserver();
+
+		await handle.ask("hi", { toolCalls });
+
+		expect(Reflect.get(Object(calls[0]?.payload), "toolCalls")).toBe(toolCalls);
+	});
+
+	it("carries the observer of a decision into it", async () => {
+		const { calls, handle } = spyingRuntime();
+		const toolCalls = new SilentObserver();
+
+		await handle.approve(SESSION, ToolCallId.from("c-1"), { toolCalls });
+		await handle.reject(SESSION, ToolCallId.from("c-2"), "no", { toolCalls });
+
+		expect(Reflect.get(Object(calls[0]?.payload), "toolCalls")).toBe(toolCalls);
+		expect(Reflect.get(Object(calls[1]?.payload), "toolCalls")).toBe(toolCalls);
+	});
+
+	it("carries who is deciding into the decision", async () => {
+		const { calls, handle } = spyingRuntime();
+		const actor = Actor.of("u-1");
+
+		await handle.approve(SESSION, ToolCallId.from("c-1"), { by: "ana", actor });
+		await handle.reject(SESSION, ToolCallId.from("c-2"), "no", { by: "ana", actor });
+
+		expect(Reflect.get(Object(calls[0]?.payload), "actor")).toBe(actor);
+		expect(Reflect.get(Object(calls[1]?.payload), "actor")).toBe(actor);
 	});
 });

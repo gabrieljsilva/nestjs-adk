@@ -2,7 +2,7 @@
 title: A conversation that changes provider
 description: What breaks when a history written by one model is replayed to another, and where the adapter compensates
 type: pitfall
-tags: [gemini, openai, models, failover, transfer, adapters]
+tags: [gemini, openai, deepseek, models, failover, transfer, adapters]
 sources:
   - https://ai.google.dev/gemini-api/docs/generate-content/thought-signatures
 ---
@@ -41,6 +41,12 @@ The cost is real and worth naming: Google calls injecting synthetic function-cal
 
 ## The other direction
 
-Replaying a Gemini history to OpenAI is safe: the OpenAI mapper never reads `signature`, so the field is simply dropped. OpenAI's own reasoning items have the same shape of problem, and the same asymmetry will apply the day the core carries them.
+Replaying a Gemini history to the official OpenAI API is safe: `replaysReasoning` is off there, so the OpenAI mapper drops `signature` and the field never leaves. To a compatible endpoint it is sent as `reasoning_content`, because that is the slot DeepSeek's own thought travels in (see below), and a Gemini token arriving there is opaque text the endpoint does not validate.
+
+## What DeepSeek demands
+
+DeepSeek's thinking mode streams `reasoning_content` ahead of a tool call and refuses the next request of the same turn unless the assistant message that replays the call brings it back: `400 The reasoning_content in the thinking mode must be passed back to the API`. Like Gemini, it is the current turn only, and the refusal is an `InvalidRequestFailure` the chain stops on, so an approval resumed later surfaced as `ModelsExhaustedError`.
+
+`OpenAiStreamMapper` gathers the reasoning of one stream in an `OpenAiReasoningTrace`, keeps it out of the text, and hands it to the first call that opens as its `signature`. `OpenAiRequestMapper` folds the calls of one breath into one assistant turn and sets `reasoning_content` on it from whichever call carries a signature, when `OpenAiOptions.replaysReasoning` allows, which unset follows `baseURL`. The turn carries `content: ""` too: absent, DeepSeek answered with the very same 400 about reasoning, which cost an afternoon to tell apart. The paid case is `billing.ai.spec.ts`, two refunds asked in one breath on `deepseek-v4-flash`, skipped where `DEEPSEEK_API_KEY` is not set.
 
 Two paid cases prove this against a real pair of providers, both in `apps/playground/src/agents/concierge.ai.spec.ts`: a transfer into an agent on another provider, and an approval resumed on a provider that did not ask for it. Each was checked red before the fix and green after. A failover is not among them on purpose: it produces the same request through the same mapper, so what is left unproven there is the runtime handing the history over, and `ModelRunner` covers that offline. See [[agent-suites]].

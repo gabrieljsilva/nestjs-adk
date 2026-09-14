@@ -1,9 +1,11 @@
+import type { ToolCallObserver } from "../../contracts/tool-call-observer";
 import type { ToolSource } from "../../contracts/tool-source";
 import type { AgentName } from "../../domain/agent/agent-name";
 import type { LlmModel } from "../../domain/model/llm-model";
 import type { AskInput } from "../../domain/session/ask-input";
 import { RunLimits } from "../../domain/session/run-limits";
 import type { SessionOwner } from "../../domain/session/session-owner";
+import type { Actor } from "../../domain/tool/actor";
 
 /**
  * One command to run, resolved: which agent, what was said and under which limits.
@@ -49,6 +51,9 @@ export class AgentRunCommand {
 		 * an answer nobody will see and billing for it.
 		 */
 		public readonly signal?: AbortSignal,
+		public readonly actor?: Actor,
+		/** Told about each tool call of this run as the model asks for it and as it settles. */
+		public readonly toolCalls?: ToolCallObserver,
 	) {}
 
 	public get continuesSession(): boolean {

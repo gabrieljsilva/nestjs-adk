@@ -48,6 +48,21 @@ describe("ContextBlock", () => {
 		expect(answered.lastRevision.value).toBe(2);
 	});
 
+	it("holds calls made in one breath together, and closes only when every one is answered", () => {
+		const second = new ToolCallMessage(ToolCallId.from("call-2"), "fetch", { id: 1 });
+		const secondResult = new ToolResultMessage(ToolCallId.from("call-2"), "fetch", { body: "b" }, false);
+		const breath = ContextBlock.pendingCall(call, R1).alsoCalling(second, R1);
+
+		const half = breath.answeredBy(secondResult, R2);
+		const whole = half.answeredBy(result, R2);
+
+		expect(breath.isOpen).toBe(true);
+		expect(breath.callId?.value).toBe("call-1");
+		expect(half.isOpen).toBe(true);
+		expect(whole.isOpen).toBe(false);
+		expect(whole.messages).toEqual([call, second, secondResult, result]);
+	});
+
 	it("keeps the call id, which is what pairs the block with its result", () => {
 		expect(ContextBlock.pendingCall(call, R1).callId?.value).toBe("call-1");
 	});

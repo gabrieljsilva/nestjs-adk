@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { OpenAiReasoningTrace } from "./openai-reasoning-trace";
 import { type OpenAiStreamChunk, OpenAiStreamMapper } from "./openai-stream-mapper";
 
 const mapper = new OpenAiStreamMapper();
@@ -86,5 +87,46 @@ describe("OpenAiStreamMapper", () => {
 	it("emits nothing for a keepalive chunk", () => {
 		expect(mapper.toChunks(chunkOf({}))).toHaveLength(0);
 		expect(mapper.toChunks(chunkOf({ choices: [] }))).toHaveLength(0);
+	});
+
+	it("keeps reasoning out of the text and hands it to the first call that opens, once", () => {
+		const trace = new OpenAiReasoningTrace();
+
+		const thought = mapper.toChunks(chunkOf({ choices: [{ delta: { reasoning_content: "I should refund" } }] }), trace);
+		const more = mapper.toChunks(chunkOf({ choices: [{ delta: { reasoning_content: " first" } }] }), trace);
+		const opened = mapper.toChunks(
+			chunkOf({
+				choices: [
+					{
+						delta: {
+							tool_calls: [
+								{ index: 0, id: "call-1", function: { name: "refund" } },
+								{ index: 1, id: "call-2", function: { name: "notify" } },
+							],
+						},
+					},
+				],
+			}),
+			trace,
+		);
+		const continued = mapper.toChunks(
+			chunkOf({ choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: "{}" } }] } }] }),
+			trace,
+		);
+
+		expect(thought).toHaveLength(0);
+		expect(more).toHaveLength(0);
+		expect(opened[0]?.toolCall?.signature).toBe("I should refund first");
+		expect(opened[1]?.toolCall?.signature).toBeUndefined();
+		expect(continued[0]?.toolCall?.signature).toBeUndefined();
+	});
+
+	it("opens a call unsigned when nothing was reasoned, so a plain model looks as it always did", () => {
+		const chunks = mapper.toChunks(
+			chunkOf({ choices: [{ delta: { tool_calls: [{ index: 0, id: "call-1", function: { name: "refund" } }] } }] }),
+			new OpenAiReasoningTrace(),
+		);
+
+		expect(chunks[0]?.toolCall?.signature).toBeUndefined();
 	});
 });

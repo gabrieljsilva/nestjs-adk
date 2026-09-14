@@ -185,13 +185,21 @@ describe("RunJournal", () => {
 		expect(event.output.artifactId).toBe("a-1");
 	});
 
-	it("records a refusal as a failed result, which is what the model reads", () => {
+	it("records a refusal as a failed result that says refused, not error", () => {
 		const call = new PendingCall(CALL, "refund_order", {}, "write", "denied", "not authorized");
 
 		const event = journal.refusal(startedRun(), call);
 
 		expect(event.failed).toBe(true);
-		expect(event.output.error).toBe("not authorized");
+		expect(event.output).toEqual({ refused: true, reason: "not authorized" });
+	});
+
+	it("records a refusal without a reason as refused all the same", () => {
+		const call = new PendingCall(CALL, "refund_order", {}, "write", "denied");
+
+		const event = journal.refusal(startedRun(), call);
+
+		expect(event.output).toEqual({ refused: true, reason: "" });
 	});
 
 	it("records every source that would not authorize, one event each", () => {

@@ -16,22 +16,23 @@ import {
 import { Logger } from "@nestjs/common";
 import { McpBlockedTargetError } from "./errors/mcp-blocked-target.error";
 
-import { type AdkMcpAuth, McpReauthRequiredError } from "./mcp-auth";
+import { McpReauthRequiredError } from "./errors/mcp-reauth-required.error";
+import { McpTokenGrantError } from "./errors/mcp-token-grant.error";
+import type { AdkMcpAuth } from "./mcp-auth";
 import { effectOf } from "./mcp-effect";
 import type { McpTransportConfig } from "./mcp-options";
 import { type TargetTrust, assertSafeTarget, guardedFetch } from "./mcp-target-guard";
+import { McpToolFilter } from "./mcp-tool-filter";
+import { McpToolName } from "./mcp-tool-name";
 import { createTransport } from "./mcp-transport";
-
-/** Same shape Claude Code and Cursor use, so an external tool is recognizable at a glance. */
-const PREFIX = "mcp";
-/** What a provider will accept as a function name, and what is safe to repeat in a log line. */
-const SAFE_TOOL_NAME = /^[A-Za-z0-9_-]{1,64}$/;
 
 export interface AdkMcpServerOptions {
 	/**
 	 * Identity within a run. Prefixes every tool as `mcp__<name>__<tool>` and must be unique among the
 	 * run's sources: it is what tells the model which connection a tool belongs to when the same
-	 * server is connected twice under different accounts.
+	 * server is connected twice under different accounts, so an installation id belongs here more
+	 * than the integration's slug does. Letters, digits, `_` and `-`, at most 47 characters, or the
+	 * constructor throws `McpInvalidSourceNameError`.
 	 */
 	name: string;
 	/**
@@ -42,8 +43,19 @@ export interface AdkMcpServerOptions {
 	id?: string;
 	transport: McpTransportConfig;
 	auth?: AdkMcpAuth;
-	/** Subset of the server's catalog. Omitted exposes everything the server offers. */
+	/**
+	 * Subset of the server's catalog, by the server's own tool names rather than the published
+	 * `mcp__<name>__<tool>` form. Omitted exposes everything the server offers. A tool left out is
+	 * neither declared nor callable: naming it anyway answers the model a refusal and reaches no
+	 * network.
+	 */
 	tools?: string[];
+	/**
+	 * Tools of the server's catalog to keep out, by the server's own tool names. Applied after
+	 * `tools` and winning over it, which is what a product that stores a switch-off needs: the two
+	 * lists express opposite intents, and only "off is final" fails safe.
+	 */
+	excludeTools?: string[];
 	/**
 	 * Whether to derive each tool's `effect` from the server's annotations (`readOnlyHint`,
 	 * `destructiveHint`). Annotations are written by the server, so they are untrusted input: a
@@ -71,13 +83,17 @@ export interface AdkMcpServerOptions {
 export class AdkMcpServer extends ToolSource {
 	private readonly logger = new Logger("Adk:mcp");
 	public readonly name: string;
+	private readonly filter: McpToolFilter;
+	private readonly naming: McpToolName;
 	private client?: Client;
 	/** Set when open() was refused because another run holds the connection. */
 	private borrowed = false;
 
 	public constructor(protected readonly options: AdkMcpServerOptions) {
 		super();
+		this.naming = McpToolName.forSource(options.name);
 		this.name = options.name;
+		this.filter = new McpToolFilter(options.tools, options.excludeTools);
 	}
 
 	/** Stable per connection: two accounts on the same server never collapse into one. */
@@ -96,6 +112,10 @@ export class AdkMcpServer extends ToolSource {
 			credential = await this.options.auth?.resolve();
 		} catch (error) {
 			if (error instanceof McpReauthRequiredError) throw new ToolSourceAuthError(this.name, error.reason);
+			// A renewal that failed on the provider's side revoked nothing: the credential is intact and
+			// the next run will very likely open. Reporting it as "authorize again" would send the user
+			// through consent over a rate limit.
+			if (error instanceof McpTokenGrantError) throw new ToolSourceUnavailableError(this.name, error);
 			throw error;
 		}
 
@@ -159,21 +179,24 @@ export class AdkMcpServer extends ToolSource {
 	}
 
 	private toDefinitions(tools: Awaited<ReturnType<Client["listTools"]>>["tools"]): ToolDefinition[] {
-		const wanted = this.options.tools;
 		return tools
-			.filter((tool) => !wanted || wanted.includes(tool.name))
 			.filter((tool) => {
-				// The name comes from a server the developer may not control and goes into the declaration
-				// the provider receives. A newline or a space breaks the whole request, taking down a run
-				// because of one integration; anything stranger is not a name we should be repeating.
-				if (SAFE_TOOL_NAME.test(tool.name)) return true;
-				this.logger.warn(`ignoring tool with unusable name from server "${this.name}"`);
+				// The same question callTool asks, from the same object: a tool hidden here and still
+				// callable would be a switch that only looks like one.
+				if (this.filter.admits(tool.name)) return true;
+				// Reading the rule a second time only to choose a log level: a name the server made
+				// unusable is worth a line an operator sees, a tool the application excluded is not.
+				if (McpToolName.isUsable(tool.name)) {
+					this.logger.debug(`leaving out tool "${tool.name}" of server "${this.name}"`);
+				} else {
+					this.logger.warn(`ignoring tool with unusable name from server "${this.name}"`);
+				}
 				return false;
 			})
 			.map(
 				(tool) =>
 					new ToolDefinition(
-						`${PREFIX}__${this.name}__${tool.name}`,
+						this.naming.qualify(tool.name),
 						tool.description ?? "",
 						// The server's schema, as published: the server owns this contract and validates on
 						// its side, and the runtime prunes what the provider's declaration cannot carry.
@@ -195,6 +218,13 @@ export class AdkMcpServer extends ToolSource {
 
 	/** A runtime failure goes back TO THE MODEL, which can explain it or try something else. */
 	public async callTool(name: string, input: unknown): Promise<unknown> {
+		if (!this.filter.admits(name)) {
+			// Before the connection is even consulted. The call may come from a model that invented the
+			// name, or from a server that talked it into naming a tool the user switched off, and a
+			// request that leaves is already a side effect on the third party.
+			this.logger.warn(`refused call to tool "${name}" not available on server "${this.name}"`);
+			return { error: `MCP tool "${name}" is not available on server "${this.name}".` };
+		}
 		if (!this.client) return { error: `MCP server "${this.name}" is not connected.` };
 		try {
 			const result = await this.client.callTool({ name, arguments: (input ?? {}) as Record<string, unknown> });

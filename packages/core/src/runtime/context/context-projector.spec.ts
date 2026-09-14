@@ -69,7 +69,7 @@ describe("ContextProjector", () => {
 		expect(blocks[1]?.isOpen).toBe(true);
 	});
 
-	it("pairs each result with its own call when several are open", async () => {
+	it("keeps calls made in one breath in one block, every result after every call", async () => {
 		const journal = new JournalFixture()
 			.toolCall("c-1", "search")
 			.toolCall("c-2", "fetch")
@@ -78,8 +78,40 @@ describe("ContextProjector", () => {
 
 		const blocks = await projector.project(journal.stream());
 
+		expect(blocks).toHaveLength(1);
+		expect(blocks[0]?.callId?.value).toBe("c-1");
+		expect(blocks[0]?.isOpen).toBe(false);
+		expect(blocks[0]?.messages.map((message) => message.role)).toEqual([
+			"tool-call",
+			"tool-call",
+			"tool-result",
+			"tool-result",
+		]);
+	});
+
+	it("keeps a call made after a result in a block of its own, because it was a second breath", async () => {
+		const journal = new JournalFixture()
+			.toolCall("c-1", "search")
+			.toolResult("c-1", "search", { hits: 1 })
+			.toolCall("c-2", "fetch")
+			.toolResult("c-2", "fetch", { body: "b" });
+
+		const blocks = await projector.project(journal.stream());
+
 		expect(blocks.map((block) => block.callId?.value)).toEqual(["c-1", "c-2"]);
 		expect(blocks.every((block) => !block.isOpen)).toBe(true);
+	});
+
+	it("keeps one breath open while any of its calls still waits, so compaction cannot touch it", async () => {
+		const journal = new JournalFixture()
+			.toolCall("c-1", "search")
+			.toolCall("c-2", "fetch")
+			.toolResult("c-1", "search", { hits: 1 });
+
+		const blocks = await projector.project(journal.stream());
+
+		expect(blocks).toHaveLength(1);
+		expect(blocks[0]?.isOpen).toBe(true);
 	});
 
 	it("refuses a result whose call is not in the journal", async () => {

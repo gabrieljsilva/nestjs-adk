@@ -1,6 +1,7 @@
 import type { SessionId } from "../../common/identity/session-id";
 import type { ToolCallId } from "../../common/identity/tool-call-id";
 import type { ModelResolver } from "../../contracts/model-resolver";
+import type { ToolCallObserver } from "../../contracts/tool-call-observer";
 import type { ToolSource } from "../../contracts/tool-source";
 import type { AgentDefinition } from "../../domain/agent/agent-definition";
 import { SessionEventBatch } from "../../domain/event/session-event-batch";
@@ -10,12 +11,14 @@ import { ApprovalNotPendingError } from "../../domain/session/errors/approval-no
 import type { ApprovalDecision } from "../../domain/session/pending-call";
 import type { PendingTurn } from "../../domain/session/pending-turn";
 import type { Session } from "../../domain/session/session";
+import type { Actor } from "../../domain/tool/actor";
 import type { AgentCatalog } from "../catalog/agent-catalog";
 import { OpenedSession } from "../session/opened-session";
 import type { SessionManager } from "../session/session-manager";
 import { ToolSourceScope } from "../tool/tool-source-scope";
 import type { AgentRunFactory } from "./agent-run-factory";
 import type { RunJournal } from "./run-journal";
+import { RunObservers } from "./run-observers";
 import { RunProgress } from "./run-progress";
 import type { RunResultFactory } from "./run-result-factory";
 import type { RunScope } from "./run-scope";
@@ -35,6 +38,10 @@ export interface ApprovalOptions {
 	sources?: readonly ToolSource[];
 	/** The stop button of the turn this decision releases, which is a run of its own. */
 	signal?: AbortSignal;
+	/** Who is deciding, and on whose behalf the released calls then run. */
+	actor?: Actor;
+	/** Told about every call of the released turn as it settles, and about the turns that follow. */
+	toolCalls?: ToolCallObserver;
 }
 
 /**
@@ -69,7 +76,7 @@ export class DecideApproval {
 		decision: ApprovalDecision,
 		options: ApprovalOptions = {},
 	): Promise<AgentResult> {
-		const { by, reason, sources: perRun = [], signal } = options;
+		const { by, reason, sources: perRun = [], signal, actor, toolCalls } = options;
 		const rehydrated = await this.sessions.rehydrate(sessionId);
 		if (rehydrated.state.pendingTurn?.isAwaiting(callId) !== true) {
 			throw new ApprovalNotPendingError(sessionId.value, callId.value);
@@ -92,7 +99,16 @@ export class DecideApproval {
 		);
 
 		try {
-			return await this.release(definition, model, started, progress, sources, rehydrated.session);
+			return await this.release(
+				definition,
+				model,
+				started,
+				progress,
+				sources,
+				rehydrated.session,
+				actor,
+				RunObservers.none().watchingTools(toolCalls),
+			);
 		} catch (error) {
 			await this.settler.settle(sessionId, progress.state, started, error);
 			throw error;
@@ -110,16 +126,18 @@ export class DecideApproval {
 		progress: RunProgress,
 		sources: ToolSourceScope,
 		session: Session,
+		actor: Actor | undefined,
+		observers: RunObservers,
 	): Promise<AgentResult> {
 		const turn = progress.state.pendingTurn;
 		if (turn === undefined) throw new ApprovalNotPendingError(session.id.value, started.run.id.value);
 		if (!turn.isDecided) return this.staySuspended(started, progress, turn);
 
 		const remote = await sources.open(session.id, started.run.id, started.cancellation.signal);
-		const scope = await this.scopes.create(definition, model, started, remote, undefined, session.owner);
-		await this.commit(scope, progress, await this.executor.execute(scope, turn.calls, true));
+		const scope = await this.scopes.create(definition, model, started, remote, undefined, session.owner, actor);
+		await this.commit(scope, progress, await this.executor.execute(scope, turn.calls, true, undefined, observers.tools));
 
-		await this.loop.run(scope, new OpenedSession(session, progress.state, false), progress);
+		await this.loop.run(scope, new OpenedSession(session, progress.state, false), progress, observers);
 		return await this.results.after(started, progress);
 	}
 

@@ -1,6 +1,7 @@
 import type { AgentRunId } from "../../common/identity/agent-run-id";
 import type { SessionId } from "../../common/identity/session-id";
 import type { AgentName } from "../../domain/agent/agent-name";
+import type { Actor } from "../../domain/tool/actor";
 import type { ToolInvocation } from "../../domain/tool/tool-invocation";
 import type { ToolCatalog } from "./tool-catalog";
 
@@ -21,5 +22,6 @@ export class ToolExecutionCommand {
 		public readonly signal?: AbortSignal,
 		/** Set only when a human already agreed to this exact call, which is what resuming means. */
 		public readonly approved: boolean = false,
+		public readonly actor?: Actor,
 	) {}
 }

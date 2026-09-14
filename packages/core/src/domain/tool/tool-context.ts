@@ -2,6 +2,7 @@ import type { AgentRunId } from "../../common/identity/agent-run-id";
 import type { SessionId } from "../../common/identity/session-id";
 import type { ToolCallId } from "../../common/identity/tool-call-id";
 import type { AgentName } from "../agent/agent-name";
+import type { Actor } from "./actor";
 
 /**
  * What a tool is told about the run it is running inside.
@@ -18,6 +19,8 @@ export class ToolContext {
 		public readonly agent: AgentName,
 		public readonly callId: ToolCallId,
 		public readonly signal?: AbortSignal,
+		/** Who this call runs on behalf of, when the caller said. Absent, nothing about the caller is known. */
+		public readonly actor?: Actor,
 	) {}
 
 	public get isCancelled(): boolean {

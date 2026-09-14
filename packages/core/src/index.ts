@@ -146,6 +146,9 @@ export {
 } from "./public/nest/adk-module";
 export { Agent } from "./public/nest/decorators/agent.decorator";
 export { Tool } from "./public/nest/decorators/tool.decorator";
+export { McpController } from "./public/nest/decorators/mcp-controller.decorator";
+export type { McpControllerOptions } from "./public/nest/decorators/mcp-controller.decorator";
+export { DuplicateExposedToolError } from "./adapters/nest/errors/duplicate-exposed-tool.error";
 export { Skill } from "./public/nest/decorators/skill.decorator";
 export { TransfersTo } from "./public/nest/decorators/transfers-to.decorator";
 export { DelegatesTo } from "./public/nest/decorators/delegates-to.decorator";
@@ -184,11 +187,20 @@ export { IdGenerator } from "./common/identity/id-generator";
 
 // tools
 export { ToolEffect } from "./domain/tool/tool-effect";
+export { Actor } from "./domain/tool/actor";
+export { MissingActorIdError } from "./domain/tool/errors/missing-actor-id.error";
+export { ToolAccess } from "./domain/tool/tool-access";
+export { AdkAccessPolicy } from "./domain/tool/adk-access-policy";
+export { OpenAccessPolicy } from "./domain/tool/open-access-policy";
+export { ToolGate } from "./runtime/tool/tool-gate";
+export { ToolAdmission } from "./runtime/tool/tool-admission";
+export { ToolCatalog } from "./runtime/tool/tool-catalog";
 export { ToolSchema } from "./domain/tool/tool-schema";
 export { ToolHandler } from "./domain/tool/tool-handler";
 export { ToolContext } from "./domain/tool/tool-context";
 export { ToolDefinition } from "./domain/tool/tool-definition";
 export { ToolOutput } from "./domain/tool/tool-output";
+export { ToolOutcome } from "./domain/tool/tool-outcome";
 export { AdkApprovalPolicy } from "./domain/tool/adk-approval-policy";
 export { EffectApprovalPolicy } from "./domain/tool/effect-approval-policy";
 export { ToolNotFoundError } from "./domain/tool/errors/tool-not-found.error";
@@ -219,6 +231,11 @@ export { RunObservers } from "./runtime/run/run-observers";
 
 // streaming
 export { ChunkSink } from "./runtime/stream/chunk-sink";
+
+// watching tool calls
+export { ToolCallObserver } from "./contracts/tool-call-observer";
+export { ToolCallNotice } from "./domain/tool/tool-call-notice";
+export { ToolResultNotice } from "./domain/tool/tool-result-notice";
 
 // delegation
 export { DelegationNotDeclaredError } from "./domain/agent/errors/delegation-not-declared.error";
@@ -269,6 +286,8 @@ export { Secret } from "./common/secrecy/secret";
 export { SessionEventConsumer } from "./contracts/session-event-consumer";
 export { ConsumerNoticeSink } from "./contracts/consumer-notice-sink";
 export { PublishedEvent } from "./domain/event/published-event";
+export { ToolCallRequested } from "./domain/event/catalog/tool-call-requested";
+export { ToolResultProduced } from "./domain/event/catalog/tool-result-produced";
 
 // execution
 export { ModelExecutor } from "./runtime/model/model-executor";

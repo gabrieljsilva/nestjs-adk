@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ToolCallId } from "../../common/identity/tool-call-id";
+import { ToolCallObserver } from "../../contracts/tool-call-observer";
 import { AgentRunSuspended } from "../../domain/event/catalog/agent-run-suspended";
 import { ToolApprovalDenied } from "../../domain/event/catalog/tool-approval-denied";
 import { ToolApprovalGranted } from "../../domain/event/catalog/tool-approval-granted";
@@ -11,9 +12,11 @@ import { AskInput } from "../../domain/session/ask-input";
 import { ApprovalNotPendingError } from "../../domain/session/errors/approval-not-pending.error";
 import { EffectApprovalPolicy } from "../../domain/tool/effect-approval-policy";
 import { ParsedArguments } from "../../domain/tool/parsed-arguments";
+import type { ToolCallNotice } from "../../domain/tool/tool-call-notice";
 import { ToolDefinition } from "../../domain/tool/tool-definition";
 import { ToolEffect } from "../../domain/tool/tool-effect";
 import { ToolHandler } from "../../domain/tool/tool-handler";
+import type { ToolResultNotice } from "../../domain/tool/tool-result-notice";
 import { ToolSchema } from "../../domain/tool/tool-schema";
 import { NativeStackFixture } from "../../support/run/native-stack.fixture";
 import { TurnScriptModel } from "../../support/run/turn-script-model.fixture";
@@ -66,7 +69,44 @@ function stackOf(model: TurnScriptModel, tools: readonly ToolDefinition[]): Nati
 	);
 }
 
+class LoggingObserver extends ToolCallObserver {
+	public readonly requests: ToolCallNotice[] = [];
+	public readonly results: ToolResultNotice[] = [];
+
+	public requested(call: ToolCallNotice): void {
+		this.requests.push(call);
+	}
+
+	public settled(result: ToolResultNotice): void {
+		this.results.push(result);
+	}
+}
+
 describe("DecideApproval", () => {
+	it("tells the observer of the decision how each call of the released turn settled, without asking again", async () => {
+		const refund = new CountingHandler();
+		const close = new CountingHandler();
+		const stack = stackOf(twoCallModel("refund_order", "close_order"), [
+			toolOf("refund_order", refund, ToolEffect.WRITE),
+			toolOf("close_order", close, ToolEffect.WRITE),
+		]);
+		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("refund and close 42")));
+		await stack.deciding.handle(suspended.sessionId, REFUND, "granted");
+		const observer = new LoggingObserver();
+
+		await stack.deciding.handle(suspended.sessionId, CLOSE, "denied", {
+			by: "gabriel",
+			reason: "the order stays open",
+			toolCalls: observer,
+		});
+
+		expect(observer.requests).toHaveLength(0);
+		expect(observer.results.map((result) => result.toolName)).toEqual(["refund_order", "close_order"]);
+		expect(observer.results[0]?.failed).toBe(false);
+		expect(observer.results[1]?.isRefused).toBe(true);
+		expect(observer.results[1]?.reason).toBe("the order stays open");
+	});
+
 	it("runs every call of the turn once the held one is granted, and leaves none without a result", async () => {
 		const lookup = new CountingHandler();
 		const refund = new CountingHandler();
@@ -132,7 +172,7 @@ describe("DecideApproval", () => {
 		const refusal = journal.find(
 			(event): event is ToolResultProduced => event instanceof ToolResultProduced && event.failed,
 		);
-		expect(refusal?.output.error).toBe("the order stays open");
+		expect(refusal?.output).toEqual({ refused: true, reason: "the order stays open" });
 	});
 
 	it("refuses a decision that arrives twice, so an approved tool never runs again", async () => {

@@ -1,5 +1,6 @@
 import type { ToolCall } from "../../domain/model/tool-call";
 import { PendingCall } from "../../domain/session/pending-call";
+import type { Actor } from "../../domain/tool/actor";
 import { AdkApprovalPolicy } from "../../domain/tool/adk-approval-policy";
 import { EffectApprovalPolicy } from "../../domain/tool/effect-approval-policy";
 import { ToolInvocation } from "../../domain/tool/tool-invocation";
@@ -20,8 +21,10 @@ export class ApprovalGate {
 	public constructor(private readonly policy: AdkApprovalPolicy = EffectApprovalPolicy.never()) {}
 
 	/** The whole turn as the journal will hold it, with an effect on each held call. */
-	public screen(catalog: ToolCatalog, calls: readonly ToolCall[]): readonly PendingCall[] {
-		return calls.map((call) => new PendingCall(call.callId, call.toolName, call.args, this.effectOf(catalog, call)));
+	public screen(catalog: ToolCatalog, calls: readonly ToolCall[], actor?: Actor): readonly PendingCall[] {
+		return calls.map(
+			(call) => new PendingCall(call.callId, call.toolName, call.args, this.effectOf(catalog, call, actor)),
+		);
 	}
 
 	public holdsAny(calls: readonly PendingCall[]): boolean {
@@ -33,11 +36,11 @@ export class ApprovalGate {
 	 * A call to something that is not in the catalog is not held either, because there is no
 	 * effect to hold it for and the executor will answer the model that it does not exist.
 	 */
-	private effectOf(catalog: ToolCatalog, call: ToolCall): string | undefined {
+	private effectOf(catalog: ToolCatalog, call: ToolCall, actor?: Actor): string | undefined {
 		if (!catalog.has(call.toolName)) return undefined;
 		const tool = catalog.findOrFail(call.toolName);
 		if (tool.internal) return undefined;
 		const invocation = new ToolInvocation(call.callId, call.toolName, call.args);
-		return this.policy.requires(tool, invocation) ? tool.effect.name : undefined;
+		return this.policy.requires(tool, invocation, actor) ? tool.effect.name : undefined;
 	}
 }

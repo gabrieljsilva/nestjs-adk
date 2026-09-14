@@ -62,6 +62,28 @@ describe("ContextProjection", () => {
 		expect(request.instructions?.text).toBe("runtime\n\nagent");
 	});
 
+	it("asks the model for the shape the agent declared, which is what makes a run answer data", () => {
+		const schema = { type: "object", properties: { title: { type: "string" } } };
+
+		const request = ContextProjection.of([], [], undefined, undefined, schema).toRequest();
+
+		expect(request.outputSchema).toBe(schema);
+		expect(request.wantsStructuredOutput).toBe(true);
+	});
+
+	it("carries the shape through compaction, which builds another projection from this one", () => {
+		const schema = { type: "object", properties: { title: { type: "string" } } };
+		const original = ContextProjection.of([], [], undefined, undefined, schema);
+
+		const compacted = original.withBlocks([ContextBlock.conversation(new UserMessage("summary"), R1)]);
+
+		expect(compacted.toRequest().outputSchema).toBe(schema);
+	});
+
+	it("asks for no shape when the agent declared none, which is what most agents do", () => {
+		expect(ContextProjection.of([]).toRequest().wantsStructuredOutput).toBe(false);
+	});
+
 	it("keeps absent instructions absent", () => {
 		expect(ContextProjection.of([]).toRequest().instructions).toBeUndefined();
 	});
