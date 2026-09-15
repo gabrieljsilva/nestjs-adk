@@ -1,4 +1,10 @@
 import type { EmbeddingVector } from "../domain/embedding/embedding-vector";
+import { MeteredEmbedding } from "../domain/embedding/metered-embedding";
+import { ModelIdentity } from "../domain/model/model-identity";
+import { ModelUsage } from "../domain/model/model-usage";
+
+/** What an embedder nobody could meter is called in a bill, since it has no model identity. */
+const UNMETERED_PROVIDER = "embedder";
 
 /**
  * Turns text into the vector something else will compare.
@@ -11,4 +17,21 @@ import type { EmbeddingVector } from "../domain/embedding/embedding-vector";
  */
 export abstract class Embedder {
 	public abstract embed(text: string): Promise<EmbeddingVector>;
+
+	/**
+	 * The vector, plus the model and the usage the provider reported for producing it.
+	 *
+	 * Most providers cannot answer this: Google's `embedContent` returns a
+	 * `billableCharacterCount` and only on Enterprise, and nothing there counts tokens. So the
+	 * default reports a usage of nothing under an identity derived from the class that ran, which
+	 * is what puts the call in `cost.unpriced` rather than under a number somebody estimated.
+	 * Override it when the provider reports usage, and `embed` keeps working through it.
+	 */
+	public async embedMetered(text: string): Promise<MeteredEmbedding> {
+		return new MeteredEmbedding(
+			await this.embed(text),
+			ModelIdentity.of(UNMETERED_PROVIDER, this.constructor.name),
+			ModelUsage.none(),
+		);
+	}
 }

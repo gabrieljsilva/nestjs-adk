@@ -25,7 +25,7 @@ export class AppModule {}
 
 `OpenAiModel` is an `LlmModel`, so the same object goes anywhere a model goes: `defaultModel`, `@Agent({ model })`, a failover chain, or a compaction summarizer.
 
-`apiKey` defaults to `OPENAI_API_KEY`. The generation parameters are typed fields, so a typo fails to compile: `temperature`, `topP`, `maxOutputTokens`, `stopSequences`, `frequencyPenalty`, `presencePenalty`. `organization`, `headers` and `timeoutMs` cover the transport side, and `headers` is how some gateways route or attribute usage.
+`apiKey` defaults to `OPENAI_API_KEY`. It takes a `Secret` or a plain string: whatever it is handed is wrapped at the option boundary and revealed once, at the call that builds the SDK client. The generation parameters are typed fields, so a typo fails to compile: `temperature`, `topP`, `maxOutputTokens`, `stopSequences`, `frequencyPenalty`, `presencePenalty`. `organization`, `headers` and `timeoutMs` cover the transport side, and `headers` is how some gateways route or attribute usage.
 
 Anything this adapter does not model goes through `body`, and a typed field always wins over the same key inside it:
 

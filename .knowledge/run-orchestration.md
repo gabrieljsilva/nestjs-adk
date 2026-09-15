@@ -77,6 +77,14 @@ The tracker keeps `cancelAll` for the shutdown drain and gains no `cancel(runId)
 
 A cancelled run ends by throwing, and `RunJournal.terminal` reads the cancellation to write `AgentRunCancelled` instead of `AgentRunFailed`. That distinction is the whole reason the signal goes here rather than being handled at the public surface: a caller that only stopped reading leaves a run that completed normally in the journal, which is a lie about what the provider was paid for.
 
+## The loop has a ceiling nobody has to ask for
+
+`RunLimits.maxIterations` is fifty unless somebody says otherwise, and that is the module default in `RuntimeOptions`, overridden by the agent and then by the call the same way every other limit is.
+
+It used to be absent, which read as trust and behaved as a bill. A model looping on a tool it cannot satisfy is not an exotic failure, it is a Tuesday, and absence meant nobody found out until the invoice. Fifty is high enough that no honest agent reaches it and low enough that a loop is paid for once.
+
+Taking it off is still a real answer, and it is `RunLimits.unbounded()` rather than leaving a field out: an indefinite run is a decision, so it is written down where a reviewer sees it. The other two caps are unchanged, since `maxConsecutiveToolFailures` is absent by default and `maxInvalidArgs` was always on at two.
+
 ## Tests build the assembly, not the pieces
 
 `NativeStackFixture` wires the whole native stack the way the composition wires it. A suite that assembles the pieces itself proves the pieces, and the assembly is where an ordering mistake actually lives.

@@ -6,7 +6,8 @@ import { AgentRunId } from "../../common/identity/agent-run-id";
 import { SessionId } from "../../common/identity/session-id";
 import { ToolCallId } from "../../common/identity/tool-call-id";
 import { AgentName } from "../../domain/agent/agent-name";
-import { OffloadPolicy } from "../../domain/artifact/offload-policy";
+import { CharacterCountOffloadPolicy } from "../../domain/artifact/character-count-offload-policy";
+import type { OffloadPolicy } from "../../domain/artifact/offload-policy";
 import { RunLimits } from "../../domain/session/run-limits";
 import { Actor } from "../../domain/tool/actor";
 import { AdkAccessPolicy } from "../../domain/tool/adk-access-policy";
@@ -82,7 +83,7 @@ class OwnersOnly extends AdkAccessPolicy {
 function guardedExecutorOf(approvals = EffectApprovalPolicy.never()): ToolExecutor {
 	const storage = new InMemoryArtifactStorage(new SequenceIdGenerator("a"));
 	return new ToolExecutor(
-		new ArtifactOffloader(storage, OffloadPolicy.byDefault()),
+		new ArtifactOffloader(storage, CharacterCountOffloadPolicy.byDefault()),
 		approvals,
 		undefined,
 		new ToolGate(new OwnersOnly()),
@@ -91,7 +92,7 @@ function guardedExecutorOf(approvals = EffectApprovalPolicy.never()): ToolExecut
 
 function executorOf(
 	approvals: AdkApprovalPolicy = EffectApprovalPolicy.never(),
-	offload = OffloadPolicy.byDefault(),
+	offload = CharacterCountOffloadPolicy.byDefault(),
 ): ToolExecutor {
 	const storage = new InMemoryArtifactStorage(new SequenceIdGenerator("a"));
 	return new ToolExecutor(new ArtifactOffloader(storage, offload), approvals);
@@ -103,7 +104,7 @@ describe("ToolExecutor", () => {
 
 		const outcome = await executorOf().execute(
 			commandOf(refundOf(handler), { orderId: "42" }),
-			new ToolBreaker(RunLimits.none()),
+			new ToolBreaker(RunLimits.unbounded()),
 		);
 
 		expect(handler.calls).toBe(1);
@@ -117,7 +118,7 @@ describe("ToolExecutor", () => {
 
 		await executorOf().execute(
 			commandOf(refundOf(handler), { orderId: "42", pleaseAlsoDelete: true }),
-			new ToolBreaker(RunLimits.none()),
+			new ToolBreaker(RunLimits.unbounded()),
 		);
 
 		expect(handler.calls).toBe(1);
@@ -128,7 +129,7 @@ describe("ToolExecutor", () => {
 
 		const outcome = await executorOf().execute(
 			commandOf(refundOf(handler), { orderId: 42 }),
-			new ToolBreaker(RunLimits.none()),
+			new ToolBreaker(RunLimits.unbounded()),
 		);
 
 		expect(handler.calls).toBe(0);
@@ -138,7 +139,7 @@ describe("ToolExecutor", () => {
 
 	it("ends the run once the model has written invalid arguments as often as it may", async () => {
 		const executor = executorOf();
-		const breaker = new ToolBreaker(RunLimits.none());
+		const breaker = new ToolBreaker(RunLimits.unbounded());
 		const tool = refundOf(new RecordingHandler());
 
 		await executor.execute(commandOf(tool, {}), breaker);
@@ -151,7 +152,7 @@ describe("ToolExecutor", () => {
 
 		const outcome = await executorOf().execute(
 			commandOf(refundOf(handler), { orderId: "42" }),
-			new ToolBreaker(RunLimits.none()),
+			new ToolBreaker(RunLimits.unbounded()),
 		);
 
 		expect(outcome.failed).toBe(true);
@@ -177,7 +178,7 @@ describe("ToolExecutor", () => {
 			new ToolInvocation(CALL, "refunds", { orderId: "42" }),
 		);
 
-		const outcome = await executorOf().execute(command, new ToolBreaker(RunLimits.none()));
+		const outcome = await executorOf().execute(command, new ToolBreaker(RunLimits.unbounded()));
 
 		expect(outcome.failed).toBe(true);
 		expect(outcome.contextOutput).toContain("refund");
@@ -188,7 +189,7 @@ describe("ToolExecutor", () => {
 		const executor = executorOf(EffectApprovalPolicy.from(ToolEffect.WRITE));
 
 		const error = await executor
-			.execute(commandOf(refundOf(handler), { orderId: "42" }), new ToolBreaker(RunLimits.none()))
+			.execute(commandOf(refundOf(handler), { orderId: "42" }), new ToolBreaker(RunLimits.unbounded()))
 			.catch((reason) => reason);
 
 		expect(error).toBeInstanceOf(ToolApprovalRequiredError);
@@ -201,7 +202,7 @@ describe("ToolExecutor", () => {
 
 		const outcome = await executor.execute(
 			commandOf(refundOf(handler), { orderId: "42" }, true),
-			new ToolBreaker(RunLimits.none()),
+			new ToolBreaker(RunLimits.unbounded()),
 		);
 
 		expect(handler.calls).toBe(1);
@@ -210,11 +211,11 @@ describe("ToolExecutor", () => {
 
 	it("moves a result too large for the context out, and leaves a placeholder", async () => {
 		const handler = new RecordingHandler({ report: "x".repeat(50) });
-		const executor = executorOf(EffectApprovalPolicy.never(), OffloadPolicy.above(10));
+		const executor = executorOf(EffectApprovalPolicy.never(), CharacterCountOffloadPolicy.above(10));
 
 		const outcome = await executor.execute(
 			commandOf(refundOf(handler), { orderId: "42" }),
-			new ToolBreaker(RunLimits.none()),
+			new ToolBreaker(RunLimits.unbounded()),
 		);
 
 		expect(outcome.wasOffloaded).toBe(true);
@@ -227,7 +228,7 @@ describe("ToolExecutor", () => {
 
 		const outcome = await executorOf().execute(
 			commandOf(refundOf(handler), { orderId: "42" }),
-			new ToolBreaker(RunLimits.none()),
+			new ToolBreaker(RunLimits.unbounded()),
 		);
 
 		expect(outcome.output).toEqual({ value: 42 });
@@ -239,7 +240,7 @@ describe("ToolExecutor", () => {
 
 		const outcome = await executorOf().execute(
 			commandOf(refundOf(handler), { orderId: "42" }),
-			new ToolBreaker(RunLimits.none()),
+			new ToolBreaker(RunLimits.unbounded()),
 		);
 
 		expect(outcome.contextOutput).toBe("the order was refunded");
@@ -250,7 +251,7 @@ describe("ToolExecutor", () => {
 
 		const outcome = await executorOf().execute(
 			commandOf(refundOf(handler), { orderId: "42" }),
-			new ToolBreaker(RunLimits.none()),
+			new ToolBreaker(RunLimits.unbounded()),
 		);
 
 		expect(handler.lastContext?.callId.value).toBe("c-1");
@@ -263,7 +264,7 @@ describe("ToolExecutor", () => {
 
 		const outcome = await executorOf().execute(
 			commandOf(refundOf(handler), { orderId: "42" }),
-			new ToolBreaker(RunLimits.none()),
+			new ToolBreaker(RunLimits.unbounded()),
 		);
 
 		expect(outcome.failed).toBe(false);
@@ -299,7 +300,7 @@ describe("ToolExecutor", () => {
 
 		const outcome = await executorOf(EffectApprovalPolicy.from(ToolEffect.READ)).execute(
 			commandOf(internal, { orderId: "42" }),
-			new ToolBreaker(RunLimits.none()),
+			new ToolBreaker(RunLimits.unbounded()),
 		);
 
 		expect(outcome.failed).toBe(false);
@@ -318,9 +319,9 @@ describe("ToolExecutor", () => {
 			true,
 		);
 
-		const outcome = await executorOf(EffectApprovalPolicy.never(), OffloadPolicy.above(10)).execute(
+		const outcome = await executorOf(EffectApprovalPolicy.never(), CharacterCountOffloadPolicy.above(10)).execute(
 			commandOf(internal, { orderId: "42" }),
-			new ToolBreaker(RunLimits.none()),
+			new ToolBreaker(RunLimits.unbounded()),
 		);
 
 		expect(outcome.wasOffloaded).toBe(false);
@@ -333,7 +334,7 @@ describe("ToolExecutor", () => {
 
 		await executorOf().execute(
 			commandOf(refundOf(handler), { orderId: "A-1" }, false, actor),
-			new ToolBreaker(RunLimits.none()),
+			new ToolBreaker(RunLimits.unbounded()),
 		);
 
 		expect(handler.lastContext?.actor).toBe(actor);
@@ -342,14 +343,14 @@ describe("ToolExecutor", () => {
 	it("carries no actor when the caller declared none", async () => {
 		const handler = new RecordingHandler();
 
-		await executorOf().execute(commandOf(refundOf(handler), { orderId: "A-1" }), new ToolBreaker(RunLimits.none()));
+		await executorOf().execute(commandOf(refundOf(handler), { orderId: "A-1" }), new ToolBreaker(RunLimits.unbounded()));
 
 		expect(handler.lastContext?.actor).toBeUndefined();
 	});
 
 	it("tells the model a call was refused instead of running it, when the access policy says no", async () => {
 		const handler = new RecordingHandler();
-		const breaker = new ToolBreaker(RunLimits.none());
+		const breaker = new ToolBreaker(RunLimits.unbounded());
 
 		const outcome = await guardedExecutorOf().execute(
 			commandOf(refundOf(handler), { orderId: "A-1" }, false, Actor.of("u-2", { role: "member" })),
@@ -367,7 +368,7 @@ describe("ToolExecutor", () => {
 
 		const outcome = await guardedExecutorOf().execute(
 			commandOf(refundOf(handler), { orderId: "A-1" }, false, Actor.of("u-1", { role: "owner" })),
-			new ToolBreaker(RunLimits.none()),
+			new ToolBreaker(RunLimits.unbounded()),
 		);
 
 		expect(outcome.failed).toBe(false);
@@ -385,14 +386,14 @@ describe("ToolExecutor", () => {
 
 		const owner = await executor.execute(
 			commandOf(refundOf(handler), { orderId: "A-1" }, false, Actor.of("u-1", { role: "owner" })),
-			new ToolBreaker(RunLimits.none()),
+			new ToolBreaker(RunLimits.unbounded()),
 		);
 		expect(owner.failed).toBe(false);
 
 		await expect(
 			executor.execute(
 				commandOf(refundOf(handler), { orderId: "A-1" }, false, Actor.of("u-2", { role: "member" })),
-				new ToolBreaker(RunLimits.none()),
+				new ToolBreaker(RunLimits.unbounded()),
 			),
 		).rejects.toThrow(ToolApprovalRequiredError);
 	});
@@ -402,7 +403,7 @@ describe("ToolExecutor", () => {
 
 		const outcome = await guardedExecutorOf(EffectApprovalPolicy.destructiveOnly()).execute(
 			commandOf(refundOf(handler, ToolEffect.DESTRUCTIVE), { orderId: "A-1" }, false, Actor.of("u-2", { role: "member" })),
-			new ToolBreaker(RunLimits.none()),
+			new ToolBreaker(RunLimits.unbounded()),
 		);
 
 		expect(outcome.failed).toBe(true);

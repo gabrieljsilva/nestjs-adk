@@ -26,7 +26,7 @@ export class AppModule {}
 
 The same object goes anywhere a model goes: `defaultModel`, `@Agent({ model })`, a failover chain, or the summarizer a compaction policy uses.
 
-`apiKey` defaults to `GOOGLE_API_KEY` or `GEMINI_API_KEY` from the environment. The generation parameters are typed fields, so a typo fails to compile: `temperature`, `topP`, `topK`, `maxOutputTokens`, `stopSequences`, `frequencyPenalty`, `presencePenalty`. Anything this adapter does not model goes through `config`, which is where `safetySettings` and `thinkingConfig` live, and a typed field always wins over the same key inside `config`.
+`apiKey` defaults to `GOOGLE_API_KEY` or `GEMINI_API_KEY` from the environment. It takes a `Secret` or a plain string: whatever it is handed is wrapped at the option boundary and revealed once, at the call that builds the SDK client. The generation parameters are typed fields, so a typo fails to compile: `temperature`, `topP`, `topK`, `maxOutputTokens`, `stopSequences`, `frequencyPenalty`, `presencePenalty`. Anything this adapter does not model goes through `config`, which is where `safetySettings` and `thinkingConfig` live, and a typed field always wins over the same key inside `config`.
 
 ```ts
 new GeminiModel("gemini-3.5-flash-lite", {

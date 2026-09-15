@@ -1,6 +1,5 @@
 import type { ConsumerNoticeSink } from "../../contracts/consumer-notice-sink";
 import type { SessionEventConsumer } from "../../contracts/session-event-consumer";
-import { SessionEventPublisher } from "../../contracts/session-event-publisher";
 import { ConsumerFailed } from "../../domain/event/consumer-failed";
 import { PublishedEvent } from "../../domain/event/published-event";
 import type { SessionEvent } from "../../domain/event/session-event";
@@ -9,8 +8,10 @@ import type { SessionEventRegistry } from "../../domain/event/session-event-regi
 import type { StoredSessionEvent } from "../../domain/event/stored-session-event";
 import type { SessionContext } from "../../domain/run/session-context";
 import { ConsumerTimeoutError } from "./errors/consumer-timeout.error";
-import { EventRedactor } from "./event-redactor";
+import type { EventRedactor } from "./event-redactor";
+import { FieldNameEventRedactor } from "./field-name-event-redactor";
 import { NoOpConsumerNoticeSink } from "./no-op-consumer-notice-sink";
+import { SessionEventPublisher } from "./session-event-publisher";
 
 /** Long enough for an exporter over a network, short enough that a hang is not a stall. */
 const DEFAULT_CONSUMER_TIMEOUT_MS = 5000;
@@ -38,7 +39,7 @@ export class EventPublisher extends SessionEventPublisher {
 		private readonly notices: ConsumerNoticeSink = new NoOpConsumerNoticeSink(),
 		private readonly timeoutMs: number = DEFAULT_CONSUMER_TIMEOUT_MS,
 		private readonly codecs: SessionEventRegistry = SessionEventCodecs.registry(),
-		private readonly redactor: EventRedactor = new EventRedactor(),
+		private readonly redactor: EventRedactor = new FieldNameEventRedactor(),
 	) {
 		super();
 		this.consumers = [...consumers];

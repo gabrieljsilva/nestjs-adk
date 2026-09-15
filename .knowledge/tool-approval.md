@@ -17,6 +17,14 @@ The policy is asked with the tool, the invocation and the actor of the run, in t
 
 Releasing works the same way. A turn is decided when no held call is still awaiting an answer, and only then does anything run: granted calls execute in the order the model asked for them, denied ones produce their refusal as the result (`{ refused: true, reason }`, failed so the model does not ask again, and the same shape a policy denial takes in [[tool-access]]), and calls nobody had to answer for run alongside. A turn with two held calls and one answer stays suspended.
 
+## Destructive waits unless the application says otherwise
+
+`RuntimeOptions.approvals` is `EffectApprovalPolicy.destructiveOnly()` when nobody declared one, so a tool that deletes, sends or charges stops in front of a person out of the box.
+
+The default was `never()`, and the trade is not symmetric: the cost of this default being wrong is a run that waits for a click nobody expected, and the cost of the other one being wrong is an effect nobody agreed to and cannot undo. An application that means to run everything unattended writes `EffectApprovalPolicy.never()`, which is one line and shows up in a review.
+
+The effect a tool declares is what carries this, so it is worth declaring honestly. An unannotated tool from an external source already counts as `destructive`, and under this default that now means it waits.
+
 ## Suspension is a fact, not a paused process
 
 Nothing about a suspended run stays in memory. No timer holds it, a shutdown does not wait on it, and what continues the conversation later is a new run that points back at the old one through `PendingTurn.runId`.

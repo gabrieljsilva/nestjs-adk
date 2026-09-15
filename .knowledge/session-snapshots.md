@@ -21,7 +21,7 @@ For the same reason an empty batch writes nothing. There is no new state to shor
 
 ## Two triggers, both readable from the commit itself
 
-`SnapshotPolicy.shouldSnapshot(before, after, state)` answers from what a commit already has in hand:
+`SnapshotPolicy` is a port, and `RevisionBucketSnapshotPolicy` is what ships in `RuntimeOptions.snapshots`. Whatever answers it, `shouldSnapshot(before, after, state)` answers from what a commit already has in hand:
 
 - a turn waiting for approval always writes one, because the wait has no bound and the process that answers it may never be this one;
 - otherwise, crossing a multiple of the threshold writes one.

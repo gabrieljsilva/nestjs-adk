@@ -15,6 +15,7 @@ import type { PublishedEvent } from "../../domain/event/published-event";
 import type { LlmModel } from "../../domain/model/llm-model";
 import { ModelIdentity } from "../../domain/model/model-identity";
 import { SessionContext } from "../../domain/run/session-context";
+import { FieldNameEventRedactor } from "../../runtime/event/field-name-event-redactor";
 import { FakeClock } from "../../support/fake-clock";
 import { RecordingModel } from "../../support/nest/recording-model.fixture";
 import { ToolCallingModel } from "../../support/nest/tool-calling-model.fixture";
@@ -212,6 +213,31 @@ describe("AdkModule over the native runtime", () => {
 		await booted.get(AgentRegistry).get("support").ask("hi");
 
 		expect(seen).toContain("run.assistant-message-produced");
+	});
+
+	/**
+	 * A component the container built reaches the runtime the same way every other one does:
+	 * named in `RuntimeOptions`, by the patch token when it could not be named in a literal.
+	 */
+	it("masks a field through the redactor the container built", async () => {
+		const payloads: Readonly<Record<string, unknown>>[] = [];
+		class Recorder extends SessionEventConsumer {
+			public readonly name = "recorder";
+			public async consume(_context: SessionContext, event: PublishedEvent): Promise<void> {
+				payloads.push(event.payload);
+			}
+		}
+		const booted = await bootWith(new RecordingModel("hello"), (builder) =>
+			builder
+				.overrideProvider(ADK_EVENT_CONSUMERS)
+				.useValue([new Recorder()])
+				.overrideProvider(ADK_RUNTIME_PATCH)
+				.useValue({ redactor: new FieldNameEventRedactor(["text"]) }),
+		);
+
+		await booted.get(AgentRegistry).get("support").ask("hi");
+
+		expect(payloads.some((payload) => payload.text === "[redacted]")).toBe(true);
 	});
 
 	it("routes one agent to another model when the resolver is overridden", async () => {

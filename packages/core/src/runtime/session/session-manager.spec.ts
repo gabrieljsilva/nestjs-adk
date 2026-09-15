@@ -8,7 +8,6 @@ import { SessionId } from "../../common/identity/session-id";
 import { ToolCallId } from "../../common/identity/tool-call-id";
 import { SessionRevision } from "../../common/revision/session-revision";
 import { Instant } from "../../common/time/instant";
-import { SessionEventPublisher } from "../../contracts/session-event-publisher";
 import type { SessionStorage } from "../../contracts/session-storage";
 import { AgentName } from "../../domain/agent/agent-name";
 import { AgentRunSuspended } from "../../domain/event/catalog/agent-run-suspended";
@@ -24,9 +23,10 @@ import { PendingCall } from "../../domain/session/pending-call";
 import { Session } from "../../domain/session/session";
 import { SessionSnapshot } from "../../domain/session/session-snapshot";
 import { SessionState } from "../../domain/session/session-state";
+import { SessionEventPublisher } from "../event/session-event-publisher";
 import { NoOpSessionEventPublisher } from "./no-op-session-event-publisher";
 import { SessionManager } from "./session-manager";
-import { SnapshotPolicy } from "./snapshot/snapshot-policy";
+import { RevisionBucketSnapshotPolicy } from "./snapshot/revision-bucket-snapshot-policy";
 import { StateChecksum } from "./snapshot/state-checksum";
 import { StateProjector } from "./state-projector";
 
@@ -94,7 +94,7 @@ function managerEvery(storage: SessionStorage, events: number): SessionManager {
 		new StateProjector(),
 		new NoOpSessionEventPublisher(),
 		new StateChecksum(),
-		SnapshotPolicy.every(events),
+		RevisionBucketSnapshotPolicy.every(events),
 	);
 }
 

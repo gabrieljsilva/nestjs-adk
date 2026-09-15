@@ -79,9 +79,14 @@ describe("@nestjs-adk/mcp over the native runtime", () => {
 	});
 
 	async function bootWith(model: LlmModel, ...sources: readonly AdkMcpServer[]): Promise<TestingModule> {
-		const runtime = new RuntimeOptions(ShutdownOptions.waitIndefinitely(), RunLimits.none(), [], undefined, undefined, [
-			...sources,
-		]);
+		const runtime = new RuntimeOptions(
+			ShutdownOptions.waitIndefinitely(),
+			RunLimits.unbounded(),
+			[],
+			undefined,
+			undefined,
+			[...sources],
+		);
 		app = await Test.createTestingModule({
 			imports: [
 				AdkModule.forRoot(new AdkModuleOptions(model, undefined, undefined, undefined, undefined, runtime)),

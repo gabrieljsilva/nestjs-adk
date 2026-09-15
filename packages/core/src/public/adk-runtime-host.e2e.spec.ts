@@ -18,7 +18,7 @@ import { AgentTransferPolicy } from "../domain/agent/agent-transfer-policy";
 import { DeclaredAgent } from "../domain/agent/declared-agent";
 import { DelegationNotDeclaredError } from "../domain/agent/errors/delegation-not-declared.error";
 import { TransferNotDeclaredError } from "../domain/agent/errors/transfer-not-declared.error";
-import { OffloadPolicy } from "../domain/artifact/offload-policy";
+import { CharacterCountOffloadPolicy } from "../domain/artifact/character-count-offload-policy";
 import { AssistantMessageProduced } from "../domain/event/catalog/assistant-message-produced";
 import { DelegationStarted } from "../domain/event/catalog/delegation-started";
 import { ToolResultProduced } from "../domain/event/catalog/tool-result-produced";
@@ -343,9 +343,9 @@ class FlakySessionStorage extends InMemorySessionStorage {
 function approvingOptions(): RuntimeOptions {
 	return new RuntimeOptions(
 		ShutdownOptions.waitIndefinitely(),
-		RunLimits.none(),
+		RunLimits.unbounded(),
 		[],
-		OffloadPolicy.byDefault(),
+		CharacterCountOffloadPolicy.byDefault(),
 		EffectApprovalPolicy.from(ToolEffect.READ),
 	);
 }
@@ -354,9 +354,9 @@ function approvingOptions(): RuntimeOptions {
 function writeApprovingOptions(): RuntimeOptions {
 	return new RuntimeOptions(
 		ShutdownOptions.waitIndefinitely(),
-		RunLimits.none(),
+		RunLimits.unbounded(),
 		[],
-		OffloadPolicy.byDefault(),
+		CharacterCountOffloadPolicy.byDefault(),
 		EffectApprovalPolicy.from(ToolEffect.WRITE),
 	);
 }
@@ -521,7 +521,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			artifactsOf(),
 			new FakeClock(),
 			new SequenceIdGenerator(),
-			new RuntimeOptions(ShutdownOptions.waitIndefinitely(), RunLimits.none(), [consumer]),
+			new RuntimeOptions(ShutdownOptions.waitIndefinitely(), RunLimits.unbounded(), [consumer]),
 		);
 
 		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
@@ -544,7 +544,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			artifactsOf(),
 			new FakeClock(),
 			new SequenceIdGenerator(),
-			new RuntimeOptions(ShutdownOptions.waitIndefinitely(), RunLimits.none(), [consumer]),
+			new RuntimeOptions(ShutdownOptions.waitIndefinitely(), RunLimits.unbounded(), [consumer]),
 		);
 
 		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hi"))).catch(() => undefined);
@@ -560,7 +560,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			artifactsOf(),
 			new FakeClock(),
 			new SequenceIdGenerator(),
-			new RuntimeOptions(ShutdownOptions.waitIndefinitely(), RunLimits.none(), [consumer]),
+			new RuntimeOptions(ShutdownOptions.waitIndefinitely(), RunLimits.unbounded(), [consumer]),
 		);
 
 		await host.stop();
@@ -594,7 +594,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			artifactsOf(),
 			new FakeClock(),
 			new SequenceIdGenerator(),
-			new RuntimeOptions(ShutdownOptions.waitIndefinitely(), RunLimits.none(), [consumer]),
+			new RuntimeOptions(ShutdownOptions.waitIndefinitely(), RunLimits.unbounded(), [consumer]),
 		);
 
 		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("where is order 42?")));
@@ -1044,7 +1044,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new AgentRunCommand(
 				SUPPORT,
 				AskInput.of("I was charged twice", first.sessionId),
-				RunLimits.none(),
+				RunLimits.unbounded(),
 				undefined,
 				BILLING,
 			),
@@ -1072,7 +1072,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 
 		await expect(
 			runtime.runner.ask(
-				new AgentRunCommand(SUPPORT, AskInput.of("route me", first.sessionId), RunLimits.none(), undefined, BILLING),
+				new AgentRunCommand(SUPPORT, AskInput.of("route me", first.sessionId), RunLimits.unbounded(), undefined, BILLING),
 			),
 		).rejects.toBeInstanceOf(TransferNotDeclaredError);
 

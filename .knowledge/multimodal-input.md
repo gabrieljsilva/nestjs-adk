@@ -21,6 +21,8 @@ The reason is read frequency. A journal is read on every rehydration, every stat
 
 `AttachmentReader` brings it back during projection, with a cache bounded by bytes rather than entries, because without one the image attached to the first question would be fetched again on every turn after it for the life of the conversation.
 
+The cache is keyed by session and id, and a delete is the one thing that can make it lie: the bytes are gone but the key still answers. So `SessionService.delete` is what the runtime deletes a conversation through, and it removes the journal, the artifacts and the reader's entries in that order. An application calling `SessionStorage.delete` directly is deleting behind the cache, and `AttachmentReader.forget(context)` is public for exactly that caller.
+
 ## Materialization is asked, not recorded
 
 Identity is durable and materialization is not: a signed URL is right for one turn and wrong for the next, and relevance ("not this turn", "not any more") is policy the runtime does not own. So every reference passes through the `AttachmentResolver` port on every projection, and the answer is an `AttachmentProjection`: `media` puts it in front of the model, `note` puts a bracketed line of text where it stood, `omit` leaves it out. `DefaultAttachmentResolver` reproduces the pre-port behaviour (stored bytes inline, a link as its address) and turns an external reference into a note saying no resolver is configured, because that is a wiring mistake somebody has to see.

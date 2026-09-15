@@ -1,3 +1,5 @@
+import type { Secret } from "@nestjs-adk/core";
+
 /**
  * How to reach Gemini, and how to generate once there.
  *
@@ -6,8 +8,14 @@
  * difference, because `@google/genai` speaks to both through one interface.
  */
 export interface GeminiOptions {
-	/** Defaults to the value of `GOOGLE_API_KEY` or `GEMINI_API_KEY`. Ignored on Vertex AI. */
-	apiKey?: string;
+	/**
+	 * Defaults to the value of `GOOGLE_API_KEY` or `GEMINI_API_KEY`. Ignored on Vertex AI.
+	 *
+	 * A plain string is accepted so `process.env.GEMINI_API_KEY` still reads well, and it is
+	 * wrapped in a {@link Secret} at this boundary: past it the key only exists as a value that
+	 * masks itself in a log, and it is revealed once, at the call that builds the SDK client.
+	 */
+	apiKey?: Secret | string;
 
 	/** Talk to Vertex AI instead of the Gemini API. */
 	vertexai?: boolean;

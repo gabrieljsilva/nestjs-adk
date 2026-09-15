@@ -5,6 +5,10 @@ import { InvalidRunLimitError } from "./errors/invalid-run-limit.error";
  *
  * A limit is declared or absent, and absence is not zero: an unset iteration cap means
  * the run is bounded by the model and by the tools rather than by a number nobody chose.
+ * That is what `unbounded()` means, and it has to be asked for: what the runtime starts
+ * from is `byDefault()`, fifty iterations, because a model that loops on a tool it cannot
+ * satisfy spends somebody's money until it is stopped, and a ceiling nobody chose is a
+ * worse answer than one they can raise.
  * Invalid arguments are the one exception and default to two, because the model wrote
  * the argument and usually fixes it on the next try, while a model that cannot satisfy
  * the schema would otherwise loop on someone's bill.
@@ -16,13 +20,22 @@ import { InvalidRunLimitError } from "./errors/invalid-run-limit.error";
 export class RunLimits {
 	public static readonly DEFAULT_MAX_INVALID_ARGS = 2;
 
+	/** High enough that no honest agent reaches it, low enough that a loop is paid for once. */
+	public static readonly DEFAULT_MAX_ITERATIONS = 50;
+
 	private constructor(
 		public readonly maxIterations: number | undefined,
 		public readonly maxConsecutiveToolFailures: number | undefined,
 		public readonly maxInvalidArgs: number | undefined,
 	) {}
 
-	public static none(): RunLimits {
+	/** What the runtime runs under when nobody declared anything. */
+	public static byDefault(): RunLimits {
+		return new RunLimits(RunLimits.DEFAULT_MAX_ITERATIONS, undefined, undefined);
+	}
+
+	/** No ceiling at all, which is a declaration and never an oversight. */
+	public static unbounded(): RunLimits {
 		return new RunLimits(undefined, undefined, undefined);
 	}
 

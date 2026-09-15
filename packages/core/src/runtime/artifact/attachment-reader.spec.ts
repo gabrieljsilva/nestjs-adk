@@ -82,6 +82,31 @@ describe("AttachmentReader", () => {
 		expect(storage.reads).toBe(1);
 	});
 
+	it("reads again after the conversation it cached for was forgotten", async () => {
+		const storage = storageOf();
+		const reader = new AttachmentReader(storage);
+		const id = await put(storage);
+
+		await read(reader, [id]);
+		reader.forget(CTX);
+		await read(reader, [id]);
+
+		expect(storage.reads).toBe(2);
+	});
+
+	/** Forgetting one conversation is not a reason for every other one to pay for a read again. */
+	it("keeps what it cached for the conversations it was not asked about", async () => {
+		const storage = storageOf();
+		const reader = new AttachmentReader(storage);
+		const id = await put(storage);
+
+		await read(reader, [id]);
+		reader.forget(OTHER_CTX);
+		await read(reader, [id]);
+
+		expect(storage.reads).toBe(1);
+	});
+
 	it("never answers one session with another session's attachment", async () => {
 		const storage = storageOf();
 		const reader = new AttachmentReader(storage);

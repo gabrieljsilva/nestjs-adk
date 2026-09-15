@@ -1,6 +1,7 @@
 import type { ArtifactStorage } from "../../contracts/artifact-storage";
 import { ArtifactContent } from "../../domain/artifact/artifact-content";
-import { OffloadPolicy } from "../../domain/artifact/offload-policy";
+import { CharacterCountOffloadPolicy } from "../../domain/artifact/character-count-offload-policy";
+import type { OffloadPolicy } from "../../domain/artifact/offload-policy";
 import { OffloadedContent } from "../../domain/artifact/offloaded-content";
 import type { SessionContext } from "../../domain/run/session-context";
 
@@ -19,7 +20,7 @@ import type { SessionContext } from "../../domain/run/session-context";
 export class ArtifactOffloader {
 	public constructor(
 		private readonly storage: ArtifactStorage,
-		private readonly policy: OffloadPolicy = OffloadPolicy.byDefault(),
+		private readonly policy: OffloadPolicy = CharacterCountOffloadPolicy.byDefault(),
 	) {}
 
 	public async offload(context: SessionContext, text: string, mediaType?: string): Promise<OffloadedContent> {

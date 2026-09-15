@@ -3,7 +3,6 @@ import { Injectable, Module } from "@nestjs/common";
 import { Test, type TestingModule } from "@nestjs/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { Embedder } from "../../contracts/embedder";
-import { MeteredEmbedder } from "../../contracts/metered-embedder";
 import { PricingSource } from "../../contracts/pricing-source";
 import { ModelPrice } from "../../domain/cost/model-price";
 import { TokenRate } from "../../domain/cost/token-rate";
@@ -36,7 +35,11 @@ class FixedEmbedder extends Embedder {
 	}
 }
 
-class ReportingEmbedder extends MeteredEmbedder {
+class ReportingEmbedder extends Embedder {
+	public async embed(text: string): Promise<EmbeddingVector> {
+		return (await this.embedMetered(text)).vector;
+	}
+
 	public async embedMetered(text: string): Promise<MeteredEmbedding> {
 		return new MeteredEmbedding(EmbeddingVector.of([1, 0]), EMBEDDING_MODEL, ModelUsage.of(text.length, 0));
 	}

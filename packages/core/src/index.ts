@@ -226,6 +226,7 @@ export { ToolSourceUnavailableError } from "./domain/tool/errors/tool-source-una
 export { PendingCall } from "./domain/session/pending-call";
 export { SessionInspection } from "./domain/session/session-inspection";
 export { SnapshotPolicy } from "./runtime/session/snapshot/snapshot-policy";
+export { RevisionBucketSnapshotPolicy } from "./runtime/session/snapshot/revision-bucket-snapshot-policy";
 export { ApprovalNotPendingError } from "./domain/session/errors/approval-not-pending.error";
 export { DuplicateSkillNameError } from "./domain/skill/errors/duplicate-skill-name.error";
 
@@ -258,6 +259,7 @@ export { UnknownTransferTargetError } from "./runtime/catalog/errors/unknown-tra
 // artifacts
 export { ArtifactStorage } from "./contracts/artifact-storage";
 export { OffloadPolicy } from "./domain/artifact/offload-policy";
+export { CharacterCountOffloadPolicy } from "./domain/artifact/character-count-offload-policy";
 export { ArtifactNotFoundError } from "./domain/artifact/errors/artifact-not-found.error";
 export { TamperedArtifactReferenceError } from "./domain/artifact/errors/tampered-artifact-reference.error";
 export { InMemoryArtifactStorage } from "./adapters/storage/in-memory-artifact-storage";
@@ -279,7 +281,6 @@ export {
 
 // embeddings
 export { Embedder } from "./contracts/embedder";
-export { MeteredEmbedder } from "./contracts/metered-embedder";
 export { PricedEmbedder } from "./runtime/cost/priced-embedder";
 export { UndeclaredEmbedder } from "./public/nest/undeclared-embedder";
 export { EmbedderNotDeclaredError } from "./public/nest/errors/embedder-not-declared.error";
@@ -292,6 +293,8 @@ export { IncompatibleVectorsError } from "./domain/embedding/errors/incompatible
 export { Secret } from "./common/secrecy/secret";
 export { SessionEventConsumer } from "./contracts/session-event-consumer";
 export { ConsumerNoticeSink } from "./contracts/consumer-notice-sink";
+export { EventRedactor } from "./runtime/event/event-redactor";
+export { FieldNameEventRedactor } from "./runtime/event/field-name-event-redactor";
 export { PublishedEvent } from "./domain/event/published-event";
 export { ToolCallRequested } from "./domain/event/catalog/tool-call-requested";
 export { ToolResultProduced } from "./domain/event/catalog/tool-result-produced";
@@ -307,6 +310,7 @@ export { ContextBlock } from "./domain/context/context-block";
 export { InvalidCompactionThresholdError } from "./domain/context/errors/invalid-compaction-threshold.error";
 export { ContextSummarizer } from "./contracts/context-summarizer";
 export { CompactionStrategy } from "./contracts/compaction-strategy";
+export { OldestFirstCompactionStrategy } from "./runtime/context/oldest-first-compaction-strategy";
 
 // failover
 export { AgentFailoverPolicy } from "./domain/agent/agent-failover-policy";

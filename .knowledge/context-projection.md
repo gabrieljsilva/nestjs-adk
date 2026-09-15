@@ -64,6 +64,10 @@ A measurement belongs to the model that produced it. `PromptMeasurement` carries
 
 Compaction decides on the projection rather than the measurement, and targets a share of the current prompt rather than a token count. Compacting a turn early costs some room; compacting a turn late costs the call.
 
+## The strategy is a component like the policy
+
+The policy answers whether and how much; `CompactionStrategy` answers how, and it is declared in `RuntimeOptions.compactionStrategy` rather than constructed inside the composition. `OldestFirstCompactionStrategy` is what ships, and it is built there rather than defaulted in the options because it needs the measurer and the summarizer the runtime composes.
+
 ## What compaction may not do
 
 Compaction produces another projection. It never mutates the one it was given, which is why `PreparedModelContext` deep freezes itself: a strategy written as a mutation fails loudly instead of changing what a previous call already measured.

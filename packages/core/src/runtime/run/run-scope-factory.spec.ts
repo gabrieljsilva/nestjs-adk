@@ -255,7 +255,7 @@ describe("RunScopeFactory", () => {
 		const declared = new NamedCompaction("agent");
 
 		it("hands the module policy to an agent that declared none", async () => {
-			const factory = new RunScopeFactory([], RunLimits.none(), moduleWide);
+			const factory = new RunScopeFactory([], RunLimits.unbounded(), moduleWide);
 
 			const scope = await scopeOf(factory, NativeStackFixture.definitionOf(model));
 
@@ -263,7 +263,7 @@ describe("RunScopeFactory", () => {
 		});
 
 		it("lets the agent replace it", async () => {
-			const factory = new RunScopeFactory([], RunLimits.none(), moduleWide);
+			const factory = new RunScopeFactory([], RunLimits.unbounded(), moduleWide);
 
 			const scope = await scopeOf(factory, compacting(declared));
 
@@ -278,7 +278,7 @@ describe("RunScopeFactory", () => {
 		});
 
 		it("compacts nothing for an agent that turned it off", async () => {
-			const factory = new RunScopeFactory([], RunLimits.none(), moduleWide);
+			const factory = new RunScopeFactory([], RunLimits.unbounded(), moduleWide);
 
 			const scope = await scopeOf(factory, compacting(false));
 
@@ -286,7 +286,7 @@ describe("RunScopeFactory", () => {
 		});
 
 		it("compacts nothing under a runtime that turned it off", async () => {
-			const factory = new RunScopeFactory([], RunLimits.none(), false);
+			const factory = new RunScopeFactory([], RunLimits.unbounded(), false);
 
 			const scope = await scopeOf(factory, NativeStackFixture.definitionOf(model));
 
@@ -295,7 +295,7 @@ describe("RunScopeFactory", () => {
 
 		/** The runtime saying no does not answer for an agent that said yes. */
 		it("lets an agent compact under a runtime that turned it off", async () => {
-			const factory = new RunScopeFactory([], RunLimits.none(), false);
+			const factory = new RunScopeFactory([], RunLimits.unbounded(), false);
 
 			const scope = await scopeOf(factory, compacting(declared));
 
@@ -304,14 +304,14 @@ describe("RunScopeFactory", () => {
 
 		/** A handover runs under the rules of whoever received the session, not of whoever sent it. */
 		it("resolves again for the agent that received a handover", async () => {
-			const factory = new RunScopeFactory([], RunLimits.none(), moduleWide);
+			const factory = new RunScopeFactory([], RunLimits.unbounded(), moduleWide);
 			const scope = await scopeOf(factory, compacting(declared));
 
 			expect((await factory.switched(scope, NativeStackFixture.definitionOf(model), model)).compaction).toBe(moduleWide);
 		});
 
 		it("resolves from scratch for a delegated child", async () => {
-			const factory = new RunScopeFactory([], RunLimits.none(), moduleWide);
+			const factory = new RunScopeFactory([], RunLimits.unbounded(), moduleWide);
 			const parent = await scopeOf(factory, NativeStackFixture.definitionOf(model));
 
 			expect((await factory.delegated(parent, startedRun(), compacting(declared), model)).compaction).toBe(declared);

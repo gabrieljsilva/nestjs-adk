@@ -1,3 +1,4 @@
+import { Secret } from "@nestjs-adk/core";
 import OpenAI from "openai";
 import type { OpenAiChatClient } from "./openai-chat-client";
 import type { OpenAiOptions } from "./openai-options";
@@ -11,8 +12,9 @@ import type { OpenAiOptions } from "./openai-options";
  */
 export class OpenAiClientFactory {
 	public create(options: OpenAiOptions): OpenAiChatClient {
+		const apiKey = Secret.fromOption(options.apiKey);
 		return new OpenAI({
-			apiKey: options.apiKey,
+			apiKey: apiKey?.reveal(),
 			baseURL: options.baseURL,
 			organization: options.organization,
 			defaultHeaders: options.headers,

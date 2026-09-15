@@ -38,4 +38,12 @@ describe("Secret", () => {
 		expect(Object.keys(secret)).toEqual([]);
 		expect(JSON.stringify({ ...secret })).toBe("{}");
 	});
+
+	it("wraps what an option boundary was handed, and keeps a secret it was already given", () => {
+		const already = Secret.of("sk-live-1");
+
+		expect(Secret.fromOption("sk-live-1")?.reveal()).toBe("sk-live-1");
+		expect(Secret.fromOption(already)).toBe(already);
+		expect(Secret.fromOption(undefined)).toBeUndefined();
+	});
 });

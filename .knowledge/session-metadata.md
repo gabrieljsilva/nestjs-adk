@@ -31,7 +31,7 @@ The limit is sixteen kibibytes serialized, per key rather than per session. Meta
 
 ## The redactor reads the key, not the field name
 
-`EventRedactor` masks by field name, and a metadata payload puts the name in `key` and the secret in `value`. A rule that only looked at field names would publish a credential stored under `token` while masking a field called `token`, so the redactor reads the same list against `key` whenever a payload has both.
+`FieldNameEventRedactor`, the `EventRedactor` that ships, masks by field name, and a metadata payload puts the name in `key` and the secret in `value`. A rule that only looked at field names would publish a credential stored under `token` while masking a field called `token`, so the redactor reads the same list against `key` whenever a payload has both.
 
 ## A delegation inherits it for free
 

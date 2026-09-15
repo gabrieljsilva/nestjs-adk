@@ -22,7 +22,7 @@ export class AgentRunCommand {
 	public constructor(
 		public readonly agent: AgentName,
 		public readonly input: AskInput,
-		public readonly limits: RunLimits = RunLimits.none(),
+		public readonly limits: RunLimits = RunLimits.unbounded(),
 		public readonly model?: LlmModel,
 		/**
 		 * Hands the session to another agent before this message is answered.

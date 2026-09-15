@@ -4,7 +4,7 @@ import { SessionId } from "../../common/identity/session-id";
 import { ArtifactStorage } from "../../contracts/artifact-storage";
 import type { ArtifactContent } from "../../domain/artifact/artifact-content";
 import type { ArtifactReference } from "../../domain/artifact/artifact-reference";
-import { OffloadPolicy } from "../../domain/artifact/offload-policy";
+import { CharacterCountOffloadPolicy } from "../../domain/artifact/character-count-offload-policy";
 import { SessionContext } from "../../domain/run/session-context";
 import { SequenceIdGenerator } from "../../support/sequence-id-generator";
 import { ArtifactOffloader } from "./artifact-offloader";
@@ -36,7 +36,7 @@ function storageOf(): InMemoryArtifactStorage {
 
 describe("ArtifactOffloader", () => {
 	it("leaves a result that fits exactly where it was", async () => {
-		const offloader = new ArtifactOffloader(storageOf(), OffloadPolicy.above(10));
+		const offloader = new ArtifactOffloader(storageOf(), CharacterCountOffloadPolicy.above(10));
 
 		const result = await offloader.offload(CTX, "short");
 
@@ -45,7 +45,7 @@ describe("ArtifactOffloader", () => {
 	});
 
 	it("moves a result that does not fit, and answers with a placeholder", async () => {
-		const offloader = new ArtifactOffloader(storageOf(), OffloadPolicy.above(10));
+		const offloader = new ArtifactOffloader(storageOf(), CharacterCountOffloadPolicy.above(10));
 
 		const result = await offloader.offload(CTX, "a report far longer than the threshold");
 
@@ -56,7 +56,7 @@ describe("ArtifactOffloader", () => {
 
 	it("stores the content whole, so asking for it back returns what the tool produced", async () => {
 		const storage = storageOf();
-		const offloader = new ArtifactOffloader(storage, OffloadPolicy.above(10));
+		const offloader = new ArtifactOffloader(storage, CharacterCountOffloadPolicy.above(10));
 		const original = "a report far longer than the threshold";
 
 		const result = await offloader.offload(CTX, original);
@@ -68,7 +68,7 @@ describe("ArtifactOffloader", () => {
 
 	it("keeps the media type the caller declared", async () => {
 		const storage = storageOf();
-		const offloader = new ArtifactOffloader(storage, OffloadPolicy.above(5));
+		const offloader = new ArtifactOffloader(storage, CharacterCountOffloadPolicy.above(5));
 
 		const result = await offloader.offload(CTX, '{"items":[1,2,3]}', "application/json");
 
@@ -76,13 +76,13 @@ describe("ArtifactOffloader", () => {
 	});
 
 	it("moves nothing when the application disabled offload", async () => {
-		const offloader = new ArtifactOffloader(storageOf(), OffloadPolicy.disabled());
+		const offloader = new ArtifactOffloader(storageOf(), CharacterCountOffloadPolicy.disabled());
 
 		expect((await offloader.offload(CTX, "x".repeat(100_000))).wasOffloaded).toBe(false);
 	});
 
 	it("keeps the result in the context when the storage refuses it", async () => {
-		const offloader = new ArtifactOffloader(new RefusingArtifactStorage(), OffloadPolicy.above(1));
+		const offloader = new ArtifactOffloader(new RefusingArtifactStorage(), CharacterCountOffloadPolicy.above(1));
 
 		const result = await offloader.offload(CTX, "a long enough result");
 
@@ -93,7 +93,11 @@ describe("ArtifactOffloader", () => {
 	it("uses the default threshold when the application chose none", async () => {
 		const offloader = new ArtifactOffloader(storageOf());
 
-		expect((await offloader.offload(CTX, "x".repeat(OffloadPolicy.DEFAULT_THRESHOLD))).wasOffloaded).toBe(false);
-		expect((await offloader.offload(CTX, "x".repeat(OffloadPolicy.DEFAULT_THRESHOLD + 1))).wasOffloaded).toBe(true);
+		expect((await offloader.offload(CTX, "x".repeat(CharacterCountOffloadPolicy.DEFAULT_THRESHOLD))).wasOffloaded).toBe(
+			false,
+		);
+		expect(
+			(await offloader.offload(CTX, "x".repeat(CharacterCountOffloadPolicy.DEFAULT_THRESHOLD + 1))).wasOffloaded,
+		).toBe(true);
 	});
 });

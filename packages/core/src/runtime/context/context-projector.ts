@@ -38,6 +38,11 @@ import { ResolvedAttachments } from "../artifact/resolved-attachments";
 export class ContextProjector {
 	public constructor(private readonly attachments: AttachmentReader = AttachmentReader.none()) {}
 
+	/** The attachments of one conversation are no longer worth holding, because it is gone. */
+	public forgetAttachments(context: SessionContext): void {
+		this.attachments.forget(context);
+	}
+
 	public async project(
 		context: SessionContext,
 		events: AsyncIterable<StoredSessionEvent>,

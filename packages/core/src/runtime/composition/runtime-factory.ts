@@ -81,14 +81,14 @@ export class RuntimeFactory {
 		const lifecycle = new RuntimeLifecycle(tracker, options.shutdown, clock);
 		const resolver = options.models ?? new CatalogModelResolver();
 		const measurer = new ContextMeasurer();
-		const events = new EventPublisher(options.consumers, options.consumerNotices);
+		const events = new EventPublisher(options.consumers, options.consumerNotices, undefined, undefined, options.redactor);
 		const sessions = new SessionManager(storage, undefined, events, undefined, options.snapshots);
 		const context = new ContextManager(
 			storage,
 			new ContextProjector(new AttachmentReader(artifacts, options.attachments)),
 			measurer,
 			new StablePrefixDigest(),
-			new OldestFirstCompactionStrategy(measurer, options.summarizer),
+			options.compactionStrategy ?? new OldestFirstCompactionStrategy(measurer, options.summarizer),
 			new ContextWindowNotifier(options.contextNotices),
 		);
 		const runs = new AgentRunFactory(ids, clock, tracker, lifecycle);
@@ -189,7 +189,7 @@ export class RuntimeFactory {
 				catalog,
 				resolver,
 				container.get(AgentRunner),
-				this.sessionServiceOf(catalog, sessions, clock, ids, runs, journal),
+				this.sessionServiceOf(catalog, sessions, clock, ids, runs, journal, artifacts, context),
 				container.get(AgentRunFactory),
 				container.get(EventPublisher),
 				container.get(ArtifactOffloader),
@@ -213,6 +213,8 @@ export class RuntimeFactory {
 		ids: IdGenerator,
 		runs: AgentRunFactory,
 		journal: RunJournal,
+		artifacts: ArtifactStorage,
+		context: ContextManager,
 	): SessionService {
 		const inspecting = new InspectSession(sessions);
 		return new SessionService(
@@ -220,6 +222,8 @@ export class RuntimeFactory {
 			inspecting,
 			sessions,
 			new InspectContextBudget(inspecting, catalog),
+			artifacts,
+			context,
 		);
 	}
 

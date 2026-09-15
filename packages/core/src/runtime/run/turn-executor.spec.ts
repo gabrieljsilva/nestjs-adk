@@ -78,7 +78,7 @@ async function scopeOf(tools: readonly ToolDefinition[], skills: readonly SkillD
 		agent: started.run.agent,
 		runId: started.run.id.value,
 	});
-	return await new RunScopeFactory().create(context, definition, model, started, [], RunLimits.none());
+	return await new RunScopeFactory().create(context, definition, model, started, [], RunLimits.unbounded());
 }
 
 function executorOf(): TurnExecutor {

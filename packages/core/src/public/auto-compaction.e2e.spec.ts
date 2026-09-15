@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { InMemoryArtifactStorage } from "../adapters/storage/in-memory-artifact-storage";
 import { InMemorySessionStorage } from "../adapters/storage/in-memory-session-storage";
 import { SessionRevision } from "../common/revision/session-revision";
+import { CompactionStrategy } from "../contracts/compaction-strategy";
 import type { ContextSummarizer } from "../contracts/context-summarizer";
 import { AgentDefinition } from "../domain/agent/agent-definition";
 import { AgentDescription } from "../domain/agent/agent-description";
@@ -12,6 +13,7 @@ import { AdkCompactionPolicy } from "../domain/context/adk-compaction-policy";
 import { CompactionDecision } from "../domain/context/compaction-decision";
 import type { ContextBlock } from "../domain/context/context-block";
 import type { ContextBudget } from "../domain/context/context-budget";
+import type { ContextProjection } from "../domain/context/context-projection";
 import { LlmModel } from "../domain/model/llm-model";
 import { ModelCapabilities } from "../domain/model/model-capabilities";
 import { ModelChunk } from "../domain/model/model-chunk";
@@ -26,6 +28,8 @@ import { SessionContext } from "../domain/run/session-context";
 import { AskInput } from "../domain/session/ask-input";
 import { RunLimits } from "../domain/session/run-limits";
 import { RuntimeOptions } from "../runtime/composition/runtime-options";
+import { ContextMeasurer } from "../runtime/context/context-measurer";
+import { OldestFirstCompactionStrategy } from "../runtime/context/oldest-first-compaction-strategy";
 import { ShutdownOptions } from "../runtime/lifecycle/shutdown-options";
 import { AgentRunCommand } from "../runtime/run/agent-run-command";
 import { FakeClock } from "../support/fake-clock";
@@ -98,7 +102,7 @@ function agentOf(model: LlmModel, compaction: AdkCompactionPolicy): DeclaredAgen
 function optionsWith(summarizer: ContextSummarizer): RuntimeOptions {
 	return new RuntimeOptions(
 		ShutdownOptions.waitIndefinitely(),
-		RunLimits.none(),
+		RunLimits.unbounded(),
 		[],
 		undefined,
 		undefined,
@@ -107,6 +111,24 @@ function optionsWith(summarizer: ContextSummarizer): RuntimeOptions {
 		undefined,
 		summarizer,
 	);
+}
+
+/** Shortens the way the shipped strategy does, and counts, which is the observable part. */
+class RecordingStrategy extends CompactionStrategy {
+	public readonly name = "recording";
+	public readonly version = 1;
+	public calls = 0;
+
+	private readonly shipped = new OldestFirstCompactionStrategy(new ContextMeasurer());
+
+	public async compact(
+		context: RunContext,
+		projection: ContextProjection,
+		decision: CompactionDecision,
+	): Promise<ContextProjection> {
+		this.calls += 1;
+		return this.shipped.compact(context, projection, decision);
+	}
 }
 
 describe("auto compaction, against a scripted model", () => {
@@ -186,5 +208,25 @@ describe("auto compaction, against a scripted model", () => {
 				?.messages.map((message) => message.text)
 				.join(" "),
 		).not.toContain("SUMMARY");
+	});
+
+	/** The shipped strategy is a default, and a declared one is what the runtime composes with. */
+	it("compacts through the strategy the application declared", async () => {
+		const model = new CountingModel();
+		const compactionStrategy = new RecordingStrategy();
+		const runtime = await host.start(
+			[agentOf(model, new AboveThreshold(400))],
+			new InMemorySessionStorage(),
+			new InMemoryArtifactStorage(new SequenceIdGenerator("a")),
+			new FakeClock(),
+			new SequenceIdGenerator(),
+			RuntimeOptions.from({ compactionStrategy }),
+		);
+
+		const first = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("one")));
+		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("two", first.sessionId)));
+		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("three", first.sessionId)));
+
+		expect(compactionStrategy.calls).toBeGreaterThan(0);
 	});
 });

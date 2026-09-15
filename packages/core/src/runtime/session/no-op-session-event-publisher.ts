@@ -1,4 +1,4 @@
-import { SessionEventPublisher } from "../../contracts/session-event-publisher";
+import { SessionEventPublisher } from "../event/session-event-publisher";
 
 /** Default publisher: the journal is committed and nobody is listening yet. */
 export class NoOpSessionEventPublisher extends SessionEventPublisher {

@@ -620,7 +620,7 @@ AdkModule.forRoot(
 );
 ```
 
-The journal is the source of truth. Snapshots exist only to avoid replaying a long conversation from the first event, are always disposable, and are governed by `runtime.snapshots` (`SnapshotPolicy`). A port that cannot do everything says so through `StorageCapabilities` rather than failing halfway.
+The journal is the source of truth. Snapshots exist only to avoid replaying a long conversation from the first event, are always disposable, and are governed by `runtime.snapshots`, which is `RevisionBucketSnapshotPolicy.everyFiftyEvents()` unless the application extends `SnapshotPolicy` with a rule of its own. A port that cannot do everything says so through `StorageCapabilities` rather than failing halfway.
 
 ### Writing a storage of your own
 
@@ -681,7 +681,12 @@ AdkModule.forRoot(
 );
 ```
 
-`maxIterations` is how many model and tool round trips one run may take; past it the run throws `AgentMaxIterationsError`. `maxConsecutiveToolFailures` is a breaker per tool: the same tool failing that many times in a row throws `ToolRepeatedFailureError` without waiting for the bigger cap, and a success resets the count.
+`maxIterations` is how many model and tool round trips one run may take; past it the run throws `AgentMaxIterationsError`. It defaults to `50`, because a model looping on a tool it cannot satisfy spends money until something stops it. `RunLimits.unbounded()` takes the ceiling off, and it has to be asked for:
+
+```ts
+runtime: RuntimeOptions.from({ limits: RunLimits.unbounded() });
+```
+ `maxConsecutiveToolFailures` is a breaker per tool: the same tool failing that many times in a row throws `ToolRepeatedFailureError` without waiting for the bigger cap, and a success resets the count.
 
 `maxInvalidArgs` is the third and the only one always on, defaulting to `2`. It counts how many times the model may call a tool with arguments the schema rejects. The first mistakes go back to the model as a result it can act on, because the model wrote the argument and usually fixes it next call, while throwing would kill a run over a missing field. Past the limit the run throws `ToolInvalidArgsError`. It only counts for declared tools: a tool from an external catalog carries the server's own schema, and a bad call comes back from the server as an error the model reacts to.
 
@@ -702,7 +707,7 @@ Replacing is not narrowing: an agent that declares `16` runs under `16` even whe
 
 Long conversations and big tool results both eat the window, and each has its own answer.
 
-A tool result above 20 thousand characters is stored as an artifact, and the model gets a short summary plus a `read_artifact` tool it can call when it really needs the whole thing. `runtime.offload` decides the threshold: `OffloadPolicy.byDefault()`, `above(n)` or `disabled()`. `read_artifact` works on anything in `ArtifactStorage`, not only offloaded results, so an upload saved there can be pulled in on demand: text comes back as a normal result, binary comes back as media.
+A tool result above 20 thousand characters is stored as an artifact, and the model gets a short summary plus a `read_artifact` tool it can call when it really needs the whole thing. `runtime.offload` decides the threshold: `CharacterCountOffloadPolicy.byDefault()`, `above(n)` or `disabled()`. It is a port, so an application that decides by media type or by tool extends `OffloadPolicy` instead. `read_artifact` works on anything in `ArtifactStorage`, not only offloaded results, so an upload saved there can be pulled in on demand: text comes back as a normal result, binary comes back as media.
 
 For long histories there is compaction, and it is on without you declaring anything. Once a conversation passes nine tenths of the model's window it is shortened to seven tenths, oldest closed exchanges first, keeping the four most recent. Declare a `ContextSummarizer` and what leaves is replaced by a summary:
 
@@ -723,6 +728,12 @@ runtime: RuntimeOptions.from({
 ```
 
 The ceiling is measured against what the provider reported, so a conversation nobody has had is never compacted, and neither is one running on a model that never declared its window: a share of an unstated limit is not a number this library will invent. If you need a conversation shortened there anyway, extend `AdkCompactionPolicy` with the size you have in mind.
+
+The policy decides *whether* and *how much*; `CompactionStrategy` decides *how*. The shipped one, `OldestFirstCompactionStrategy`, drops the oldest answered exchanges and summarizes what fell. An application with another idea declares it once:
+
+```ts
+runtime: RuntimeOptions.from({ compactionStrategy: new MyStrategy() });
+```
 
 An agent may declare its own `compaction`, and like limits it replaces the module's rather than narrowing it. Here it is the whole policy that is replaced and not a field: two policies deciding how much to keep would be one of them shortening what the other just decided to hold on to.
 
@@ -782,7 +793,7 @@ What pauses is policy, declared once for the runtime:
 runtime: RuntimeOptions.from({ approvals: EffectApprovalPolicy.from(ToolEffect.DESTRUCTIVE) });
 ```
 
-It reads as "from this level up, pause". `EffectApprovalPolicy.never()` is the default and pauses nothing. Implement `AdkApprovalPolicy` when the decision needs more than the effect: `requires(tool, invocation, actor)` also receives who is asking, when the run was given an `actor`, which is how one person's reads run on their own while another's wait for a click.
+It reads as "from this level up, pause". `EffectApprovalPolicy.destructiveOnly()` is the default, so a tool declared `destructive` waits for a person unless the application says otherwise: the cost of that being wrong is a run that waits, and the cost the other way is an effect nobody agreed to. `EffectApprovalPolicy.never()` pauses nothing, and is how an application takes the gate off. Implement `AdkApprovalPolicy` when the decision needs more than the effect: `requires(tool, invocation, actor)` also receives who is asking, when the run was given an `actor`, which is how one person's reads run on their own while another's wait for a click.
 
 When the model calls a tool at or above that level, the tool does not run. The run suspends and comes back with the call waiting:
 
@@ -999,7 +1010,7 @@ const priced = new PricedEmbedder(embedder, reporter);
 const { vector, cost } = await priced.embed(text);
 ```
 
-That only produces a number when the provider reports usage, which today most do not: Google's `embedContent` answers a `billableCharacterCount` and only on Enterprise, and nothing there counts tokens. An embedder that can report extends `MeteredEmbedder` and answers `embedMetered`. One that cannot lands in `cost.unpriced` with a notice, because estimating tokens from characters would put a number in a report that no invoice will match.
+That only produces a number when the provider reports usage, which today most do not: Google's `embedContent` answers a `billableCharacterCount` and only on Enterprise, and nothing there counts tokens. An embedder that can report overrides `Embedder.embedMetered`. One that cannot lands in `cost.unpriced` with a notice, because estimating tokens from characters would put a number in a report that no invoice will match.
 
 ## Without NestJS
 
@@ -1052,9 +1063,10 @@ Everything the package exports, and nothing else: a name that is not here is not
 | `AdkModuleOptions`, `AdkModuleOptionsInput`, `AdkModuleOptionsPatch` | What the module takes: model, storage, artifacts, clock, ids, runtime, embedder, prompts |
 | `AdkModuleAsyncOptions`, `AdkOptionsFactory` | What `forRootAsync` takes: `imports` plus one of `useClass`, `useExisting` or `useFactory` |
 | `PromptFileOptions` | The `prompts` field: which directory the default source reads |
-| `RuntimeOptions`, `RuntimeOptionsPatch` | What the runtime takes: limits, approvals, consumers, sources, pricing, compaction, snapshots, shutdown |
+| `RuntimeOptions`, `RuntimeOptionsPatch` | What the runtime takes: limits, approvals, consumers, sources, pricing, compaction, compactionStrategy, snapshots, redactor, shutdown |
 | `ShutdownOptions` | How long a shutdown waits for runs in flight |
-| `SnapshotPolicy` | How often the journal is snapshotted |
+| `SnapshotPolicy`, `RevisionBucketSnapshotPolicy` | When the journal is snapshotted, and the shipped answer |
+| `EventRedactor`, `FieldNameEventRedactor` | What is masked out of a payload before a consumer reads it, and the shipped answer |
 | `ADK_OPTIONS`, `ADK_DEFAULT_MODEL`, `ADK_EVENT_CONSUMERS`, `ADK_RUNTIME_PATCH` | Tokens to override when a test or an application replaces one piece |
 
 ### Declaring an agent
@@ -1159,7 +1171,7 @@ Everything the package exports, and nothing else: a name that is not here is not
 | `SessionStorage`, `StorageCapabilities` | Where the journal lives, and what a port can do |
 | `InMemorySessionStorage`, `SqliteSessionStorage`, `SqliteConnection` | The two the library ships, both for development and tests |
 | `ArtifactStorage`, `InMemoryArtifactStorage` | Where a large result or an upload lives |
-| `OffloadPolicy` | When a result becomes an artifact instead of a message |
+| `OffloadPolicy`, `CharacterCountOffloadPolicy` | When a result becomes an artifact instead of a message, and the shipped answer |
 | `SessionEventConsumer`, `PublishedEvent` | Being told what happened, after it was committed |
 | `ConsumerNoticeSink` | Where a consumer's own failure is reported |
 | `ChunkSink` | Watching the pieces of a turn as they arrive |
@@ -1219,7 +1231,7 @@ Writing a `SessionStorage` needs more than the names in its signatures, and the 
 | Symbol | What it is for |
 | --- | --- |
 | `Embedder` | The port, with no default: bring your own provider |
-| `MeteredEmbedder`, `MeteredEmbedding` | An embedder that can report what it billed, and what it answers |
+| `MeteredEmbedding` | What an embedder answers when it can report what it billed |
 | `PricedEmbedder` | Prices an embedding through the same source a run uses |
 | `EmbeddingVector`, `Similarity` | A vector, and cosine similarity over two |
 | `UndeclaredEmbedder` | What is injected when none was declared, so only code that embeds fails |

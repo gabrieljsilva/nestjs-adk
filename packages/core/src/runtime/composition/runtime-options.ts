@@ -1,4 +1,5 @@
 import type { AttachmentResolver } from "../../contracts/attachment-resolver";
+import type { CompactionStrategy } from "../../contracts/compaction-strategy";
 import type { ConsumerNoticeSink } from "../../contracts/consumer-notice-sink";
 import type { ContextNoticeSink } from "../../contracts/context-notice-sink";
 import type { ContextSummarizer } from "../../contracts/context-summarizer";
@@ -7,15 +8,19 @@ import type { PricingNoticeSink } from "../../contracts/pricing-notice-sink";
 import type { PricingSource } from "../../contracts/pricing-source";
 import type { SessionEventConsumer } from "../../contracts/session-event-consumer";
 import type { ToolSource } from "../../contracts/tool-source";
-import { OffloadPolicy } from "../../domain/artifact/offload-policy";
+import { CharacterCountOffloadPolicy } from "../../domain/artifact/character-count-offload-policy";
+import type { OffloadPolicy } from "../../domain/artifact/offload-policy";
 import type { AdkCompactionPolicy } from "../../domain/context/adk-compaction-policy";
 import { RunLimits } from "../../domain/session/run-limits";
 import type { AdkAccessPolicy } from "../../domain/tool/adk-access-policy";
 import type { AdkApprovalPolicy } from "../../domain/tool/adk-approval-policy";
 import { EffectApprovalPolicy } from "../../domain/tool/effect-approval-policy";
 import { OpenAccessPolicy } from "../../domain/tool/open-access-policy";
+import type { EventRedactor } from "../event/event-redactor";
+import { FieldNameEventRedactor } from "../event/field-name-event-redactor";
 import { ShutdownOptions } from "../lifecycle/shutdown-options";
-import { SnapshotPolicy } from "../session/snapshot/snapshot-policy";
+import { RevisionBucketSnapshotPolicy } from "../session/snapshot/revision-bucket-snapshot-policy";
+import type { SnapshotPolicy } from "../session/snapshot/snapshot-policy";
 
 /**
  * The fields a caller may name; one left out keeps whatever the options already hold.
@@ -35,6 +40,10 @@ export interface RuntimeOptionsPatch {
 	contextNotices?: ContextNoticeSink;
 	consumerNotices?: ConsumerNoticeSink;
 	compaction?: AdkCompactionPolicy | false;
+	/** How a context that grew too long becomes one that fits. Absent keeps the shipped strategy. */
+	compactionStrategy?: CompactionStrategy;
+	/** What is masked out of a payload before a consumer reads it. */
+	redactor?: EventRedactor;
 	pricing?: PricingSource;
 	pricingNotices?: PricingNoticeSink;
 	attachments?: AttachmentResolver;
@@ -53,12 +62,21 @@ export interface RuntimeOptionsPatch {
 export class RuntimeOptions {
 	public constructor(
 		public readonly shutdown: ShutdownOptions = ShutdownOptions.waitIndefinitely(),
-		public readonly limits: RunLimits = RunLimits.none(),
+		/**
+		 * Fifty iterations unless the application says otherwise, and `RunLimits.unbounded()`
+		 * is how it says so. An agent, and then a call, may narrow or widen it from here.
+		 */
+		public readonly limits: RunLimits = RunLimits.byDefault(),
 		public readonly consumers: readonly SessionEventConsumer[] = [],
-		public readonly offload: OffloadPolicy = OffloadPolicy.byDefault(),
-		public readonly approvals: AdkApprovalPolicy = EffectApprovalPolicy.never(),
+		public readonly offload: OffloadPolicy = CharacterCountOffloadPolicy.byDefault(),
+		/**
+		 * A tool declared destructive stops in front of a human unless the application says
+		 * otherwise, which is the safe half of the trade: the cost of the default being wrong is a
+		 * run that waits, and the cost the other way is an effect nobody agreed to.
+		 */
+		public readonly approvals: AdkApprovalPolicy = EffectApprovalPolicy.destructiveOnly(),
 		public readonly sources: readonly ToolSource[] = [],
-		public readonly snapshots: SnapshotPolicy = SnapshotPolicy.everyFiftyEvents(),
+		public readonly snapshots: SnapshotPolicy = RevisionBucketSnapshotPolicy.everyFiftyEvents(),
 		public readonly models?: ModelResolver,
 		public readonly summarizer?: ContextSummarizer,
 		public readonly contextNotices?: ContextNoticeSink,
@@ -75,6 +93,13 @@ export class RuntimeOptions {
 		/** What an attachment becomes on each projection. Without it, stored bytes inline and links pass through. */
 		public readonly attachments?: AttachmentResolver,
 		public readonly access: AdkAccessPolicy = new OpenAccessPolicy(),
+		/**
+		 * Absent means the shipped strategy, which drops the oldest answered exchanges. It is
+		 * absent rather than built here because the shipped one needs the measurer and the
+		 * summarizer the runtime composes.
+		 */
+		public readonly compactionStrategy?: CompactionStrategy,
+		public readonly redactor: EventRedactor = new FieldNameEventRedactor(),
 	) {}
 
 	/** Options built from names instead of positions, with the same defaults as declaring none. */
@@ -106,6 +131,8 @@ export class RuntimeOptions {
 			patch.pricingNotices ?? this.pricingNotices,
 			patch.attachments ?? this.attachments,
 			patch.access ?? this.access,
+			patch.compactionStrategy ?? this.compactionStrategy,
+			patch.redactor ?? this.redactor,
 		);
 	}
 }

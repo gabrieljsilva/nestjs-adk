@@ -1,4 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
+import { Secret } from "@nestjs-adk/core";
 import type { GeminiOptions } from "./gemini-options";
 import type { GenAiClient, GenAiEmbeddingClient } from "./genai-client";
 
@@ -23,6 +24,7 @@ export class GenAiClientFactory {
 		if (options.vertexai === true) {
 			return new GoogleGenAI({ vertexai: true, project: options.project, location: options.location });
 		}
-		return new GoogleGenAI({ apiKey: options.apiKey });
+		const apiKey = Secret.fromOption(options.apiKey);
+		return new GoogleGenAI({ apiKey: apiKey?.reveal() });
 	}
 }

@@ -4,15 +4,15 @@ import { RunLimits } from "./run-limits";
 
 describe("RunLimits", () => {
 	it("declares nothing by default, so no iteration cap exists", () => {
-		const limits = RunLimits.none();
+		const limits = RunLimits.unbounded();
 
 		expect(limits.hasIterationLimit).toBe(false);
 		expect(limits.allowsIteration(1000)).toBe(true);
 	});
 
 	it("still answers the invalid argument limit when nobody declared one", () => {
-		expect(RunLimits.none().invalidArgsLimit).toBe(RunLimits.DEFAULT_MAX_INVALID_ARGS);
-		expect(RunLimits.none().allowsInvalidArgs(2)).toBe(false);
+		expect(RunLimits.unbounded().invalidArgsLimit).toBe(RunLimits.DEFAULT_MAX_INVALID_ARGS);
+		expect(RunLimits.unbounded().allowsInvalidArgs(2)).toBe(false);
 	});
 
 	it("stops the iteration after the declared number of them", () => {
@@ -30,7 +30,7 @@ describe("RunLimits", () => {
 	});
 
 	it("keeps what it had when the level under it declared nothing", () => {
-		const resolved = RunLimits.of(10).overriddenBy(RunLimits.none());
+		const resolved = RunLimits.of(10).overriddenBy(RunLimits.unbounded());
 
 		expect(resolved.maxIterations).toBe(10);
 	});
@@ -48,7 +48,7 @@ describe("RunLimits", () => {
 
 		expect(limits.allowsToolFailures(1)).toBe(true);
 		expect(limits.allowsToolFailures(2)).toBe(false);
-		expect(RunLimits.none().allowsToolFailures(99)).toBe(true);
+		expect(RunLimits.unbounded().allowsToolFailures(99)).toBe(true);
 	});
 
 	it("refuses a fractional or negative declaration instead of quietly reading it as something else", () => {

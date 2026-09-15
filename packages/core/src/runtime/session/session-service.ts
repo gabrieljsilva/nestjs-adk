@@ -1,10 +1,12 @@
 import type { SessionId } from "../../common/identity/session-id";
+import type { ArtifactStorage } from "../../contracts/artifact-storage";
 import type { AgentName } from "../../domain/agent/agent-name";
 import type { ContextBudget } from "../../domain/context/context-budget";
 import { SessionContext } from "../../domain/run/session-context";
 import type { CreateSessionInput } from "../../domain/session/create-session-input";
 import type { Session } from "../../domain/session/session";
 import type { SessionInspection } from "../../domain/session/session-inspection";
+import type { ContextManager } from "../context/context-manager";
 import type { InspectContextBudget } from "../context/inspect-context-budget";
 import type { CreateSession } from "./create-session";
 import type { InspectSession } from "./inspect-session";
@@ -13,7 +15,7 @@ import type { SessionManager } from "./session-manager";
 /**
  * What an application calls to work with a conversation rather than to run one.
  *
- * Five verbs: open one, look at where one stands, read how full its context is, and find
+ * Six verbs: open one, look at where one stands, read how full its context is, and find
  * one by identifier with absence either answered or refused. It is to sessions what
  * `AgentRunner` is to runs, and for the same reason: the name a consumer holds must not
  * also be the class that decides how any of it happens.
@@ -28,6 +30,8 @@ export class SessionService {
 		private readonly inspecting: InspectSession,
 		private readonly sessions: SessionManager,
 		private readonly budgeting: InspectContextBudget,
+		private readonly artifacts: ArtifactStorage,
+		private readonly context: ContextManager,
 	) {}
 
 	/** Opens a conversation the application names, or names one itself when it does not. */
@@ -51,5 +55,20 @@ export class SessionService {
 
 	public async findOrFail(sessionId: SessionId): Promise<Session> {
 		return this.sessions.findOrFail(SessionContext.fromSessionId(sessionId));
+	}
+
+	/**
+	 * Everything the conversation left behind: its journal, its artifacts and what the runtime
+	 * was still holding in memory about it.
+	 *
+	 * The last of the three is why this exists rather than the application calling two ports
+	 * itself. `AttachmentReader` caches bytes by session and id, and a cache nobody told about
+	 * the delete would answer a later read with an image from a conversation that is gone.
+	 */
+	public async delete(sessionId: SessionId): Promise<void> {
+		const context = SessionContext.fromSessionId(sessionId);
+		await this.sessions.delete(context);
+		await this.artifacts.deleteAll(context);
+		this.context.forgetSession(context);
 	}
 }

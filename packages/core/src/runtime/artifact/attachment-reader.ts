@@ -56,6 +56,21 @@ export class AttachmentReader {
 		return new AttachmentReader(new UnreachableArtifactStorage());
 	}
 
+	/**
+	 * Drops everything cached for one conversation, because its bytes are gone.
+	 *
+	 * A cache keyed by session and id outlives the session unless somebody says so: after a
+	 * delete, an id reissued to the same session would read the previous session's image back
+	 * out of memory. The runtime calls this from the one place a session is deleted, and it is
+	 * public so an application deleting through the port itself can say the same thing.
+	 */
+	public forget(context: SessionContext): void {
+		const prefix = `${context.sessionId.value}/`;
+		for (const key of [...this.cached.keys()]) {
+			if (key.startsWith(prefix)) this.forgetKey(key);
+		}
+	}
+
 	public async read(
 		context: SessionContext,
 		references: readonly AttachmentReference[],
@@ -134,13 +149,13 @@ export class AttachmentReader {
 		while (this.cachedBytes + part.encodedBytes > MAX_CACHED_BYTES) {
 			const oldest = this.cached.keys().next();
 			if (oldest.done === true) break;
-			this.forget(oldest.value);
+			this.forgetKey(oldest.value);
 		}
 		this.cached.set(key, part);
 		this.cachedBytes += part.encodedBytes;
 	}
 
-	private forget(key: string): void {
+	private forgetKey(key: string): void {
 		const part = this.cached.get(key);
 		if (part === undefined) return;
 		this.cached.delete(key);

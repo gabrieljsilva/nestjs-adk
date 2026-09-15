@@ -39,7 +39,7 @@ async function scopeOf(): Promise<RunScope> {
 		runId: started.run.id.value,
 		signal: started.cancellation.signal,
 	});
-	return await new RunScopeFactory().create(context, definition, model, started, [], RunLimits.none());
+	return await new RunScopeFactory().create(context, definition, model, started, [], RunLimits.unbounded());
 }
 
 describe("RunScope", () => {

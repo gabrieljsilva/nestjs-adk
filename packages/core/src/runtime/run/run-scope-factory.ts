@@ -47,7 +47,7 @@ export class RunScopeFactory {
 
 	public constructor(
 		private readonly runtimeTools: readonly ToolDefinition[] = [],
-		private readonly limits: RunLimits = RunLimits.none(),
+		private readonly limits: RunLimits = RunLimits.unbounded(),
 		private readonly compaction?: AdkCompactionPolicy | false,
 	) {}
 

@@ -1,3 +1,5 @@
+import type { Secret } from "@nestjs-adk/core";
+
 /**
  * How to reach an OpenAI compatible API, and how to generate once there.
  *
@@ -6,8 +8,14 @@
  * whole of the change. Leaving it out talks to the official API.
  */
 export interface OpenAiOptions {
-	/** Defaults to the value of `OPENAI_API_KEY`. */
-	apiKey?: string;
+	/**
+	 * Defaults to the value of `OPENAI_API_KEY`.
+	 *
+	 * A plain string is accepted so `process.env.OPENAI_API_KEY` still reads well, and it is
+	 * wrapped in a {@link Secret} at this boundary: past it the key only exists as a value that
+	 * masks itself in a log, and it is revealed once, at the call that builds the SDK client.
+	 */
+	apiKey?: Secret | string;
 
 	/** Defaults to the official OpenAI endpoint. */
 	baseURL?: string;

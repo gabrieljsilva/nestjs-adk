@@ -1,6 +1,6 @@
-import type { SessionEvent } from "../domain/event/session-event";
-import type { StoredSessionEvent } from "../domain/event/stored-session-event";
-import type { SessionContext } from "../domain/run/session-context";
+import type { SessionEvent } from "../../domain/event/session-event";
+import type { StoredSessionEvent } from "../../domain/event/stored-session-event";
+import type { SessionContext } from "../../domain/run/session-context";
 
 /**
  * Where committed events go to be observed.

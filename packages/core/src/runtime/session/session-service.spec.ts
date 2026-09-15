@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { InMemoryArtifactStorage } from "../../adapters/storage/in-memory-artifact-storage";
 import { InMemorySessionStorage } from "../../adapters/storage/in-memory-session-storage";
 import { SessionId } from "../../common/identity/session-id";
 import { Instant } from "../../common/time/instant";
@@ -7,13 +8,21 @@ import { AgentDescription } from "../../domain/agent/agent-description";
 import { AgentName } from "../../domain/agent/agent-name";
 import { DeclaredAgent } from "../../domain/agent/declared-agent";
 import { ModelContextWindow } from "../../domain/model/model-context-window";
+import { SessionContext } from "../../domain/run/session-context";
 import { CreateSessionInput } from "../../domain/session/create-session-input";
 import { SessionNotFoundError } from "../../domain/session/errors/session-not-found.error";
 import { FakeClock } from "../../support/fake-clock";
 import { StubModel } from "../../support/model/stub-model.fixture";
 import { SequenceIdGenerator } from "../../support/sequence-id-generator";
+import { AttachmentReader } from "../artifact/attachment-reader";
 import { AgentCatalog } from "../catalog/agent-catalog";
+import { ContextManager } from "../context/context-manager";
+import { ContextMeasurer } from "../context/context-measurer";
+import { ContextProjector } from "../context/context-projector";
+import { ContextWindowNotifier } from "../context/context-window-notifier";
 import { InspectContextBudget } from "../context/inspect-context-budget";
+import { OldestFirstCompactionStrategy } from "../context/oldest-first-compaction-strategy";
+import { StablePrefixDigest } from "../context/stable-prefix-digest";
 import { ActiveRunTracker } from "../lifecycle/active-run-tracker";
 import { RuntimeLifecycle } from "../lifecycle/runtime-lifecycle";
 import { ShutdownOptions } from "../lifecycle/shutdown-options";
@@ -38,8 +47,13 @@ function catalogOf(): AgentCatalog {
 	return AgentCatalog.of([new DeclaredAgent(definition, "SupportAgent")]);
 }
 
-function serviceOf(storage: InMemorySessionStorage = new InMemorySessionStorage()): SessionService {
+function serviceOf(
+	storage: InMemorySessionStorage = new InMemorySessionStorage(),
+	onForget: (context: SessionContext) => void = () => undefined,
+): SessionService {
 	const sessions = new SessionManager(storage);
+	const artifacts = new InMemoryArtifactStorage(new SequenceIdGenerator("a"));
+	const projector = new WatchingProjector(new AttachmentReader(artifacts), onForget);
 	const inspecting = new InspectSession(sessions);
 	const clock = new FakeClock(NOW);
 	const tracker = new ActiveRunTracker();
@@ -55,7 +69,31 @@ function serviceOf(storage: InMemorySessionStorage = new InMemorySessionStorage(
 		inspecting,
 		sessions,
 		new InspectContextBudget(inspecting, catalogOf()),
+		artifacts,
+		new ContextManager(
+			storage,
+			projector,
+			new ContextMeasurer(),
+			new StablePrefixDigest(),
+			new OldestFirstCompactionStrategy(new ContextMeasurer()),
+			new ContextWindowNotifier(),
+		),
 	);
+}
+
+/** The cache itself is proved in its own spec; here what matters is that it was told. */
+class WatchingProjector extends ContextProjector {
+	public constructor(
+		attachments: AttachmentReader,
+		private readonly onForget: (context: SessionContext) => void,
+	) {
+		super(attachments);
+	}
+
+	public override forgetAttachments(context: SessionContext): void {
+		this.onForget(context);
+		super.forgetAttachments(context);
+	}
 }
 
 describe("SessionService", () => {
@@ -107,5 +145,25 @@ describe("SessionService", () => {
 
 		expect(budget.window.inputCapacity).toBe(800);
 		expect(budget.isMeasured).toBe(false);
+	});
+
+	it("deletes the journal of a conversation, so nothing answers for it afterwards", async () => {
+		const service = serviceOf();
+		await service.create(SUPPORT, CreateSessionInput.fromOptions("chat-42"));
+
+		await service.delete(SessionId.from("chat-42"));
+
+		expect(await service.find(SessionId.from("chat-42"))).toBeUndefined();
+	});
+
+	/** The cache is keyed by session and id, so a delete nobody told it about outlives the session. */
+	it("tells the attachment cache to let go of what it was holding for the conversation", async () => {
+		const forgotten: string[] = [];
+		const service = serviceOf(new InMemorySessionStorage(), (context) => forgotten.push(context.sessionId.value));
+		await service.create(SUPPORT, CreateSessionInput.fromOptions("chat-42"));
+
+		await service.delete(SessionId.from("chat-42"));
+
+		expect(forgotten).toEqual(["chat-42"]);
 	});
 });

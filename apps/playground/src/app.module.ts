@@ -6,6 +6,7 @@ import {
 	LiteLLMPricingSource,
 	RunLimits,
 	RuntimeOptions,
+	Secret,
 	SqliteSessionStorage,
 	ToolEffect,
 	WindowShareCompactionPolicy,
@@ -42,7 +43,10 @@ if (GEMINI_API_KEY === undefined) throw new Error("GEMINI_API_KEY is required");
  * runtime inventing a size for somebody's conversation. This one has a million tokens and
  * says so, which is also what lets `contextBudget` answer how full a chat is.
  */
-export const geminiFlashLite = new GeminiModel(MODEL, { apiKey: GEMINI_API_KEY, contextWindowTokens: 1_048_576 });
+export const geminiFlashLite = new GeminiModel(MODEL, {
+	apiKey: Secret.of(GEMINI_API_KEY),
+	contextWindowTokens: 1_048_576,
+});
 
 /**
  * A conversation that outgrows the window is shortened, not dropped.

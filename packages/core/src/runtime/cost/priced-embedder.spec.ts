@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SessionId } from "../../common/identity/session-id";
 import { Embedder } from "../../contracts/embedder";
-import { MeteredEmbedder } from "../../contracts/metered-embedder";
 import { PricingNoticeSink } from "../../contracts/pricing-notice-sink";
 import { PricingSource } from "../../contracts/pricing-source";
 import { ModelPrice } from "../../domain/cost/model-price";
@@ -39,7 +38,11 @@ class SilentEmbedder extends Embedder {
 	}
 }
 
-class ReportingEmbedder extends MeteredEmbedder {
+class ReportingEmbedder extends Embedder {
+	public async embed(text: string): Promise<EmbeddingVector> {
+		return (await this.embedMetered(text)).vector;
+	}
+
 	public async embedMetered(text: string): Promise<MeteredEmbedding> {
 		return new MeteredEmbedding(EmbeddingVector.of([1, 0, 0]), EMBEDDING_MODEL, ModelUsage.of(text.length, 0));
 	}

@@ -32,6 +32,17 @@ export class Secret {
 		return new Secret(value);
 	}
 
+	/**
+	 * What an option boundary accepts, wrapped once so nothing downstream holds a bare string.
+	 *
+	 * An option typed `Secret | string` is what keeps `{ apiKey: process.env.KEY }` working while
+	 * every path past the boundary carries something that masks itself.
+	 */
+	public static fromOption(value: Secret | string | undefined): Secret | undefined {
+		if (value === undefined) return undefined;
+		return value instanceof Secret ? value : new Secret(value);
+	}
+
 	public reveal(): string {
 		return this.#value;
 	}

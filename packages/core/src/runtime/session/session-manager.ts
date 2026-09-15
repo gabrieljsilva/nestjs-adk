@@ -2,7 +2,6 @@ import type { SessionId } from "../../common/identity/session-id";
 import { SessionRevision } from "../../common/revision/session-revision";
 import { AppendEventsCommand } from "../../contracts/append-events-command";
 import type { AppendEventsResult } from "../../contracts/append-events-result";
-import type { SessionEventPublisher } from "../../contracts/session-event-publisher";
 import type { SessionStorage } from "../../contracts/session-storage";
 import type { SessionEvent } from "../../domain/event/session-event";
 import type { SessionEventBatch } from "../../domain/event/session-event-batch";
@@ -11,9 +10,11 @@ import { JournalCorruptedError } from "../../domain/session/errors/journal-corru
 import type { Session } from "../../domain/session/session";
 import { SessionSnapshot } from "../../domain/session/session-snapshot";
 import { SessionState } from "../../domain/session/session-state";
+import type { SessionEventPublisher } from "../event/session-event-publisher";
 import { NoOpSessionEventPublisher } from "./no-op-session-event-publisher";
 import { RehydratedSession } from "./rehydrated-session";
-import { SnapshotPolicy } from "./snapshot/snapshot-policy";
+import { RevisionBucketSnapshotPolicy } from "./snapshot/revision-bucket-snapshot-policy";
+import type { SnapshotPolicy } from "./snapshot/snapshot-policy";
 import { StateChecksum } from "./snapshot/state-checksum";
 import { StateProjector } from "./state-projector";
 
@@ -36,7 +37,7 @@ export class SessionManager {
 		private readonly projector: StateProjector = new StateProjector(),
 		private readonly publisher: SessionEventPublisher = new NoOpSessionEventPublisher(),
 		private readonly checksum: StateChecksum = new StateChecksum(),
-		private readonly snapshots: SnapshotPolicy = SnapshotPolicy.everyFiftyEvents(),
+		private readonly snapshots: SnapshotPolicy = RevisionBucketSnapshotPolicy.everyFiftyEvents(),
 	) {}
 
 	/** A session exists before its first event, so the head is written on its own. */
@@ -51,6 +52,11 @@ export class SessionManager {
 	 * chat already has a conversation, or who owns it, is one row, while rehydrating replays
 	 * every event to project a state the caller never asked for.
 	 */
+	/** The journal of one conversation, gone. Nothing here decides whether it should be. */
+	public async delete(context: SessionContext): Promise<void> {
+		await this.storage.delete(context);
+	}
+
 	public async find(context: SessionContext): Promise<Session | undefined> {
 		return this.storage.find(context);
 	}

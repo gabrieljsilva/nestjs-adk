@@ -6,14 +6,14 @@ import { ToolBreaker } from "./tool-breaker";
 
 describe("ToolBreaker", () => {
 	it("hands invalid arguments back until the declared limit, and then stops the run", () => {
-		const breaker = new ToolBreaker(RunLimits.none());
+		const breaker = new ToolBreaker(RunLimits.unbounded());
 
 		expect(() => breaker.recordInvalidArgs("refund", "orderId is required")).not.toThrow();
 		expect(() => breaker.recordInvalidArgs("refund", "orderId is required")).toThrow(ToolInvalidArgsError);
 	});
 
 	it("defaults to two invalid tries, because the model usually fixes its own argument", () => {
-		expect(RunLimits.none().invalidArgsLimit).toBe(2);
+		expect(RunLimits.unbounded().invalidArgsLimit).toBe(2);
 	});
 
 	it("takes the limit an application chose instead", () => {
@@ -23,7 +23,7 @@ describe("ToolBreaker", () => {
 	});
 
 	it("never stops on failures when no limit was declared", () => {
-		const breaker = new ToolBreaker(RunLimits.none());
+		const breaker = new ToolBreaker(RunLimits.unbounded());
 
 		for (let attempt = 0; attempt < 50; attempt += 1) breaker.recordFailure("lookup", "connection refused");
 
@@ -59,7 +59,7 @@ describe("ToolBreaker", () => {
 	});
 
 	it("clears the invalid streak on a valid call without touching the failure streak", () => {
-		const breaker = new ToolBreaker(RunLimits.none());
+		const breaker = new ToolBreaker(RunLimits.unbounded());
 		breaker.recordInvalidArgs("refund", "bad");
 		breaker.recordFailure("refund", "boom");
 

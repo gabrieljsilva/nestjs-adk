@@ -147,12 +147,18 @@ export class AgentHandle {
 	 * parsed, and the options object for everything else. An attachment needs a model that
 	 * declares media input: one that cannot see fails here rather than answering about an
 	 * image it never received.
+	 *
+	 * The lib never checks who may use a session id: authorize the caller against it first.
 	 */
 	public async ask(message: string, options?: AskOptions | SessionId | string): Promise<AgentResult> {
 		return this.runtime.runner.ask(this.commandOf(message, options));
 	}
 
-	/** The same question, watched: the chunks first, the result as the return value. */
+	/**
+	 * The same question, watched: the chunks first, the result as the return value.
+	 *
+	 * The lib never checks who may use a session id: authorize the caller against it first.
+	 */
 	public stream(message: string, options?: AskOptions | SessionId | string): AsyncGenerator<ModelChunk, AgentResult> {
 		return this.runtime.runner.stream(this.commandOf(message, options));
 	}
@@ -176,7 +182,11 @@ export class AgentHandle {
 		return this.runtime.sessions.create(this.name, CreateSessionInput.fromOptions(options.sessionId, options.metadata));
 	}
 
-	/** The conversation an id names, or nothing when it names none. Reads the head alone. */
+	/**
+	 * The conversation an id names, or nothing when it names none. Reads the head alone.
+	 *
+	 * The lib never checks who may use a session id: authorize the caller against it first.
+	 */
 	public async findSessionById(sessionId: SessionId | string): Promise<Session | undefined> {
 		return this.runtime.sessions.find(AgentHandle.sessionOf(sessionId));
 	}
@@ -186,7 +196,11 @@ export class AgentHandle {
 		return this.runtime.sessions.findOrFail(AgentHandle.sessionOf(sessionId));
 	}
 
-	/** Where a conversation stands, for a caller that is not running anything. */
+	/**
+	 * Where a conversation stands, for a caller that is not running anything.
+	 *
+	 * The lib never checks who may use a session id: authorize the caller against it first.
+	 */
 	public async inspect(sessionId: SessionId | string): Promise<SessionInspection> {
 		return this.runtime.sessions.inspect(AgentHandle.sessionOf(sessionId));
 	}
@@ -211,6 +225,8 @@ export class AgentHandle {
 	 *
 	 * The sources are declared again because this is a new run: whatever the suspended run had
 	 * open was closed when it suspended, and a tool that came from a source needs it open now.
+	 *
+	 * The lib never checks who may use a session id: authorize the caller against it first.
 	 */
 	public async approve(
 		sessionId: SessionId | string,
@@ -231,6 +247,11 @@ export class AgentHandle {
 		);
 	}
 
+	/**
+	 * Refuses a held call, with the reason the model is given as the result.
+	 *
+	 * The lib never checks who may use a session id: authorize the caller against it first.
+	 */
 	public async reject(
 		sessionId: SessionId | string,
 		callId: ToolCallId,
@@ -252,12 +273,20 @@ export class AgentHandle {
 		);
 	}
 
-	/** Hands one task to a specialist this agent declared, keeping the conversation here. */
+	/**
+	 * Hands one task to a specialist this agent declared, keeping the conversation here.
+	 *
+	 * The lib never checks who may use a session id: authorize the caller against it first.
+	 */
 	public async delegate(sessionId: SessionId | string, to: AgentName, task: string): Promise<AgentResult> {
 		return this.runtime.runner.delegate(new DelegateInput(AgentHandle.sessionOf(sessionId), this.name, to, task));
 	}
 
-	/** What each model call was actually given, for the same command `ask` would have run. */
+	/**
+	 * What each model call was actually given, for the same command `ask` would have run.
+	 *
+	 * The lib never checks who may use a session id: authorize the caller against it first.
+	 */
 	public async explain(message: string, options?: AskOptions | SessionId | string) {
 		return this.runtime.runner.explain(this.commandOf(message, options));
 	}

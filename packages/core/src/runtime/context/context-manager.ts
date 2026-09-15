@@ -11,6 +11,7 @@ import { ContextProjection } from "../../domain/context/context-projection";
 import { PreparedModelContext } from "../../domain/context/prepared-model-context";
 import { ModelCapability } from "../../domain/model/model-capability";
 import type { RunContext } from "../../domain/run/run-context";
+import type { SessionContext } from "../../domain/run/session-context";
 import type { ContextMeasurer } from "./context-measurer";
 import type { ContextProjector } from "./context-projector";
 import type { ContextWindowNotifier } from "./context-window-notifier";
@@ -37,6 +38,11 @@ export class ContextManager {
 		private readonly strategy: CompactionStrategy,
 		private readonly notifier: ContextWindowNotifier,
 	) {}
+
+	/** Everything cached about one conversation, dropped because the conversation is gone. */
+	public forgetSession(context: SessionContext): void {
+		this.projector.forgetAttachments(context);
+	}
 
 	public async prepare(command: PrepareContextCommand): Promise<PreparedModelContext> {
 		const descriptor = command.model.descriptor();

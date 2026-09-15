@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { Secret } from "../../common/secrecy/secret";
-import { EventRedactor } from "./event-redactor";
+import { FieldNameEventRedactor } from "./field-name-event-redactor";
 
-const redactor = new EventRedactor();
+const redactor = new FieldNameEventRedactor();
 
-describe("EventRedactor", () => {
+describe("FieldNameEventRedactor", () => {
 	it("masks every field of the closed list, whatever its casing", () => {
 		const redacted = redactor.redact({
 			apiKey: "sk-live",
