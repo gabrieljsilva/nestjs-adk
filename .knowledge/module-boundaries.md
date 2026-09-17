@@ -56,6 +56,17 @@ The NestJS container owns the classes the developer wrote. The composition owns 
 
 If the composition also resolved from Nest, the two graphs would depend on each other, and the boot order would stop being predictable.
 
+## The framework-free entry point
+
+NestJS is a surface, and a surface has to be optional or it is the foundation. `createAdkRuntime({ agents })` is the proof: agents in, a started runtime out, no container anywhere.
+
+Two rules keep the two paths one path rather than two implementations of the same idea.
+
+- **One defaults table.** `RuntimeDefaults` decides what a runtime composes with when the application named nothing: sessions in memory, artifacts in memory, the system clock, random ids. `AdkModule` registers each one behind its token and `AdkRuntime.start` fills in what it was not handed, and both read that table. Written twice they drift on the first change, and the same application would store conversations in one place under NestJS and in another without it.
+- **One agent surface.** `StartedAdkRuntime.findAgent` answers an `AgentHandle`, which is the class a NestJS application injects as `AdkAgent`. Neither entry point owns a verb the other lacks, for the reason `AdkAgent` stopped mirroring the handle method by method: two copies of thirteen methods drift, and the copy an editor offers is the one nobody updated.
+
+What follows from that is where a class lives. Anything both paths use is framework-free by definition, so it sits outside `public/nest`: `AgentHandle` in `public/agent/`, `RandomIdGenerator` in `common/identity/`, `RuntimeDefaults` and `AdkRuntime` in `public/`. A class under `nest/` that imports no `@nestjs/*` is a class in the wrong folder.
+
 ## No global state
 
 A module never stores state in a static field, in a module level variable, or in a singleton imported at the top of a file. State lives in an instance, and the instance arrives through the constructor. Global state makes two containers in the same process overwrite each other, and it makes tests depend on the order they run.
@@ -78,3 +89,5 @@ What does not hold yet:
 - The core is not split into modules yet. `contracts/`, `domain/`, `runtime/` and `adapters/` are layer-first folders, so no module owns a boundary, exports one service, or keeps the rest of its classes private. The grouping happens in the folder reorganization, and the one-service rule follows it.
 
 Until the split lands, new code follows this guideline and does not add a `@nestjs/*` import outside a `nest/` folder.
+
+`packages/core/src/public/runtime-defaults.factory.e2e.spec.ts` is what holds the two entry points to one table: it boots both and compares the classes each composed with.

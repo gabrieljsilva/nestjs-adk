@@ -161,14 +161,14 @@ afterEach(async () => {
 });
 
 const start = (model: LlmModel, options: RuntimeOptions = new RuntimeOptions()) =>
-	host.start(
-		[agentOf(model)],
-		new InMemorySessionStorage(),
-		new InMemoryArtifactStorage(new SequenceIdGenerator("a")),
-		new FakeClock(),
-		new SequenceIdGenerator(),
-		options,
-	);
+	host.start({
+		agents: [agentOf(model)],
+		storage: new InMemorySessionStorage(),
+		artifacts: new InMemoryArtifactStorage(new SequenceIdGenerator("a")),
+		clock: new FakeClock(),
+		ids: new SequenceIdGenerator(),
+		options: options,
+	});
 
 const askWith = (sources: readonly ToolSource[], message = "look it up") =>
 	new AgentRunCommand({

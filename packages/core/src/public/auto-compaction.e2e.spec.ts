@@ -132,14 +132,14 @@ describe("auto compaction, against a scripted model", () => {
 		const model = new CountingModel();
 		const summarizer = new NamingSummarizer();
 		const storage = new InMemorySessionStorage();
-		const runtime = await host.start(
-			[agentOf(model, new AboveThreshold(400))],
-			storage,
-			new InMemoryArtifactStorage(new SequenceIdGenerator("a")),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-			optionsWith(summarizer),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(model, new AboveThreshold(400))],
+			storage: storage,
+			artifacts: new InMemoryArtifactStorage(new SequenceIdGenerator("a")),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+			options: optionsWith(summarizer),
+		});
 
 		const first = await runtime.runner.ask(
 			new AgentRunCommand({
@@ -168,14 +168,14 @@ describe("auto compaction, against a scripted model", () => {
 	it("leaves the journal exactly as it was: compaction shortens a prompt, not a history", async () => {
 		const model = new CountingModel();
 		const storage = new InMemorySessionStorage();
-		const runtime = await host.start(
-			[agentOf(model, new AboveThreshold(400))],
-			storage,
-			new InMemoryArtifactStorage(new SequenceIdGenerator("a")),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-			optionsWith(new NamingSummarizer()),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(model, new AboveThreshold(400))],
+			storage: storage,
+			artifacts: new InMemoryArtifactStorage(new SequenceIdGenerator("a")),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+			options: optionsWith(new NamingSummarizer()),
+		});
 
 		const first = await runtime.runner.ask(
 			new AgentRunCommand({
@@ -209,13 +209,13 @@ describe("auto compaction, against a scripted model", () => {
 
 	it("drops instead of summarizing when the application declared no summarizer", async () => {
 		const model = new CountingModel();
-		const runtime = await host.start(
-			[agentOf(model, new AboveThreshold(400))],
-			new InMemorySessionStorage(),
-			new InMemoryArtifactStorage(new SequenceIdGenerator("a")),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(model, new AboveThreshold(400))],
+			storage: new InMemorySessionStorage(),
+			artifacts: new InMemoryArtifactStorage(new SequenceIdGenerator("a")),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 
 		const first = await runtime.runner.ask(
 			new AgentRunCommand({
@@ -249,14 +249,14 @@ describe("auto compaction, against a scripted model", () => {
 	it("compacts through the strategy the application declared", async () => {
 		const model = new CountingModel();
 		const compactionStrategy = new RecordingStrategy();
-		const runtime = await host.start(
-			[agentOf(model, new AboveThreshold(400))],
-			new InMemorySessionStorage(),
-			new InMemoryArtifactStorage(new SequenceIdGenerator("a")),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-			RuntimeOptions.from({ context: { compactionStrategy: compactionStrategy } }),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(model, new AboveThreshold(400))],
+			storage: new InMemorySessionStorage(),
+			artifacts: new InMemoryArtifactStorage(new SequenceIdGenerator("a")),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+			options: RuntimeOptions.from({ context: { compactionStrategy: compactionStrategy } }),
+		});
 
 		const first = await runtime.runner.ask(
 			new AgentRunCommand({

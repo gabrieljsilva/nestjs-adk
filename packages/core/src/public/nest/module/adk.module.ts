@@ -9,11 +9,8 @@ import {
 	type Type,
 } from "@nestjs/common";
 import { DiscoveryService } from "@nestjs/core";
-import { InMemoryArtifactStorage } from "../../../adapters/storage/in-memory-artifact-storage.adapter";
-import { InMemorySessionStorage } from "../../../adapters/storage/in-memory-session-storage.adapter";
 import { IdGenerator } from "../../../common/identity/id-generator.contract";
 import { Clock } from "../../../common/time/clock.contract";
-import { SystemClock } from "../../../common/time/system-clock.adapter";
 import type { SessionEventConsumer } from "../../../contracts/events/session-event-consumer.contract";
 import { Embedder } from "../../../contracts/model/embedder.contract";
 import { ModelResolver } from "../../../contracts/model/model-resolver.contract";
@@ -23,13 +20,13 @@ import type { LlmModel } from "../../../domain/model/llm-model.contract";
 import type { RuntimeOptionsPatch } from "../../../runtime/composition/runtime.options";
 import { CatalogModelResolver } from "../../../runtime/model/catalog-model-resolver.adapter";
 import { AdkRuntime } from "../../adk-runtime.edge";
+import { RuntimeDefaults } from "../../runtime-defaults.factory";
 import { AgentRegistry } from "../agent/agent-registry.service";
 import { AsyncOptionsNotDeclaredError } from "../errors/async-options-not-declared.error";
 import { ConflictingAsyncOptionsError } from "../errors/conflicting-async-options.error";
-import { RandomIdGenerator } from "../random-id-generator.adapter";
 import { UndeclaredEmbedder } from "../undeclared-embedder.adapter";
 import type { AdkModuleAsyncOptions, AdkOptionsFactory } from "./adk-module-async.options";
-import { AdkModuleOptions } from "./adk-module.options";
+import { AdkModuleOptions, type AdkModuleOptionsInput } from "./adk-module.options";
 import { ComposeRuntimeUseCase } from "./compose-runtime.use-case";
 
 /** The token an application injects to reach what the module built. */
@@ -92,8 +89,16 @@ export class AdkModule implements OnModuleInit, OnApplicationShutdown {
 		private readonly host: AdkRuntime,
 	) {}
 
-	public static forRoot(options: AdkModuleOptions): DynamicModule {
-		return AdkModule.moduleWith([{ provide: ADK_OPTIONS, useValue: options }]);
+	/**
+	 * The module, configured where it is imported.
+	 *
+	 * The literal is the form to write: `AdkModule.forRoot({ defaultModel })` is a working
+	 * runtime, and every port left out composes to the same default `createAdkRuntime` picks.
+	 * An `AdkModuleOptions` built elsewhere is accepted unchanged, because an application that
+	 * shares one object between its module and its tests already holds the class.
+	 */
+	public static forRoot(options: AdkModuleOptions | AdkModuleOptionsInput): DynamicModule {
+		return AdkModule.moduleWith([{ provide: ADK_OPTIONS, useValue: AdkModule.resolveOptions(options) }]);
 	}
 
 	/**
@@ -118,6 +123,11 @@ export class AdkModule implements OnModuleInit, OnApplicationShutdown {
 	 */
 	public static forRootAsync(options: AdkModuleAsyncOptions): DynamicModule {
 		return AdkModule.moduleWith(AdkModule.buildOptionsProviders(options), options.imports);
+	}
+
+	/** A literal is options that have not been built yet, and both entry points accept one. */
+	private static resolveOptions(declared: AdkModuleOptions | AdkModuleOptionsInput): AdkModuleOptions {
+		return declared instanceof AdkModuleOptions ? declared : AdkModuleOptions.from(declared);
 	}
 
 	/** One shape for both entry points, so the two can never drift on what the module exports. */
@@ -148,11 +158,18 @@ export class AdkModule implements OnModuleInit, OnApplicationShutdown {
 	/** Every form the caller declared, named and already turned into providers. Exactly one is legal. */
 	private static declaredForms(declared: AdkModuleAsyncOptions): readonly DeclaredForm[] {
 		const forms: DeclaredForm[] = [];
-		if (declared.useFactory !== undefined) {
+		const factory = declared.useFactory;
+		if (factory !== undefined) {
 			const inject = [...(declared.inject ?? [])];
 			forms.push({
 				name: "useFactory",
-				providers: [{ provide: ADK_OPTIONS, useFactory: declared.useFactory, inject }],
+				providers: [
+					{
+						provide: ADK_OPTIONS,
+						useFactory: async (...args: never[]) => AdkModule.resolveOptions(await factory(...args)),
+						inject,
+					},
+				],
 			});
 		}
 		if (declared.useClass !== undefined) {
@@ -167,7 +184,7 @@ export class AdkModule implements OnModuleInit, OnApplicationShutdown {
 	private static optionsBuiltBy(factory: Type<AdkOptionsFactory>): Provider {
 		return {
 			provide: ADK_OPTIONS,
-			useFactory: (source: AdkOptionsFactory) => source.createAdkOptions(),
+			useFactory: async (source: AdkOptionsFactory) => AdkModule.resolveOptions(await source.createAdkOptions()),
 			inject: [factory],
 		};
 	}
@@ -200,23 +217,23 @@ export class AdkModule implements OnModuleInit, OnApplicationShutdown {
 			{ provide: ADK_RUNTIME_PATCH, useValue: {} },
 			{
 				provide: SessionStorage,
-				useFactory: (declared: AdkModuleOptions) => declared.storage ?? new InMemorySessionStorage(),
+				useFactory: (declared: AdkModuleOptions) => declared.storage ?? RuntimeDefaults.buildSessionStorage(),
 				inject: [ADK_OPTIONS],
 			},
 			{
 				provide: Clock,
-				useFactory: (declared: AdkModuleOptions) => declared.clock ?? new SystemClock(),
+				useFactory: (declared: AdkModuleOptions) => declared.clock ?? RuntimeDefaults.buildClock(),
 				inject: [ADK_OPTIONS],
 			},
 			{
 				provide: IdGenerator,
-				useFactory: (declared: AdkModuleOptions) => declared.ids ?? new RandomIdGenerator(),
+				useFactory: (declared: AdkModuleOptions) => declared.ids ?? RuntimeDefaults.buildIdGenerator(),
 				inject: [ADK_OPTIONS],
 			},
 			{
 				provide: ArtifactStorage,
 				useFactory: (declared: AdkModuleOptions, ids: IdGenerator) =>
-					declared.artifacts ?? new InMemoryArtifactStorage(ids),
+					declared.artifacts ?? RuntimeDefaults.buildArtifactStorage(ids),
 				inject: [ADK_OPTIONS, IdGenerator],
 			},
 			{

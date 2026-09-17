@@ -1,11 +1,10 @@
 import {
 	AdkModule,
-	AdkModuleOptions,
+	type AdkModuleOptionsInput,
 	EffectApprovalPolicy,
 	InlineAttachmentResolver,
 	LiteLLMPricingSource,
 	RunLimits,
-	RuntimeOptions,
 	Secret,
 	SqliteSessionStorage,
 	ToolEffect,
@@ -74,10 +73,10 @@ const COMPACTION = new WindowShareCompactionPolicy({ maxShare: 0.02, targetShare
  */
 const STORE_LIMITS = new RunLimits(8);
 
-export const storeOptions = AdkModuleOptions.from({
+export const storeOptions: AdkModuleOptionsInput = {
 	defaultModel: geminiFlashLite,
 	storage: new SqliteSessionStorage(storeConnection),
-	runtime: RuntimeOptions.from({
+	runtime: {
 		tools: { approvals: EffectApprovalPolicy.from(ToolEffect.DESTRUCTIVE) },
 		context: {
 			summarizer: new StoreSummarizer(geminiFlashLite),
@@ -87,8 +86,8 @@ export const storeOptions = AdkModuleOptions.from({
 		},
 		cost: { pricing: new LiteLLMPricingSource() },
 		limits: STORE_LIMITS,
-	}),
-});
+	},
+};
 
 /**
  * The store, wired. Each feature owns and exports its providers; this root only composes

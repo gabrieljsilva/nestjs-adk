@@ -1,4 +1,4 @@
-import { AdkError } from "../../../common/errors/adk.error";
+import { AdkError } from "../../common/errors/adk.error";
 
 /**
  * The class was used as an agent before the runtime knew it was one.

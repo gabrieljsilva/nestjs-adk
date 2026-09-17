@@ -15,13 +15,13 @@ npm i @nestjs-adk/core @nestjs-adk/google
 Register the module once, in your root module. This is where the default model lives:
 
 ```ts
-import { AdkModule, AdkModuleOptions } from "@nestjs-adk/core";
+import { AdkModule, Secret } from "@nestjs-adk/core";
 import { GeminiModel } from "@nestjs-adk/google";
 
-const flash = new GeminiModel("gemini-3.5-flash-lite", { apiKey: process.env.GEMINI_API_KEY });
+const flash = new GeminiModel("gemini-3.5-flash-lite", { apiKey: new Secret(process.env.GEMINI_API_KEY) });
 
 @Module({
-	imports: [AdkModule.forRoot(AdkModuleOptions.from({ defaultModel: flash }))],
+	imports: [AdkModule.forRoot({ defaultModel: flash })],
 	providers: [SupportAgent, LookupOrderTool, OrdersService, ChatService],
 })
 export class AppModule {}
@@ -69,7 +69,7 @@ That is the whole mental model: configure the module once, register classes as p
 
 ## Options that come from the container
 
-`forRoot` takes a value, which works while every option is one: a model built from an environment variable, a directory name, a policy with no dependencies.
+`forRoot` takes a plain object, which works while every option is a value: a model built from an environment variable, a directory name, a policy with no dependencies.
 
 Most of what an application eventually plugs in is not. A storage holding a database client, an embedder that needs credentials, a pricing source with an HTTP client, an approval policy that reads the current tenant: those are providers, and nothing written where the module is declared can name them. `forRootAsync` builds the same options inside the container:
 
@@ -91,12 +91,12 @@ export class AdkOptions implements AdkOptionsFactory {
 		private readonly pricing: LiteLlmPricingSource,
 	) {}
 
-	public createAdkOptions(): AdkModuleOptions {
-		return AdkModuleOptions.from({
+	public createAdkOptions(): AdkModuleOptionsInput {
+		return {
 			defaultModel: flash,
 			storage: this.storage,
-			runtime: RuntimeOptions.from({ cost: { pricing: this.pricing } }),
-		});
+			runtime: { cost: { pricing: this.pricing } },
+		};
 	}
 }
 ```
@@ -107,7 +107,7 @@ export class AdkOptions implements AdkOptionsFactory {
 AdkModule.forRootAsync({
 	imports: [InfraModule],
 	inject: [PrismaSessionStorage],
-	useFactory: (storage: PrismaSessionStorage) => AdkModuleOptions.from({ defaultModel: flash, storage }),
+	useFactory: (storage: PrismaSessionStorage) => ({ defaultModel: flash, storage }),
 });
 ```
 
@@ -1032,16 +1032,73 @@ That only produces a number when the provider reports usage, which today most do
 
 ## Without NestJS
 
-The runtime does not depend on the container. `AdkRuntime` composes it from agents you built yourself, which is how the provider packages test against a real model:
+The runtime never asks a container for anything, so it runs without one. `createAdkRuntime` takes the agents you built yourself and hands back a started runtime, on the same defaults `AdkModule` registers: conversations in memory, artifacts in memory, the system clock and random ids. Name any of them to replace it.
 
 ```ts
-const runtime = new AdkRuntime();
-const started = await runtime.start([declaredAgent], storage, artifacts, clock, ids, runtimeOptions);
-const result = await started.runtime.runner.ask(new AgentRunCommand(AgentName.from("support"), askInput));
-await runtime.stop();
+import {
+	AgentDefinition,
+	AgentDescription,
+	AgentName,
+	createAdkRuntime,
+	PromptInstructions,
+	ToolDefinition,
+	ToolEffect,
+	ToolHandler,
+	ZodToolSchema,
+} from "@nestjs-adk/core";
+import { z } from "zod";
+
+class RefundHandler extends ToolHandler {
+	public async invoke(args: Record<string, unknown>): Promise<unknown> {
+		return { orderId: args.orderId, refunded: true };
+	}
+}
+
+const refundOrder = new ToolDefinition(
+	"refund_order",
+	"Refunds an order",
+	ZodToolSchema.fromSchema(z.object({ orderId: z.string() })),
+	ToolEffect.DESTRUCTIVE,
+	new RefundHandler(),
+);
+
+const support = new AgentDefinition({
+	name: AgentName.from("support"),
+	description: AgentDescription.from("answers about orders", "support"),
+	model: flash,
+	instructions: PromptInstructions.from("Be brief."),
+	tools: [refundOrder],
+});
+
+const adk = await createAdkRuntime({ agents: [support] });
 ```
 
-This is the low level surface: no decorators, no discovery, and you assemble the `AgentDefinition` yourself. Reach for it when you are embedding the runtime somewhere NestJS is not, and use the module everywhere else.
+What comes back is a `StartedAdkRuntime`: `findAgent` answers the same `AgentHandle` a NestJS application injects, `agents` lists one per declared agent, `runtime` is everything the handle does not cover, and `stop` drains the runs still going.
+
+```ts
+const agent = adk.findAgent("support");
+
+// A destructive tool waits for a person, so the run is suspended rather than finished.
+const held = await agent.ask("refund order 42");
+
+const call = held.awaiting[0];
+if (call === undefined) throw new Error("the refund should have been held");
+const answer = await agent.approve(held.sessionId, call.callId, "gabriel");
+
+await adk.stop();
+```
+
+Everything else is named the same way it is under the module: `storage`, `artifacts`, `clock` and `ids` replace a default, `runtime` is the `RuntimeOptions` patch, and `exposed` publishes tools to the outside.
+
+```ts
+const adk = await createAdkRuntime({
+	agents: [support],
+	storage: new SqliteSessionStorage(connection),
+	runtime: { tools: { approvals: EffectApprovalPolicy.never() }, cost: { pricing: new LiteLLMPricingSource() } },
+});
+```
+
+Reach for this when you are embedding the runtime somewhere NestJS is not. With a container, use the module: the decorators are what let an agent and a tool be ordinary providers with their own dependencies injected.
 
 ## Errors
 
@@ -1260,10 +1317,14 @@ Writing a `SessionStorage` needs more than the names in its signatures, and the 
 
 | Symbol | What it is for |
 | --- | --- |
-| `AdkRuntime`, `StartedRuntime`, `RuntimeServices` | Composing the runtime without a container |
-| `AgentRunCommand` | One run, resolved, for that path |
+| `createAdkRuntime`, `AdkRuntimeInput`, `StartedAdkRuntime` | The entry point without a container: agents in, a started runtime out |
+| `RuntimeDefaults` | The one table both entry points compose with when an option was left out |
+| `AdkRuntime`, `AdkRuntimeStartInput`, `StartedRuntime`, `RuntimeComponents`, `RuntimeServices` | The runtime itself, for an application that owns its own lifecycle |
+| `AgentRunCommand`, `AskInput`, `AskInputParams`, `ApproveInput`, `RejectInput`, `DelegateInput` | One run, resolved, for that path |
 | `SessionService`, `CreateSessionInput` | `runtime.sessions`: opening a conversation and reading one, on that path |
-| `AgentDefinition`, `AgentDescription` | An agent as the runtime knows it, which you assemble yourself there |
+| `AgentDefinition`, `AgentDefinitionInput`, `AgentDescription`, `DeclaredAgent` | An agent as the runtime knows it, which you assemble yourself there |
+| `AgentExecutionPolicies`, `AgentTransferPolicy`, `AgentDelegationPolicy` | How one agent runs: retry, failover, compaction, limits, who it hands work to |
+| `SkillDefinition` | A skill as the runtime knows it, for an agent declared without `@Skill` |
 | `StructuredOutputValidator`, `JsonStructuredOutputValidator` | The seam a request's output schema is validated through |
 | `AdkError` | The base of every error the library throws |
 

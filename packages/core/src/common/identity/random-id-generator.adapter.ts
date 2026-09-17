@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { IdGenerator } from "../../common/identity/id-generator.contract";
+import { IdGenerator } from "./id-generator.contract";
 
 /**
  * Ids nothing can collide with, which is what a journal needs.

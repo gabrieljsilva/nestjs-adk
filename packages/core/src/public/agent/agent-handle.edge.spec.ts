@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { SessionId } from "../../../common/identity/session-id.value-object";
-import { ToolCallId } from "../../../common/identity/tool-call-id.value-object";
-import { ToolCallObserver } from "../../../contracts/tool/tool-call-observer.contract";
-import { ToolSource } from "../../../contracts/tool/tool-source.contract";
-import { AgentName } from "../../../domain/agent/agent-name.value-object";
-import { Actor } from "../../../domain/tool/access/actor.value-object";
-import type { ToolDefinition } from "../../../domain/tool/tool-definition.value-object";
-import type { RuntimeServices } from "../../../runtime/composition/runtime-services.value-object";
+import { SessionId } from "../../common/identity/session-id.value-object";
+import { ToolCallId } from "../../common/identity/tool-call-id.value-object";
+import { ToolCallObserver } from "../../contracts/tool/tool-call-observer.contract";
+import { ToolSource } from "../../contracts/tool/tool-source.contract";
+import { AgentName } from "../../domain/agent/agent-name.value-object";
+import { Actor } from "../../domain/tool/access/actor.value-object";
+import type { ToolDefinition } from "../../domain/tool/tool-definition.value-object";
+import type { RuntimeServices } from "../../runtime/composition/runtime-services.value-object";
 import { AgentHandle } from "./agent-handle.edge";
 
 const SUPPORT = AgentName.from("support");

@@ -10,7 +10,7 @@ import { DeclaredAgent } from "../../../domain/agent/declared-agent.value-object
 import { AgentCatalog } from "../../../runtime/catalog/agent-catalog.service";
 import { ScriptedModel } from "../../../support/run/scripted-model.fixture";
 import type { StartedRuntime } from "../../adk-runtime.edge";
-import { AgentNotBoundError } from "../errors/agent-not-bound.error";
+import { AgentNotBoundError } from "../../errors/agent-not-bound.error";
 import { AgentPrompting } from "../prompt/agent-prompting.service";
 import { AdkAgent } from "./adk-agent.edge";
 import { AgentBinder } from "./agent-binder.service";

@@ -87,13 +87,13 @@ afterEach(async () => {
 /** A runtime of its own per case, so one session id never collides with another's. */
 async function start(model: LlmModel) {
 	const storage = new InMemorySessionStorage();
-	const runtime = await host.start(
-		[agentOf(model)],
-		storage,
-		new InMemoryArtifactStorage(new SequenceIdGenerator("a")),
-		new FakeClock(),
-		new SequenceIdGenerator(),
-	);
+	const runtime = await host.start({
+		agents: [agentOf(model)],
+		storage: storage,
+		artifacts: new InMemoryArtifactStorage(new SequenceIdGenerator("a")),
+		clock: new FakeClock(),
+		ids: new SequenceIdGenerator(),
+	});
 	return { runtime, storage };
 }
 

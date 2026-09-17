@@ -1,7 +1,7 @@
 import { AgentName } from "../../../domain/agent/agent-name.value-object";
 import type { RuntimeServices } from "../../../runtime/composition/runtime-services.value-object";
 import type { StartedRuntime } from "../../adk-runtime.edge";
-import { AgentHandle } from "./agent-handle.edge";
+import { AgentHandle } from "../../agent/agent-handle.edge";
 
 /**
  * Every agent the application declared, as handles it can hold.

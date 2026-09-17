@@ -1,8 +1,8 @@
 import type { AgentName } from "../../../domain/agent/agent-name.value-object";
 import type { PromptContext } from "../../../domain/prompt/prompt-context.value-object";
-import { AgentNotBoundError } from "../errors/agent-not-bound.error";
+import { AgentHandle } from "../../agent/agent-handle.edge";
+import { AgentNotBoundError } from "../../errors/agent-not-bound.error";
 import type { AgentPrompting } from "../prompt/agent-prompting.service";
-import { AgentHandle } from "./agent-handle.edge";
 
 /**
  * An agent an application can inject as itself.

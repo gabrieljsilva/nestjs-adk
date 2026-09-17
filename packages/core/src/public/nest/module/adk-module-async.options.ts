@@ -1,5 +1,5 @@
 import type { InjectionToken, ModuleMetadata, OptionalFactoryDependency, Type } from "@nestjs/common";
-import type { AdkModuleOptions } from "./adk-module.options";
+import type { AdkModuleOptions, AdkModuleOptionsInput } from "./adk-module.options";
 
 /**
  * Builds the module's options out of what the container can inject.
@@ -28,7 +28,7 @@ import type { AdkModuleOptions } from "./adk-module.options";
  * ```
  */
 export interface AdkOptionsFactory {
-	createAdkOptions(): AdkModuleOptions | Promise<AdkModuleOptions>;
+	createAdkOptions(): AdkModuleOptions | AdkModuleOptionsInput | Promise<AdkModuleOptions | AdkModuleOptionsInput>;
 }
 
 /**
@@ -49,7 +49,9 @@ export interface AdkModuleAsyncOptions extends Pick<ModuleMetadata, "imports"> {
 	 * factory of any shape be accepted at all, and it means an unannotated parameter carries
 	 * no type into the body. `useClass` is the form that does not have this problem.
 	 */
-	useFactory?: (...args: never[]) => AdkModuleOptions | Promise<AdkModuleOptions>;
+	useFactory?: (
+		...args: never[]
+	) => AdkModuleOptions | AdkModuleOptionsInput | Promise<AdkModuleOptions | AdkModuleOptionsInput>;
 	/** What the container resolves and hands to `useFactory`, in the order it declares them. */
 	inject?: readonly (InjectionToken | OptionalFactoryDependency)[];
 	useClass?: Type<AdkOptionsFactory>;

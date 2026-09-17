@@ -24,13 +24,13 @@ function declared(name: string): DeclaredAgent {
 }
 
 async function started(host: AdkRuntime, ...names: readonly string[]): Promise<void> {
-	await host.start(
-		names.map(declared),
-		new InMemorySessionStorage(),
-		new InMemoryArtifactStorage(new SequenceIdGenerator()),
-		new FakeClock(),
-		new SequenceIdGenerator(),
-	);
+	await host.start({
+		agents: names.map(declared),
+		storage: new InMemorySessionStorage(),
+		artifacts: new InMemoryArtifactStorage(new SequenceIdGenerator()),
+		clock: new FakeClock(),
+		ids: new SequenceIdGenerator(),
+	});
 }
 
 describe("AdkRuntime", () => {

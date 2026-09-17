@@ -6,7 +6,7 @@ import type { PromptSource } from "../../../contracts/model/prompt-source.contra
 import type { ArtifactStorage } from "../../../contracts/storage/artifact-storage.contract";
 import type { SessionStorage } from "../../../contracts/storage/session-storage.contract";
 import type { LlmModel } from "../../../domain/model/llm-model.contract";
-import type { RuntimeOptions } from "../../../runtime/composition/runtime.options";
+import { RuntimeOptions, type RuntimeOptionsPatch } from "../../../runtime/composition/runtime.options";
 
 import { ConflictingPromptOptionsError } from "../errors/conflicting-prompt-options.error";
 
@@ -20,7 +20,12 @@ export interface AdkModuleOptionsInput {
 	artifacts?: ArtifactStorage;
 	clock?: Clock;
 	ids?: IdGenerator;
-	runtime?: RuntimeOptions;
+	/**
+	 * Everything the runtime itself takes, as built options or as the plain patch that builds
+	 * them: `{ tools: { approvals } }` says the same thing as `RuntimeOptions.from({ ... })`
+	 * and says it without a call, which is what a module declaration should read like.
+	 */
+	runtime?: RuntimeOptions | RuntimeOptionsPatch;
 	/** Reachable by injecting `Embedder`. Without one, only code that embeds ever notices. */
 	embedder?: Embedder;
 	/** Where the built in filesystem source looks for a prompt named without a path. */
@@ -79,10 +84,16 @@ export class AdkModuleOptions {
 		this.artifacts = input.artifacts;
 		this.clock = input.clock;
 		this.ids = input.ids;
-		this.runtime = input.runtime;
+		this.runtime = AdkModuleOptions.resolveRuntime(input.runtime);
 		this.embedder = input.embedder;
 		this.prompts = input.prompts;
 		this.promptSource = input.promptSource;
+	}
+
+	/** Built options either way, so nothing downstream has to know which form was written. */
+	private static resolveRuntime(declared: RuntimeOptions | RuntimeOptionsPatch | undefined): RuntimeOptions | undefined {
+		if (declared === undefined) return undefined;
+		return declared instanceof RuntimeOptions ? declared : RuntimeOptions.from(declared);
 	}
 
 	/** Options built from names instead of positions. */

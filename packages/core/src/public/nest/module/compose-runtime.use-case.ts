@@ -54,7 +54,15 @@ export class ComposeRuntimeUseCase {
 		const declared = this.scan.readAgents(scanned, this.defaultModel ?? this.options.defaultModel, shared);
 		const exposed = this.scan.readExposedTools(scanned, shared);
 
-		await this.host.start(declared, this.storage, this.artifacts, this.clock, this.ids, this.declaredRuntime(), exposed);
+		await this.host.start({
+			agents: declared,
+			storage: this.storage,
+			artifacts: this.artifacts,
+			clock: this.clock,
+			ids: this.ids,
+			options: this.declaredRuntime(),
+			exposed: exposed,
+		});
 		return new AgentBinder(this.registry, new AgentPrompting(this.options.resolvePromptSource())).bind(scanned);
 	}
 

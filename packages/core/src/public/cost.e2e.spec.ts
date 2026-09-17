@@ -177,14 +177,14 @@ afterEach(async () => {
 });
 
 const start = (declared: readonly DeclaredAgent[], options: RuntimeOptions) =>
-	host.start(
-		declared,
-		new InMemorySessionStorage(),
-		new InMemoryArtifactStorage(new SequenceIdGenerator("a")),
-		new FakeClock(),
-		new SequenceIdGenerator(),
-		options,
-	);
+	host.start({
+		agents: declared,
+		storage: new InMemorySessionStorage(),
+		artifacts: new InMemoryArtifactStorage(new SequenceIdGenerator("a")),
+		clock: new FakeClock(),
+		ids: new SequenceIdGenerator(),
+		options: options,
+	});
 
 describe("what a run costs", () => {
 	it("prices the turns of one run and names the model that served them", async () => {
@@ -338,14 +338,14 @@ describe("what a run costs", () => {
 		const cheap = new AdkRuntime();
 		const expensive = new AdkRuntime();
 		const startOn = (source: PricingSource, host: AdkRuntime) =>
-			host.start(
-				[declaredAgent(SUPPORT, new AnsweringModel(PRIMARY))],
-				new InMemorySessionStorage(),
-				new InMemoryArtifactStorage(new SequenceIdGenerator("a")),
-				new FakeClock(),
-				new SequenceIdGenerator(),
-				RuntimeOptions.from({ cost: { pricing: source } }),
-			);
+			host.start({
+				agents: [declaredAgent(SUPPORT, new AnsweringModel(PRIMARY))],
+				storage: new InMemorySessionStorage(),
+				artifacts: new InMemoryArtifactStorage(new SequenceIdGenerator("a")),
+				clock: new FakeClock(),
+				ids: new SequenceIdGenerator(),
+				options: RuntimeOptions.from({ cost: { pricing: source } }),
+			});
 
 		try {
 			const first = await startOn(new KnownRates([PRIMARY]), cheap);

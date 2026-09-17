@@ -109,14 +109,14 @@ afterEach(async () => {
 });
 
 async function startedWith(model: LlmModel, resolver?: AttachmentResolver, storage = new InMemorySessionStorage()) {
-	const runtime = await host.start(
-		[agentOf(model)],
-		storage,
-		new InMemoryArtifactStorage(new SequenceIdGenerator("a")),
-		new FakeClock(),
-		new SequenceIdGenerator(),
-		RuntimeOptions.from({ context: { attachments: resolver } }),
-	);
+	const runtime = await host.start({
+		agents: [agentOf(model)],
+		storage: storage,
+		artifacts: new InMemoryArtifactStorage(new SequenceIdGenerator("a")),
+		clock: new FakeClock(),
+		ids: new SequenceIdGenerator(),
+		options: RuntimeOptions.from({ context: { attachments: resolver } }),
+	});
 	return { runtime, storage };
 }
 

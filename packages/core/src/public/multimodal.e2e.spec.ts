@@ -226,7 +226,13 @@ describe("a question with an image in it", () => {
 		const model = new SeeingModel();
 		const storage = new InMemorySessionStorage();
 		const artifacts = new InMemoryArtifactStorage(new SequenceIdGenerator("a"));
-		const runtime = await host.start([agentOf(model)], storage, artifacts, new FakeClock(), new SequenceIdGenerator());
+		const runtime = await host.start({
+			agents: [agentOf(model)],
+			storage: storage,
+			artifacts: artifacts,
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 
 		const result = await runtime.runner.ask(
 			new AgentRunCommand({
@@ -249,13 +255,13 @@ describe("a question with an image in it", () => {
 	it("writes the bytes once, where bytes belong", async () => {
 		const storage = new InMemorySessionStorage();
 		const artifacts = new InMemoryArtifactStorage(new SequenceIdGenerator("a"));
-		const runtime = await host.start(
-			[agentOf(new SeeingModel())],
-			storage,
-			artifacts,
-			new FakeClock(),
-			new SequenceIdGenerator(),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(new SeeingModel())],
+			storage: storage,
+			artifacts: artifacts,
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 
 		const result = await runtime.runner.ask(
 			new AgentRunCommand({
@@ -275,13 +281,13 @@ describe("a question with an image in it", () => {
 
 	it("still shows the image two turns later, because history brings it back", async () => {
 		const model = new SeeingModel();
-		const runtime = await host.start(
-			[agentOf(model)],
-			new InMemorySessionStorage(),
-			new InMemoryArtifactStorage(new SequenceIdGenerator("a")),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(model)],
+			storage: new InMemorySessionStorage(),
+			artifacts: new InMemoryArtifactStorage(new SequenceIdGenerator("a")),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 
 		const first = await runtime.runner.ask(
 			new AgentRunCommand({
@@ -314,13 +320,13 @@ describe("a question with an image in it", () => {
 		const blind = new SeeingModel("blind", false);
 		const storage = new InMemorySessionStorage();
 		const ids = new SequenceIdGenerator();
-		const runtime = await host.start(
-			[agentOf(blind)],
-			storage,
-			new InMemoryArtifactStorage(new SequenceIdGenerator("a")),
-			new FakeClock(),
-			ids,
-		);
+		const runtime = await host.start({
+			agents: [agentOf(blind)],
+			storage: storage,
+			artifacts: new InMemoryArtifactStorage(new SequenceIdGenerator("a")),
+			clock: new FakeClock(),
+			ids: ids,
+		});
 
 		await expect(
 			runtime.runner.ask(
@@ -343,13 +349,13 @@ describe("a question with an image in it", () => {
 		const policies = new AgentExecutionPolicies(new SequentialFailoverPolicy([blind]));
 		const storage = new InMemorySessionStorage();
 		const artifacts = new InMemoryArtifactStorage(new SequenceIdGenerator("a"));
-		const runtime = await host.start(
-			[agentOf(new FailingModel(), policies)],
-			storage,
-			artifacts,
-			new FakeClock(),
-			new SequenceIdGenerator(),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(new FailingModel(), policies)],
+			storage: storage,
+			artifacts: artifacts,
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 
 		const result = await runtime.runner.ask(
 			new AgentRunCommand({
@@ -375,13 +381,13 @@ describe("a question with an image in it", () => {
 
 	it("refuses the question when the attachment cannot be written anywhere", async () => {
 		const storage = new InMemorySessionStorage();
-		const runtime = await host.start(
-			[agentOf(new SeeingModel())],
-			storage,
-			new RefusingArtifactStorage(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(new SeeingModel())],
+			storage: storage,
+			artifacts: new RefusingArtifactStorage(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 
 		await expect(
 			runtime.runner.ask(
@@ -402,13 +408,13 @@ describe("a question with an image in it", () => {
 describe("a tool that answers with an image", () => {
 	it("shows the model the data and the picture, in that order", async () => {
 		const model = new ChartingModel();
-		const runtime = await host.start(
-			[agentOf(model, new AgentExecutionPolicies(), [chartTool()])],
-			new InMemorySessionStorage(),
-			new InMemoryArtifactStorage(new SequenceIdGenerator("a")),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(model, new AgentExecutionPolicies(), [chartTool()])],
+			storage: new InMemorySessionStorage(),
+			artifacts: new InMemoryArtifactStorage(new SequenceIdGenerator("a")),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 
 		await runtime.runner.ask(
 			new AgentRunCommand({
@@ -432,13 +438,13 @@ describe("a tool that answers with an image", () => {
 	it("records the id of what it drew, and never the drawing", async () => {
 		const storage = new InMemorySessionStorage();
 		const artifacts = new InMemoryArtifactStorage(new SequenceIdGenerator("a"));
-		const runtime = await host.start(
-			[agentOf(new ChartingModel(), new AgentExecutionPolicies(), [chartTool()])],
-			storage,
-			artifacts,
-			new FakeClock(),
-			new SequenceIdGenerator(),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(new ChartingModel(), new AgentExecutionPolicies(), [chartTool()])],
+			storage: storage,
+			artifacts: artifacts,
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 
 		const answer = await runtime.runner.ask(
 			new AgentRunCommand({

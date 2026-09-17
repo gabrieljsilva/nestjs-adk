@@ -16,10 +16,10 @@ import { AgentRunStatus } from "../../../domain/session/run/agent-run-status.val
 import { Session } from "../../../domain/session/session.entity";
 import type { RuntimeServices } from "../../../runtime/composition/runtime-services.value-object";
 import type { AgentRunCommand } from "../../../runtime/run/agent-run.command";
-import { AgentNotBoundError } from "../errors/agent-not-bound.error";
+import { AgentHandle } from "../../agent/agent-handle.edge";
+import { AgentNotBoundError } from "../../errors/agent-not-bound.error";
 import { AgentPrompting } from "../prompt/agent-prompting.service";
 import { AdkAgent } from "./adk-agent.edge";
-import { AgentHandle } from "./agent-handle.edge";
 
 const SUPPORT = AgentName.from("support");
 const PIXEL = "iVBORw0KGgo=";

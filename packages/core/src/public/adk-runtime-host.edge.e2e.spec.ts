@@ -433,13 +433,13 @@ afterEach(async () => {
 describe("AdkRuntime over the native runtime", () => {
 	it("answers a first question and keeps the session it created", async () => {
 		const model = new RecordingModel();
-		const runtime = await host.start(
-			[agentOf(model)],
-			new InMemorySessionStorage(),
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(model)],
+			storage: new InMemorySessionStorage(),
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 
 		const result = await runtime.runner.ask(
 			new AgentRunCommand({
@@ -454,13 +454,13 @@ describe("AdkRuntime over the native runtime", () => {
 
 	it("carries the previous turn into the next call of the same session", async () => {
 		const model = new RecordingModel();
-		const runtime = await host.start(
-			[agentOf(model)],
-			new InMemorySessionStorage(),
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(model)],
+			storage: new InMemorySessionStorage(),
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 
 		const first = await runtime.runner.ask(
 			new AgentRunCommand({
@@ -481,13 +481,13 @@ describe("AdkRuntime over the native runtime", () => {
 
 	it("sends the agent prompt as instructions rather than as conversation", async () => {
 		const model = new RecordingModel();
-		const runtime = await host.start(
-			[agentOf(model)],
-			new InMemorySessionStorage(),
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(model)],
+			storage: new InMemorySessionStorage(),
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 
 		await runtime.runner.ask(
 			new AgentRunCommand({
@@ -501,13 +501,13 @@ describe("AdkRuntime over the native runtime", () => {
 
 	it("continues a session over a storage that outlived the host that wrote it", async () => {
 		const storage = new InMemorySessionStorage();
-		const first = await host.start(
-			[agentOf(new RecordingModel())],
-			storage,
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-		);
+		const first = await host.start({
+			agents: [agentOf(new RecordingModel())],
+			storage: storage,
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 		const started = await first.runner.ask(
 			new AgentRunCommand({
 				agent: SUPPORT,
@@ -518,13 +518,13 @@ describe("AdkRuntime over the native runtime", () => {
 
 		const restarted = new AdkRuntime();
 		const model = new RecordingModel();
-		const runtime = await restarted.start(
-			[agentOf(model)],
-			storage,
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator("again"),
-		);
+		const runtime = await restarted.start({
+			agents: [agentOf(model)],
+			storage: storage,
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator("again"),
+		});
 		const result = await runtime.runner.ask(
 			new AgentRunCommand({
 				agent: SUPPORT,
@@ -539,14 +539,14 @@ describe("AdkRuntime over the native runtime", () => {
 
 	it("shows an observer everything the run journaled, in order", async () => {
 		const consumer = new RecordingConsumer();
-		const runtime = await host.start(
-			[agentOf(new RecordingModel())],
-			new InMemorySessionStorage(),
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-			RuntimeOptions.from({ limits: RunLimits.unbounded(), lifecycle: { consumers: [consumer] } }),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(new RecordingModel())],
+			storage: new InMemorySessionStorage(),
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+			options: RuntimeOptions.from({ limits: RunLimits.unbounded(), lifecycle: { consumers: [consumer] } }),
+		});
 
 		await runtime.runner.ask(
 			new AgentRunCommand({
@@ -567,14 +567,14 @@ describe("AdkRuntime over the native runtime", () => {
 
 	it("publishes nothing at all when the append never happened", async () => {
 		const consumer = new RecordingConsumer();
-		const runtime = await host.start(
-			[agentOf(new RecordingModel())],
-			new RefusingSessionStorage(),
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-			RuntimeOptions.from({ limits: RunLimits.unbounded(), lifecycle: { consumers: [consumer] } }),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(new RecordingModel())],
+			storage: new RefusingSessionStorage(),
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+			options: RuntimeOptions.from({ limits: RunLimits.unbounded(), lifecycle: { consumers: [consumer] } }),
+		});
 
 		await runtime.runner
 			.ask(
@@ -590,14 +590,14 @@ describe("AdkRuntime over the native runtime", () => {
 
 	it("flushes what a consumer buffered before the runtime is disposed", async () => {
 		const consumer = new RecordingConsumer();
-		await host.start(
-			[agentOf(new RecordingModel())],
-			new InMemorySessionStorage(),
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-			RuntimeOptions.from({ limits: RunLimits.unbounded(), lifecycle: { consumers: [consumer] } }),
-		);
+		await host.start({
+			agents: [agentOf(new RecordingModel())],
+			storage: new InMemorySessionStorage(),
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+			options: RuntimeOptions.from({ limits: RunLimits.unbounded(), lifecycle: { consumers: [consumer] } }),
+		});
 
 		await host.stop();
 
@@ -607,13 +607,13 @@ describe("AdkRuntime over the native runtime", () => {
 	it("runs the tool the model asked for and answers from its result", async () => {
 		const handler = new LookupHandler();
 		const model = new ToolCallingModel();
-		const runtime = await host.start(
-			[agentOf(model, [lookupOf(handler)])],
-			new InMemorySessionStorage(),
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(model, [lookupOf(handler)])],
+			storage: new InMemorySessionStorage(),
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 
 		const result = await runtime.runner.ask(
 			new AgentRunCommand({
@@ -629,14 +629,14 @@ describe("AdkRuntime over the native runtime", () => {
 
 	it("journals the call before the result, tied by the same id", async () => {
 		const consumer = new RecordingConsumer();
-		const runtime = await host.start(
-			[agentOf(new ToolCallingModel(), [lookupOf(new LookupHandler())])],
-			new InMemorySessionStorage(),
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-			RuntimeOptions.from({ limits: RunLimits.unbounded(), lifecycle: { consumers: [consumer] } }),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(new ToolCallingModel(), [lookupOf(new LookupHandler())])],
+			storage: new InMemorySessionStorage(),
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+			options: RuntimeOptions.from({ limits: RunLimits.unbounded(), lifecycle: { consumers: [consumer] } }),
+		});
 
 		await runtime.runner.ask(
 			new AgentRunCommand({
@@ -660,14 +660,14 @@ describe("AdkRuntime over the native runtime", () => {
 				yield ModelChunk.finish("tool_calls");
 			}
 		}
-		const runtime = await host.start(
-			[agentOf(new AlwaysCallingModel(), [lookupOf(new LookupHandler())])],
-			new InMemorySessionStorage(),
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-			RuntimeOptions.from({ limits: new RunLimits(2) }),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(new AlwaysCallingModel(), [lookupOf(new LookupHandler())])],
+			storage: new InMemorySessionStorage(),
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+			options: RuntimeOptions.from({ limits: new RunLimits(2) }),
+		});
 
 		const error = await runtime.runner
 			.ask(
@@ -683,14 +683,14 @@ describe("AdkRuntime over the native runtime", () => {
 
 	it("stops before a tool a human has to agree to, and says the run is suspended", async () => {
 		const handler = new LookupHandler();
-		const runtime = await host.start(
-			[agentOf(new ToolCallingModel(), [lookupOf(handler)])],
-			new InMemorySessionStorage(),
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-			approvingOptions(),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(new ToolCallingModel(), [lookupOf(handler)])],
+			storage: new InMemorySessionStorage(),
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+			options: approvingOptions(),
+		});
 
 		const result = await runtime.runner.ask(
 			new AgentRunCommand({
@@ -707,14 +707,14 @@ describe("AdkRuntime over the native runtime", () => {
 		const storage = new InMemorySessionStorage();
 		const artifacts = artifactsOf();
 		const handler = new LookupHandler();
-		const first = await host.start(
-			[agentOf(new ToolCallingModel(), [lookupOf(handler)])],
-			storage,
-			artifacts,
-			new FakeClock(),
-			new SequenceIdGenerator(),
-			approvingOptions(),
-		);
+		const first = await host.start({
+			agents: [agentOf(new ToolCallingModel(), [lookupOf(handler)])],
+			storage: storage,
+			artifacts: artifacts,
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+			options: approvingOptions(),
+		});
 		const suspended = await first.runner.ask(
 			new AgentRunCommand({
 				agent: SUPPORT,
@@ -724,14 +724,14 @@ describe("AdkRuntime over the native runtime", () => {
 		await host.stop();
 
 		const restarted = new AdkRuntime();
-		const runtime = await restarted.start(
-			[agentOf(new ToolCallingModel(), [lookupOf(handler)])],
-			storage,
-			artifacts,
-			new FakeClock(),
-			new SequenceIdGenerator("again"),
-			approvingOptions(),
-		);
+		const runtime = await restarted.start({
+			agents: [agentOf(new ToolCallingModel(), [lookupOf(handler)])],
+			storage: storage,
+			artifacts: artifacts,
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator("again"),
+			options: approvingOptions(),
+		});
 		const resumed = await runtime.runner.approve(
 			new ApproveInput({
 				sessionId: suspended.sessionId,
@@ -748,14 +748,14 @@ describe("AdkRuntime over the native runtime", () => {
 
 	it("refuses a decision that arrives twice, so an approved tool never runs again", async () => {
 		const handler = new LookupHandler();
-		const runtime = await host.start(
-			[agentOf(new ToolCallingModel(), [lookupOf(handler)])],
-			new InMemorySessionStorage(),
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-			approvingOptions(),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(new ToolCallingModel(), [lookupOf(handler)])],
+			storage: new InMemorySessionStorage(),
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+			options: approvingOptions(),
+		});
 		const suspended = await runtime.runner.ask(
 			new AgentRunCommand({
 				agent: SUPPORT,
@@ -784,14 +784,14 @@ describe("AdkRuntime over the native runtime", () => {
 
 	it("tells the model a held call was refused, without running it", async () => {
 		const handler = new LookupHandler();
-		const runtime = await host.start(
-			[agentOf(new ToolCallingModel(), [lookupOf(handler)])],
-			new InMemorySessionStorage(),
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-			approvingOptions(),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(new ToolCallingModel(), [lookupOf(handler)])],
+			storage: new InMemorySessionStorage(),
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+			options: approvingOptions(),
+		});
 		const suspended = await runtime.runner.ask(
 			new AgentRunCommand({
 				agent: SUPPORT,
@@ -815,14 +815,14 @@ describe("AdkRuntime over the native runtime", () => {
 	it("holds a whole turn, so the call nobody had to answer for does not run either", async () => {
 		const lookup = new LookupHandler();
 		const refund = new LookupHandler();
-		const runtime = await host.start(
-			[agentOf(new PairCallingModel(), [lookupOf(lookup), refundOf(refund)])],
-			new InMemorySessionStorage(),
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-			writeApprovingOptions(),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(new PairCallingModel(), [lookupOf(lookup), refundOf(refund)])],
+			storage: new InMemorySessionStorage(),
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+			options: writeApprovingOptions(),
+		});
 
 		const result = await runtime.runner.ask(
 			new AgentRunCommand({
@@ -840,14 +840,14 @@ describe("AdkRuntime over the native runtime", () => {
 		const lookup = new LookupHandler();
 		const refund = new LookupHandler();
 		const storage = new InMemorySessionStorage();
-		const runtime = await host.start(
-			[agentOf(new PairCallingModel(), [lookupOf(lookup), refundOf(refund)])],
-			storage,
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-			writeApprovingOptions(),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(new PairCallingModel(), [lookupOf(lookup), refundOf(refund)])],
+			storage: storage,
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+			options: writeApprovingOptions(),
+		});
 		const suspended = await runtime.runner.ask(
 			new AgentRunCommand({
 				agent: SUPPORT,
@@ -871,14 +871,14 @@ describe("AdkRuntime over the native runtime", () => {
 	it("stays suspended until every held call of the turn has been answered", async () => {
 		const refund = new LookupHandler();
 		const close = new LookupHandler();
-		const runtime = await host.start(
-			[agentOf(new TwoHeldCallsModel(), [refundOf(refund), closeOf(close)])],
-			new InMemorySessionStorage(),
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-			writeApprovingOptions(),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(new TwoHeldCallsModel(), [refundOf(refund), closeOf(close)])],
+			storage: new InMemorySessionStorage(),
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+			options: writeApprovingOptions(),
+		});
 		const suspended = await runtime.runner.ask(
 			new AgentRunCommand({
 				agent: SUPPORT,
@@ -901,14 +901,14 @@ describe("AdkRuntime over the native runtime", () => {
 	it("runs the granted call and refuses the denied one, in the same turn", async () => {
 		const refund = new LookupHandler();
 		const close = new LookupHandler();
-		const runtime = await host.start(
-			[agentOf(new TwoHeldCallsModel(), [refundOf(refund), closeOf(close)])],
-			new InMemorySessionStorage(),
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-			writeApprovingOptions(),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(new TwoHeldCallsModel(), [refundOf(refund), closeOf(close)])],
+			storage: new InMemorySessionStorage(),
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+			options: writeApprovingOptions(),
+		});
 		const suspended = await runtime.runner.ask(
 			new AgentRunCommand({
 				agent: SUPPORT,
@@ -936,13 +936,13 @@ describe("AdkRuntime over the native runtime", () => {
 	});
 
 	it("fails the run when the provider answered nothing at all", async () => {
-		const runtime = await host.start(
-			[agentOf(new SilentModel())],
-			new InMemorySessionStorage(),
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(new SilentModel())],
+			storage: new InMemorySessionStorage(),
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 
 		const error = await runtime.runner
 			.ask(
@@ -958,13 +958,13 @@ describe("AdkRuntime over the native runtime", () => {
 
 	it("keeps the usage of an empty answer, because the provider charged for it either way", async () => {
 		const storage = new InMemorySessionStorage();
-		const runtime = await host.start(
-			[agentOf(new SilentModel())],
-			storage,
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(new SilentModel())],
+			storage: storage,
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 
 		const result = await runtime.runner
 			.ask(
@@ -983,13 +983,13 @@ describe("AdkRuntime over the native runtime", () => {
 
 	it("records how a run ended even when the write that should have said so lost a race", async () => {
 		const storage = new FlakySessionStorage(4);
-		const runtime = await host.start(
-			[agentOf(new SilentModel())],
-			storage,
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(new SilentModel())],
+			storage: storage,
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 
 		await runtime.runner
 			.ask(
@@ -1004,13 +1004,13 @@ describe("AdkRuntime over the native runtime", () => {
 	});
 
 	it("refuses a command once the runtime is draining", async () => {
-		const runtime = await host.start(
-			[agentOf(new RecordingModel())],
-			new InMemorySessionStorage(),
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(new RecordingModel())],
+			storage: new InMemorySessionStorage(),
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 		await host.stop();
 
 		const error = await runtime.runner
@@ -1028,14 +1028,14 @@ describe("AdkRuntime over the native runtime", () => {
 	it("hands the held calls back with the suspension, so a caller knows what to decide on", async () => {
 		const lookup = new LookupHandler();
 		const refund = new LookupHandler();
-		const runtime = await host.start(
-			[agentOf(new PairCallingModel(), [lookupOf(lookup), refundOf(refund)])],
-			new InMemorySessionStorage(),
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-			writeApprovingOptions(),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(new PairCallingModel(), [lookupOf(lookup), refundOf(refund)])],
+			storage: new InMemorySessionStorage(),
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+			options: writeApprovingOptions(),
+		});
 
 		const result = await runtime.runner.ask(
 			new AgentRunCommand({
@@ -1053,14 +1053,14 @@ describe("AdkRuntime over the native runtime", () => {
 	it("answers where a session stands to whoever asks later, from the session id alone", async () => {
 		const storage = new InMemorySessionStorage();
 		const artifacts = artifactsOf();
-		const first = await host.start(
-			[agentOf(new PairCallingModel(), [lookupOf(new LookupHandler()), refundOf(new LookupHandler())])],
-			storage,
-			artifacts,
-			new FakeClock(),
-			new SequenceIdGenerator(),
-			writeApprovingOptions(),
-		);
+		const first = await host.start({
+			agents: [agentOf(new PairCallingModel(), [lookupOf(new LookupHandler()), refundOf(new LookupHandler())])],
+			storage: storage,
+			artifacts: artifacts,
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+			options: writeApprovingOptions(),
+		});
 		const suspended = await first.runner.ask(
 			new AgentRunCommand({
 				agent: SUPPORT,
@@ -1070,14 +1070,14 @@ describe("AdkRuntime over the native runtime", () => {
 		await host.stop();
 
 		const restarted = new AdkRuntime();
-		const runtime = await restarted.start(
-			[agentOf(new PairCallingModel(), [lookupOf(new LookupHandler()), refundOf(new LookupHandler())])],
-			storage,
-			artifacts,
-			new FakeClock(),
-			new SequenceIdGenerator("again"),
-			writeApprovingOptions(),
-		);
+		const runtime = await restarted.start({
+			agents: [agentOf(new PairCallingModel(), [lookupOf(new LookupHandler()), refundOf(new LookupHandler())])],
+			storage: storage,
+			artifacts: artifacts,
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator("again"),
+			options: writeApprovingOptions(),
+		});
 		const inspection = await runtime.sessions.inspect(suspended.sessionId);
 		await restarted.stop();
 
@@ -1090,14 +1090,14 @@ describe("AdkRuntime over the native runtime", () => {
 
 	it("writes a snapshot the moment a turn stops for approval, however short the session", async () => {
 		const storage = new InMemorySessionStorage();
-		const runtime = await host.start(
-			[agentOf(new PairCallingModel(), [lookupOf(new LookupHandler()), refundOf(new LookupHandler())])],
-			storage,
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-			writeApprovingOptions(),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(new PairCallingModel(), [lookupOf(new LookupHandler()), refundOf(new LookupHandler())])],
+			storage: storage,
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+			options: writeApprovingOptions(),
+		});
 
 		const suspended = await runtime.runner.ask(
 			new AgentRunCommand({
@@ -1115,14 +1115,14 @@ describe("AdkRuntime over the native runtime", () => {
 
 	it("answers where a suspended session stands without replaying its journal", async () => {
 		const storage = new CountingSessionStorage();
-		const runtime = await host.start(
-			[agentOf(new PairCallingModel(), [lookupOf(new LookupHandler()), refundOf(new LookupHandler())])],
-			storage,
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-			writeApprovingOptions(),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(new PairCallingModel(), [lookupOf(new LookupHandler()), refundOf(new LookupHandler())])],
+			storage: storage,
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+			options: writeApprovingOptions(),
+		});
 		const suspended = await runtime.runner.ask(
 			new AgentRunCommand({
 				agent: SUPPORT,
@@ -1143,16 +1143,16 @@ describe("AdkRuntime over the native runtime", () => {
 		const storage = new InMemorySessionStorage();
 		const support = new TransferringModel("billing", "support never answers");
 		const billing = new RecordingModel();
-		const runtime = await host.start(
-			[
+		const runtime = await host.start({
+			agents: [
 				declaredAgent(SUPPORT, "SupportAgent", support, [], AgentTransferPolicy.to([BILLING])),
 				declaredAgent(BILLING, "BillingAgent", billing),
 			],
-			storage,
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-		);
+			storage: storage,
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 
 		const result = await runtime.runner.ask(
 			new AgentRunCommand({
@@ -1170,8 +1170,8 @@ describe("AdkRuntime over the native runtime", () => {
 	it("keeps one run across the handover, and offers the receiver its own tools", async () => {
 		const storage = new InMemorySessionStorage();
 		const billing = new RecordingModel(ModelCapabilities.fromEntries([[ModelCapability.TOOLS, true]]));
-		const runtime = await host.start(
-			[
+		const runtime = await host.start({
+			agents: [
 				declaredAgent(
 					SUPPORT,
 					"SupportAgent",
@@ -1181,11 +1181,11 @@ describe("AdkRuntime over the native runtime", () => {
 				),
 				declaredAgent(BILLING, "BillingAgent", billing, [refundOf(new LookupHandler())]),
 			],
-			storage,
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-		);
+			storage: storage,
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 
 		const result = await runtime.runner.ask(
 			new AgentRunCommand({
@@ -1210,8 +1210,8 @@ describe("AdkRuntime over the native runtime", () => {
 	it("hands the session over by code, through the same declared edges", async () => {
 		const storage = new InMemorySessionStorage();
 		const billing = new RecordingModel();
-		const runtime = await host.start(
-			[
+		const runtime = await host.start({
+			agents: [
 				declaredAgent(
 					SUPPORT,
 					"SupportAgent",
@@ -1221,11 +1221,11 @@ describe("AdkRuntime over the native runtime", () => {
 				),
 				declaredAgent(BILLING, "BillingAgent", billing),
 			],
-			storage,
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-		);
+			storage: storage,
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 		const first = await runtime.runner.ask(
 			new AgentRunCommand({
 				agent: SUPPORT,
@@ -1249,16 +1249,16 @@ describe("AdkRuntime over the native runtime", () => {
 
 	it("refuses a handover nobody declared, and writes nothing about it", async () => {
 		const storage = new InMemorySessionStorage();
-		const runtime = await host.start(
-			[
+		const runtime = await host.start({
+			agents: [
 				declaredAgent(SUPPORT, "SupportAgent", new RecordingModel()),
 				declaredAgent(BILLING, "BillingAgent", new RecordingModel()),
 			],
-			storage,
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-		);
+			storage: storage,
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 		const first = await runtime.runner.ask(
 			new AgentRunCommand({
 				agent: SUPPORT,
@@ -1282,8 +1282,8 @@ describe("AdkRuntime over the native runtime", () => {
 	});
 
 	it("stops two agents that keep handing the session back to each other", async () => {
-		const runtime = await host.start(
-			[
+		const runtime = await host.start({
+			agents: [
 				declaredAgent(
 					SUPPORT,
 					"SupportAgent",
@@ -1299,11 +1299,11 @@ describe("AdkRuntime over the native runtime", () => {
 					AgentTransferPolicy.to([SUPPORT]),
 				),
 			],
-			new InMemorySessionStorage(),
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-		);
+			storage: new InMemorySessionStorage(),
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 
 		await expect(
 			runtime.runner.ask(
@@ -1317,21 +1317,21 @@ describe("AdkRuntime over the native runtime", () => {
 
 	it("refuses at boot an agent that declares a handover to nobody registered", async () => {
 		await expect(
-			host.start(
-				[declaredAgent(SUPPORT, "SupportAgent", new RecordingModel(), [], AgentTransferPolicy.to([BILLING]))],
-				new InMemorySessionStorage(),
-				artifactsOf(),
-				new FakeClock(),
-				new SequenceIdGenerator(),
-			),
+			host.start({
+				agents: [declaredAgent(SUPPORT, "SupportAgent", new RecordingModel(), [], AgentTransferPolicy.to([BILLING]))],
+				storage: new InMemorySessionStorage(),
+				artifacts: artifactsOf(),
+				clock: new FakeClock(),
+				ids: new SequenceIdGenerator(),
+			}),
 		).rejects.toBeInstanceOf(UnknownTransferTargetError);
 	});
 
 	it("has a specialist answer one task and carries on with what it said", async () => {
 		const storage = new InMemorySessionStorage();
 		const child = new RecordingChildModel();
-		const runtime = await host.start(
-			[
+		const runtime = await host.start({
+			agents: [
 				declaredAgent(
 					SUPPORT,
 					"SupportAgent",
@@ -1342,11 +1342,11 @@ describe("AdkRuntime over the native runtime", () => {
 				),
 				declaredAgent(RESEARCHER, "ResearchAgent", child),
 			],
-			storage,
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-		);
+			storage: storage,
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 
 		const result = await runtime.runner.ask(
 			new AgentRunCommand({
@@ -1364,8 +1364,8 @@ describe("AdkRuntime over the native runtime", () => {
 
 	it("gives the child run its own id, its parent and the delegation on every event it writes", async () => {
 		const storage = new InMemorySessionStorage();
-		const runtime = await host.start(
-			[
+		const runtime = await host.start({
+			agents: [
 				declaredAgent(
 					SUPPORT,
 					"SupportAgent",
@@ -1376,11 +1376,11 @@ describe("AdkRuntime over the native runtime", () => {
 				),
 				declaredAgent(RESEARCHER, "ResearchAgent", new RecordingChildModel()),
 			],
-			storage,
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-		);
+			storage: storage,
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 		const result = await runtime.runner.ask(
 			new AgentRunCommand({
 				agent: SUPPORT,
@@ -1409,8 +1409,8 @@ describe("AdkRuntime over the native runtime", () => {
 	it("keeps the child out of the parent's conversation, and the parent out of the child's", async () => {
 		const child = new RecordingChildModel();
 		const parent = new DelegatingModel("researcher", "what is the refund window?");
-		const runtime = await host.start(
-			[
+		const runtime = await host.start({
+			agents: [
 				declaredAgent(
 					SUPPORT,
 					"SupportAgent",
@@ -1421,11 +1421,11 @@ describe("AdkRuntime over the native runtime", () => {
 				),
 				declaredAgent(RESEARCHER, "ResearchAgent", child),
 			],
-			new InMemorySessionStorage(),
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-		);
+			storage: new InMemorySessionStorage(),
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 
 		await runtime.runner.ask(
 			new AgentRunCommand({
@@ -1441,8 +1441,8 @@ describe("AdkRuntime over the native runtime", () => {
 
 	it("counts the child's usage once, in the journal both runs share", async () => {
 		const storage = new InMemorySessionStorage();
-		const runtime = await host.start(
-			[
+		const runtime = await host.start({
+			agents: [
 				declaredAgent(
 					SUPPORT,
 					"SupportAgent",
@@ -1453,11 +1453,11 @@ describe("AdkRuntime over the native runtime", () => {
 				),
 				declaredAgent(RESEARCHER, "ResearchAgent", new RecordingChildModel()),
 			],
-			storage,
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-		);
+			storage: storage,
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 		const result = await runtime.runner.ask(
 			new AgentRunCommand({
 				agent: SUPPORT,
@@ -1480,16 +1480,16 @@ describe("AdkRuntime over the native runtime", () => {
 	});
 
 	it("refuses a delegation nobody declared, before any child run exists", async () => {
-		const runtime = await host.start(
-			[
+		const runtime = await host.start({
+			agents: [
 				declaredAgent(SUPPORT, "SupportAgent", new DelegatingModel("researcher", "anything")),
 				declaredAgent(RESEARCHER, "ResearchAgent", new RecordingChildModel()),
 			],
-			new InMemorySessionStorage(),
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-		);
+			storage: new InMemorySessionStorage(),
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 
 		await expect(
 			runtime.runner.ask(
@@ -1502,8 +1502,8 @@ describe("AdkRuntime over the native runtime", () => {
 	});
 
 	it("stops a chain of delegations at the maximum depth", async () => {
-		const runtime = await host.start(
-			[
+		const runtime = await host.start({
+			agents: [
 				declaredAgent(
 					SUPPORT,
 					"SupportAgent",
@@ -1513,11 +1513,11 @@ describe("AdkRuntime over the native runtime", () => {
 					AgentDelegationPolicy.to([SUPPORT]),
 				),
 			],
-			new InMemorySessionStorage(),
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-		);
+			storage: new InMemorySessionStorage(),
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 
 		await expect(
 			runtime.runner.ask(
@@ -1531,13 +1531,13 @@ describe("AdkRuntime over the native runtime", () => {
 
 	it("streams the same text ask would have returned, for the same script", async () => {
 		const storage = new InMemorySessionStorage();
-		const runtime = await host.start(
-			[agentOf(new RecordingModel())],
-			storage,
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(new RecordingModel())],
+			storage: storage,
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 
 		const turn = runtime.runner.stream(
 			new AgentRunCommand({
@@ -1558,13 +1558,13 @@ describe("AdkRuntime over the native runtime", () => {
 
 	it("does not let a chunk move the session, and rehydrates the answer rather than the pieces", async () => {
 		const storage = new InMemorySessionStorage();
-		const runtime = await host.start(
-			[agentOf(new RecordingModel())],
-			storage,
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(new RecordingModel())],
+			storage: storage,
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 
 		const turn = runtime.runner.stream(
 			new AgentRunCommand({
@@ -1593,13 +1593,13 @@ describe("AdkRuntime over the native runtime", () => {
 	});
 
 	it("shows what each model call was actually given", async () => {
-		const runtime = await host.start(
-			[agentOf(new ToolCallingModel(), [lookupOf(new LookupHandler())])],
-			new InMemorySessionStorage(),
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(new ToolCallingModel(), [lookupOf(new LookupHandler())])],
+			storage: new InMemorySessionStorage(),
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 
 		const snapshots = await runtime.runner.explain(
 			new AgentRunCommand({
@@ -1617,13 +1617,13 @@ describe("AdkRuntime over the native runtime", () => {
 
 	it("keeps the stable prefix identical between two runs of the same agent", async () => {
 		const storage = new InMemorySessionStorage();
-		const runtime = await host.start(
-			[agentOf(new RecordingModel())],
-			storage,
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(new RecordingModel())],
+			storage: storage,
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 
 		const first = await runtime.runner.explain(
 			new AgentRunCommand({
@@ -1644,13 +1644,13 @@ describe("AdkRuntime over the native runtime", () => {
 	});
 
 	it("answers that a finished conversation is waiting on nobody", async () => {
-		const runtime = await host.start(
-			[agentOf(new RecordingModel())],
-			new InMemorySessionStorage(),
-			artifactsOf(),
-			new FakeClock(),
-			new SequenceIdGenerator(),
-		);
+		const runtime = await host.start({
+			agents: [agentOf(new RecordingModel())],
+			storage: new InMemorySessionStorage(),
+			artifacts: artifactsOf(),
+			clock: new FakeClock(),
+			ids: new SequenceIdGenerator(),
+		});
 		const result = await runtime.runner.ask(
 			new AgentRunCommand({
 				agent: SUPPORT,

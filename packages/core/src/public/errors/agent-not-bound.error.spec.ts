@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AdkError } from "../../../common/errors/adk.error";
+import { AdkError } from "../../common/errors/adk.error";
 import { AgentNotBoundError } from "./agent-not-bound.error";
 
 describe("AgentNotBoundError", () => {
