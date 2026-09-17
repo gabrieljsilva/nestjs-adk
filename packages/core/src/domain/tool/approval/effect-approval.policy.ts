@@ -4,14 +4,7 @@ import type { ToolDefinition } from "../tool-definition.value-object";
 import { AdkApprovalPolicy } from "./adk-approval.policy";
 import { ToolEffect } from "./tool-effect.value-object";
 
-/**
- * Asks for approval from one effect upwards, and never below it.
- *
- * This is what a declared threshold becomes, and it is deliberately the only thing the
- * default policy knows how to do. Anything that depends on who is asking, on the time of
- * day or on the size of the refund is an application decision, and an application that
- * has one writes its own policy instead of configuring this one further.
- */
+/** Asks for approval from one effect upwards, and never below it. */
 export class EffectApprovalPolicy extends AdkApprovalPolicy {
 	private constructor(private readonly threshold: ToolEffect | undefined) {
 		super();
@@ -21,7 +14,6 @@ export class EffectApprovalPolicy extends AdkApprovalPolicy {
 		return new EffectApprovalPolicy(threshold);
 	}
 
-	/** Nothing is stopped by default: a tool an application declared is a tool it meant to offer. */
 	public static never(): EffectApprovalPolicy {
 		return new EffectApprovalPolicy(undefined);
 	}

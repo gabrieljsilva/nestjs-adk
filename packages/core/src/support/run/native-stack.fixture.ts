@@ -73,13 +73,6 @@ class FixedModelResolver extends ModelResolver {
 	}
 }
 
-/**
- * The whole native stack over one in memory journal, wired the way the composition wires it.
- *
- * A test that builds the pieces itself proves the pieces and not the assembly, and the
- * assembly is where an ordering mistake actually lives. This is one place to change when
- * the composition changes, instead of one per suite.
- */
 export class NativeStackFixture {
 	public static readonly AGENT = AgentName.from("support");
 

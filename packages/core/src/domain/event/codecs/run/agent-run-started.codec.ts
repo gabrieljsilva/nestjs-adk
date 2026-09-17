@@ -5,7 +5,6 @@ import type { EventHeader } from "../../event-header.value-object";
 import { EventSchemaVersion } from "../../event-schema-version.value-object";
 import { SessionEventCodec } from "../../session-event.codec";
 
-/** Codec for the start of an agent run. */
 export class AgentRunStartedCodec extends SessionEventCodec<AgentRunStarted> {
 	public readonly type = AgentRunStarted.TYPE;
 	public readonly schemaVersion = EventSchemaVersion.initial();

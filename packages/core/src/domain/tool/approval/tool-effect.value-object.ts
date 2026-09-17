@@ -1,10 +1,7 @@
 /**
  * What a tool does to the world, ordered: read, then write, then destructive.
- *
- * It is a fact about the tool, declared by whoever wrote it, and never a decision about
- * what to do with that fact. Whether an effect needs a human to agree first is the
- * approval policy's business, and the same tool can need approval in one application and
- * not in another without either of them lying about what it does.
+ * It is a fact the tool declares, never a decision about it; whether an effect needs approval
+ * is the approval policy's answer.
  */
 export class ToolEffect {
 	public static readonly READ = new ToolEffect("read", 0);

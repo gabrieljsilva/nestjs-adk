@@ -8,7 +8,6 @@ export class RateLimitedFailure extends ModelFailure {
 	public constructor(
 		message: string,
 		cause?: unknown,
-		/** What the provider's own `Retry-After` said, when it sent one. */
 		private readonly askedFor?: Duration,
 	) {
 		super(message, cause);

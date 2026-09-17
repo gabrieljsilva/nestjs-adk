@@ -22,11 +22,8 @@ import { DelegationStartedCodec } from "./codecs/transfer/delegation-started.cod
 import { SessionEventRegistry } from "./session-event-registry.service";
 
 /**
- * Every codec this build knows about, in one registry.
- *
- * A new event type that is not listed here cannot be written to a durable journal and
- * cannot be shown to an observer, which is the point: the compiler will not notice a
- * missing codec, and a single place that has to be edited will.
+ * Every codec this build knows about, in one registry. An event type missing from it
+ * can be neither written to a durable journal nor shown to an observer.
  */
 export class SessionEventCodecs {
 	public static registry(): SessionEventRegistry {

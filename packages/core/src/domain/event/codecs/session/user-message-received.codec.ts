@@ -6,10 +6,8 @@ import { EventSchemaVersion } from "../../event-schema-version.value-object";
 import { SessionEventCodec } from "../../session-event.codec";
 import { AttachmentReferenceCodec } from "../attachment-reference.codec";
 
-/** Matches the event: version 5 is the one that names the actor the question was asked with. */
 const SCHEMA_VERSION = 5;
 
-/** Codec for the message the user sent into the session, with what came attached to it. */
 export class UserMessageReceivedCodec extends SessionEventCodec<UserMessageReceived> {
 	public readonly type = UserMessageReceived.TYPE;
 	public readonly schemaVersion = new EventSchemaVersion(SCHEMA_VERSION);
@@ -31,12 +29,10 @@ export class UserMessageReceivedCodec extends SessionEventCodec<UserMessageRecei
 			header,
 			this.readText(payload, "text"),
 			this.readAttachments(payload),
-			// Absent before version 5, which recorded what was said without saying who said it.
 			this.readOptionalText(payload, "actorId"),
 		);
 	}
 
-	/** Absent means a message that had nothing attached, which is every message written before v2. */
 	private readAttachments(payload: Readonly<Record<string, unknown>>): readonly AttachmentReference[] {
 		const value = payload.attachments;
 		if (value === undefined || value === null) return [];

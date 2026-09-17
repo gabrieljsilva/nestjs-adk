@@ -6,10 +6,8 @@ import type { EventHeader } from "../../event-header.value-object";
 import { EventSchemaVersion } from "../../event-schema-version.value-object";
 import { SessionEventCodec } from "../../session-event.codec";
 
-/** The version that started naming the call whose result carries the content. */
 const SCHEMA_VERSION = 2;
 
-/** Codec for the activation of a skill, with its digest kept as algorithm and value. */
 export class SkillActivatedCodec extends SessionEventCodec<SkillActivated> {
 	public readonly type = SkillActivated.TYPE;
 	public readonly schemaVersion = new EventSchemaVersion(SCHEMA_VERSION);

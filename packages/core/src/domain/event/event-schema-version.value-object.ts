@@ -1,6 +1,5 @@
 import { InvalidEventSchemaVersionError } from "./errors/invalid-event-schema-version.error";
 
-/** Version of the payload shape of one event type. */
 export class EventSchemaVersion {
 	public constructor(public readonly value: number) {
 		if (!Number.isSafeInteger(value) || value < 1) throw new InvalidEventSchemaVersionError(value);

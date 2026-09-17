@@ -6,13 +6,6 @@ import { ModelIdentity } from "../../domain/model/descriptor/model-identity.valu
 import { LlmModel } from "../../domain/model/llm-model.contract";
 import { ModelChunk } from "../../domain/model/streaming/model-chunk.value-object";
 
-/**
- * Answers a different script on each turn, which is what a loop test needs.
- *
- * A model that always answers the same thing cannot be asked to call a tool and then
- * comment on the result, and that sequence is the loop. The last script repeats once the
- * list runs out, so a test only writes the turns it cares about.
- */
 export class TurnScriptModel extends LlmModel {
 	public turns = 0;
 

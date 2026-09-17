@@ -8,10 +8,8 @@ import { EventSchemaVersion } from "../../event-schema-version.value-object";
 import { SessionEventCodec } from "../../session-event.codec";
 import { AttachmentReferenceCodec } from "../attachment-reference.codec";
 
-/** The version that started recording an external attachment, resolved by the application. */
 const SCHEMA_VERSION = 5;
 
-/** Codec for the outcome of one tool call, kept paired with its request by callId. */
 export class ToolResultProducedCodec extends SessionEventCodec<ToolResultProduced> {
 	public readonly type = ToolResultProduced.TYPE;
 	public readonly schemaVersion = new EventSchemaVersion(SCHEMA_VERSION);
@@ -25,7 +23,6 @@ export class ToolResultProducedCodec extends SessionEventCodec<ToolResultProduce
 			output: event.output,
 			failed: event.failed,
 		};
-		// Absent rather than null: a result that fit in the context has no artifact at all.
 		if (event.artifactId !== undefined) payload.artifactId = event.artifactId.value;
 		if (event.hasAttachments) {
 			payload.attachments = event.attachments.map((reference) => this.attachments.encode(reference));
@@ -45,7 +42,6 @@ export class ToolResultProducedCodec extends SessionEventCodec<ToolResultProduce
 		);
 	}
 
-	/** Absent means a result nobody was meant to look at, which is every result before v3. */
 	private readAttachments(payload: Readonly<Record<string, unknown>>): readonly AttachmentReference[] {
 		const value = payload.attachments;
 		if (value === undefined || value === null) return [];

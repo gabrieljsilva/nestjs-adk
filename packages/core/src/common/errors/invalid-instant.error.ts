@@ -1,6 +1,5 @@
 import { AdkError } from "./adk.error";
 
-/** An instant was built from a value that does not denote a point in time. */
 export class InvalidInstantError extends AdkError {
 	public readonly code = "COMMON_INVALID_INSTANT";
 

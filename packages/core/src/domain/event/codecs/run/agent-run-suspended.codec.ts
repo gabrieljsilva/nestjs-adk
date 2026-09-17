@@ -6,12 +6,10 @@ import type { EventHeader } from "../../event-header.value-object";
 import { EventSchemaVersion } from "../../event-schema-version.value-object";
 import { SessionEventCodec } from "../../session-event.codec";
 
-/** The version that started carrying the whole turn rather than one call of it. */
 const SCHEMA_VERSION = 2;
 
 const CALLS_FIELD = "calls";
 
-/** Codec for a run that stopped to wait for something outside it, with the turn it stopped on. */
 export class AgentRunSuspendedCodec extends SessionEventCodec<AgentRunSuspended> {
 	public readonly type = AgentRunSuspended.TYPE;
 	public readonly schemaVersion = new EventSchemaVersion(SCHEMA_VERSION);
@@ -30,8 +28,6 @@ export class AgentRunSuspendedCodec extends SessionEventCodec<AgentRunSuspended>
 			toolName: call.toolName,
 			args: { ...call.args },
 		};
-		// Absent rather than null: a call nobody had to answer for has no effect, and one
-		// nobody has answered yet has no decision.
 		if (call.effect !== undefined) encoded.effect = call.effect;
 		if (call.decision !== undefined) encoded.decision = call.decision;
 		if (call.reason !== undefined) encoded.reason = call.reason;

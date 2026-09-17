@@ -1,10 +1,5 @@
 import { AdkError } from "../../../common/errors/adk.error";
 
-/**
- * A tool result appeared in the journal without the call that asked for it.
- * The pair is what makes the context causal, so a result on its own stops the
- * projection instead of reaching the model as an answer to nothing.
- */
 export class OrphanToolResultError extends AdkError {
 	public readonly code = "CONTEXT_ORPHAN_TOOL_RESULT";
 

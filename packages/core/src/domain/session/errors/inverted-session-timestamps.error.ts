@@ -1,6 +1,5 @@
 import { AdkError } from "../../../common/errors/adk.error";
 
-/** A restored session whose update predates its creation carries corrupted head data. */
 export class InvertedSessionTimestampsError extends AdkError {
 	public readonly code = "SESSION_INVERTED_TIMESTAMPS";
 

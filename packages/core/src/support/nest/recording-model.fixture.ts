@@ -8,11 +8,6 @@ import type { ModelRequest } from "../../domain/model/model-request.value-object
 import { ModelChunk } from "../../domain/model/streaming/model-chunk.value-object";
 import { ModelUsage } from "../../domain/model/usage/model-usage.value-object";
 
-/**
- * Answers a fixed sentence and keeps every request it was given.
- * It declares tools and structured output so a suite can assert what an agent offered and what
- * shape it asked for, which is most of what there is to check about wiring.
- */
 export class RecordingModel extends LlmModel {
 	public readonly requests: ModelRequest[] = [];
 

@@ -3,7 +3,6 @@ import type { EventHeader } from "../../event-header.value-object";
 import { EventSchemaVersion } from "../../event-schema-version.value-object";
 import { SessionEventCodec } from "../../session-event.codec";
 
-/** Codec for the fact that one metadata key was forgotten. */
 export class SessionMetadataDeletedCodec extends SessionEventCodec<SessionMetadataDeleted> {
 	public readonly type = SessionMetadataDeleted.TYPE;
 	public readonly schemaVersion = EventSchemaVersion.initial();

@@ -37,7 +37,6 @@ describe("SessionMetadataSetCodec", () => {
 		expect(decoded.value).toEqual(value);
 	});
 
-	/** A row an older build or a migration wrote is not JSON by construction, only by habit. */
 	it("refuses a value no session could have written", () => {
 		expect(() => codec.decode({ key: "opened", value: new Date() }, header)).toThrow(InvalidEventPayloadError);
 	});

@@ -1,6 +1,5 @@
 import { AdkError } from "./adk.error";
 
-/** A content digest needs both an algorithm and a value. */
 export class InvalidDigestError extends AdkError {
 	public readonly code = "COMMON_INVALID_DIGEST";
 

@@ -4,7 +4,6 @@ import type { EventHeader } from "../../event-header.value-object";
 import { EventSchemaVersion } from "../../event-schema-version.value-object";
 import { SessionEventCodec } from "../../session-event.codec";
 
-/** Codec for the move from one model to another, keeping both identities side by side. */
 export class ModelReroutedCodec extends SessionEventCodec<ModelRerouted> {
 	public readonly type = ModelRerouted.TYPE;
 	public readonly schemaVersion = EventSchemaVersion.initial();

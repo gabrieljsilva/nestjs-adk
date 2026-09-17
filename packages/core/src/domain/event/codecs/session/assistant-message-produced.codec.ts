@@ -6,7 +6,6 @@ import type { EventHeader } from "../../event-header.value-object";
 import { EventSchemaVersion } from "../../event-schema-version.value-object";
 import { SessionEventCodec } from "../../session-event.codec";
 
-/** Codec for the assistant message a model produced during a run. */
 export class AssistantMessageProducedCodec extends SessionEventCodec<AssistantMessageProduced> {
 	public readonly type = AssistantMessageProduced.TYPE;
 	public readonly schemaVersion = EventSchemaVersion.initial();
@@ -36,11 +35,6 @@ export class AssistantMessageProducedCodec extends SessionEventCodec<AssistantMe
 		);
 	}
 
-	/**
-	 * A turn whose provider reported nothing was written without a measurement, and reads back the same way.
-	 * The measurement belongs to the model that served the turn, which is already recorded
-	 * here: writing it twice would only create two places for it to disagree.
-	 */
 	private readMeasurement(
 		payload: Readonly<Record<string, unknown>>,
 		model: ModelIdentity,

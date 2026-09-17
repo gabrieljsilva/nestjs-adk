@@ -7,16 +7,6 @@ import type { PendingTurn } from "../approval/pending-turn.value-object";
 import { SessionMetadata } from "../metadata/session-metadata.value-object";
 import { StateValues } from "./state-values.value-object";
 
-/**
- * What the journal projects to: where the session stands right now.
- *
- * It is a value, not a store. Applying an event returns a new state, so replaying the
- * same events always lands on the same place and nothing can be changed behind a run.
- *
- * The last prompt measurement lives here because it is a decision input rather than
- * conversation: without it a session brought back from storage has no size at all, and
- * every budget question it is asked has to be answered with an absence.
- */
 export class SessionState {
 	private constructor(
 		public readonly revision: SessionRevision,
@@ -24,7 +14,6 @@ export class SessionState {
 		public readonly activeAgent?: AgentName,
 		public readonly lastPrompt?: PromptMeasurement,
 		public readonly pendingTurn?: PendingTurn,
-		/** What the application knows about this session, folded from the metadata events. */
 		public readonly metadata: SessionMetadata = SessionMetadata.empty(),
 	) {}
 
@@ -67,13 +56,11 @@ export class SessionState {
 		return this.withTurn(turn);
 	}
 
-	/** One call was answered; the turn stays until every held call of it has been. */
 	public decided(callId: ToolCallId, decision: ApprovalDecision, reason?: string): SessionState {
 		const turn = this.pendingTurn;
 		return turn === undefined ? this : this.withTurn(turn.decided(callId, decision, reason));
 	}
 
-	/** The turn ran, so there is nothing left to resume. */
 	public released(): SessionState {
 		return this.withTurn(undefined);
 	}

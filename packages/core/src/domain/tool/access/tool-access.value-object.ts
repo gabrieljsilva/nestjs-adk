@@ -1,10 +1,4 @@
-/**
- * What an access policy answered about one call.
- *
- * A refusal carries its reason because two readers need it: the model, which has to understand
- * why the tool did not run, and an MCP client, which shows it to a person. A bare boolean would
- * leave both guessing.
- */
+/** What an access policy answered about one call. A denial always carries a reason the model and an MCP client can read. */
 export class ToolAccess {
 	private constructor(
 		public readonly isGranted: boolean,

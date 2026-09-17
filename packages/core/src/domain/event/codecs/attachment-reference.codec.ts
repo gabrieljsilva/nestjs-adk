@@ -1,16 +1,6 @@
 import { ArtifactId } from "../../../common/identity/artifact-id.value-object";
 import { AttachmentReference } from "../../model/attachment/attachment-reference.value-object";
 
-/**
- * How an attachment is written into a payload, and read back out of one.
- *
- * Two event types record attachments and both encode them the same way, so the shape lives
- * here instead of being written twice and drifting once.
- *
- * A bare string decodes as an artifact id. That is the shape the first version of the field
- * had, and reading it costs one branch, which is cheaper than an upcaster that would have
- * to be carried forever for a field that only ever held an id.
- */
 export class AttachmentReferenceCodec {
 	public encode(reference: AttachmentReference): Record<string, unknown> {
 		const url = reference.url;

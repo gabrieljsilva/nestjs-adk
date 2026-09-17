@@ -3,9 +3,8 @@ import { MissingAgentNameError } from "./errors/missing-agent-name.error";
 const SEPARATORS = /[\s_-]+/g;
 
 /**
- * Unique name of an agent, compared after normalization.
- * Trim, lowercase and separator collapse mean `Support Agent`, `support-agent` and
- * `support__agent` all denote the same agent, so a catalog cannot hold two of them.
+ * Unique name of an agent, compared after trimming, lowercasing and collapsing separators, so
+ * `Support Agent`, `support-agent` and `support__agent` all denote the same agent.
  */
 export class AgentName {
 	private readonly normalized: string;

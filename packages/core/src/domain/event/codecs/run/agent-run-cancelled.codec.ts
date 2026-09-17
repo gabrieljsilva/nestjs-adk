@@ -3,7 +3,6 @@ import type { EventHeader } from "../../event-header.value-object";
 import { EventSchemaVersion } from "../../event-schema-version.value-object";
 import { SessionEventCodec } from "../../session-event.codec";
 
-/** Codec for the cancellation of an agent run. */
 export class AgentRunCancelledCodec extends SessionEventCodec<AgentRunCancelled> {
 	public readonly type = AgentRunCancelled.TYPE;
 	public readonly schemaVersion = EventSchemaVersion.initial();

@@ -1,6 +1,5 @@
 import { IdentityText } from "./identity-text.value-object";
 
-/** Identity that ties together every event produced by the same logical operation. */
 export class CorrelationId {
 	private readonly text: IdentityText;
 

@@ -3,17 +3,10 @@ import { UsdAmount } from "./usd-amount.value-object";
 /**
  * What a call cost, split by what it was charged for.
  *
- * The three parts are kept apart rather than summed on the way out. A ledger bills them as
- * separate columns, and recovering them from a total means dividing by a ratio to get back
- * what was already known. The split is computed anyway, so throwing it away only makes the
- * consumer do arithmetic we already did.
- *
- * `cached` is not a fourth kind of token. The provider reports cached tokens inside the input
- * count, so the cached share is taken out of input and charged at its own rate: adding the two
- * would bill the same tokens twice.
+ * `cached` is not a fourth kind of token: the provider reports cached tokens inside the input
+ * count, so the cached share is taken out of input and charged at its own rate.
  */
 export class CostBreakdown {
-	/** `cached` defaults to nothing, which is what a call whose cache never engaged cost. */
 	public constructor(
 		public readonly input: UsdAmount,
 		public readonly output: UsdAmount,

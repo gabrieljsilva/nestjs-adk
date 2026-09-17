@@ -3,12 +3,6 @@ import type { EventHeader } from "./event-header.value-object";
 import type { EventSchemaVersion } from "./event-schema-version.value-object";
 import type { SessionEvent } from "./session-event.event";
 
-/**
- * Turns one event type into a payload and back.
- *
- * Decoding validates before it constructs: a record that does not satisfy the shape
- * raises `InvalidEventPayloadError` and no domain instance is ever built from it.
- */
 export abstract class SessionEventCodec<TEvent extends SessionEvent> {
 	public abstract readonly type: string;
 	public abstract readonly schemaVersion: EventSchemaVersion;

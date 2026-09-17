@@ -5,13 +5,6 @@ import type { EventHeader } from "../../event-header.value-object";
 import { EventSchemaVersion } from "../../event-schema-version.value-object";
 import { SessionEventCodec } from "../../session-event.codec";
 
-/**
- * Codec for one durable metadata write.
- *
- * The value is checked on the way back rather than trusted. A payload is JSON by the time it
- * arrives, but a row written by hand, by an older build or by a migration is not, and a
- * value that is not metadata would fold into a state the projector cannot serialize again.
- */
 export class SessionMetadataSetCodec extends SessionEventCodec<SessionMetadataSet> {
 	public readonly type = SessionMetadataSet.TYPE;
 	public readonly schemaVersion = EventSchemaVersion.initial();

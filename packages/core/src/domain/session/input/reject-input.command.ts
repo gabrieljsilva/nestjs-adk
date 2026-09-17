@@ -5,7 +5,7 @@ import type { ToolSource } from "../../../contracts/tool/tool-source.contract";
 import type { Actor } from "../../tool/access/actor.value-object";
 
 /**
- * The command that refuses a tool call a human had to authorize.
+ * What refusing a tool call a human had to authorize needs.
  *
  * It takes sources for the same reason an approval does: refusing one call still runs the
  * turn, and the other calls of that turn may have come from a source that has to be open.
@@ -16,7 +16,6 @@ export interface RejectParams {
 	reason: string;
 	deniedBy?: string;
 	sources?: readonly ToolSource[];
-	/** The stop button of the turn this decision releases, which is a run of its own. */
 	signal?: AbortSignal;
 	actor?: Actor;
 	toolCalls?: ToolCallObserver;

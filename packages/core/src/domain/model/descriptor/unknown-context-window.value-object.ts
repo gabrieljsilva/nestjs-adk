@@ -1,11 +1,9 @@
 import { ContextWindow } from "./context-window.value-object";
 
 /**
- * The window of a model that never declared one.
- *
- * Everything fits, because refusing content against a limit nobody stated would be
- * inventing the limit. Measurement per category still happens, and the runtime reports
- * the unknown window once per model instead of guessing a number.
+ * The window of a model that never declared one: everything fits, because refusing content
+ * against a limit nobody stated would be inventing it. The runtime reports the unknown
+ * window once per model instead of guessing a number.
  */
 export class UnknownContextWindow extends ContextWindow {
 	public readonly isKnown = false;

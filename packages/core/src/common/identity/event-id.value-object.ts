@@ -1,6 +1,5 @@
 import { IdentityText } from "./identity-text.value-object";
 
-/** Identity of a persisted event, and the key of its idempotency. */
 export class EventId {
 	private readonly text: IdentityText;
 

@@ -1,12 +1,10 @@
 import type { ModelIdentity } from "../model/descriptor/model-identity.value-object";
 
 /**
- * The runtime met a model that never declared how much it can read.
+ * A notice that a model never declared a context window.
  *
- * It is a notice and not an error: the run continues, every category is still measured
- * and nothing is refused. What it buys is the difference between degrading and
- * degrading silently, which is the difference between a truncated conversation someone
- * can explain and one nobody can.
+ * The run continues and nothing is refused: the context is still measured, but no size
+ * can be exceeded and the default policy never compacts.
  */
 export class ContextWindowUnknown {
 	public constructor(public readonly model: ModelIdentity) {}

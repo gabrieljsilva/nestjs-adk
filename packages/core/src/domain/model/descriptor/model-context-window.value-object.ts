@@ -2,8 +2,7 @@ import { ContextWindow } from "./context-window.value-object";
 
 /**
  * A window the provider declared, in tokens.
- * A window that would leave no room reports zero available rather than a negative
- * budget, so a caller never subtracts its way into an impossible request.
+ * A window with no room left reports zero available rather than a negative budget.
  */
 export class ModelContextWindow extends ContextWindow {
 	public readonly isKnown = true;

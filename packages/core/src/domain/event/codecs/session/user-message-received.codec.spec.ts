@@ -33,7 +33,6 @@ describe("UserMessageReceivedCodec", () => {
 		expect(codec.encode(new UserMessageReceived(header, "hi", [], "u-1"))).toEqual({ text: "hi", actorId: "u-1" });
 	});
 
-	/** Absent before version 5, which recorded what was said without saying who said it. */
 	it("decodes a row written before anybody was named as a message with no actor", () => {
 		expect(codec.decode({ text: "hi" }, header).actorId).toBeUndefined();
 	});

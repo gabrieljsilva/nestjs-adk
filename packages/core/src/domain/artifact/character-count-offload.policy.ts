@@ -1,20 +1,14 @@
 import { OffloadDecision } from "./offload-decision.value-object";
 import { OffloadPolicy } from "./offload.policy";
 
-/** Large enough that ordinary results pass, small enough that one result cannot fill a window. */
 const DEFAULT_THRESHOLD = 20_000;
 
 /**
- * Moves a result out once it is longer than a declared number of characters, and says
- * whether what it moved is something the exploration tools can walk.
+ * Moves a result out once it is longer than a declared number of characters.
  *
- * JSON and text are explorable: an outline, a search and a pointer all mean something over
- * them, and each of the three answers in a fraction of the room the content itself would
- * take. Everything else is opaque, because the only honest thing to do with bytes whose
- * shape nothing here understands is hand them back as they are.
- *
- * Disabling it is a real answer. An application that would rather pay for a large prompt
- * than have the model make a second call says so, and nothing is moved out.
+ * JSON and `text/*` are answered as explorable, because the exploration tools were written
+ * against them; everything else is opaque. {@link disabled} moves nothing out and pays for
+ * large results in the prompt.
  */
 export class CharacterCountOffloadPolicy extends OffloadPolicy {
 	public static readonly DEFAULT_THRESHOLD = DEFAULT_THRESHOLD;
@@ -35,7 +29,6 @@ export class CharacterCountOffloadPolicy extends OffloadPolicy {
 		return new CharacterCountOffloadPolicy(undefined);
 	}
 
-	/** True for the media types the exploration tools were written against, and nothing else. */
 	public static isExplorableMediaType(mediaType: string | undefined): boolean {
 		if (mediaType === undefined) return false;
 		const normalized = mediaType.trim().toLowerCase();

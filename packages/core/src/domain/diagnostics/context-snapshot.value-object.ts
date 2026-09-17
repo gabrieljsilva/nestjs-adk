@@ -3,11 +3,7 @@ import type { ModelIdentity } from "../model/descriptor/model-identity.value-obj
 import { ContextSegment } from "./context-segment.value-object";
 
 /**
- * Exactly what one model call was given, kept so somebody can look at it afterwards.
- *
- * It is a photograph and not a summary: nothing here is derived, rounded or explained. The
- * questions people ask of it, how much of two runs is a shared prefix and where they first
- * differ, are answered by comparing the strings it holds.
+ * Exactly what one model call was given. Nothing here is derived, rounded or summarized.
  */
 export class ContextSnapshot {
 	public constructor(
@@ -16,7 +12,6 @@ export class ContextSnapshot {
 		public readonly segments: readonly ContextSegment[],
 	) {}
 
-	/** The whole context as one string, in the order a provider receives it. */
 	public get text(): string {
 		return this.segments.map((segment) => segment.text).join("");
 	}

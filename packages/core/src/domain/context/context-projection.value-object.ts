@@ -9,10 +9,8 @@ import { MediaSplitter } from "./media-splitter.service";
 /**
  * What the model is about to read, as blocks instead of a flat list of messages.
  *
- * Instructions and tool declarations are kept apart from the conversation so each one
- * can be measured on its own. Every change returns a new projection: compaction
- * produces another projection rather than editing this one, which is what lets a
- * prepared context stay comparable to the one measured before it.
+ * Immutable: every change answers a new projection, so a context already measured stays
+ * comparable to the one that replaces it.
  */
 export class ContextProjection {
 	public readonly blocks: readonly ContextBlock[];
@@ -23,7 +21,6 @@ export class ContextProjection {
 		tools: readonly ToolDeclaration[] = [],
 		public readonly runtimeInstructions?: PromptInstructions,
 		public readonly agentPrompt?: PromptInstructions,
-		/** The shape the answer must take, when the agent asks for data instead of prose. */
 		public readonly outputSchema?: object,
 	) {
 		this.blocks = [...blocks];
@@ -42,7 +39,6 @@ export class ContextProjection {
 		return this.blocks.filter((block) => block.isOpen);
 	}
 
-	/** The journal position this projection was built from. */
 	public get coveredRevision(): SessionRevision {
 		let covered = SessionRevision.initial();
 		for (const block of this.blocks) {
@@ -51,16 +47,10 @@ export class ContextProjection {
 		return covered;
 	}
 
-	/**
-	 * The blocks as one call, with images moved to where a provider can carry them.
-	 * The projection itself is untouched: what a block holds is a fact of the session, and
-	 * what a request holds is a fact about one provider's wire format.
-	 */
 	public toRequest(): ModelRequest {
 		return new ModelRequest(new MediaSplitter().split(this.messages), this.tools, this.instructions(), this.outputSchema);
 	}
 
-	/** Runtime instructions come before the agent prompt, and absence stays absence. */
 	private instructions(): PromptInstructions | undefined {
 		if (this.runtimeInstructions === undefined) return this.agentPrompt;
 		if (this.agentPrompt === undefined) return this.runtimeInstructions;

@@ -12,14 +12,6 @@ import { SessionMetadata } from "../metadata/session-metadata.value-object";
 import { SessionState } from "./session-state.value-object";
 import { StateValues } from "./state-values.value-object";
 
-/**
- * Turns a projected state into something a database can hold, and back.
- *
- * A snapshot is only ever a shortcut, so this has one duty: what comes back has to mean
- * exactly what went in, or the checksum that guards it will refuse it and the journal will
- * be replayed. That is the safety net, and it is why this can be simple: a decode that
- * drifts costs a replay, never a wrong session.
- */
 export class SessionStateCodec {
 	public encode(state: SessionState): Record<string, unknown> {
 		return {
@@ -110,13 +102,6 @@ export class SessionStateCodec {
 		);
 	}
 
-	/**
-	 * Entries a row could not hold are dropped rather than refused.
-	 *
-	 * A snapshot is a shortcut, so the worst a drifted one may cost is a replay of the
-	 * journal, which is what the checksum beside it already forces. Throwing here would turn
-	 * an optimization into a session nobody can read.
-	 */
 	private decodeMetadata(value: unknown): SessionMetadata {
 		if (!Array.isArray(value)) return SessionMetadata.empty();
 		const entries: Array<readonly [string, MetadataValue]> = [];

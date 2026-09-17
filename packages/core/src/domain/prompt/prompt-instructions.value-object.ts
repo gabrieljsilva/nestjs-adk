@@ -1,7 +1,6 @@
 /**
- * The central prompt of an agent, when it has one.
- * Absence is a first class answer: an agent can decide from the request and the
- * context alone, so nothing substitutes a default text here.
+ * The central prompt of an agent, trimmed. Absence is a first class answer: nothing substitutes
+ * a default text here.
  */
 export class PromptInstructions {
 	private constructor(public readonly text: string) {}
@@ -14,7 +13,6 @@ export class PromptInstructions {
 		return this.text.length === 0;
 	}
 
-	/** Joins two prompts into one block of text, skipping whichever side is empty. */
 	public concat(other: PromptInstructions): PromptInstructions {
 		if (this.isEmpty) return other;
 		if (other.isEmpty) return this;

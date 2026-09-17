@@ -1,10 +1,5 @@
 import { InvalidDigestError } from "../errors/invalid-digest.error";
 
-/**
- * Fingerprint of a piece of content, carrying the algorithm that produced it.
- * Two digests only match when both the algorithm and the value match, so a value
- * computed with a different algorithm never passes as equal.
- */
 export class ContentDigest {
 	public readonly algorithm: string;
 	public readonly value: string;

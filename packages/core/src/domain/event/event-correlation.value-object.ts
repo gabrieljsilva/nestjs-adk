@@ -3,11 +3,6 @@ import type { AgentRunId } from "../../common/identity/agent-run-id.value-object
 import type { CorrelationId } from "../../common/identity/correlation-id.value-object";
 import type { EventId } from "../../common/identity/event-id.value-object";
 
-/**
- * Who produced an event and what caused it.
- * Causation points at the event that led to this one, which is what lets a reader
- * rebuild a tool call and its result, or a delegation and the run it started.
- */
 export class EventCorrelation {
 	public constructor(
 		public readonly runId: AgentRunId,

@@ -1,10 +1,8 @@
 import { AdkError } from "../../../common/errors/adk.error";
 
 /**
- * Two vectors that cannot be compared were compared.
- * Different dimensions almost always mean different embedders, or the same embedder at
- * two configurations, and the number a comparison would return in that case looks like a
- * similarity while meaning nothing.
+ * Two vectors of different dimensions were compared, which almost always means two different
+ * embedders. The number a comparison would answer there looks like a similarity and is not one.
  */
 export class IncompatibleVectorsError extends AdkError {
 	public readonly code = "EMBEDDING_INCOMPATIBLE_VECTORS";

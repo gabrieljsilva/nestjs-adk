@@ -9,13 +9,6 @@ import { ModelChunk } from "../../domain/model/streaming/model-chunk.value-objec
 import { ToolCallDelta } from "../../domain/model/streaming/tool-call-delta.value-object";
 import { ModelUsage } from "../../domain/model/usage/model-usage.value-object";
 
-/**
- * Calls one tool on the first turn, answers on the second, and keeps every request.
- *
- * A model that only answers text cannot tell a wired tool from a broken one. This one
- * makes the call happen and records what came back, which is where the tool's result
- * shows up as either the answer or the error it threw.
- */
 export class ToolCallingModel extends LlmModel {
 	public readonly requests: ModelRequest[] = [];
 	private turns = 0;

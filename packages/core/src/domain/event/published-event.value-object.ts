@@ -6,15 +6,11 @@ import type { SessionEvent } from "./session-event.event";
 import type { StoredSessionEvent } from "./stored-session-event.record";
 
 /**
- * What an observer sees, which is never the domain instance itself.
+ * What an observer sees: a type, a correlation and an already redacted payload, never
+ * the event instance itself.
  *
- * Consumers get a type, a correlation and a payload that has already been through
- * redaction. Handing them the event object would hand them the whole domain, and would
- * put every field a future event gains on an external contract by accident.
- *
- * Durable and runtime events travel the same way and differ in one honest fact: a
- * durable event advanced a revision and can be replayed from the journal, a runtime one
- * never happened as far as storage is concerned.
+ * A durable event carries the revision it landed on and can be replayed from the
+ * journal; a runtime one never reached storage and has none.
  */
 export class PublishedEvent {
 	private constructor(
@@ -55,7 +51,6 @@ export class PublishedEvent {
 		);
 	}
 
-	/** True when the journal holds this event, which is also when a replay will produce it again. */
 	public get isDurable(): boolean {
 		return this.revision !== undefined;
 	}

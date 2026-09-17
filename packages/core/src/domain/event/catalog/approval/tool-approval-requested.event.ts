@@ -3,13 +3,6 @@ import type { EventHeader } from "../../event-header.value-object";
 import { EventSchemaVersion } from "../../event-schema-version.value-object";
 import { SessionEvent } from "../../session-event.event";
 
-/**
- * One tool call was held back and now waits for a human decision.
- *
- * It is the notification, one per held call, and not the record of what has to run: the
- * suspension that follows carries the whole turn, arguments included, so nothing here has
- * to repeat them.
- */
 export class ToolApprovalRequested extends SessionEvent {
 	public readonly type = ToolApprovalRequested.TYPE;
 	public readonly schemaVersion = EventSchemaVersion.initial();

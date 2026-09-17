@@ -6,17 +6,9 @@ import { AgentTransferPolicy } from "./agent-transfer.policy";
 import type { ModelRetryPolicy } from "./model-retry.policy";
 
 /**
- * The rules an agent runs under, as one thing instead of four constructor slots.
- *
- * They are grouped because they are read together and grow together: every capability the
- * runtime gains arrives as another rule about how a run behaves, and adding each one to a
- * positional constructor is how a definition ends up with ten parameters nobody can order
- * correctly. What an agent *is* stays on the definition; how it *runs* is here.
- *
- * Every rule is absent by default, and absent means whatever the runtime decided is safe:
- * no failover, no limit, no agent to transfer or delegate to, and the standard share of the
- * window for compaction. Compaction is the one that can also be declared as `false`, which
- * is a decision to never shorten a conversation and not the same thing as declaring nothing.
+ * The rules an agent runs under. Every rule is absent by default, and absent means whatever the
+ * runtime decided. Compaction can also be declared as `false`, which is a decision to never
+ * shorten a conversation and not the same thing as declaring nothing.
  */
 export class AgentExecutionPolicies {
 	public constructor(
@@ -25,10 +17,6 @@ export class AgentExecutionPolicies {
 		public readonly limits?: RunLimits,
 		public readonly transfer: AgentTransferPolicy = AgentTransferPolicy.none(),
 		public readonly delegation: AgentDelegationPolicy = AgentDelegationPolicy.none(),
-		/**
-		 * Whether a failed call is tried again on the same model, before failover is consulted.
-		 * Absent leaves the agent on the runtime's policy; `NoRetryPolicy` is how it refuses one.
-		 */
 		public readonly retry?: ModelRetryPolicy,
 	) {}
 

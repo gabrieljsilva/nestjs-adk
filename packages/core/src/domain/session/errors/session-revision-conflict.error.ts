@@ -1,9 +1,8 @@
 import { AdkError } from "../../../common/errors/adk.error";
 
 /**
- * Someone else advanced the journal first.
- * The append wrote nothing: optimistic concurrency means the loser retries against
- * the revision it now knows about, never against the one it assumed.
+ * Someone else advanced the journal first and the append wrote nothing.
+ * The loser retries against the revision it now knows about, never against the one it assumed.
  */
 export class SessionRevisionConflictError extends AdkError {
 	public readonly code = "SESSION_REVISION_CONFLICT";

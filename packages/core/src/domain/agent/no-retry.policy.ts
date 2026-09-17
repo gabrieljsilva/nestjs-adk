@@ -4,10 +4,7 @@ import type { RetryAttempt } from "./retry-attempt.value-object";
 
 /**
  * Never attempts the same model twice, which is what `@Agent({ retry: false })` declares.
- *
- * It is a class rather than an absent policy because absence means "whatever the runtime
- * decided", and an agent that must not repeat a call, because the call has an effect the
- * provider already performed, is saying something the runtime default would override.
+ * It is a declared policy and not an absent one, which would leave the runtime's default in force.
  */
 export class NoRetryPolicy extends ModelRetryPolicy {
 	public findDelay(_attempt: RetryAttempt): Duration | undefined {

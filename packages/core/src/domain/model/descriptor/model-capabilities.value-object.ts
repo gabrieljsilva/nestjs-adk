@@ -2,9 +2,8 @@ import type { ModelCapability } from "./model-capability.value-object";
 
 /**
  * What a model declares it can do.
- * Not declaring a capability is different from declaring it unsupported: the first
- * means the adapter never spoke about it, and callers that need certainty check
- * `declares` before trusting `supports`.
+ * Never declaring a capability differs from declaring it unsupported, so a caller that
+ * needs certainty asks `declares` before trusting `supports`.
  */
 export class ModelCapabilities {
 	private readonly declared: ReadonlyMap<string, boolean>;

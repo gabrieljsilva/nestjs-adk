@@ -1,6 +1,5 @@
 import { AdkError } from "./adk.error";
 
-/** A session revision must be a safe, non-negative integer. */
 export class InvalidRevisionError extends AdkError {
 	public readonly code = "COMMON_INVALID_REVISION";
 

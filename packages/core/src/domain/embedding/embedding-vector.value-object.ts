@@ -1,11 +1,8 @@
 import { EmptyVectorError } from "./errors/empty-vector.error";
 
 /**
- * What an embedder turned a text into, with the invariants a comparison depends on.
- *
- * A vector of no dimensions and a vector with a value that is not a number are both
- * refused here, because both produce a similarity that reads like a number and means
- * nothing. Everything downstream can then compare without checking.
+ * What an embedder turned a text into. A vector of no dimensions, or one holding a value that
+ * is not a finite number, is refused here, so a comparison downstream needs no checks.
  */
 export class EmbeddingVector {
 	public readonly values: readonly number[];
@@ -22,7 +19,6 @@ export class EmbeddingVector {
 		return this.values.length;
 	}
 
-	/** Zero for a vector that points nowhere, which is a direction nothing can be close to. */
 	public get magnitude(): number {
 		return Math.sqrt(this.values.reduce((total, value) => total + value * value, 0));
 	}

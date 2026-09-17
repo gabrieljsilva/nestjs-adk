@@ -1,11 +1,8 @@
 import { AdkError } from "../../../common/errors/adk.error";
 
 /**
- * One metadata value outgrew what a session is meant to carry.
- *
- * Metadata rides on every commit, every snapshot and every rehydration, so a value the size
- * of a document turns a decision input into a payload. Whatever is that large belongs in
- * artifact storage, named here by its id.
+ * One metadata value serializes past the per-key limit and was refused.
+ * Metadata rides on every commit and rehydration; anything that large belongs in artifact storage.
  */
 export class MetadataValueTooLargeError extends AdkError {
 	public readonly code = "METADATA_VALUE_TOO_LARGE";

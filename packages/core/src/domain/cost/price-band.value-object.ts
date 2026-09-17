@@ -4,13 +4,8 @@ import type { TokenRate } from "./token-rate.value-object";
 /**
  * A rate that only applies once a prompt passes a size.
  *
- * Providers charge a long context more per token, and the catalog publishes it as a separate
- * field per threshold (`input_cost_per_token_above_200k_tokens`). 107 of its entries have
- * one, so this is a real shape and not a hypothetical.
- *
- * A band overrides only the rates it declares. A band that raises the input rate and says
- * nothing about output leaves output where the base price had it, because that is what the
- * provider published.
+ * A band overrides only the rates it declares: one that raises input and says nothing about
+ * output leaves output where the base price had it.
  */
 export class PriceBand {
 	private constructor(
@@ -28,7 +23,6 @@ export class PriceBand {
 		return new PriceBand(tokens, rates.input, rates.output, rates.cacheRead);
 	}
 
-	/** Whether a prompt of this size is charged at this band. The threshold itself is not past it. */
 	public appliesTo(promptTokens: number): boolean {
 		return promptTokens > this.aboveTokens;
 	}

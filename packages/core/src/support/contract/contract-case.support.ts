@@ -1,8 +1,4 @@
-/**
- * One executable expectation of a port contract.
- * The case owns the assertion; the test runner only gives it a name and runs it,
- * which is what keeps the suites usable from vitest, jest or node:test alike.
- */
+/** One executable expectation of a port contract: a name and the assertion to run. */
 export class ContractCase {
 	public constructor(
 		public readonly name: string,

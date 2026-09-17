@@ -6,10 +6,8 @@ import type { SessionState } from "./session-state.value-object";
 /**
  * A shortcut to a state the journal can always rebuild.
  *
- * A snapshot is disposable by design: it is only ever an optimization, so anything
- * suspicious about it means a full replay, never a failed rehydration. It records the
- * projector that wrote it and a checksum of the state, which is what makes those
- * doubts detectable instead of silent.
+ * It is disposable by design: anything suspicious about it means a full replay, never a failed
+ * rehydration, which is what the projector version and the checksum make detectable.
  */
 export class SessionSnapshot {
 	public constructor(
@@ -20,7 +18,6 @@ export class SessionSnapshot {
 		public readonly checksum: ContentDigest,
 	) {}
 
-	/** True when this snapshot can be trusted for the given projector and head revision. */
 	public isUsableAt(projectorVersion: number, head: SessionRevision, expected: ContentDigest): boolean {
 		if (this.projectorVersion !== projectorVersion) return false;
 		if (!this.checksum.equals(expected)) return false;

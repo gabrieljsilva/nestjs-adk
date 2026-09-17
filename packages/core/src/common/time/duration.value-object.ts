@@ -1,13 +1,6 @@
 import { InvalidDurationError } from "../errors/invalid-duration.error";
 
-/**
- * A length of time, always a whole non negative count of milliseconds.
- *
- * It exists so a delay stops travelling as a bare number that any caller can read as
- * seconds. A provider answers `Retry-After` in seconds and a timer takes milliseconds, and
- * the conversion between the two is the mistake this class makes impossible to write
- * silently.
- */
+/** A length of time, always a whole non negative count of milliseconds. */
 export class Duration {
 	private constructor(public readonly millis: number) {}
 
@@ -16,7 +9,6 @@ export class Duration {
 		return new Duration(value);
 	}
 
-	/** Seconds as a provider reports them, rounded up: waiting a moment longer is always safe. */
 	public static fromSeconds(value: number): Duration {
 		if (!Number.isFinite(value) || value < 0) throw new InvalidDurationError(value);
 		return Duration.fromMillis(Math.ceil(value * 1000));
@@ -30,7 +22,6 @@ export class Duration {
 		return this.millis === 0;
 	}
 
-	/** The shorter of the two, which is how a cap is applied without a branch at the call site. */
 	public cappedAt(ceiling: Duration): Duration {
 		return this.millis <= ceiling.millis ? this : ceiling;
 	}

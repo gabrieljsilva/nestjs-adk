@@ -1,26 +1,15 @@
 import { InvalidRunLimitError } from "../errors/invalid-run-limit.error";
 
 /**
- * How far one run may go before the runtime stops it.
- *
- * A limit is declared or absent, and absence is not zero: an unset iteration cap means
- * the run is bounded by the model and by the tools rather than by a number nobody chose.
- * That is what `unbounded()` means, and it has to be asked for: what the runtime starts
- * from is `byDefault()`, fifty iterations, because a model that loops on a tool it cannot
- * satisfy spends somebody's money until it is stopped, and a ceiling nobody chose is a
- * worse answer than one they can raise.
- * Invalid arguments are the one exception and default to two, because the model wrote
- * the argument and usually fixes it on the next try, while a model that cannot satisfy
- * the schema would otherwise loop on someone's bill.
- *
- * Resolution is by overriding, in the order the caller applies it: the module default
- * first, then the agent, then the call. A level that declared nothing leaves the level
- * under it exactly as it was.
+ * How far one run may go before the runtime stops it. A limit is declared or absent, and absence
+ * is not zero: an unset cap means the run is bounded by the model. `byDefault()` is what the
+ * runtime starts from and `unbounded()` has to be asked for; anything but a whole number above
+ * zero throws `InvalidRunLimitError`. The module default is overridden by the agent, then by the
+ * call.
  */
 export class RunLimits {
 	public static readonly DEFAULT_MAX_INVALID_ARGS = 2;
 
-	/** High enough that no honest agent reaches it, low enough that a loop is paid for once. */
 	public static readonly DEFAULT_MAX_ITERATIONS = 50;
 
 	public readonly maxIterations: number | undefined;
@@ -33,17 +22,14 @@ export class RunLimits {
 		this.maxInvalidArgs = RunLimits.checked("maxInvalidArgs", maxInvalidArgs);
 	}
 
-	/** What the runtime runs under when nobody declared anything. */
 	public static byDefault(): RunLimits {
 		return new RunLimits(RunLimits.DEFAULT_MAX_ITERATIONS, undefined, undefined);
 	}
 
-	/** No ceiling at all, which is a declaration and never an oversight. */
 	public static unbounded(): RunLimits {
 		return new RunLimits(undefined, undefined, undefined);
 	}
 
-	/** The level that declared a field wins it, and declares nothing by leaving it out. */
 	public overriddenBy(other?: RunLimits): RunLimits {
 		if (other === undefined) return this;
 		return new RunLimits(
@@ -53,7 +39,6 @@ export class RunLimits {
 		);
 	}
 
-	/** The only limit that answers with a number even when nobody declared one. */
 	public get invalidArgsLimit(): number {
 		return this.maxInvalidArgs ?? RunLimits.DEFAULT_MAX_INVALID_ARGS;
 	}
@@ -62,7 +47,6 @@ export class RunLimits {
 		return this.maxIterations !== undefined;
 	}
 
-	/** Whether a run that already completed `done` iterations may start another one. */
 	public allowsIteration(done: number): boolean {
 		return this.maxIterations === undefined || done < this.maxIterations;
 	}
@@ -75,7 +59,6 @@ export class RunLimits {
 		return count < this.invalidArgsLimit;
 	}
 
-	/** A limit is a whole number of tries above zero, and anything else is a mistake at the source. */
 	private static checked(limit: string, value?: number): number | undefined {
 		if (value === undefined) return undefined;
 		if (!Number.isSafeInteger(value) || value < 1) throw new InvalidRunLimitError(limit, value);

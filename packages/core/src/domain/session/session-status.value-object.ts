@@ -1,4 +1,3 @@
-/** Where a session stands: running, waiting on a human, or closed for good. */
 export class SessionStatus {
 	public static readonly ACTIVE = new SessionStatus("active");
 	public static readonly SUSPENDED = new SessionStatus("suspended");
@@ -6,7 +5,6 @@ export class SessionStatus {
 
 	private constructor(public readonly name: string) {}
 
-	/** The one instance a stored name denotes: identity is what `acceptsCommands` compares on. */
 	public static fromName(name: string): SessionStatus | undefined {
 		return [SessionStatus.ACTIVE, SessionStatus.SUSPENDED, SessionStatus.CLOSED].find((status) => status.name === name);
 	}

@@ -2,21 +2,11 @@ import type { CompactionDecision } from "./compaction-decision.value-object";
 import type { ContextBudget } from "./context-budget.value-object";
 
 /**
- * When a context is too long, and how much of it should be left.
+ * Decides whether a context is too long and how much of it to keep.
  *
- * Extend it and register the subclass as a provider to decide compaction yourself:
- *
- * ```ts
- * @Injectable()
- * export class NightlyCompaction extends AdkCompactionPolicy {
- *   public decide(budget: ContextBudget): CompactionDecision {
- *     return budget.inputTokens.tokens > 100_000 ? CompactionDecision.compactTo(60_000, 8) : CompactionDecision.skip();
- *   }
- * }
- * ```
- *
- * The decision is taken from the measured budget alone, so the same policy behaves the
- * same way against a model that never declared a context window.
+ * Extend it and register the subclass as a provider to decide compaction yourself. The
+ * decision is taken from the measured budget alone, so a model that never declared a
+ * context window is treated like any other.
  */
 export abstract class AdkCompactionPolicy {
 	public abstract decide(budget: ContextBudget): CompactionDecision;

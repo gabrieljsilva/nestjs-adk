@@ -7,7 +7,6 @@ import { SessionId } from "../common/identity/session-id.value-object";
 import { ToolCallId } from "../common/identity/tool-call-id.value-object";
 import { SequenceIdGenerator } from "./sequence-id-generator.double";
 
-/** Builds typed identities from a generator, so a test never hand writes an id string. */
 export class IdentityFactory {
 	public constructor(private readonly generator: IdGenerator = new SequenceIdGenerator()) {}
 

@@ -1,12 +1,6 @@
 /**
- * What a schema made of the arguments a model wrote.
- *
- * Invalid is a normal outcome, not an exception. The model wrote the arguments and can
- * usually fix them once it is told what was wrong, so the reason travels as text meant
- * to be read by the model rather than as a stack trace meant for a log.
- *
- * Values are only present when they are valid. There is no half parsed shape: a caller
- * that reads `values` has already been told the parse succeeded.
+ * What a schema made of the arguments a model wrote. Invalid is a normal outcome and not an
+ * exception, `reason` is text written for the model to read, and `values` is empty unless `isValid`.
  */
 export class ParsedArguments {
 	private constructor(

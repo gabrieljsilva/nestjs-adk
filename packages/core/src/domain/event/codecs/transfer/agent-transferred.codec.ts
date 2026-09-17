@@ -4,7 +4,6 @@ import type { EventHeader } from "../../event-header.value-object";
 import { EventSchemaVersion } from "../../event-schema-version.value-object";
 import { SessionEventCodec } from "../../session-event.codec";
 
-/** Codec for the handover of the session from one agent to another. */
 export class AgentTransferredCodec extends SessionEventCodec<AgentTransferred> {
 	public readonly type = AgentTransferred.TYPE;
 	public readonly schemaVersion = EventSchemaVersion.initial();

@@ -1,10 +1,8 @@
 /**
  * One consumer did not handle one event, and the run went on anyway.
  *
- * Observation is outside the transaction, so this is a notice and never an error: the
- * journal is already durable, and the only thing lost is that one consumer's view of
- * one event. It says whether the consumer refused or simply never came back, because a
- * throw and a hang call for different fixes.
+ * A notice and never an error: the journal is already durable. `timedOut` tells a
+ * consumer that threw from one that never came back.
  */
 export class ConsumerFailed {
 	public constructor(

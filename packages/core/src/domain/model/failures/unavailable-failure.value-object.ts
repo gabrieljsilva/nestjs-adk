@@ -8,7 +8,6 @@ export class UnavailableFailure extends ModelFailure {
 	public constructor(
 		message: string,
 		cause?: unknown,
-		/** What the provider's own `Retry-After` said, when it sent one with the 503. */
 		private readonly askedFor?: Duration,
 	) {
 		super(message, cause);

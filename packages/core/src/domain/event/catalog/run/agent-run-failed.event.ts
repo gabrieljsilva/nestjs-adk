@@ -2,7 +2,6 @@ import type { EventHeader } from "../../event-header.value-object";
 import { EventSchemaVersion } from "../../event-schema-version.value-object";
 import { SessionEvent } from "../../session-event.event";
 
-/** An agent run ended in an error, kept with the code and the reason it failed. */
 export class AgentRunFailed extends SessionEvent {
 	public readonly type = AgentRunFailed.TYPE;
 	public readonly schemaVersion = EventSchemaVersion.initial();

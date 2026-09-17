@@ -2,14 +2,10 @@ import type { ModelUsage } from "../usage/model-usage.value-object";
 import type { ToolCallDelta } from "./tool-call-delta.value-object";
 
 /**
- * One increment of a generation.
- *
- * Text is always a delta, never a running total, and no chunk ever repeats the whole
- * answer: aggregation belongs to the executor. A model that does not stream yields a
- * single chunk carrying the complete text, and both paths then agree by construction.
- *
- * A chunk carries one kind of increment at a time: text, part of a tool call, the
- * usage the provider reported, or the reason the turn ended.
+ * One increment of a generation, carrying one kind at a time: text, part of a tool call,
+ * the usage the provider reported, or the reason the turn ended.
+ * Text is always a delta and never a running total, and a model that does not stream
+ * yields a single chunk with the complete text.
  */
 export class ModelChunk {
 	private constructor(
@@ -27,7 +23,6 @@ export class ModelChunk {
 		return new ModelChunk("", undefined, delta);
 	}
 
-	/** Usage arrives at the end for most providers, and never for some. */
 	public static usage(usage: ModelUsage): ModelChunk {
 		return new ModelChunk("", undefined, undefined, usage);
 	}

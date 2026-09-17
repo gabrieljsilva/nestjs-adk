@@ -18,40 +18,19 @@ import type { ModelRetryPolicy } from "./model-retry.policy";
 export interface AgentDefinitionInput {
 	name: AgentName;
 	description: AgentDescription;
-	/** Required after resolution: an agent with no model is refused here rather than at the first question. */
 	model: LlmModel | undefined;
 	instructions?: PromptInstructions;
 	policies?: AgentExecutionPolicies;
 	tools?: readonly ToolDefinition[];
 	skills?: readonly SkillDefinition[];
-	/**
-	 * Builds the prompt once per run, for an agent whose instruction depends on data.
-	 *
-	 * It is the alternative to `instructions` and never a second one alongside it: an agent
-	 * that declared both is refused where the two declarations are read, so anything holding
-	 * a definition can treat a builder as the whole answer.
-	 */
 	promptBuilder?: PromptBuilder;
-	/**
-	 * The shape this agent answers in, as a JSON schema the provider is told to enforce.
-	 *
-	 * It lives here and not on a call because it is what the agent *is*, not how one run
-	 * behaves: an agent that answers data answers data to a transfer, to a delegation and to
-	 * the turn that follows an approval, and each of those builds its scope without the
-	 * command that started the run. A per-call schema would be silently absent in exactly
-	 * those three places.
-	 */
 	outputSchema?: object;
 }
 
 /**
- * The resolved shape of one agent: name, description and exactly one primary model.
- * Everything else is an optional capability or a rule about how it runs, and the
- * definition never holds state produced by a run.
- *
- * The rules travel as `AgentExecutionPolicies` so that a new one costs a field there
- * rather than a parameter here, and are read through getters so nobody has to know
- * which of the two objects a rule happens to live on.
+ * The resolved shape of one agent: name, description and exactly one primary model. Everything
+ * else is an optional capability or a rule about how it runs, and a definition never holds state
+ * produced by a run.
  */
 export class AgentDefinition {
 	public readonly name: AgentName;
@@ -101,12 +80,10 @@ export class AgentDefinition {
 		return this.policies.delegation;
 	}
 
-	/** Whether this agent answers data rather than prose, which the model has to support. */
 	public get wantsStructuredOutput(): boolean {
 		return this.outputSchema !== undefined;
 	}
 
-	/** Absence of a prompt is a valid composition, never a default text. */
 	public get hasInstructions(): boolean {
 		return this.instructions !== undefined;
 	}
@@ -115,7 +92,6 @@ export class AgentDefinition {
 		return this.failover !== undefined;
 	}
 
-	/** Whether this agent said anything about compaction, including that it wants none. */
 	public get hasCompaction(): boolean {
 		return this.compaction !== undefined;
 	}

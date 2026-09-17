@@ -3,7 +3,6 @@ import type { EventHeader } from "../../event-header.value-object";
 import { EventSchemaVersion } from "../../event-schema-version.value-object";
 import { SessionEvent } from "../../session-event.event";
 
-/** Control of the session passed from one agent to another, which owns the turn from here on. */
 export class AgentTransferred extends SessionEvent {
 	public readonly type = AgentTransferred.TYPE;
 	public readonly schemaVersion = EventSchemaVersion.initial();

@@ -1,9 +1,8 @@
 import { AdkError } from "../../../common/errors/adk.error";
 
 /**
- * The attachment, or the set of them, is bigger than a request is allowed to carry.
- * The measure that failed is named because the three of them fail for different reasons:
- * one image too big, one image that decodes too big, or a set that only overflows together.
+ * The attachment, or the set of them, is over what a request may carry.
+ * `measure` names which of the three ceilings failed: encoded, decoded or total.
  */
 export class MediaTooLargeError extends AdkError {
 	public readonly code = "MEDIA_TOO_LARGE";

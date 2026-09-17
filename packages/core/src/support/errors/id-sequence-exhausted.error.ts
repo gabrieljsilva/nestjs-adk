@@ -1,6 +1,5 @@
 import { AdkError } from "../../common/errors/adk.error";
 
-/** The deterministic generator ran past its limit and refuses to fall back to randomness. */
 export class IdSequenceExhaustedError extends AdkError {
 	public readonly code = "SUPPORT_ID_SEQUENCE_EXHAUSTED";
 

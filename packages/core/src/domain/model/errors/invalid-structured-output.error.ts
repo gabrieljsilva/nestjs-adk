@@ -2,8 +2,7 @@ import { AdkError } from "../../../common/errors/adk.error";
 
 /**
  * The model answered something other than the shape the call asked for.
- * The raw answer travels with the error, because the usual causes are visible in it:
- * prose around the JSON, a truncated object, or a refusal written in words.
+ * The raw answer travels on `answer`, where the usual causes are visible.
  */
 export class InvalidStructuredOutputError extends AdkError {
 	public readonly code = "MODEL_INVALID_STRUCTURED_OUTPUT";

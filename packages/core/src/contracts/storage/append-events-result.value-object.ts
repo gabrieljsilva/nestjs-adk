@@ -2,9 +2,8 @@ import type { SessionRevision } from "../../common/revision/session-revision.val
 import type { StoredSessionEvent } from "../../domain/event/stored-session-event.record";
 
 /**
- * What a committed append gives back.
- * The envelopes are the source the state projection consumes: only what the storage
- * confirmed is applied, never what the caller hoped to write.
+ * What a committed append gives back. The envelopes are the source the state projection
+ * consumes: only what the storage confirmed is applied, never what the caller hoped to write.
  */
 export class AppendEventsResult {
 	public constructor(

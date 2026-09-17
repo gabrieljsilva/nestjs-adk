@@ -5,18 +5,6 @@ import type { ModelRequest } from "../model/model-request.value-object";
 import type { ContextBudget } from "./context-budget.value-object";
 import type { ContextProjection } from "./context-projection.value-object";
 
-/**
- * One context, measured and closed for changes, ready to become a model call.
- *
- * It freezes itself on construction: compaction that tried to edit a projection in
- * place would fail here rather than quietly change what a previous call measured. The
- * digest covers the stable prefix, which is what a checkpoint compares against and
- * what provider side caching depends on staying byte identical.
- *
- * What it reports about size is characters, which is all anyone can know before the call.
- * A number of tokens appears only once a provider has answered, through the budget, and
- * only when there is one.
- */
 export class PreparedModelContext {
 	public readonly request: ModelRequest;
 
@@ -30,7 +18,6 @@ export class PreparedModelContext {
 		DeepFreeze.apply(this);
 	}
 
-	/** How large this context is, in characters of the text it will send. */
 	public get characters(): number {
 		return this.budget.characters;
 	}

@@ -1,6 +1,5 @@
 import { AdkError } from "../../../common/errors/adk.error";
 
-/** No codec claims this event type, so nothing can rebuild it. */
 export class UnknownSessionEventTypeError extends AdkError {
 	public readonly code = "EVENT_UNKNOWN_TYPE";
 

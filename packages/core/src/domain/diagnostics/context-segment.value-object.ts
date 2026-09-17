@@ -1,10 +1,6 @@
 /**
- * One section of what a model was sent, serialized the same way every time.
- *
- * The three sections are ordered by how still they are: instructions and tool
- * declarations open every call and are what a provider side cache matches on, and the
- * conversation moves with every turn. Comparing two runs is comparing these strings, so
- * the serialization has to be deterministic or the comparison means nothing.
+ * One section of what a model was sent, serialized deterministically so that two runs can be
+ * compared by comparing these strings.
  */
 export class ContextSegment {
 	public static readonly INSTRUCTIONS = "instructions";

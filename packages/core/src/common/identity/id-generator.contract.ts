@@ -1,8 +1,4 @@
-/**
- * Source of fresh identity text for the runtime.
- * Callers wrap the result in the identity class they need, so the generator stays
- * unaware of which concept it is naming.
- */
+/** Source of fresh identity text. Every id the runtime mints comes from here. */
 export abstract class IdGenerator {
 	public abstract next(): string;
 }

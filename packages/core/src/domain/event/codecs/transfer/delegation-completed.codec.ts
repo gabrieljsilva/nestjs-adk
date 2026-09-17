@@ -5,7 +5,6 @@ import type { EventHeader } from "../../event-header.value-object";
 import { EventSchemaVersion } from "../../event-schema-version.value-object";
 import { SessionEventCodec } from "../../session-event.codec";
 
-/** Codec for the closing of a delegation, with the outcome the child run reported. */
 export class DelegationCompletedCodec extends SessionEventCodec<DelegationCompleted> {
 	public readonly type = DelegationCompleted.TYPE;
 	public readonly schemaVersion = EventSchemaVersion.initial();

@@ -7,13 +7,6 @@ import { LlmModel } from "../../domain/model/llm-model.contract";
 import type { ModelRequest } from "../../domain/model/model-request.value-object";
 import { ModelChunk } from "../../domain/model/streaming/model-chunk.value-object";
 
-/**
- * A model that answers a script and nothing else.
- *
- * It does not implement `countTokens`, and that is the point: most providers cannot
- * count before a call, so the default double behaves like the majority and any code
- * that quietly depends on a count fails in a test rather than in production.
- */
 export class StubModel extends LlmModel {
 	private readonly chunks: readonly ModelChunk[];
 

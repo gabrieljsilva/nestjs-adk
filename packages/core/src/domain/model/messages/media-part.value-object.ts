@@ -11,22 +11,11 @@ const PADDING = "=";
 const REMOTE_SCHEMES: readonly string[] = ["http:", "https:"];
 
 /**
- * Something the model looks at rather than reads: an image, and nothing else for now.
- *
- * It arrives one of two ways, because the providers accept both. Bytes travel base64
- * encoded, which is what a JSON request carries and what a journal can hold a reference
- * to. A link travels as a URL the provider fetches itself, which costs nothing to store
- * and nothing to send, and is the shape an application already has after an upload.
- *
- * Both are validated here rather than at the call: an unsupported type, base64 that does
- * not decode, an image over the limit and a URL nobody can fetch all end the same way at
- * the provider, which is a rejected request that was already paid for. What cannot be
- * checked here is whether the link is reachable from the provider's network, and that is
- * the one thing this shape gives up in exchange for not moving the bytes.
- *
- * It is deliberately not a union of every modality. Audio and video are different problems
- * with different limits, and a type that claims to carry them before anything does would
- * be a promise nobody kept.
+ * Something the model looks at rather than reads: an image, either as base64 bytes or as a URL
+ * the provider fetches for itself. Both forms are validated here against `MediaLimits` and throw
+ * `UnsupportedMediaTypeError`, `MalformedMediaError`, `MediaTooLargeError` or
+ * `UnreachableMediaUrlError`. Whether a link is reachable from the provider's network cannot be
+ * checked here.
  */
 export class MediaPart {
 	private constructor(
@@ -55,16 +44,6 @@ export class MediaPart {
 		return part;
 	}
 
-	/**
-	 * An image the provider fetches for itself, named by URL.
-	 *
-	 * The type is still declared, because Gemini asks for it alongside the URI and because
-	 * a link nobody described is a link nothing can validate. Only http and https are
-	 * accepted: a `file:` or `data:` URL here would either fail at the provider or smuggle
-	 * bytes through a field meant to hold a name. A localhost or private range address is
-	 * refused unless the limits allow it, because the provider fetches from its own
-	 * network, where that address is a different machine or no machine at all.
-	 */
 	public static link(url: string, mediaType: string, limits: MediaLimits = MediaLimits.byDefault()): MediaPart {
 		const declared = mediaType.trim().toLowerCase();
 		if (!limits.supports(declared)) throw new UnsupportedMediaTypeError(declared, limits.supportedTypes);
@@ -73,34 +52,28 @@ export class MediaPart {
 		return new MediaPart(declared, undefined, address);
 	}
 
-	/** True when the bytes are somewhere else and only their address travels. */
 	public get isRemote(): boolean {
 		return this.remote !== undefined;
 	}
 
-	/** The address a provider is expected to fetch, or nothing for an image that travels whole. */
 	public get url(): string | undefined {
 		return this.remote;
 	}
 
-	/** The encoding a request carries; empty for an image the provider fetches itself. */
 	public get base64(): string {
 		return this.encoded ?? "";
 	}
 
-	/** What the request carries for this attachment, which is nothing at all for a link. */
 	public get encodedBytes(): number {
 		return this.base64.length;
 	}
 
-	/** The size of the image itself, derived from the encoding instead of by decoding it. */
 	public get decodedBytes(): number {
 		const base64 = this.base64;
 		const padding = base64.endsWith(`${PADDING}${PADDING}`) ? 2 : base64.endsWith(PADDING) ? 1 : 0;
 		return Math.max(0, Math.floor((base64.length * 3) / 4) - padding);
 	}
 
-	/** What this costs a context: a declared projection, never the size of the payload. */
 	public get characters(): number {
 		return ProjectedMediaCost.ofImage().characters;
 	}
@@ -109,10 +82,6 @@ export class MediaPart {
 		return this.mediaType.startsWith("image/");
 	}
 
-	/**
-	 * The one string an OpenAI style request wants, whichever way the image arrived.
-	 * A link is already that string, and bytes become the data URL they came from.
-	 */
 	public toUrl(): string {
 		return this.remote ?? `${DATA_URL_PREFIX}${this.mediaType}${BASE64_MARKER},${this.base64}`;
 	}
@@ -133,7 +102,6 @@ export class MediaPart {
 		return parsed.toString();
 	}
 
-	/** Loopback, private ranges, link local and mDNS names, which no provider's network resolves here. */
 	private static isPrivateHost(hostname: string): boolean {
 		const host = hostname.toLowerCase();
 		if (host === "localhost" || host.endsWith(".localhost")) return true;
@@ -146,8 +114,8 @@ export class MediaPart {
 		return MediaPart.isPrivateIpv4(mapped ?? host);
 	}
 
-	/** The IPv4 inside an IPv4-mapped IPv6 host, which URL canonicalizes into two hex groups. */
 	private static readMappedIpv4(host: string): string | undefined {
+		// `URL` canonicalizes an IPv4-mapped IPv6 host into two hex groups, not dotted quads.
 		const match = /^\[::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})\]$/.exec(host);
 		if (match === null) return undefined;
 		const high = Number.parseInt(match[1] ?? "", 16);
@@ -185,13 +153,7 @@ export class MediaPart {
 		return { mediaType, base64: data.slice(comma + 1) };
 	}
 
-	/**
-	 * True when the string is base64 as an encoder would have written it.
-	 *
-	 * Decoders are forgiving: they accept stray characters and wrong padding and answer
-	 * with bytes that are not the image. That leniency is exactly what has to be refused
-	 * here, so the check is the strict one and it never allocates the decoded copy.
-	 */
+	// Decoders accept stray characters and wrong padding and answer bytes that are not the image.
 	private static isCanonicalBase64(value: string): boolean {
 		if (value.length === 0 || value.length % 4 !== 0) return false;
 		const padding = value.endsWith(`${PADDING}${PADDING}`) ? 2 : value.endsWith(PADDING) ? 1 : 0;

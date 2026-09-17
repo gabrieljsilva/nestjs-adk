@@ -1,10 +1,9 @@
 /**
  * Whether a skill is always in the prompt or is loaded when it is needed.
  *
- * The difference is what it costs. An `always` skill is part of the stable prefix of
- * every call, which is cheap to cache and expensive to make long. An `on-demand` skill
- * shows only its name and description until the model asks for it, and then arrives as a
- * tool result in the place the conversation had reached.
+ * An `always` skill is part of the stable prefix of every call, cheap to cache and expensive to
+ * make long. An `on-demand` skill shows only its name and description until the model asks for
+ * it, and then arrives as a tool result where the conversation had reached.
  */
 export class SkillMode {
 	public static readonly ALWAYS = new SkillMode("always");

@@ -16,7 +16,7 @@ A row marked `target` describes a decision the code has not reached yet. It is s
 | `entity` `target` | [[agent]] | Definition and minimum composition of an agent |
 | `entity` `target` | [[llm-model]] | Definition, minimum contract and first-class features of an LLM model |
 | `convention` | [[writing-guidelines]] | Format, frontmatter schema and linking rules every file in `.knowledge/` must follow |
-| `convention` `target` | [[comments-and-jsdoc]] | When code comments are allowed and what public API documentation must explain |
+| `convention` `target` | [[comments-and-jsdoc]] | A comment is forbidden: the two exceptions, and the sweep that keeps them near zero |
 | `convention` | [[api-naming]] | Verb-first method names, factories that name their source, and the failure semantics a name has to carry |
 | `convention` `target` | [[type-safety]] | TypeScript restrictions and class-based data contracts across architectural layers |
 | `convention` `target` | [[layer-boundaries]] | Which folder a symbol lives in, and the dependency direction between the six folders |

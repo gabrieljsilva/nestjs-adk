@@ -2,15 +2,8 @@ import type { EmbeddingVector } from "./embedding-vector.value-object";
 import { IncompatibleVectorsError } from "./errors/incompatible-vectors.error";
 
 /**
- * How close two embeddings are, as the cosine of the angle between them.
- *
- * Cosine and not distance: embedders produce vectors whose length carries no meaning,
- * only their direction does, and a magnitude aware measure would call a long text and a
- * short one different for being long and short.
- *
- * A vector that points nowhere scores zero against everything. That is not a similarity,
- * it is the absence of one, and it is the only honest answer for a direction that does
- * not exist.
+ * How close two embeddings are, as the cosine of the angle between them. A vector that points
+ * nowhere scores zero against everything, and vectors of different dimensions are refused.
  */
 export class Similarity {
 	public cosine(left: EmbeddingVector, right: EmbeddingVector): number {

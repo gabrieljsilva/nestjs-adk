@@ -5,19 +5,16 @@ import type { ToolSource } from "../../../contracts/tool/tool-source.contract";
 import type { Actor } from "../../tool/access/actor.value-object";
 
 /**
- * The command that releases a tool call a human had to authorize.
+ * What releasing a tool call a human had to authorize needs.
  *
- * The sources are declared again here, and that is not a repetition of the question that
- * suspended: an approval is a new run in a new process minutes or days later, and the
- * connection the first run opened is long closed. A tool that came from a source is only
- * runnable now if the source is opened now.
+ * The sources are declared again here because an approval is a new run, possibly in another
+ * process days later: a tool that came from a source is only runnable now if it is opened now.
  */
 export interface ApproveParams {
 	sessionId: SessionId;
 	callId: ToolCallId;
 	approvedBy?: string;
 	sources?: readonly ToolSource[];
-	/** The stop button of the turn this decision releases, which is a run of its own. */
 	signal?: AbortSignal;
 	actor?: Actor;
 	toolCalls?: ToolCallObserver;

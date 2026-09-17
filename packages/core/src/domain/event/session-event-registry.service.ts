@@ -7,11 +7,11 @@ import type { SessionEventCodec } from "./session-event.codec";
 import type { SessionEvent } from "./session-event.event";
 
 /**
- * Resolves a stored record back into the concrete event class.
+ * Resolves a stored record back into the concrete event class, walking the upcaster
+ * chain one version at a time.
  *
- * A payload older than the codec walks the upcaster chain first, one version at a
- * time. A payload newer than the codec stops execution: reading it would silently
- * drop meaning this build does not know about.
+ * Throws `UnknownSessionEventTypeError` when no codec claims the type, and
+ * `UnsupportedSessionEventVersionError` for a payload newer than this build understands.
  */
 export class SessionEventRegistry {
 	private readonly codecs = new Map<string, SessionEventCodec<SessionEvent>>();

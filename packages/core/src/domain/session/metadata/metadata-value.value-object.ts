@@ -1,10 +1,6 @@
 /**
  * Every shape a metadata value may take: JSON, and nothing else.
- *
- * Metadata is written to the journal and read back by whoever holds the row, which may be a
- * different process, a different build or a database console. Anything that does not survive
- * `JSON.stringify` unchanged would come back meaning something else, so the type says so
- * rather than leaving it to a runtime check nobody reads.
+ * Anything that does not survive `JSON.stringify` unchanged reads back meaning something else.
  */
 export type MetadataValue =
 	| string

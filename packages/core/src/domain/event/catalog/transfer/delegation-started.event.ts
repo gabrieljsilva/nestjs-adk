@@ -5,7 +5,6 @@ import type { EventHeader } from "../../event-header.value-object";
 import { EventSchemaVersion } from "../../event-schema-version.value-object";
 import { SessionEvent } from "../../session-event.event";
 
-/** An agent handed work to a child run, opening a delegation that a completion event closes. */
 export class DelegationStarted extends SessionEvent {
 	public readonly type = DelegationStarted.TYPE;
 	public readonly schemaVersion = EventSchemaVersion.initial();

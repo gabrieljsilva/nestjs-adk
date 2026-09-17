@@ -3,15 +3,9 @@ import type { ToolCall } from "./messages/tool-call.value-object";
 import { ModelUsage } from "./usage/model-usage.value-object";
 
 /**
- * One turn of a model, whole.
- *
- * It is what the chunks added up to, and nothing the model streamed is repeated here:
+ * One turn of a model, whole: what the chunks added up to.
  * `text` is the concatenation of the text deltas, so a consumer that printed the stream
- * and then printed this would print the answer twice on purpose, not by accident.
- *
- * A turn is either words or work: a model that asked for tools usually says little
- * while doing it, and both halves are reported rather than one being folded into the
- * other.
+ * already saw it. Text and tool calls are reported apart, never folded together.
  */
 export class ModelResponse {
 	public constructor(
@@ -31,7 +25,6 @@ export class ModelResponse {
 		return this.text.length > 0;
 	}
 
-	/** A turn that said nothing and asked for nothing, which is a provider answering badly. */
 	public get isEmpty(): boolean {
 		return !this.hasText && !this.hasToolCalls;
 	}

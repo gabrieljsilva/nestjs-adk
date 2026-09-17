@@ -9,7 +9,6 @@ export class ModelRequest {
 		public readonly messages: readonly ModelMessage[],
 		public readonly tools: readonly ToolDeclaration[] = [],
 		public readonly instructions?: PromptInstructions,
-		/** Shape the answer must take, when the caller wants data instead of prose. */
 		public readonly outputSchema?: unknown,
 	) {}
 
@@ -17,7 +16,6 @@ export class ModelRequest {
 		return this.outputSchema !== undefined;
 	}
 
-	/** True when any message carries something the model has to look at rather than read. */
 	public get hasMedia(): boolean {
 		return this.messages.some((message) => message instanceof UserMessage && message.hasMedia);
 	}

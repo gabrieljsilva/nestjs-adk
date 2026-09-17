@@ -1,19 +1,10 @@
 import type { ArtifactId } from "../../../common/identity/artifact-id.value-object";
 
 /**
- * How the journal names something that was attached, without holding it.
- *
- * Three kinds, because an attachment arrives three ways. Bytes are written to artifact
- * storage and the id is what the event keeps. A link was never held by anything here, so
- * there is nothing to write and the address itself is the record. An external id names a
- * file the application owns: the runtime never stores bytes for it and never freezes an
- * address, and what it becomes on each projection is the application's answer, through
- * `AttachmentResolver`.
- *
- * A link and an external reference keep their media type and an artifact does not: the
- * type of stored content is already on the artifact, and repeating it would be a second
- * copy of a fact that can disagree with the first. An external attachment has no artifact
- * to carry the type, so the reference is the only place it can live.
+ * How the journal names something that was attached, without holding it: an artifact id for
+ * bytes the runtime stored, an address for a link, an external id for a file the application
+ * owns and an `AttachmentResolver` materializes on every projection.
+ * A link and an external reference carry the media type; an artifact's type lives on the artifact.
  */
 export class AttachmentReference {
 	private constructor(
@@ -31,7 +22,6 @@ export class AttachmentReference {
 		return new AttachmentReference(undefined, url, mediaType);
 	}
 
-	/** A file the application owns, named by the id the application already uses for it. */
 	public static external(externalId: string, mediaType: string): AttachmentReference {
 		return new AttachmentReference(undefined, undefined, mediaType, externalId);
 	}

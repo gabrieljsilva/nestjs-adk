@@ -7,7 +7,6 @@ import { RateLimitedFailure } from "../../domain/model/failures/rate-limited-fai
 import { LlmModel } from "../../domain/model/llm-model.contract";
 import { ModelChunk } from "../../domain/model/streaming/model-chunk.value-object";
 
-/** Answers a script, or fails the way an adapter would have classified it. */
 export class ScriptedModel extends LlmModel {
 	public calls = 0;
 

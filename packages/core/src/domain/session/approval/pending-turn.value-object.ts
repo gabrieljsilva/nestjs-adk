@@ -2,17 +2,6 @@ import type { AgentRunId } from "../../../common/identity/agent-run-id.value-obj
 import type { ToolCallId } from "../../../common/identity/tool-call-id.value-object";
 import type { ApprovalDecision, PendingCall } from "./pending-call.value-object";
 
-/**
- * The turn a session is waiting on a human for, whole.
- *
- * A turn is held or released together. A model that asked to look an order up and then
- * to refund it meant one thing, and running the half nobody had to agree to would leave
- * the journal with a call that has no result and a context no provider will accept.
- *
- * Nothing about the paused run stays in memory: everything needed to run the turn later,
- * in another process, is here. The run it came from is recorded so the run that continues
- * can point back at it rather than pretend to be it.
- */
 export class PendingTurn {
 	public readonly calls: readonly PendingCall[];
 
@@ -27,7 +16,6 @@ export class PendingTurn {
 		return this.calls.filter((call) => call.isHeld);
 	}
 
-	/** Nobody is waiting anymore, which is what lets the turn run. */
 	public get isDecided(): boolean {
 		return this.calls.every((call) => !call.isAwaiting);
 	}
@@ -40,7 +28,6 @@ export class PendingTurn {
 		return this.calls.find((call) => call.matches(callId));
 	}
 
-	/** Whether this call is one somebody may still answer, which a repeated decision is not. */
 	public isAwaiting(callId: ToolCallId): boolean {
 		return this.find(callId)?.isAwaiting === true;
 	}

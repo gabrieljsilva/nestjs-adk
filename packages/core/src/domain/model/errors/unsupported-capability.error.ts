@@ -1,9 +1,9 @@
 import { AdkError } from "../../../common/errors/adk.error";
 
 /**
- * The call needs something the model never said it could do.
- * It is raised before the request leaves, so a model that cannot run tools fails saying
- * exactly that, instead of answering prose to a question that expected a tool call.
+ * The call needs a capability the model never declared.
+ * Raised before the request leaves, so the failure names the capability instead of
+ * surfacing as a strange answer.
  */
 export class UnsupportedCapabilityError extends AdkError {
 	public readonly code = "MODEL_UNSUPPORTED_CAPABILITY";

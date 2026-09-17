@@ -9,14 +9,7 @@ import { SessionStatus } from "./session-status.value-object";
  * The head of a conversation: which agent roots it and how far its journal has advanced.
  * The events are the truth; this is the entry point to them.
  *
- * Every conversation is kept the same way. There is no second kind that lives only as
- * long as the run that opened it: one is journaled, snapshotted and rehydrated exactly
- * like the next, so nothing here records an intention about how long it should last.
- *
- * Nothing here says who the conversation belongs to. The lib never checks who owns a
- * session, so an owner on the head would be a field it reads to nobody's benefit; an
- * application that needs one writes it as session metadata, where it is journaled, folded
- * into the state and readable by whatever decides.
+ * An application that needs an owner on a conversation writes it as session metadata.
  */
 export class Session {
 	private constructor(
@@ -48,7 +41,6 @@ export class Session {
 		return this.status.acceptsCommands;
 	}
 
-	/** The same session after its journal advanced, which is the only way revision moves. */
 	public at(revision: SessionRevision, updatedAt: Instant = this.updatedAt): Session {
 		return new Session(this.id, this.rootAgent, this.status, revision, this.createdAt, updatedAt);
 	}

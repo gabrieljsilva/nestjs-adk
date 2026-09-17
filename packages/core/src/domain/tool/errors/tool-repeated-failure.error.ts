@@ -1,12 +1,6 @@
 import { AdkError } from "../../../common/errors/adk.error";
 
-/**
- * The same tool failed over and over, and the run stopped rather than keep asking.
- *
- * A failure handed back to the model is a fair thing to try once: the model may have
- * called the wrong tool, or the world may have changed. Repeated identically, it is a
- * broken dependency, and continuing costs tokens to learn the same thing again.
- */
+/** The same tool failed `failures` times in a row, and the run stopped rather than keep asking. */
 export class ToolRepeatedFailureError extends AdkError {
 	public readonly code = "TOOL_REPEATED_FAILURE";
 

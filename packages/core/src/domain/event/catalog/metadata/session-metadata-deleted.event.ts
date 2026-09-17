@@ -2,12 +2,6 @@ import type { EventHeader } from "../../event-header.value-object";
 import { EventSchemaVersion } from "../../event-schema-version.value-object";
 import { SessionEvent } from "../../session-event.event";
 
-/**
- * One piece of durable session metadata was forgotten.
- *
- * Forgetting is a fact of its own rather than a value of `null`, because an application that
- * stores `null` deliberately means something by it and a reader could not tell the two apart.
- */
 export class SessionMetadataDeleted extends SessionEvent {
 	public readonly type = SessionMetadataDeleted.TYPE;
 	public readonly schemaVersion = EventSchemaVersion.initial();

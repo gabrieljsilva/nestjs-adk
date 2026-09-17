@@ -13,19 +13,9 @@ import type { StorageCapabilities } from "./storage-capabilities.value-object";
  * Where sessions and their journals live.
  *
  * Four guarantees define a correct adapter: a batch is written whole or not at all,
- * `expectedRevision` decides who wins a race, revisions are contiguous, and the same
- * event id written twice is written once. An adapter that cannot promise all four says
- * so through its capabilities, and the contract suite holds it only to what it claimed.
- *
- * `readEvents` returns an async iterable because rehydration streams the tail: a
- * session with a long history must never be materialized in memory to be replayed.
- *
- * Every method takes the context first, and it names the session: nothing here is passed
- * an id alongside one, because two ways of saying which conversation is meant is one way
- * too many. What the context adds is the session's own metadata, which is how an adapter
- * routes a write without the runtime having to know it shards. On a read that has not
- * happened yet the metadata is empty, since it is the fold of the journal about to be
- * read; a write always carries what the run already folded.
+ * `expectedRevision` decides who wins a race, revisions are contiguous, and the same event id
+ * written twice is written once. An adapter that cannot promise all four says so through its
+ * capabilities. `readEvents` streams, so a long history is never materialized to be replayed.
  */
 export abstract class SessionStorage {
 	public abstract capabilities(): StorageCapabilities;
@@ -34,7 +24,6 @@ export abstract class SessionStorage {
 
 	public abstract find(context: SessionContext): Promise<Session | undefined>;
 
-	/** The session, or the error every caller of this port would otherwise write itself. */
 	public async findOrFail(context: SessionContext): Promise<Session> {
 		const session = await this.find(context);
 		if (session === undefined) throw new SessionNotFoundError(context.sessionId.value);
@@ -53,14 +42,10 @@ export abstract class SessionStorage {
 	public abstract findSnapshot(context: SessionContext): Promise<SessionSnapshot | undefined>;
 
 	/**
-	 * Writes a context checkpoint into its own logical collection.
-	 *
-	 * Checkpoints are not journal: no contiguous revision, no optimistic concurrency and
-	 * no place in the commit transaction. Writing the same checkpoint twice writes it
-	 * once, keyed by session, covered revision and strategy version.
+	 * Checkpoints are not journal: no contiguous revision and no optimistic concurrency. Writing
+	 * the same one twice writes it once, keyed by session, covered revision and strategy version.
 	 */
 	public abstract saveCheckpoint(context: SessionContext, checkpoint: ContextCheckpoint): Promise<void>;
 
-	/** The furthest checkpoint of a session, or nothing when it has none. */
 	public abstract findCheckpoint(context: SessionContext): Promise<ContextCheckpoint | undefined>;
 }

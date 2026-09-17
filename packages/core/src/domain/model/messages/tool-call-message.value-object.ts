@@ -4,10 +4,8 @@ import { ModelMessage } from "./model-message.value-object";
 
 /**
  * The model asked for a tool, with the arguments it chose.
- *
- * The signature is what the provider handed back with the call and expects to see again
- * when this turn is replayed to it. It is outside `text` on purpose: it is not something
- * the model said, so measuring or summarizing a conversation must not count it.
+ * The signature is the opaque token the provider handed back with the call and expects to
+ * see again on replay; it stays outside `text` so nothing measures or summarizes it.
  */
 export class ToolCallMessage extends ModelMessage {
 	public readonly role = "tool-call";
@@ -21,7 +19,6 @@ export class ToolCallMessage extends ModelMessage {
 		super();
 	}
 
-	/** Canonical, so measuring the same call twice never depends on key order. */
 	public get text(): string {
 		return `${this.toolName}(${CanonicalJson.stringify(this.args)})`;
 	}

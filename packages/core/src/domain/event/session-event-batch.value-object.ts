@@ -5,8 +5,8 @@ import type { SessionEvent } from "./session-event.event";
 
 /**
  * The events one command produced, committed together or not at all.
- * Ids are unique inside the batch, so idempotent append downstream can rely on the id
- * without first having to defend itself against the producer.
+ * Throws `DuplicatedEventIdError` when two of them share an id, which idempotent append
+ * downstream relies on.
  */
 export class SessionEventBatch {
 	public readonly events: readonly SessionEvent[];
@@ -32,15 +32,6 @@ export class SessionEventBatch {
 		return this.events.length === 0;
 	}
 
-	/**
-	 * The agent this batch handed the session to, or nothing when it handed it to nobody.
-	 *
-	 * A handover is read from the batch that was just committed rather than from the folded
-	 * state: the state carries the active agent of every previous run as well, and a reader of
-	 * it cannot tell "this session has belonged to billing since yesterday" from "this turn
-	 * just transferred". The last one wins, because a batch that transferred twice ends where
-	 * its last event left it.
-	 */
 	public findTransferTarget(): AgentName | undefined {
 		return this.events.filter((event) => event instanceof AgentTransferred).at(-1)?.to;
 	}

@@ -1,13 +1,8 @@
 import { MissingActorIdError } from "../errors/missing-actor-id.error";
 
 /**
- * Who a tool runs on behalf of.
- *
- * The runtime knows one thing about an actor, the `id`, and carries the rest as `claims` it never
- * reads: which workspace, which role, which OAuth scopes are the application's vocabulary, and an
- * access policy written by the application is what interprets them. The same value reaches a tool
- * whether an agent asked for it or an MCP client did, which is what lets one authorization rule
- * cover both doors.
+ * Who a tool runs on behalf of: an `id` the runtime compares by, and `claims` it never reads.
+ * An access policy written by the application is what interprets the claims.
  */
 export class Actor<TClaims extends Record<string, unknown> = Record<string, unknown>> {
 	private constructor(

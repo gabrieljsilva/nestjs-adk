@@ -1,6 +1,5 @@
 import { IdentityText } from "./identity-text.value-object";
 
-/** Identity of an agent inside the catalog. */
 export class AgentId {
 	private readonly text: IdentityText;
 

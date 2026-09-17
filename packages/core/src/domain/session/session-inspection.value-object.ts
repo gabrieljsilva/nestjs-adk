@@ -11,20 +11,8 @@ import type { StateValues } from "./state/state-values.value-object";
 /**
  * Where a session stands right now, without running anything to find out.
  *
- * It is the read half of the runtime. A conversation that suspended is answered by a
- * process that may never have seen the run that suspended it, and a screen that reloads
- * has to be rebuilt from somewhere: both read this, and both would otherwise have to
- * reach into a journal and project it themselves.
- *
- * The parts stay the values they already are rather than being flattened into one bag.
- * The head of the conversation is a `Session`, what it is waiting for is an
- * `ApprovalStatus`, and how large the last prompt was is a `PromptMeasurement`, so
- * anything that already knows one of them keeps knowing it.
- *
- * Everything here comes from the journal, so it answers the same in any process and
- * survives a restart. What it does not answer is whether a run is executing at this
- * instant: a process that died mid run wrote no ending, and no reader can tell that
- * apart from one still working.
+ * Everything here is projected from the journal, so it answers the same in any process and
+ * survives a restart. It does not answer whether a run is executing at this instant.
  */
 export class SessionInspection {
 	private constructor(
@@ -32,7 +20,6 @@ export class SessionInspection {
 		public readonly activeAgent: AgentName,
 		public readonly approval: ApprovalStatus,
 		public readonly values: StateValues,
-		/** What the application knows about this session, as durable as the conversation itself. */
 		public readonly metadata: SessionMetadata,
 		public readonly lastPrompt?: PromptMeasurement,
 	) {}
@@ -53,12 +40,10 @@ export class SessionInspection {
 		return this.session.id;
 	}
 
-	/** How far the journal has advanced, which is what tells one read from the next. */
 	public get revision(): SessionRevision {
 		return this.session.revision;
 	}
 
-	/** The one question most callers have: is somebody expected to answer for something. */
 	public get isAwaitingApproval(): boolean {
 		return this.approval.isAwaiting;
 	}

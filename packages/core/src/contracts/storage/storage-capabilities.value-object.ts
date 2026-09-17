@@ -1,21 +1,16 @@
 /**
- * What a storage adapter honestly claims to guarantee.
- *
- * An adapter without optimistic concurrency cannot be written to from two places at
- * once: the writers would silently overwrite each other. Declaring capabilities lets
- * the conformance suite hold each adapter to what it promised, instead of assuming
- * every implementation is as strong as the reference one.
+ * What a storage adapter honestly claims to guarantee, so the contract suite holds it to what
+ * it promised. An adapter without optimistic concurrency cannot be written to from two places
+ * at once: the writers would silently overwrite each other.
  */
 export class StorageCapabilities {
 	private constructor(
 		public readonly optimisticConcurrency: boolean,
 		public readonly idempotentAppend: boolean,
 		public readonly snapshots: boolean,
-		/** Compaction checkpoints are an optimization, so an adapter may honestly not keep them. */
 		public readonly checkpoints: boolean = true,
 	) {}
 
-	/** Both write guarantees, which is what more than one writer at a time requires. */
 	public static concurrent(options: { snapshots: boolean; checkpoints?: boolean }): StorageCapabilities {
 		return new StorageCapabilities(true, true, options.snapshots, options.checkpoints ?? true);
 	}

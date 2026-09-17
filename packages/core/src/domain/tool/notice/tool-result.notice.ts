@@ -2,13 +2,7 @@ import type { ToolCallId } from "../../../common/identity/tool-call-id.value-obj
 import type { ToolOutcome } from "../invocation/tool-outcome.value-object";
 import type { ToolDefinition } from "../tool-definition.value-object";
 
-/**
- * What an observer is told once a call it heard about has an answer.
- *
- * The outcome is the one the journal records, whole: a result, a failure, or a refusal
- * somebody made. The tool is beside it for the same reason it is beside the request, so
- * an observer that renders tool calls does not have to remember what it was told earlier.
- */
+/** What an observer is told once a call it heard about has an answer. `tool` is absent for a name no catalog knows. */
 export class ToolResultNotice {
 	public constructor(
 		public readonly outcome: ToolOutcome,
@@ -23,7 +17,6 @@ export class ToolResultNotice {
 		return this.outcome.toolName;
 	}
 
-	/** The record the journal keeps, which for an offloaded result is the placeholder and the reference. */
 	public get output(): Readonly<Record<string, unknown>> {
 		return this.outcome.recordedOutput;
 	}
@@ -32,12 +25,10 @@ export class ToolResultNotice {
 		return this.outcome.failed;
 	}
 
-	/** A failure somebody chose: the person asked, or the access policy. The model is told apart from an error. */
 	public get isRefused(): boolean {
 		return this.outcome.failed && this.outcome.output.refused === true;
 	}
 
-	/** The reason a failed or refused call gives, as the model reads it. */
 	public get reason(): string | undefined {
 		return this.outcome.failed ? this.outcome.contextOutput : undefined;
 	}

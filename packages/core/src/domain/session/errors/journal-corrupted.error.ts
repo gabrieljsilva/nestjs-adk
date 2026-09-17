@@ -1,9 +1,8 @@
 import { AdkError } from "../../../common/errors/adk.error";
 
 /**
- * The journal disagrees with itself.
- * Two facts sharing an id with different content, or a revision that skips a step,
- * mean the history can no longer be trusted, so execution stops instead of guessing.
+ * The journal disagrees with itself, so execution stops instead of guessing: two facts sharing
+ * an id with different content, or a revision that skips a step.
  */
 export class JournalCorruptedError extends AdkError {
 	public readonly code = "SESSION_JOURNAL_CORRUPTED";

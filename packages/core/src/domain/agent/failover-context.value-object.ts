@@ -3,14 +3,8 @@ import type { ModelFailure } from "../model/failures/model-failure.value-object"
 import type { LlmModel } from "../model/llm-model.contract";
 
 /**
- * What the run knows when a model fails, handed to the policy so it can decide.
- *
- * This is exactly the knowledge a model lacks, and the reason failover is a policy of
- * the agent rather than a feature of the model.
- *
- * It copies what it is given. A policy may keep the context it decided on, and the run
- * keeps attempting models afterwards; sharing the live lists would let a later attempt
- * rewrite the history of an earlier decision.
+ * What the run knows when a model fails, handed to the failover policy so it can decide.
+ * The lists are copies, so a policy may keep the context it decided on while the run carries on.
  */
 export class FailoverContext {
 	public readonly attempted: readonly LlmModel[];
@@ -26,7 +20,6 @@ export class FailoverContext {
 		this.failures = [...failures];
 	}
 
-	/** How many model calls this request already made, the current one included. */
 	public get attempts(): number {
 		return this.attempted.length;
 	}

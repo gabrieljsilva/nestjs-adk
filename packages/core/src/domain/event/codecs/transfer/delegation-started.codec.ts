@@ -6,7 +6,6 @@ import type { EventHeader } from "../../event-header.value-object";
 import { EventSchemaVersion } from "../../event-schema-version.value-object";
 import { SessionEventCodec } from "../../session-event.codec";
 
-/** Codec for the opening of a delegation towards a child run. */
 export class DelegationStartedCodec extends SessionEventCodec<DelegationStarted> {
 	public readonly type = DelegationStarted.TYPE;
 	public readonly schemaVersion = EventSchemaVersion.initial();

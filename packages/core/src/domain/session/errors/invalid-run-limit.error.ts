@@ -1,12 +1,6 @@
 import { AdkError } from "../../../common/errors/adk.error";
 
-/**
- * A limit was declared with a number that cannot bound anything.
- *
- * It fails where it was written rather than where it would be applied. A negative cap
- * silently read as zero would stop every run on its first iteration, and the person who
- * typed the minus sign would be looking somewhere else entirely for the reason.
- */
+/** A run limit declared with a number that cannot bound anything, refused where it was written. */
 export class InvalidRunLimitError extends AdkError {
 	public readonly code = "INVALID_RUN_LIMIT";
 

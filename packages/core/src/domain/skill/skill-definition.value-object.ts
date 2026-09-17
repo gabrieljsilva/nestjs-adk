@@ -3,14 +3,10 @@ import { TextDigest } from "../../common/digest/text-digest.service";
 import { SkillMode } from "./skill-mode.value-object";
 
 /**
- * One body of knowledge an agent can carry, and how it carries it.
- *
- * The content is the whole of the skill; there is no compact variant here, because a
- * skill that summarizes itself differently on every call would break the byte identical
- * prefix that provider side caching depends on.
- *
- * The scope says how long an activation lasts. A skill activated for the run is gone on
- * the next command; one activated for the session stays until the session does.
+ * One body of knowledge an agent can carry. The content is the whole of the skill: there is no
+ * compact variant, because a skill that summarized itself differently per call would break the
+ * byte identical prefix a provider caches. The scope says how long an activation lasts: a `run`
+ * skill is gone on the next command, a `session` one stays until the session does.
  */
 export class SkillDefinition {
 	private constructor(
@@ -38,7 +34,6 @@ export class SkillDefinition {
 		return this.mode.isAlways;
 	}
 
-	/** Pins the exact content an activation carried, so a later replay can tell it changed. */
 	public digest(): ContentDigest {
 		return TextDigest.fromText(this.content);
 	}

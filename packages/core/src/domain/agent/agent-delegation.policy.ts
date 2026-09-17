@@ -1,14 +1,8 @@
 import type { AgentName } from "./agent-name.value-object";
 
 /**
- * Which agents this one may hand a task to without giving up the conversation.
- *
- * Delegation and transfer look alike and mean opposite things. A transfer says somebody
- * else owns the session from here on; a delegation says "answer this one question for me"
- * and the asking agent keeps the conversation, reads the answer and carries on.
- *
- * The edges are declared for the same reason transfer's are: an agent that could hand
- * work to anything has no boundary, and the model is offered exactly this list.
+ * Which agents this one may hand a single task to while keeping the conversation.
+ * The list is closed: the model is offered exactly these, and a target nobody declared is refused.
  */
 export class AgentDelegationPolicy {
 	private constructor(public readonly targets: readonly AgentName[]) {}

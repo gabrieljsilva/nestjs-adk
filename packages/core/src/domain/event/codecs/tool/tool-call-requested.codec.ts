@@ -4,10 +4,8 @@ import type { EventHeader } from "../../event-header.value-object";
 import { EventSchemaVersion } from "../../event-schema-version.value-object";
 import { SessionEventCodec } from "../../session-event.codec";
 
-/** Matches the event: version 2 is the one that carries a signature. */
 const SCHEMA_VERSION = 2;
 
-/** Codec for the request that starts one tool call. */
 export class ToolCallRequestedCodec extends SessionEventCodec<ToolCallRequested> {
 	public readonly type = ToolCallRequested.TYPE;
 	public readonly schemaVersion = new EventSchemaVersion(SCHEMA_VERSION);
@@ -18,7 +16,6 @@ export class ToolCallRequestedCodec extends SessionEventCodec<ToolCallRequested>
 			toolName: event.toolName,
 			args: event.args,
 		};
-		// Absent rather than null: a call from a provider with no signature never had one.
 		if (event.signature !== undefined) encoded.signature = event.signature;
 		return encoded;
 	}

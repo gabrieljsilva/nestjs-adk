@@ -5,19 +5,14 @@ import type { TokenRate } from "./token-rate.value-object";
 /**
  * What one model charges, with the bands that change it for a long prompt.
  *
- * Input and output are both required, and that is a rule rather than a convenience: a partial
- * price is not a cheaper price. A catalog entry that publishes an input rate and no output
- * rate says nothing usable about what a call costs, so no price is built and the model is
- * reported as unpriced instead of being billed for half of what it did.
- *
- * `cacheRead` is optional because most providers publish no cache rate. Without one, cached
- * tokens are charged at the input rate.
+ * Input and output are both required: a source that knows only one of them answers no price at
+ * all, so the model is reported unpriced rather than billed for half of what it did. Without a
+ * `cacheRead` rate, cached tokens are charged at the input rate.
  */
 export class ModelPrice {
 	public readonly cacheRead: TokenRate | undefined;
 	public readonly bands: readonly PriceBand[];
 
-	/** Bands are sorted here so that the caller does not have to, and the highest one wins. */
 	public constructor(
 		public readonly input: TokenRate,
 		public readonly output: TokenRate,
@@ -27,13 +22,6 @@ export class ModelPrice {
 		this.bands = [...(options.bands ?? [])].sort((one, other) => one.aboveTokens - other.aboveTokens);
 	}
 
-	/**
-	 * The rates for a prompt of this size.
-	 *
-	 * The highest band the prompt passed is the one that applies, and each rate it declares
-	 * replaces the base. A band is not additive: a prompt over 200k is charged the 200k rate,
-	 * not the base plus something.
-	 */
 	public resolveRates(promptTokens: number): AppliedRates {
 		let input = this.input;
 		let output = this.output;

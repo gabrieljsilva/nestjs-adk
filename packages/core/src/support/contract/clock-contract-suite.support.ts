@@ -3,11 +3,6 @@ import type { Clock } from "../../common/time/clock.contract";
 import { ContractCase } from "./contract-case.support";
 import { ContractSuite } from "./contract-suite.support";
 
-/**
- * Reference contract suite, and the pattern every port follows.
- * A clock must answer with a point in time, must not move on its own, and must never
- * go backwards between reads.
- */
 export class ClockContractSuite extends ContractSuite<Clock> {
 	public readonly port = "Clock";
 

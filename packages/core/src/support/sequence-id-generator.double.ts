@@ -4,11 +4,6 @@ import { IdSequenceExhaustedError } from "./errors/id-sequence-exhausted.error";
 const DEFAULT_PREFIX = "id";
 const DEFAULT_LIMIT = 1000;
 
-/**
- * Generator that walks a predictable sequence instead of producing random ids.
- * It never repeats a value and refuses to keep going once the limit is reached,
- * so an exhausted sequence surfaces as a failure rather than as flaky output.
- */
 export class SequenceIdGenerator extends IdGenerator {
 	private cursor = 0;
 

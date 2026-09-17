@@ -1,9 +1,9 @@
 import { AdkError } from "../../../common/errors/adk.error";
 
 /**
- * The attachment is of a kind no provider here accepts.
- * It fails at the boundary rather than at the call, because a type nobody declared
- * support for reaches the provider as bytes it will refuse or, worse, ignore.
+ * The attachment is of a type the limits do not accept.
+ * Raised at the boundary rather than at the call, where the provider would refuse or
+ * silently ignore the bytes.
  */
 export class UnsupportedMediaTypeError extends AdkError {
 	public readonly code = "MEDIA_UNSUPPORTED_TYPE";

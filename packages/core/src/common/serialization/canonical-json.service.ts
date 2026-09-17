@@ -1,10 +1,3 @@
-/**
- * Renders a value to the one text that represents it.
- *
- * Object keys are ordered, `undefined` is omitted rather than written as null, and
- * nothing about insertion order can leak in. Anything measured or fingerprinted goes
- * through here first, so the same content always produces the same bytes.
- */
 export class CanonicalJson {
 	public static stringify(value: unknown): string {
 		return JSON.stringify(CanonicalJson.normalize(value));

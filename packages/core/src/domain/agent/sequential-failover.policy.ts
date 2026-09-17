@@ -4,16 +4,10 @@ import { AgentFailoverPolicy } from "./agent-failover.policy";
 import type { FailoverContext } from "./failover-context.value-object";
 
 /**
- * Walks a declared queue of models in order, one per failure.
- * This is what the list form of `failover` becomes: the public literal is converted
- * here, so the runtime only ever deals with a policy.
- *
- * A refused request ends the walk. Every model in the queue is sent the same request,
- * so a provider that called it malformed is describing something the next attempt will
- * carry unchanged: continuing spends the whole chain to arrive at the first answer,
- * with the cause buried under a list of models that were never the problem. Whoever
- * wants the other bet, that a second provider accepts what the first refused, writes a
- * policy for it: `next` is handed the failure precisely so it can be decided on.
+ * Walks a declared queue of models in order, one per failure, which is what the list form of
+ * `failover` becomes. A refused request ends the walk: every model in the queue is sent the same
+ * request, so a provider that called it malformed describes something the next attempt carries
+ * unchanged. A policy that wants the other bet is written by hand.
  */
 export class SequentialFailoverPolicy extends AgentFailoverPolicy {
 	private readonly queue: readonly LlmModel[];

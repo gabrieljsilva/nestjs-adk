@@ -2,11 +2,8 @@ import type { ModelIdentity } from "../model/descriptor/model-identity.value-obj
 import type { ModelFailure } from "../model/failures/model-failure.value-object";
 
 /**
- * One switch of model inside a single request.
- *
- * It is a fact of the run, recorded so the journal can carry it and an operator can see
- * that an answer came from the second choice. Cost does not move with it: the tokens the
- * failed attempt spent stay charged to the model that spent them.
+ * One switch of model inside a single request, recorded so an operator can see that an answer came
+ * from the second choice. The tokens a failed attempt spent stay charged to the model that spent them.
  */
 export class ModelReroute {
 	public constructor(

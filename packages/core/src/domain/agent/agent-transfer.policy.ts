@@ -1,15 +1,9 @@
 import type { AgentName } from "./agent-name.value-object";
 
 /**
- * Which agents this one may hand the session to.
- *
- * The edges are declared, directed and closed: an agent transfers only to what it named,
- * and naming nobody means it never transfers. There is no implicit edge back to whoever
- * transferred here, because the way back is a decision the receiving agent has to have
- * made on purpose.
- *
- * The list is what the model is shown and what the runtime checks against, so a target
- * that was never declared cannot be reached by asking for it nicely.
+ * Which agents this one may hand the session to. The edges are directed and closed, with no
+ * implicit way back: an agent transfers only to what it named, and naming nobody means it never
+ * transfers. The list is what the model is shown and what the runtime checks against.
  */
 export class AgentTransferPolicy {
 	private constructor(public readonly targets: readonly AgentName[]) {}

@@ -25,13 +25,6 @@ import type { PromptMeasurement } from "../../domain/model/usage/prompt-measurem
 const START = Instant.fromIso("2026-01-01T00:00:00.000Z");
 const MODEL = new ModelIdentity("google", "gemini-flash");
 
-/**
- * Builds the journal a context test needs, one call per fact.
- *
- * Revisions are handed out in order, so a test states what happened and never the
- * bookkeeping around it. Ids are derived from the position, which keeps two identical
- * scripts byte identical and lets a replay assertion mean something.
- */
 export class JournalFixture {
 	private readonly stored: StoredSessionEvent[] = [];
 	private revision = SessionRevision.initial();
@@ -42,7 +35,6 @@ export class JournalFixture {
 		return this.append((header) => new UserMessageReceived(header, text, attachments));
 	}
 
-	/** The measurement is optional because most providers report one and a test rarely cares. */
 	public assistant(text: string, measurement?: PromptMeasurement): this {
 		return this.append((header) => new AssistantMessageProduced(header, text, MODEL, measurement));
 	}
@@ -71,7 +63,6 @@ export class JournalFixture {
 		);
 	}
 
-	/** A fact that is history rather than conversation, used to prove it stays out of the context. */
 	public runStarted(agent = "support"): this {
 		return this.append((header) => new AgentRunStarted(header, AgentName.from(agent), MODEL));
 	}

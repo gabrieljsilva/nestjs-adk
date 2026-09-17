@@ -13,13 +13,6 @@ import type { Actor } from "../../domain/tool/access/actor.value-object";
 
 const START = Instant.fromIso("2026-01-01T00:00:00.000Z");
 
-/**
- * The contexts a spec needs, built the one way production builds them.
- *
- * Every port takes a context now, so a suite that assembled one by hand would be asserting
- * against a shape nothing else produces. These go through the same factories a run goes
- * through, which is what keeps a passing spec evidence about the real thing.
- */
 export class RunContextFixture {
 	public static readonly AGENT = AgentName.from("support");
 
