@@ -4,15 +4,6 @@ import type { McpCall } from "./mcp-call.value-object";
 import type { McpExposure } from "./mcp-exposure.contract";
 import { McpToolAnnotations } from "./mcp-tool-annotations.value-object";
 
-/**
- * The two things an MCP server does with the tools the controllers published: list them, and
- * run one for an actor.
- *
- * A call goes through the runtime's own gate before the handler runs, which is the same object
- * the agent loop admits calls with. Arguments the schema refuses and actors the policy refuses
- * come back as an error result the client can show, never as a thrown error, because from the
- * protocol's point of view the request itself was well formed.
- */
 export class McpToolService {
 	public constructor(private readonly exposure: McpExposure) {}
 

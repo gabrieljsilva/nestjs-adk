@@ -5,10 +5,6 @@ import {
 	type SessionContext,
 } from "@nestjs-adk/core";
 
-/**
- * Breaks optimistic concurrency by writing at the current head whatever `expectedRevision` says, while still
- * declaring durable capabilities: two writers would both commit and the second would erase the first decision.
- */
 export class NoOccSessionStorage extends InMemorySessionStorage {
 	public override async append(context: SessionContext, command: AppendEventsCommand): Promise<AppendEventsResult> {
 		const session = await this.findOrFail(context);

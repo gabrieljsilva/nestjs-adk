@@ -1,6 +1,5 @@
 export type { McpTransportConfig } from "./lib/mcp.options";
 
-// per-run servers: the integrations the end user connected
 export { AdkMcpServer } from "./lib/adk-mcp-server.adapter";
 export type { AdkMcpServerOptions } from "./lib/adk-mcp-server.adapter";
 export { AdkMcpAuth, BearerAuth, credentialDigest, EnvAuth, HeaderAuth, OAuthAuth } from "./lib/mcp-auth.service";
@@ -30,7 +29,6 @@ export { McpInvalidSourceNameError } from "./lib/errors/mcp-invalid-source-name.
 export { McpToolFilter } from "./lib/mcp-tool-filter.service";
 export { McpToolName } from "./lib/mcp-tool-name.value-object";
 
-// the server side: what the application's controllers publish, at one path
 export { McpController } from "@nestjs-adk/core";
 export type { McpControllerOptions } from "@nestjs-adk/core";
 export { McpServerModule } from "./lib/server/mcp-server.module";

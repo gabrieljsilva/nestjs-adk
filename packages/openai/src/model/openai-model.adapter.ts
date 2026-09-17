@@ -17,22 +17,13 @@ import type { OpenAiOptions } from "./openai.options";
 const PROVIDER = "openai";
 
 /**
- * An OpenAI compatible model, declared by name and options.
+ * OpenAI's Chat Completions as an `LlmModel`, and with it every provider that speaks the same
+ * API: point `baseURL` at Groq, Together, OpenRouter, DeepSeek or Ollama and the rest is the
+ * same. Construct it with a model name and options and hand it to the module.
  *
- * ```ts
- * const flagship = new OpenAiModel("gpt-5", { apiKey: process.env.OPENAI_API_KEY });
- * const local = new OpenAiModel("llama3", { baseURL: "http://localhost:11434/v1", apiKey: "ollama" });
- * ```
- *
- * The context window is not guessed. OpenAI publishes no endpoint for it and the
- * numbers change release by release, so a caller who knows states it through
- * `contextWindowTokens`, and a caller who does not gets a window that reports itself
- * unknown: composition is still measured and nothing is silently truncated.
- *
- * There is no `countTokens` here, and the omission is the point. The API bills tokens
- * but never counts them ahead of a call, so this adapter does not declare
- * `TOKEN_COUNTING` and the runtime never asks it for a number it would have to invent.
- * The real size arrives with the usage of the call, as it does for the provider itself.
+ * The context window is only known when `contextWindowTokens` is given. Provider errors arrive
+ * as `ModelFailure`, while a schema that cannot be sent raises `InvalidJsonSchemaError` or
+ * `NonStrictJsonSchemaError` before the request leaves.
  */
 export class OpenAiModel extends ModelSpec {
 	public readonly provider = PROVIDER;
@@ -69,7 +60,6 @@ export class OpenAiModel extends ModelSpec {
 			[ModelCapability.STREAMING, true],
 			[ModelCapability.STRUCTURED_OUTPUT, true],
 			[ModelCapability.MEDIA_INPUT, true],
-			// `image_url.url` takes an address the provider fetches itself; Gemini's fileUri does not.
 			[ModelCapability.MEDIA_URL, true],
 		]);
 	}

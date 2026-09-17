@@ -4,12 +4,11 @@ import type { RecordedToolCall } from "./recorded-tool-call.value-object";
 import type { RunEvents } from "./run-events.value-object";
 
 /**
- * What a run answered, with what it did on the way.
+ * The `AgentResult` the application receives, with the run's evidence attached: `toolCalls`,
+ * `toolsRun`, `toolsRequested`, `transfers`, `delegations`, `callsTo` and `pendingCall`.
  *
- * It is the `AgentResult` production returns, extended rather than replaced: everything a
- * service reads is still here, and the evidence a test needs travels with it instead of
- * having to be correlated back out of a global recorder. The events are this run's alone,
- * so an assertion means this run even in a suite that started several.
+ * Everything here is read from the run's events rather than from a double, so the same
+ * assertions hold against a script and against a provider.
  */
 export class RecordedRun extends AgentResult {
 	public constructor(
@@ -27,7 +26,6 @@ export class RecordedRun extends AgentResult {
 		return this.events.toolsRun;
 	}
 
-	/** What the model asked for, which includes anything that stopped in front of a human. */
 	public get toolsRequested(): readonly string[] {
 		return this.events.toolsRequested;
 	}
@@ -44,12 +42,6 @@ export class RecordedRun extends AgentResult {
 		return this.events.callsTo(tool);
 	}
 
-	/**
-	 * The call a suspended run is waiting on, which is what a human answers about.
-	 *
-	 * Naming the tool picks among several. Waiting on nothing is a failure here rather than
-	 * an undefined a test would carry into an unreadable assertion further down.
-	 */
 	public pendingCall(tool?: string): PendingCall {
 		const waiting = tool === undefined ? this.awaiting : this.awaiting.filter((call) => call.toolName === tool);
 		const call = waiting.at(0);

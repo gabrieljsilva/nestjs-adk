@@ -13,14 +13,6 @@ import {
 const SAFETY_REASONS = new Set(["SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST", "SPII", "IMAGE_SAFETY"]);
 const CONTEXT_HINTS = ["exceeds the maximum number of tokens", "input token count", "context length"];
 
-/**
- * Classifies a raw Gemini error into the failure a policy can decide on.
- *
- * Status first, message only where the status cannot tell two cases apart: a 400 is
- * both a malformed request and a context overflow, and only the text distinguishes
- * them. Anything unrecognised stays unknown, and unknown is not transient, so a wrong
- * guess never turns a permanent error into an endless reroute.
- */
 export class GeminiFailureMapper {
 	public toFailure(error: unknown): ModelFailure {
 		const message = this.readMessage(error);
@@ -37,13 +29,6 @@ export class GeminiFailureMapper {
 		return new UnknownFailure(message, error);
 	}
 
-	/**
-	 * A 4xx that is not one of the cases above is the request itself being refused.
-	 *
-	 * This is where a thinking budget the model does not take, a field it does not know
-	 * and an unsigned function call all land: `INVALID_ARGUMENT` and `PERMISSION_DENIED`
-	 * describe what was sent, and the next model in a chain is sent the same thing.
-	 */
 	private isClientError(status: number | undefined): boolean {
 		return status !== undefined && status >= 400 && status < 500;
 	}
@@ -64,7 +49,6 @@ export class GeminiFailureMapper {
 		return this.mentions(message, "DEADLINE_EXCEEDED") || this.mentions(message, "timeout");
 	}
 
-	/** No status at all means the request never reached the provider. */
 	private isConnection(error: unknown, message: string): boolean {
 		const code = this.readCode(error);
 		if (code === "ECONNREFUSED" || code === "ENOTFOUND" || code === "ECONNRESET") return true;
@@ -107,14 +91,6 @@ export class GeminiFailureMapper {
 		return typeof value === "number" ? value : undefined;
 	}
 
-	/**
-	 * What `Retry-After` said, in whichever of its two forms the provider used.
-	 *
-	 * RFC 9110 allows a count of seconds or an HTTP date, and providers send both. A date is
-	 * turned into what is left of it now, so whoever waits is handed one kind of number. A
-	 * header that is neither is dropped rather than guessed: a wrong wait is worse than none,
-	 * since the policy has a backoff of its own to fall back on.
-	 */
 	private readRetryAfter(error: unknown): Duration | undefined {
 		const raw = this.readHeader(error, "retry-after");
 		if (raw === undefined) return undefined;
@@ -125,7 +101,6 @@ export class GeminiFailureMapper {
 		return Duration.fromMillis(Math.max(0, at - Date.now()));
 	}
 
-	/** The SDKs expose headers as a `Headers` instance, a plain record, or not at all. */
 	private readHeader(error: unknown, name: string): string | undefined {
 		if (typeof error !== "object" || error === null) return undefined;
 		const headers: unknown =

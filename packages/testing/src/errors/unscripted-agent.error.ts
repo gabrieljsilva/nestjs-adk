@@ -1,10 +1,9 @@
 import { AdkError } from "@nestjs-adk/core";
 
 /**
- * The bed booted an agent whose model the test never chose.
- *
- * It refuses rather than letting a suite that costs nothing reach a provider by accident,
- * which is what a decorator carrying a real model does to a free test.
+ * A boot was refused because these agents would answer on a model the test did not choose, which
+ * is how a free suite would reach a provider by accident. Script them, name a model, or say it
+ * out loud with `allowingUnscriptedModels`.
  */
 export class UnscriptedAgentError extends AdkError {
 	public readonly code = "UNSCRIPTED_AGENT";

@@ -2,13 +2,11 @@ import type { Actor } from "@nestjs-adk/core";
 import type { McpRequest } from "./mcp-request.value-object";
 
 /**
- * Who is calling, decided by the application from the request.
+ * Who is calling, decided by the application from the request. Implement it as an injectable
+ * provider and name it in `McpServerModule.forRoot`.
  *
- * The server never sees a credential and never learns how one is checked: a bearer against an
- * OAuth issuer, an API key against a table, a session cookie. The resolver answers an `Actor`
- * or throws `McpUnauthorizedError`, whose challenge the endpoint returns as `WWW-Authenticate`.
- * The actor it answers is the one every tool of the request receives as `context.actor`, and
- * the one the access policy judges, exactly as on the agent's path.
+ * Throw `McpUnauthorizedError` when the request carries no usable identity; its challenge is
+ * what the endpoint writes back as `WWW-Authenticate`. The module itself never sees a credential.
  */
 export abstract class McpActorResolver {
 	public abstract resolve(request: McpRequest): Promise<Actor>;

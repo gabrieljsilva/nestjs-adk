@@ -1,31 +1,22 @@
 import type { Secret } from "@nestjs-adk/core";
 
 /**
- * How to reach an OpenAI compatible API, and how to generate once there.
+ * Everything `OpenAiModel` takes besides the model name: the key, the `baseURL` that points at
+ * another OpenAI-compatible provider, transport settings, the generation parameters, and the
+ * context window, which the adapter cannot discover on its own.
  *
- * `baseURL` is what makes this adapter work against OpenRouter, Ollama, Groq, Together
- * or vLLM: they all speak Chat Completions, so pointing the client elsewhere is the
- * whole of the change. Leaving it out talks to the official API.
+ * `body` is merged into the request untouched, for a field this interface does not name.
+ * `apiKey` is best given as a `Secret` so it does not surface in logs.
  */
 export interface OpenAiOptions {
-	/**
-	 * Defaults to the value of `OPENAI_API_KEY`.
-	 *
-	 * A plain string is accepted so `process.env.OPENAI_API_KEY` still reads well, and it is
-	 * wrapped in a {@link Secret} at this boundary: past it the key only exists as a value that
-	 * masks itself in a log, and it is revealed once, at the call that builds the SDK client.
-	 */
 	apiKey?: Secret | string;
 
-	/** Defaults to the official OpenAI endpoint. */
 	baseURL?: string;
 
 	organization?: string;
 
-	/** Extra headers on every request, which is how some gateways route or attribute usage. */
 	headers?: Record<string, string>;
 
-	/** How long one request may take, in milliseconds. */
 	timeoutMs?: number;
 
 	temperature?: number;
@@ -35,20 +26,11 @@ export interface OpenAiOptions {
 	frequencyPenalty?: number;
 	presencePenalty?: number;
 
-	/** How many tokens the window holds, when the caller knows and the adapter cannot. */
 	contextWindowTokens?: number;
 
-	/** Held back for the answer out of the declared window. */
 	reservedOutputTokens?: number;
 
-	/**
-	 * Whether a tool call's stored reasoning is sent back as `reasoning_content` on the
-	 * assistant message that replays it. DeepSeek's thinking mode refuses the turn without
-	 * it; the official OpenAI API refuses a message field it does not know. Unset, it
-	 * follows `baseURL`: a compatible endpoint gets it, the official one does not.
-	 */
 	replaysReasoning?: boolean;
 
-	/** Passthrough for body fields this adapter does not model; typed fields win over it. */
 	body?: Record<string, unknown>;
 }

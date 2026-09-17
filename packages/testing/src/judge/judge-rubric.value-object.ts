@@ -1,13 +1,8 @@
-/** Where a score stops being a pass, when the caller did not say. */
 const DEFAULT_THRESHOLD = 0.7;
 
 /**
- * What an answer is being judged against, and how good is good enough.
- *
- * The criteria are written for a model to read, so they say what a correct answer
- * contains rather than what it looks like: "names the order id and says it shipped"
- * survives a rewording, "equals 'order 42 shipped'" does not, and an assertion that
- * breaks on rewording is an assertion nobody keeps.
+ * What an answer is graded against: the criteria it has to meet and the score below which the
+ * judgement fails.
  */
 export class JudgeRubric {
 	public readonly criteria: string;

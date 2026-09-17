@@ -2,20 +2,21 @@ import type { McpClientInfo, McpTokens } from "./mcp-auth.service";
 import { type McpDiscovery, McpOAuthClient } from "./oauth/mcp-oauth-client.adapter";
 
 /**
- * Per-call configuration of the flow's network access.
- *
- * Every fetch of the OAuth flow goes through the target guard, not only discovery's first hop: the
- * endpoints later calls POST to came out of the server's own metadata, and a malicious server
- * naming `https://10.0.0.5/token` as its token endpoint is the same SSRF with one extra step.
+ * Whether a flow may reach a private, loopback or cleartext address. It defaults to `false`,
+ * which is the SSRF guard.
  */
 export interface McpOAuthFetchOptions {
-	/** Allow endpoints on private, loopback or link-local addresses. Default `false`. */
 	allowPrivateNetwork?: boolean;
 }
 
 /**
- * The authorization flow at its shortest, for the default configuration: public internet, no
- * custom client metadata, no substituted fetch. Build an `McpOAuthClient` for anything else.
+ * Getting a user authorized with an MCP server, on the defaults: discover, register, send them
+ * to consent, exchange the code, and revoke on uninstall. It is stateless, because the routes,
+ * the session and where tokens are stored are the application's.
+ *
+ * The whole `McpClientInfo` is worth storing, not only the id and secret, and the verifier from
+ * `authorize` has to be kept server side next to `state` until the callback. Use
+ * `McpOAuthClient` when the defaults do not fit.
  */
 export const McpOAuth = {
 	discover(serverUrl: string, options?: McpOAuthFetchOptions): Promise<McpDiscovery> {

@@ -1,6 +1,9 @@
 import { AdkError } from "@nestjs-adk/core";
 
-/** A strict script was asked for a turn it does not have, which means the run went further than the test said it would. */
+/**
+ * The run asked for another turn and the script has nothing left to play: either a turn is
+ * missing from the queue, or the assertion belongs one turn earlier.
+ */
 export class ScriptExhaustedError extends AdkError {
 	public readonly code = "SCRIPT_EXHAUSTED";
 

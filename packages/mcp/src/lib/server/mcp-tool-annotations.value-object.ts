@@ -1,9 +1,7 @@
 import { ToolEffect } from "@nestjs-adk/core";
 
 /**
- * The tool's effect as an MCP client reads it. The inverse of what the client side does with a
- * server's hints, and equally conservative: `write` is neither read-only nor destructive, so a
- * client that asks before destructive calls asks about exactly what the author marked.
+ * A tool's effect as an MCP client reads it, published as `readOnlyHint` and `destructiveHint`.
  */
 export class McpToolAnnotations {
 	private constructor(

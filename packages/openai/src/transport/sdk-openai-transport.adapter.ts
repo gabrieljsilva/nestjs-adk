@@ -9,16 +9,6 @@ import type { OpenAiChatClient } from "./openai-chat-client.contract";
 import { OpenAiClientFactory } from "./openai-client.factory";
 import { OpenAiTransport } from "./openai-transport.contract";
 
-/**
- * Talks to a real OpenAI compatible endpoint.
- *
- * Always streaming, even when the caller wants one answer: the contract says a model
- * emits chunks and the executor aggregates them, so a non streaming call would only
- * mean the same aggregation happening twice in different places.
- *
- * Usage is asked for explicitly, because Chat Completions omits it from a stream
- * unless told otherwise, and a run with no usage cannot be priced.
- */
 export class SdkOpenAiTransport extends OpenAiTransport {
 	private readonly client: OpenAiChatClient;
 
@@ -32,7 +22,6 @@ export class SdkOpenAiTransport extends OpenAiTransport {
 		this.client = factory.create(options);
 	}
 
-	/** The endpoint this transport was pointed at, which is the whole of reaching a compatible API. */
 	public get baseURL(): string | undefined {
 		return this.options.baseURL;
 	}
@@ -49,7 +38,6 @@ export class SdkOpenAiTransport extends OpenAiTransport {
 		}
 	}
 
-	/** Opening and reading fail differently for a caller, and identically for a policy. */
 	private async open(request: OpenAiChatRequest, signal?: AbortSignal): Promise<AsyncIterable<ChatCompletionChunk>> {
 		try {
 			return await this.client.chat.completions.create(this.buildBody(request), { signal });

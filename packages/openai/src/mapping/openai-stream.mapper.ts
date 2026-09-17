@@ -1,12 +1,10 @@
 import { ModelChunk, ModelUsage, ToolCallDelta } from "@nestjs-adk/core";
 import { OpenAiReasoningTrace } from "../model/openai-reasoning-trace.value-object";
 
-/** The fields this adapter reads from a Chat Completions stream chunk. */
 export interface OpenAiStreamChunk {
 	choices?: Array<{
 		delta?: {
 			content?: string | null;
-			/** What a thinking model reasoned before answering; DeepSeek's field, absent elsewhere. */
 			reasoning_content?: string | null;
 			tool_calls?: Array<{
 				index?: number;
@@ -23,17 +21,6 @@ export interface OpenAiStreamChunk {
 	} | null;
 }
 
-/**
- * Turns one raw stream chunk into the increments the runtime understands.
- *
- * A single chunk can carry several increments at once, so it answers with a list: text
- * and a tool call fragment often arrive together, and usage rides the last chunk. The
- * finish reason comes last, because it closes the turn.
- *
- * Reasoning is not text: it never reaches the answer, and a caller printing the stream
- * would otherwise print the model's notes to itself. It goes to the trace the caller holds
- * for the stream, and the first tool call that opens takes it as its signature.
- */
 export class OpenAiStreamMapper {
 	public toChunks(raw: OpenAiStreamChunk, trace: OpenAiReasoningTrace = new OpenAiReasoningTrace()): ModelChunk[] {
 		const chunks: ModelChunk[] = [];

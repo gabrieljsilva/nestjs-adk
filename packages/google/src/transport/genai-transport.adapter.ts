@@ -7,13 +7,6 @@ import { GeminiTransport } from "./gemini-transport.contract";
 import type { GenAiClient } from "./genai-client.contract";
 import { GenAiClientFactory } from "./genai-client.factory";
 
-/**
- * Talks to a real Gemini endpoint, on either surface.
- *
- * Always streaming, even when the caller wants one answer: the contract says a model
- * emits chunks and the executor aggregates them, so a non streaming call would only
- * mean the same aggregation happening twice in different places.
- */
 export class GenAiTransport extends GeminiTransport {
 	private readonly client: GenAiClient;
 
@@ -27,20 +20,10 @@ export class GenAiTransport extends GeminiTransport {
 		this.client = factory.create(options);
 	}
 
-	/** Which surface this transport was pointed at, which is the only difference between them. */
 	public get isVertex(): boolean {
 		return this.options.vertexai === true;
 	}
 
-	/**
-	 * One answer, chunk by chunk, with the calls in it counted from here.
-	 *
-	 * Calls the model asked for together arrive in separate chunks, and each needs an index
-	 * of its own or the executor assembles them into one call with both sets of arguments
-	 * concatenated. The count belongs to this loop because this is what knows where an
-	 * answer starts: a mapper that counted for itself would either reset per chunk or leak
-	 * the previous turn's total into the next one.
-	 */
 	public async *stream(request: GeminiRequest, signal?: AbortSignal): AsyncIterable<ModelChunk> {
 		const stream = await this.open(request, signal);
 		let calls = 0;
@@ -56,7 +39,6 @@ export class GenAiTransport extends GeminiTransport {
 		}
 	}
 
-	/** Gemini counts before the fact, so this is measured and never an estimate. */
 	public async countTokens(request: GeminiRequest): Promise<TokenCount> {
 		try {
 			const response = await this.client.models.countTokens({

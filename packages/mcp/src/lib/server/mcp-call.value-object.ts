@@ -2,14 +2,6 @@ import { AgentName, AgentRunId, SessionId, ToolCallId } from "@nestjs-adk/core";
 
 const MCP_AGENT = AgentName.from("mcp");
 
-/**
- * The identity of one client call, in the terms a tool context is written in.
- *
- * A tool reads `context.sessionId` and `context.runId` because on the agent's path they name a
- * conversation and a run. A client call has neither, so both carry the MCP request id under an
- * `mcp:` prefix: a tool that logs them sees where the call came from, and nothing on the agent's
- * side can collide with the name.
- */
 export class McpCall {
 	private constructor(
 		public readonly sessionId: SessionId,

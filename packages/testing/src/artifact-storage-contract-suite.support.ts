@@ -12,27 +12,12 @@ import {
 	TamperedArtifactReferenceError,
 } from "@nestjs-adk/core";
 
-/** Large enough that a driver that truncates a column, or a store that pages, is caught by it. */
 const LARGE_CHARACTERS = 200_000;
 
 /**
- * Every promise the `ArtifactStorage` port makes, as cases any adapter has to answer.
- *
- * Two guarantees define a correct adapter and both are checked from the outside, through
- * the port alone: what comes out of `read` is what went into `put`, verified against the
- * digest the reference carries, and a session only ever reads its own, with anything else
- * answered as absent rather than refused, because an id is guessable and a refusal confirms
- * it exists.
- *
- * There is no capability declaration here, unlike `SessionStorageContractSuite`. Every
- * artifact store promises the same two things: an ephemeral one keeps them for as long as
- * the process lives and a durable one keeps them longer, and that difference is visible to
- * nobody holding the port.
- *
- * Like the session suite, it holds nothing an implementer could not hold. It builds its
- * contexts through `SessionContext.fromSessionId` and its content through `ArtifactContent`,
- * both published, and it never constructs a reference: a reference is what `put` answered,
- * which is the only way anybody outside a storage gets one.
+ * Every promise the `ArtifactStorage` port makes, as cases any runner drives, on the same terms
+ * as the session one: `ContractCase` objects asserting with `node:assert`, and the same cases
+ * the shipped stores answer.
  */
 export class ArtifactStorageContractSuite extends ContractSuite<ArtifactStorage> {
 	public readonly port = "ArtifactStorage";
@@ -85,9 +70,6 @@ export class ArtifactStorageContractSuite extends ContractSuite<ArtifactStorage>
 				const reference = await storage.put(this.buildContext("s-1"), new ArtifactContent("the original"));
 				const forged = await storage.put(this.buildContext("s-1"), new ArtifactContent("something else"));
 
-				// A reference built the way an adapter builds one, pointing at the second artifact
-				// while carrying the digest of the first: exactly what a model rewriting a
-				// placeholder produces.
 				const tampered = ArtifactReference.restore(
 					forged.id,
 					SessionId.from("s-1"),
@@ -135,13 +117,11 @@ export class ArtifactStorageContractSuite extends ContractSuite<ArtifactStorage>
 		];
 	}
 
-	/** The same way an application builds one, because the suite may hold nothing an implementer could not. */
 	private buildContext(sessionId: string): SessionContext {
 		return SessionContext.fromSessionId(SessionId.from(sessionId));
 	}
 }
 
-/** Text a compressor cannot collapse, so a column that truncates is caught rather than hidden. */
 function buildLargeText(): string {
 	const parts: string[] = [];
 	let written = 0;

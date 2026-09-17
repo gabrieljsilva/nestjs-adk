@@ -2,7 +2,6 @@
 title: Comments and JSDoc
 description: A comment is forbidden; the two exceptions, and the sweep that keeps them near zero
 type: convention
-status: target
 tags: [core, documentation, code-style]
 ---
 
@@ -61,3 +60,7 @@ grep -rnE '^\s+/\*\*' packages/*/src --include='*.ts' | grep -v spec   # JSDoc o
 ```
 
 Indented JSDoc survives only on a contract method whose obligation the signature cannot carry, such as `ToolSource.close` or `CompactionStrategy.version`.
+
+Both counts are asserted rather than trusted: `packages/core/src/comment-sweep.spec.ts` walks the
+five packages and fails on any line comment outside the magic values it names, and on any member
+doc outside the contracts it names. A comment that belongs adds a row there in the same change.

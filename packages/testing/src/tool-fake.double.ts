@@ -1,20 +1,16 @@
 import { AdkTool, type ToolContext, ToolMetadata } from "@nestjs-adk/core";
 
-/** One call the double answered, with what the model chose. */
+/**
+ * One call a fake received, with the arguments the model sent.
+ */
 export interface FakeToolCall {
 	readonly args: Readonly<Record<string, unknown>>;
 }
 
 /**
- * A tool that answers what the test says instead of doing the work.
- *
- * It is built from the class it replaces, so the name the model calls, the description it
- * reads and the schema that parses the input all come from the real decorator: the double
- * cannot drift from the contract it stands for, because it never restates it.
- *
- * Substituting is for changing behaviour, not for watching it. What the real tool received
- * is already in the run's events, so a test that only wants to assert arguments does not
- * need a double at all.
+ * Replaces what a tool does while keeping its name, schema, effect and identity, so the agent
+ * and the approval policy see the tool they always saw. `succeedsWith`, `failsWith` and
+ * `executes` say what it answers, and every call it received is recorded.
  */
 export class ToolFake extends AdkTool {
 	private readonly received: FakeToolCall[] = [];
@@ -26,7 +22,6 @@ export class ToolFake extends AdkTool {
 		super();
 	}
 
-	/** A double for one tool class, carrying the name that class declared. */
 	public static replacing(type: unknown): ToolFake {
 		return new ToolFake(ToolMetadata.findOrFail(type).name);
 	}
@@ -38,14 +33,12 @@ export class ToolFake extends AdkTool {
 		return this;
 	}
 
-	/** Fails the way a tool fails: the run carries the failure to the model as a result. */
 	public failsWith(error: Error): this {
 		this.failure = error;
 		this.handler = undefined;
 		return this;
 	}
 
-	/** Answers from the input, for a case where a constant would not be an answer. */
 	public executes(handler: (args: Record<string, unknown>, context: ToolContext) => unknown): this {
 		this.handler = handler;
 		this.failure = undefined;
@@ -60,7 +53,6 @@ export class ToolFake extends AdkTool {
 		return this.received.length;
 	}
 
-	/** What the last call carried, which is the assertion most tests are after. */
 	public lastArgs(): Readonly<Record<string, unknown>> | undefined {
 		return this.received.at(-1)?.args;
 	}

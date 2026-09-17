@@ -1,6 +1,9 @@
 import { AdkError } from "@nestjs-adk/core";
 
-/** The test ended with scripted turns nobody played, so the conversation it described never happened. */
+/**
+ * Raised by `AdkTestBed.verify` when turns nobody played are still queued: the run ended before
+ * the conversation the test described.
+ */
 export class ScriptNotConsumedError extends AdkError {
 	public readonly code = "SCRIPT_NOT_CONSUMED";
 

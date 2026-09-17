@@ -11,18 +11,15 @@ import { RuntimeMcpExposure } from "./runtime-mcp-exposure.adapter";
 
 const DEFAULT_PATH = "/mcp";
 
-/**
- * Serves what every `@McpController` of the application published, at one path.
- *
- * The module owns the protocol and the route, and the application owns the two decisions the
- * lib cannot make: who is calling, through the `actors` resolver, and who may call what, through
- * the access policy declared on `AdkModule`. Nothing here checks a credential.
- *
- * The resolver is the application's provider, reached through `imports`, rather than a class
- * this module instantiates: a resolver that checks a token needs the application's own services,
- * and only the module that declares it knows where they come from.
- */
 @Module({})
+/**
+ * Serves what the application's `@McpController` classes publish, as one MCP endpoint at one
+ * path.
+ *
+ * The transport is stateless streamable HTTP, a server per request, so instances behind a
+ * balancer answer alike. Every call goes through the core's own gate, so an outside client can
+ * do nothing the agent could not.
+ */
 export class McpServerModule {
 	public static forRoot(options: McpServerOptions): DynamicModule {
 		return {

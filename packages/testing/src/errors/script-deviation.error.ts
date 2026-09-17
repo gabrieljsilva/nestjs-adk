@@ -1,6 +1,9 @@
 import { AdkError } from "@nestjs-adk/core";
 
-/** The conversation reached a turn whose guard the actual request does not satisfy. */
+/**
+ * A scripted turn guarded by `expecting` was reached by a request that does not satisfy it. The
+ * message names the turn, what it demanded and what arrived instead.
+ */
 export class ScriptDeviationError extends AdkError {
 	public readonly code = "SCRIPT_DEVIATION";
 

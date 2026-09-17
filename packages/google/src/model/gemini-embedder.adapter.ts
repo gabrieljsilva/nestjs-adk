@@ -5,50 +5,24 @@ import type { GenAiEmbeddingClient } from "../transport/genai-client.contract";
 import { GenAiClientFactory } from "../transport/genai-client.factory";
 import type { GeminiOptions } from "./gemini.options";
 
-/** The current embedding model, for a caller who has no reason to pick one. */
 const DEFAULT_MODEL = "gemini-embedding-2";
 
 /**
- * How to reach the embedding API, plus what only an embedding call takes.
- *
- * It extends the generation options because reaching Gemini is the same problem in both
- * cases: an API key, or Vertex AI with a project and a location. The fields a generation
- * call takes and an embedding call does not (`temperature`, `maxOutputTokens`) are simply
- * not read here.
+ * What `GeminiEmbedder` takes on top of `GeminiOptions`: the vector length to ask for, and the
+ * task the embedding is for, which Gemini uses to tune the vectors it returns.
  */
 export interface GeminiEmbeddingOptions extends GeminiOptions {
-	/**
-	 * Cuts the vector down to this many dimensions.
-	 *
-	 * Newer models return a long vector and let the caller truncate it. Shorter vectors
-	 * cost less to store and compare, and every vector in one comparison has to have been
-	 * asked for at the same length.
-	 */
 	outputDimensionality?: number;
 
-	/**
-	 * What the vector is for, for example `SEMANTIC_SIMILARITY` or `RETRIEVAL_DOCUMENT`.
-	 *
-	 * The same text embeds differently depending on the answer, so two vectors compared
-	 * against each other have to have been produced under the same task.
-	 */
 	taskType?: string;
 }
 
 /**
- * Turns text into a vector using Google's embedding models.
+ * Google's embedding models as an `Embedder`. Construct it and hand it to the module, or wrap
+ * it to price it.
  *
- * ```ts
- * const embedder = new GeminiEmbedder("gemini-embedding-2", {
- *     apiKey: process.env.GEMINI_API_KEY,
- *     taskType: "SEMANTIC_SIMILARITY",
- * });
- * const similarity = new Similarity().cosine(await embedder.embed(one), await embedder.embed(other));
- * ```
- *
- * One text per call, because that is what the port asks for. Google accepts a batch, and
- * a caller with a corpus to index wants the batch; that belongs to whatever indexes a
- * corpus, not to a port whose whole contract is one text to one vector.
+ * An answer carrying no vector raises `EmptyEmbeddingError`, which is what a name that is not
+ * an embedding model, or empty text, looks like from here.
  */
 export class GeminiEmbedder extends Embedder {
 	private readonly client: GenAiEmbeddingClient;

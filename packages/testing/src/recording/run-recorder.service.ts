@@ -2,12 +2,8 @@ import { type PublishedEvent, type SessionContext, SessionEventConsumer } from "
 import { RunEvents } from "./run-events.value-object";
 
 /**
- * The consumer the test bed always plugs in, and the only thing that watches every run.
- *
- * It records and never decides, which is what a consumer is: it runs after the commit and
- * a failure here changes nothing about the run. Because it observes the runtime rather
- * than the model, a run a use case started is recorded just as fully as one the test asked
- * for itself.
+ * The consumer that collects the events the bed asserts on. The bed installs one; declare it
+ * yourself only when the events are wanted outside a bed.
  */
 export class RunRecorder extends SessionEventConsumer {
 	public readonly name = "run-recorder";

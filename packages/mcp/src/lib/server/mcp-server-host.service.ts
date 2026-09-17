@@ -7,14 +7,6 @@ import { McpCall } from "./mcp-call.value-object";
 import type { McpServerInfo } from "./mcp-server-info.value-object";
 import type { McpToolService } from "./mcp-tool.service";
 
-/**
- * Serves one HTTP request of the MCP protocol for one actor.
- *
- * A protocol server and its transport are built per request and discarded with it, which is the
- * stateless shape of the streamable HTTP transport: nothing about a client is kept between
- * requests, so two instances behind a balancer answer alike, and the actor is bound by closure to
- * the handlers of this request and reachable from no other.
- */
 export class McpServerHost {
 	public constructor(
 		private readonly tools: McpToolService,

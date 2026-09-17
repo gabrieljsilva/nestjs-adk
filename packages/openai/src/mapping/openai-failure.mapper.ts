@@ -13,18 +13,6 @@ import {
 const CONTEXT_CODES = new Set(["context_length_exceeded", "string_above_max_length"]);
 const SAFETY_CODES = new Set(["content_filter", "content_policy_violation"]);
 
-/**
- * Classifies a raw provider error into the failure a policy can decide on.
- *
- * It reads the shape the OpenAI SDK produces (`status`, `code`, `type`) rather than
- * matching messages, which differ between OpenAI and every gateway that imitates it.
- * Anything it does not recognise stays unknown, and unknown is not transient: guessing
- * a permanent error into a retryable one is how a failover turns into a loop.
- *
- * A 4xx that is none of the recognised cases is the caller being told the request is
- * wrong, which is worth saying: left as unknown it reads like the provider had a bad
- * day, and every model in a failover chain gets sent the same rejected request.
- */
 export class OpenAiFailureMapper {
 	public toFailure(error: unknown): ModelFailure {
 		const message = this.readMessage(error);
@@ -43,13 +31,6 @@ export class OpenAiFailureMapper {
 		return new UnknownFailure(message, error);
 	}
 
-	/**
-	 * Anything else the provider answered in the 4xx range is about the request.
-	 *
-	 * The cases worth telling apart already returned above, so what reaches here is a
-	 * schema it will not take, a field this model does not support, a key it does not
-	 * accept or a model that does not exist: all of them things the caller sent.
-	 */
 	private isClientError(status: number | undefined): boolean {
 		return status !== undefined && status >= 400 && status < 500;
 	}
@@ -59,7 +40,6 @@ export class OpenAiFailureMapper {
 		return this.readName(error).includes("Timeout");
 	}
 
-	/** No status at all means the request never reached the provider. */
 	private isConnection(error: unknown, code: string | undefined): boolean {
 		if (code === "ECONNREFUSED" || code === "ENOTFOUND" || code === "ECONNRESET") return true;
 		return this.readName(error).includes("Connection");
@@ -88,14 +68,6 @@ export class OpenAiFailureMapper {
 		return typeof value === "number" ? value : undefined;
 	}
 
-	/**
-	 * What `Retry-After` said, in whichever of its two forms the provider used.
-	 *
-	 * RFC 9110 allows a count of seconds or an HTTP date, and providers send both. A date is
-	 * turned into what is left of it now, so whoever waits is handed one kind of number. A
-	 * header that is neither is dropped rather than guessed: a wrong wait is worse than none,
-	 * since the policy has a backoff of its own to fall back on.
-	 */
 	private readRetryAfter(error: unknown): Duration | undefined {
 		const raw = this.readHeader(error, "retry-after");
 		if (raw === undefined) return undefined;
@@ -106,7 +78,6 @@ export class OpenAiFailureMapper {
 		return Duration.fromMillis(Math.max(0, at - Date.now()));
 	}
 
-	/** The SDKs expose headers as a `Headers` instance, a plain record, or not at all. */
 	private readHeader(error: unknown, name: string): string | undefined {
 		if (typeof error !== "object" || error === null) return undefined;
 		const headers: unknown =

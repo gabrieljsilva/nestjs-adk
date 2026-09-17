@@ -1,18 +1,11 @@
 import { type PublishedEvent, type SessionContext, SessionEventConsumer } from "@nestjs-adk/core";
 
-/** How much of a long answer is worth reading in a test log. */
 const LIMIT = 220;
 
 /**
- * Prints the conversation as it happens, which is the only way to read a paid suite.
- *
- * A run against a real provider passes or fails on what the model actually said, and a
- * green tick says nothing about that. This turns the event stream into a transcript: the
- * question, every tool the model reached for with the arguments it chose, what came back,
- * and the sentence it finally wrote.
- *
- * It is a consumer like any other, so it costs no call and sees exactly what an
- * application observing its own runs would see.
+ * Prints the conversation as it happens: questions, answers, tool calls and their results,
+ * transfers and delegations, and each approval or refusal. Pass it to `withConsumers` to make a
+ * paid run readable.
  */
 export class RunTranscript extends SessionEventConsumer {
 	public readonly name = "run-transcript";

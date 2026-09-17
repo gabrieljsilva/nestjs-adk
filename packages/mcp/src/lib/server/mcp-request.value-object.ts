@@ -3,9 +3,8 @@ import type { IncomingHttpHeaders } from "node:http";
 const BEARER = /^Bearer\s+(\S+)$/i;
 
 /**
- * What an actor resolver is allowed to read of the request: the headers, the method and the
- * path. Never the body, which is the protocol's and has not been parsed for the resolver's
- * benefit, and never the response, which the endpoint owns.
+ * The incoming MCP request as a resolver reads it: its headers, method and path, with
+ * `bearerToken` already parsed out of `Authorization`. It is frozen and carries no body.
  */
 export class McpRequest {
 	private readonly headers: IncomingHttpHeaders;

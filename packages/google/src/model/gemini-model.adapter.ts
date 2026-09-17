@@ -18,20 +18,13 @@ import type { GeminiOptions } from "./gemini.options";
 const PROVIDER = "google";
 
 /**
- * A Gemini model, declared by name and options.
+ * Google's Gemini as an `LlmModel`: construct it with a model name and options and hand it to
+ * the module. Every answer is streamed, and tools, structured output, media and prompt caching
+ * are all available.
  *
- * ```ts
- * const flash = new GeminiModel("gemini-2.5-flash", { apiKey: process.env.GEMINI_API_KEY });
- * const vertex = new GeminiModel("gemini-2.5-pro", { vertexai: true, project: "acme", location: "us-central1" });
- * ```
- *
- * Both surfaces are the same model here: only the client differs, and the mapping,
- * the streaming and the token counting are shared.
- *
- * The context window is not guessed. Google publishes the numbers in documentation
- * rather than in the API, and they change model by model, so a caller who knows states
- * it through `contextWindowTokens` and a caller who does not gets a window that reports
- * itself unknown.
+ * The context window is only known when `contextWindowTokens` is given, and without it nothing
+ * that depends on the window size can be reported. Provider errors arrive as `ModelFailure`,
+ * except a schema Gemini cannot take, which raises `InvalidJsonSchemaError`.
  */
 export class GeminiModel extends ModelSpec {
 	public readonly provider = PROVIDER;
@@ -56,7 +49,6 @@ export class GeminiModel extends ModelSpec {
 		return this.transport.stream(this.requests.toRequest(this.model, request, this.options), signal);
 	}
 
-	/** Measured, not estimated: Gemini is one of the few providers that counts before the call. */
 	public countTokens(request: ModelRequest): Promise<TokenCount> {
 		return this.transport.countTokens(this.requests.toRequest(this.model, request, this.options));
 	}
@@ -73,7 +65,6 @@ export class GeminiModel extends ModelSpec {
 			[ModelCapability.STREAMING, true],
 			[ModelCapability.STRUCTURED_OUTPUT, true],
 			[ModelCapability.MEDIA_INPUT, true],
-			// Since January 2026 the API fetches public HTTPS and signed URLs through fileUri.
 			[ModelCapability.MEDIA_URL, true],
 			[ModelCapability.PROMPT_CACHE, true],
 			[ModelCapability.TOKEN_COUNTING, true],

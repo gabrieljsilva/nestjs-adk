@@ -11,10 +11,6 @@ import {
 
 const NOW = "2026-01-01T00:00:00.000Z";
 
-/**
- * Breaks idempotent append by writing a batch again on retry instead of answering with what was already committed:
- * one timeout on the caller side doubles every event of the batch, and the projection counts each fact twice.
- */
 export class NonIdempotentSessionStorage extends InMemorySessionStorage {
 	private readonly codecs = StorageCodecs.standard();
 	private decoys = 0;
@@ -37,7 +33,6 @@ export class NonIdempotentSessionStorage extends InMemorySessionStorage {
 		return command.batch.events.every((event) => written.has(event.id.value));
 	}
 
-	/** An id the journal has never seen, which is what keeps the replay check from recognizing the retry. */
 	private unseenEvent(): SessionEvent {
 		this.decoys += 1;
 		return this.codecs.journal.decode({

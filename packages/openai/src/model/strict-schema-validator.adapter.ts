@@ -1,29 +1,9 @@
 import { NonStrictJsonSchemaError } from "../errors/non-strict-json-schema.error";
 
-/** Where a nested schema hides: named maps of schemas, and lists of alternatives. */
 const NAMED_GROUPS = ["properties", "$defs", "definitions"];
 const BRANCH_GROUPS = ["anyOf", "oneOf", "allOf"];
 
-/**
- * Checks a structured output schema against the subset strict mode accepts.
- *
- * OpenAI enforces a schema only in strict mode, and strict mode has rules: every object
- * closed with `additionalProperties: false`, and every property it declares listed in
- * `required`. Outside them the answer is a 400 naming a field, which reaches the caller
- * as a failed run rather than as the mistake it is.
- *
- * Two things make that worth catching here. A schema is written once and sent on every
- * call, so a wrong one fails forever rather than intermittently. And nothing else
- * checks it: the default validator in the core reads the answer as JSON without a
- * schema language, so dropping strict quietly would trade a loud 400 for a shape
- * nobody verifies.
- *
- * Only the two rules above are checked. They cover what a schema converted from a
- * declaration hits, and inventing a full strict mode validator here would fail requests
- * over rules only the provider is authoritative about.
- */
 export class StrictSchemaValidator {
-	/** Throws on the first thing strict mode would reject, naming where it sits. */
 	public validate(schema: object): void {
 		const pending: [string, object][] = [["", schema]];
 		while (pending.length > 0) {
@@ -35,7 +15,6 @@ export class StrictSchemaValidator {
 		}
 	}
 
-	/** A schema with properties describes an object whether or not it says the word. */
 	private describesObject(node: object): boolean {
 		return this.recordAt(node, "properties") !== undefined || Reflect.get(node, "type") === "object";
 	}

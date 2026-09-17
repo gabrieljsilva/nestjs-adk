@@ -28,14 +28,11 @@ const NOW = Instant.fromIso("2026-01-01T00:00:00.000Z");
 const PROJECTOR_VERSION = 1;
 
 /**
- * Every promise the `SessionStorage` port makes, as cases any adapter has to answer.
+ * Every promise the `SessionStorage` port makes, as cases any runner drives.
  *
- * The four guarantees of the port are checked from the outside only, through the port
- * itself, so a durable adapter downstream is measured by the same cases as the in memory
- * reference. Optimistic concurrency and idempotency are only demanded from an adapter
- * that declared them: a storage honest about being ephemeral is not held to what it
- * never promised, but one that claims durability while accepting a stale expected
- * revision is caught by a case that always runs.
+ * It yields `ContractCase` objects and asserts with `node:assert`, so vitest, jest and
+ * `node:test` all drive it. It reads the storage's own `capabilities()` and demands only what
+ * was claimed, and it is the same suite the shipped storages answer.
  */
 export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 	public readonly port = "SessionStorage";
@@ -53,7 +50,6 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 		return [...shared, ...this.durableCases(create)];
 	}
 
-	/** Only for an adapter that said it keeps snapshots, which every one of them may refuse to. */
 	private snapshotCases(create: () => SessionStorage): ContractCase[] {
 		return [
 			new ContractCase("brings a snapshot back meaning what it meant when it was written", async () => {
@@ -80,7 +76,6 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 		];
 	}
 
-	/** Only for an adapter that said it keeps compaction checkpoints. */
 	private checkpointCases(create: () => SessionStorage): ContractCase[] {
 		return [
 			new ContractCase("keeps context checkpoints in a collection of their own", async () => {
@@ -150,7 +145,6 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 		];
 	}
 
-	/** What every adapter owes, whatever it claims to support. */
 	private sharedCases(create: () => SessionStorage): ContractCase[] {
 		return [
 			new ContractCase("round trips every event of the catalog, whatever its payload holds", async () => {
@@ -288,7 +282,6 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 		];
 	}
 
-	/** What only an adapter claiming durable sessions is held to. */
 	private durableCases(create: () => SessionStorage): ContractCase[] {
 		return [
 			new ContractCase("persists nothing and leaves the head alone when the expected revision is wrong", async () => {
@@ -373,25 +366,10 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 		return Session.start(SessionId.from(sessionId), AGENT, NOW);
 	}
 
-	/**
-	 * The context every method of the port takes, built the way an implementer builds one.
-	 *
-	 * It goes through the exported factory rather than a domain constructor, so the suite only
-	 * ever holds what somebody writing an adapter outside this repository can hold.
-	 */
 	private buildContext(sessionId: string): SessionContext {
 		return SessionContext.fromSessionId(SessionId.from(sessionId));
 	}
 
-	/**
-	 * An event built the way an adapter gets one: out of a row.
-	 *
-	 * The suite deliberately holds nothing an implementer could not hold. Fabricating a
-	 * `SessionCreated` would need the event class and its header, neither of which leaves the
-	 * core, and a suite that needed them would be proving a port nobody outside can implement.
-	 * A row from an older schema version is upcast on the way through, so this keeps working
-	 * when the payload changes, which is exactly what a real journal does.
-	 */
 	private buildEvent(eventId: string, rootAgent: string = AGENT.value): SessionEvent {
 		return this.codecs.journal.decode({
 			eventId,
@@ -406,7 +384,6 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 		});
 	}
 
-	/** A payload that is not a string, to prove the row is more than text on the way back. */
 	private buildMetadataEvent(eventId: string): SessionEvent {
 		return this.codecs.journal.decode({
 			eventId,
@@ -435,7 +412,6 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 		});
 	}
 
-	/** The same id carrying something else, which is what a journal must never accept twice. */
 	private buildDifferentEvent(eventId: string): SessionEvent {
 		return this.buildEvent(eventId, "billing");
 	}
@@ -494,7 +470,6 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 		return (await storage.findOrFail(this.buildContext(sessionId))).revision.value;
 	}
 
-	/** The error the work threw, or undefined when it went through, so a case can assert on both. */
 	private async captureError(work: () => Promise<unknown>): Promise<unknown> {
 		try {
 			await work();

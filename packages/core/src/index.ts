@@ -1,25 +1,7 @@
-/**
- * Everything `@nestjs-adk/core` publishes, and nothing else.
- *
- * What belongs here is what an application writes against: the decorators and the module,
- * the base classes, the ports it implements, the adapters the library ships, the policies it
- * chooses between, and the values it reads off a result or hands to a call. A class the
- * runtime uses to do its work does not belong here even when it is perfectly good code, and
- * every name that leaves is a name an editor stops offering to somebody writing an agent.
- *
- * Two groups look internal and are not. The message and tool-call types are here because
- * writing a model adapter means translating them, and `ToolDefinition` is here because a
- * `ToolSource` has to build one. Those are contracts with the outside, whatever folder they
- * happen to live in.
- */
-
-// errors
 export { AdkError } from "./common/errors/adk.error";
 
-// identity
 export { ToolCallId } from "./common/identity/tool-call-id.value-object";
 
-// model contract
 export { LlmModel } from "./domain/model/llm-model.contract";
 export { ModelSpec } from "./domain/model/descriptor/model-spec.value-object";
 export { createModelSpec } from "./domain/model/descriptor/create-model-spec.factory";
@@ -32,7 +14,6 @@ export { ContextWindow } from "./domain/model/descriptor/context-window.value-ob
 export { ModelContextWindow } from "./domain/model/descriptor/model-context-window.value-object";
 export { UnknownContextWindow } from "./domain/model/descriptor/unknown-context-window.value-object";
 
-// model input and output
 export { ModelRequest } from "./domain/model/model-request.value-object";
 export { ModelMessage } from "./domain/model/messages/model-message.value-object";
 export { UserMessage } from "./domain/model/messages/user-message.value-object";
@@ -50,7 +31,6 @@ export { TokenCount } from "./domain/model/usage/token-count.value-object";
 export { PromptMeasurement } from "./domain/model/usage/prompt-measurement.value-object";
 export { PromptInstructions } from "./domain/prompt/prompt-instructions.value-object";
 
-// prompting
 export { PromptTemplate } from "./domain/prompt/prompt-template.value-object";
 export { PromptContext } from "./domain/prompt/prompt-context.value-object";
 export { PromptBuilder } from "./domain/prompt/prompt-builder.contract";
@@ -68,7 +48,6 @@ export { AgentPromptScan } from "./public/nest/prompt/agent-prompt-scan.service"
 export { AmbiguousAgentPromptError } from "./public/nest/errors/ambiguous-agent-prompt.error";
 export { ConflictingPromptOptionsError } from "./public/nest/errors/conflicting-prompt-options.error";
 
-// session and run
 export { SessionId } from "./common/identity/session-id.value-object";
 export { AgentRunId } from "./common/identity/agent-run-id.value-object";
 export { AgentName } from "./domain/agent/agent-name.value-object";
@@ -78,8 +57,6 @@ export type { AgentDefinitionInput } from "./domain/agent/agent-definition.value
 export { AgentExecutionPolicies } from "./domain/agent/agent-execution-policies.value-object";
 export { AgentTransferPolicy } from "./domain/agent/agent-transfer.policy";
 export { AgentDelegationPolicy } from "./domain/agent/agent-delegation.policy";
-// What the NestJS scanner builds out of a decorated class, and what an application without a
-// container writes by hand when it wants a duplicate reported by the name that declared it.
 export { DeclaredAgent } from "./domain/agent/declared-agent.value-object";
 export { SkillDefinition } from "./domain/skill/skill-definition.value-object";
 export { AskInput } from "./domain/session/input/ask-input.command";
@@ -98,10 +75,8 @@ export { InvalidMetadataKeyError } from "./domain/session/errors/invalid-metadat
 export { InvalidMetadataValueError } from "./domain/session/errors/invalid-metadata-value.error";
 export { MetadataValueTooLargeError } from "./domain/session/errors/metadata-value-too-large.error";
 export { CreateSessionInput } from "./domain/session/input/create-session-input.command";
-// Reachable as `RuntimeServices.sessions`, which is what an application without NestJS holds.
 export { SessionService } from "./runtime/session/session.service";
 export { SessionStorage } from "./contracts/storage/session-storage.contract";
-// Everything named in the SessionStorage contract, without which nobody can implement one.
 export { SessionRevision } from "./common/revision/session-revision.value-object";
 export { StorageCapabilities } from "./contracts/storage/storage-capabilities.value-object";
 export { ModelResolver } from "./contracts/model/model-resolver.contract";
@@ -110,15 +85,6 @@ export { SqliteSessionStorage } from "./adapters/storage/sqlite/sqlite-session-s
 export { SqliteConnection } from "./adapters/storage/sqlite/sqlite-connection.adapter";
 export { SqliteArtifactStorage } from "./adapters/storage/sqlite/sqlite-artifact-storage.adapter";
 
-/**
- * What a session storage written outside this package moves between a row and the domain.
- *
- * They belong next to the port for the same reason `PromptFileCache` belongs next to
- * `PromptSource`: implementing a port is something an application does, and the pieces it
- * needs to do it are public API. Without them the only storages that can exist are the two
- * above, because an event fabricated by hand fails every check in the projectors without
- * matching one, and a conversation comes back empty rather than failing.
- */
 export { StorageCodecs } from "./adapters/storage/codec/storage-codecs.value-object";
 export { JournalCodec } from "./adapters/storage/codec/journal/journal.codec";
 export { SnapshotCodec } from "./adapters/storage/codec/snapshot/snapshot.codec";
@@ -141,19 +107,11 @@ export { SessionEventBatch } from "./domain/event/session-event-batch.value-obje
 export type { SessionEventRegistry } from "./domain/event/session-event-registry.service";
 export { SessionEventCodecs } from "./domain/event/session-event-codecs.factory";
 
-/**
- * A port contract as data: cases a suite yields and any runner drives.
- *
- * The suites themselves live where their subject does. `SessionStorageContractSuite` is in
- * `@nestjs-adk/testing`, because measuring an adapter is testing and belongs with the test
- * bed, and because `node:assert` has no business in the entry point every application loads.
- */
 export { ContractSuite } from "./support/contract/contract-suite.support";
 export { ContractCase } from "./support/contract/contract-case.support";
 export { AgentRunCommand } from "./runtime/run/agent-run.command";
 export { AdkRuntime } from "./public/adk-runtime.edge";
 export type { StartedRuntime, AdkRuntimeStartInput, RuntimeComponents } from "./public/adk-runtime.edge";
-// The path without NestJS: agents in, a started runtime out, on the defaults the module uses.
 export { createAdkRuntime } from "./public/create-adk-runtime.factory";
 export type { AdkRuntimeInput } from "./public/create-adk-runtime.factory";
 export { StartedAdkRuntime } from "./public/started-adk-runtime.edge";
@@ -220,7 +178,6 @@ export { Instant } from "./common/time/instant.value-object";
 export { Duration } from "./common/time/duration.value-object";
 export { IdGenerator } from "./common/identity/id-generator.contract";
 
-// tools
 export { ToolEffect } from "./domain/tool/approval/tool-effect.value-object";
 export { Actor } from "./domain/tool/access/actor.value-object";
 export { MissingActorIdError } from "./domain/tool/errors/missing-actor-id.error";
@@ -248,7 +205,6 @@ export { AgentMaxIterationsError } from "./domain/session/errors/agent-max-itera
 export { ZodToolSchema } from "./adapters/schema/zod-tool-schema.adapter";
 export { JsonSchemaToolSchema } from "./runtime/tool/json-schema-tool-schema.adapter";
 
-// skills and sources
 export { SkillMode } from "./domain/skill/skill-mode.value-object";
 export { ToolSource } from "./contracts/tool/tool-source.contract";
 export { ToolSourceAuthError } from "./domain/tool/errors/tool-source-auth.error";
@@ -260,33 +216,27 @@ export { RevisionBucketSnapshotPolicy } from "./runtime/session/snapshot/revisio
 export { ApprovalNotPendingError } from "./domain/session/errors/approval-not-pending.error";
 export { DuplicateSkillNameError } from "./domain/skill/errors/duplicate-skill-name.error";
 
-// diagnostics
 export { ContextSegment } from "./domain/diagnostics/context-segment.value-object";
 export { ContextSnapshot } from "./domain/diagnostics/context-snapshot.value-object";
 export { PrefixComparator } from "./runtime/diagnostics/prefix-comparator.service";
 export { NotEnoughRunsError } from "./runtime/diagnostics/errors/not-enough-runs.error";
 export { RunObservers } from "./runtime/run/journal/run-observers.value-object";
 
-// streaming
 export { ChunkSink } from "./runtime/stream/chunk-sink.contract";
 
-// watching tool calls
 export { ToolCallObserver } from "./contracts/tool/tool-call-observer.contract";
 export { ToolCallNotice } from "./domain/tool/notice/tool-call.notice";
 export { ToolResultNotice } from "./domain/tool/notice/tool-result.notice";
 
-// delegation
 export { DelegationNotDeclaredError } from "./domain/agent/errors/delegation-not-declared.error";
 export { AgentMaxDelegationDepthError } from "./domain/session/errors/agent-max-delegation-depth.error";
 export { DelegationSuspendedError } from "./runtime/delegation/errors/delegation-suspended.error";
 export { UnknownDelegationTargetError } from "./runtime/catalog/errors/unknown-delegation-target.error";
 
-// transfer
 export { TransferNotDeclaredError } from "./domain/agent/errors/transfer-not-declared.error";
 export { AgentMaxTransfersError } from "./domain/session/errors/agent-max-transfers.error";
 export { UnknownTransferTargetError } from "./runtime/catalog/errors/unknown-transfer-target.error";
 
-// artifacts
 export { ArtifactStorage } from "./contracts/storage/artifact-storage.contract";
 export { OffloadPolicy } from "./domain/artifact/offload.policy";
 export { OffloadDecision } from "./domain/artifact/offload-decision.value-object";
@@ -296,7 +246,6 @@ export { ArtifactNotFoundError } from "./domain/artifact/errors/artifact-not-fou
 export { TamperedArtifactReferenceError } from "./domain/artifact/errors/tampered-artifact-reference.error";
 export { InMemoryArtifactStorage } from "./adapters/storage/in-memory-artifact-storage.adapter";
 
-// attachments
 export { AttachmentReference } from "./domain/model/attachment/attachment-reference.value-object";
 export { AttachmentResolver } from "./contracts/context/attachment-resolver.contract";
 export { AttachmentRequest } from "./domain/model/attachment/attachment-request.value-object";
@@ -311,7 +260,6 @@ export {
 	type AttachmentUrlSigner,
 } from "./adapters/attachment/signed-url-attachment-resolver.adapter";
 
-// embeddings
 export { Embedder } from "./contracts/model/embedder.contract";
 export { PricedEmbedder } from "./runtime/cost/priced-embedder.service";
 export { UndeclaredEmbedder } from "./public/nest/undeclared-embedder.adapter";
@@ -321,7 +269,6 @@ export { Similarity } from "./domain/embedding/similarity.service";
 export { EmptyVectorError } from "./domain/embedding/errors/empty-vector.error";
 export { IncompatibleVectorsError } from "./domain/embedding/errors/incompatible-vectors.error";
 
-// observation
 export { Secret } from "./common/secrecy/secret.value-object";
 export { SessionEventConsumer } from "./contracts/events/session-event-consumer.contract";
 export { ConsumerFailureSink } from "./contracts/events/consumer-failure-sink.contract";
@@ -331,10 +278,8 @@ export { PublishedEvent } from "./domain/event/published-event.value-object";
 export { ToolCallRequested } from "./domain/event/catalog/tool/tool-call-requested.event";
 export { ToolResultProduced } from "./domain/event/catalog/tool/tool-result-produced.event";
 
-// execution
 export { ModelExecutor } from "./runtime/model/model-executor.service";
 
-// compaction
 export { AdkCompactionPolicy } from "./domain/context/adk-compaction.policy";
 export { WindowShareCompactionPolicy } from "./domain/context/window-share-compaction.policy";
 export type { WindowShareCompactionOptions } from "./domain/context/window-share-compaction.policy";
@@ -344,7 +289,6 @@ export { ContextSummarizer } from "./contracts/context/context-summarizer.contra
 export { CompactionStrategy } from "./contracts/context/compaction-strategy.contract";
 export { OldestFirstCompactionStrategy } from "./runtime/context/oldest-first-compaction.strategy";
 
-// failover
 export { AgentFailoverPolicy } from "./domain/agent/agent-failover.policy";
 export { ModelRetryPolicy } from "./domain/agent/model-retry.policy";
 export { BackoffRetryPolicy } from "./domain/agent/backoff-retry.policy";
@@ -366,7 +310,6 @@ export { MalformedToolCallError } from "./domain/model/errors/malformed-tool-cal
 export { InvalidStructuredOutputError } from "./domain/model/errors/invalid-structured-output.error";
 export { EmptyModelResponseError } from "./domain/model/errors/empty-model-response.error";
 
-// model failures
 export { ModelFailure } from "./domain/model/failures/model-failure.value-object";
 export { RateLimitedFailure } from "./domain/model/failures/rate-limited-failure.value-object";
 export { UnavailableFailure } from "./domain/model/failures/unavailable-failure.value-object";
@@ -377,7 +320,6 @@ export { InvalidRequestFailure } from "./domain/model/failures/invalid-request-f
 export { UnknownFailure } from "./domain/model/failures/unknown-failure.value-object";
 export { ModelCallFailedError } from "./domain/model/errors/model-call-failed.error";
 
-// cost
 export { UsdAmount } from "./domain/cost/usd-amount.value-object";
 export { TokenRate } from "./domain/cost/token-rate.value-object";
 export { ModelPrice } from "./domain/cost/model-price.value-object";
@@ -397,8 +339,6 @@ export type { LiteLlmPricingOptions } from "./adapters/pricing/lite-llm-pricing-
 export { MalformedCatalogError } from "./adapters/pricing/errors/malformed-catalog.error";
 export { CatalogUnreachableError } from "./adapters/pricing/errors/catalog-unreachable.error";
 
-// Named in the signature of a port an application implements, so a port cannot be
-// implemented without them. They are contracts even though they look like internals.
 export { AppendEventsCommand } from "./contracts/storage/append-events.command";
 export { AppendEventsResult } from "./contracts/storage/append-events-result.value-object";
 export { Session } from "./domain/session/session.entity";

@@ -1,21 +1,22 @@
 import type { ModelFailure, ModelRequest } from "@nestjs-adk/core";
 
-/** One tool the turn asks for, exactly as the model would have asked. */
+/**
+ * A tool call a scripted turn asks for, by the tool's name and the arguments to send.
+ */
 export interface ScriptedCall {
 	readonly tool: string;
 	readonly args: Record<string, unknown>;
 }
 
-/** What a turn may demand of the request that plays it: a text the request must mention, a pattern, or a predicate. */
+/**
+ * What a turn demands of the request that plays it: a substring, a pattern, or a predicate over
+ * the whole request. A request that fails it raises `ScriptDeviationError` instead of answering.
+ */
 export type TurnExpectation = string | RegExp | ((request: ModelRequest) => boolean);
 
 /**
- * One queued answer: words, one or more tool calls, or a scripted failure.
- *
- * A turn may also carry an expectation about the request that plays it. The expectation is
- * a guard and not an assertion: a request that does not satisfy it stops the run with a
- * deviation error naming the turn, which is how a conversation that drifted is caught at
- * the turn it drifted instead of at the last assert.
+ * One queued turn: the text or deltas to answer with, the tool calls to ask for, or the failure
+ * to raise, plus the guard that refuses a request which drifted.
  */
 export class ScriptedTurn {
 	private constructor(
@@ -30,13 +31,6 @@ export class ScriptedTurn {
 		return new ScriptedTurn(text, [text], []);
 	}
 
-	/**
-	 * The same answer, delivered in pieces, which is what a provider does when it streams.
-	 *
-	 * `text` stays the whole answer, because that is what the run ends up with either way:
-	 * the pieces only decide how many chunks carry it there. A turn scripted with one piece
-	 * is indistinguishable from `text`, which is exactly what a non streaming provider sends.
-	 */
 	public static stream(deltas: readonly string[]): ScriptedTurn {
 		return new ScriptedTurn(deltas.join(""), [...deltas], []);
 	}
@@ -45,22 +39,18 @@ export class ScriptedTurn {
 		return new ScriptedTurn("", [], [{ tool, args }]);
 	}
 
-	/** Every call in one turn, which is how a model asks for tools in parallel. */
 	public static toolCalls(calls: readonly ScriptedCall[]): ScriptedTurn {
 		return new ScriptedTurn("", [], [...calls]);
 	}
 
-	/** A turn that fails instead of answering, which is what a failover policy decides on. */
 	public static failure(failure: ModelFailure): ScriptedTurn {
 		return new ScriptedTurn("", [], [], failure);
 	}
 
-	/** The same turn, guarded: a request that does not satisfy the expectation stops the run. */
 	public expecting(expectation: TurnExpectation): ScriptedTurn {
 		return new ScriptedTurn(this.text, this.deltas, this.calls, this.failure, expectation);
 	}
 
-	/** The first call, for a caller that scripted a single one. */
 	public get call(): ScriptedCall | undefined {
 		return this.calls.at(0);
 	}
@@ -69,7 +59,6 @@ export class ScriptedTurn {
 		return this.expectation !== undefined;
 	}
 
-	/** Whether the request satisfies this turn's expectation; a turn without one accepts anything. */
 	public accepts(request: ModelRequest): boolean {
 		const expectation = this.expectation;
 		if (expectation === undefined) return true;
@@ -78,7 +67,6 @@ export class ScriptedTurn {
 		return typeof expectation === "string" ? text.includes(expectation) : expectation.test(text);
 	}
 
-	/** What the guard demanded, in the words a deviation error shows. */
 	public get expectationText(): string {
 		const expectation = this.expectation;
 		if (expectation === undefined) return "anything";

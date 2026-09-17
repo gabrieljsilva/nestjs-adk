@@ -1,11 +1,6 @@
 import type { StartedRuntime, ToolCatalog, ToolGate } from "@nestjs-adk/core";
 import { McpExposure } from "./mcp-exposure.contract";
 
-/**
- * Reads the runtime on every access rather than once, because the module's providers are built
- * before the runtime is composed and a value captured then would be the one from before the
- * boot finished.
- */
 export class RuntimeMcpExposure extends McpExposure {
 	public constructor(private readonly host: StartedRuntime) {
 		super();

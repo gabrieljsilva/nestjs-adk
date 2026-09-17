@@ -18,7 +18,6 @@ import { ScriptedModel } from "../model/scripted-model.double";
 const orderSchema = z.object({ orderId: z.string() });
 const refundSchema = z.object({ orderId: z.string(), amountBrl: z.number() });
 
-/** What the orders are worth, so an assertion can be a number only a tool could have produced. */
 const TOTALS: Readonly<Record<string, number>> = { "A-1042": 349, "A-77": 120 };
 
 @Injectable()
@@ -74,7 +73,6 @@ export class WarrantyAgent extends AdkAgent {}
 @DelegatesTo(BillingAgent)
 export class ConciergeAgent extends AdkAgent {}
 
-/** A caller of the agent, which is what a use case is from the runtime's side. */
 @Injectable()
 export class SendMessageUseCase {
 	public constructor(private readonly concierge: ConciergeAgent) {}
@@ -97,14 +95,6 @@ export class SendMessageUseCase {
 })
 export class StoreFeatureModule {}
 
-/**
- * The smallest application that has everything the bed has to work over.
- *
- * Two tools of different effect, an agent that holds money in front of a human, an agent to
- * transfer to, one to delegate to, and a use case that asks a question without knowing any
- * of it. Every test in this package boots this, so what they prove is the API and not a
- * fixture written to make one of them pass.
- */
 export function storeModule() {
 	return {
 		imports: [
@@ -119,13 +109,6 @@ export function storeModule() {
 	};
 }
 
-/**
- * The same application, configured from inside the container.
- *
- * An application whose ports are providers reaches the bed as a module whose options only
- * exist after NestJS built them, and the bed replaces tokens the same way either way. This
- * is what proves it, since the overrides it applies are resolved against `ADK_OPTIONS`.
- */
 export function asyncStoreModule() {
 	return {
 		imports: [

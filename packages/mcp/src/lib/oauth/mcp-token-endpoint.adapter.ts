@@ -4,26 +4,24 @@ import type { McpClientAuthMethod, McpClientInfo, McpTokens } from "../mcp-auth.
 import { type TargetTrust, guardedFetch } from "../mcp-target-guard.service";
 import { McpResponseBody } from "./mcp-response-body.value-object";
 
-/** What a provider says when the credential itself is finished, rather than this attempt. */
 const TERMINAL_ERRORS = new Set(["invalid_grant", "invalid_client", "unauthorized_client", "access_denied"]);
 
+/**
+ * How one client's calls to its token endpoint reach the network: how much the target is
+ * trusted, and a fetch that replaces the guarded one.
+ */
 export interface McpTokenEndpointOptions {
-	/** Refuse private addresses (`"user"`, the default) or allow them (`"private-ok"`). */
 	trust?: TargetTrust;
-	/**
-	 * Replaces the guarded fetch. For a corporate proxy or a test; whatever is supplied is used as
-	 * given, so a substitute is responsible for the SSRF guard the default one applies.
-	 */
 	fetch?: typeof fetch;
 }
 
 /**
- * Every call this client makes to its token endpoint: the code exchange, renewal and revocation.
+ * One registered client's calls to its token endpoint: exchange a code, renew with a refresh
+ * token, revoke what the provider will take back.
  *
- * One class because the three requests differ by two form fields and share everything that is
- * actually hard, which is the client authentication method, the two response dialects and telling
- * a dead credential from a provider having a bad minute. Renewal used to live apart and drifted:
- * it read only JSON, classified every refusal as "sign in again" and skipped the target guard.
+ * Client authentication follows the `authMethod` the registration settled on. Every refusal is
+ * an `McpTokenGrantError` whose `rejection` says whether the credential is finished or the
+ * provider was only briefly unwilling.
  */
 export class McpTokenEndpoint {
 	public constructor(
@@ -31,7 +29,6 @@ export class McpTokenEndpoint {
 		private readonly options: McpTokenEndpointOptions = {},
 	) {}
 
-	/** Trades an authorization code for tokens. */
 	public exchange(grant: {
 		code: string;
 		verifier: string;
@@ -47,10 +44,6 @@ export class McpTokenEndpoint {
 		});
 	}
 
-	/**
-	 * Renews an access token. The answer carries the refresh token to store from now on when the
-	 * provider rotates them, and the one that was sent when it does not.
-	 */
 	public async renew(refreshToken: string, options: { resource?: string; scope?: string } = {}): Promise<McpTokens> {
 		const tokens = await this.grant(this.client.tokenEndpoint, {
 			grant_type: "refresh_token",
@@ -58,16 +51,9 @@ export class McpTokenEndpoint {
 			...(options.resource ? { resource: options.resource } : {}),
 			...(options.scope ? { scope: options.scope } : {}),
 		});
-		// A provider that does not rotate answers without the field, and dropping it locks the user out
-		// on the following run.
 		return { ...tokens, refreshToken: tokens.refreshToken ?? refreshToken };
 	}
 
-	/**
-	 * RFC 7009. Best effort by design: the specification tells the server to answer 200 for a token
-	 * it does not recognize, so a refusal here means the request was wrong, never that the token
-	 * survived.
-	 */
 	public async revoke(
 		revocationEndpoint: string,
 		token: string,
@@ -102,22 +88,17 @@ export class McpTokenEndpoint {
 		return {
 			accessToken,
 			refreshToken: body.text("refresh_token"),
-			// The granted scope, which is not always the requested one: a provider is free to narrow it,
-			// and an application that shows what an integration can do has to read what it was given.
 			scope: body.text("scope"),
 			...(expiresIn !== undefined && expiresIn > 0 ? { expiresAt: new Date(Date.now() + expiresIn * 1000) } : {}),
 		};
 	}
 
-	/** Client authentication, in the method the registration settled on. */
 	private authenticated(fields: Record<string, string>): { body: URLSearchParams; headers: Record<string, string> } {
 		const method = this.authMethod();
 		const headers: Record<string, string> = {};
 		const body = new URLSearchParams(fields);
 
 		if (method === "client_secret_basic") {
-			// RFC 6749 §2.3.1: both halves are form-urlencoded before the colon, and the client id is
-			// not repeated in the body.
 			const pair = `${encodeURIComponent(this.client.clientId)}:${encodeURIComponent(this.client.clientSecret ?? "")}`;
 			headers.authorization = `Basic ${Buffer.from(pair).toString("base64")}`;
 			return { body, headers };
@@ -145,16 +126,12 @@ export class McpTokenEndpoint {
 				method: "POST",
 				headers: {
 					"content-type": "application/x-www-form-urlencoded",
-					// GitHub, among others, defaults to answering form-encoded and only switches to JSON when
-					// asked. Both dialects are read anyway; asking is what keeps the common case boring.
 					accept: "application/json",
 					...request.headers,
 				},
 				body: request.body,
 			});
 		} catch (error) {
-			// A blocked target is a refusal, not an unreachable provider: folding it into a transient
-			// failure would report an SSRF attempt as a network hiccup, and retry it.
 			if (error instanceof McpBlockedTargetError) throw error;
 			throw new McpTokenGrantError(
 				endpoint,
@@ -178,16 +155,9 @@ export class McpTokenEndpoint {
 		);
 	}
 
-	/**
-	 * The OAuth error code decides first, because it describes the grant; the status only describes
-	 * the HTTP call, and a provider that rate limits answers 429 about neither.
-	 */
 	private static buildRejection(status: number, oauthError?: string): McpGrantRejection {
 		if (oauthError && TERMINAL_ERRORS.has(oauthError)) return "reauth-required";
 		if (status === 429 || status >= 500) return "transient";
-		// RFC 6749 §5.2: a token endpoint refusing a grant answers 400, and at a refresh that means the
-		// refresh token is spent even when the provider names no error code. Treating it as a bad
-		// request would leave a dead credential in place and fail every run from here on.
 		if (status === 400 || status === 401 || status === 403) return "reauth-required";
 		return "invalid-request";
 	}

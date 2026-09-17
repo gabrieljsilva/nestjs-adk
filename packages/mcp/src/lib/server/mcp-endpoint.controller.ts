@@ -7,14 +7,6 @@ import { McpServerHost } from "./mcp-server-host.service";
 
 const UNAUTHORIZED = 401;
 
-/**
- * The one route of the server. `McpServerModule.forRoot` mounts a subclass of it at the path the
- * application chose, so two servers in one process never share route metadata.
- *
- * Every request is resolved to an actor first, and a refusal answers the OAuth shape of a 401:
- * the resolver's challenge in `WWW-Authenticate`, which is where an MCP client reads how to get
- * authorized, and an `invalid_token` body. Only then does the protocol see the request.
- */
 @Controller()
 export class McpEndpointController {
 	public constructor(
@@ -22,9 +14,6 @@ export class McpEndpointController {
 		private readonly actors: McpActorResolver,
 	) {}
 
-	// The three methods the streamable HTTP transport speaks: a request, a listening stream, and the
-	// end of a session. `@All()` would answer the rest too, and register verbs (SEARCH among them)
-	// that OpenAPI tooling downstream of the application refuses to parse.
 	@Post()
 	@Get()
 	@Delete()

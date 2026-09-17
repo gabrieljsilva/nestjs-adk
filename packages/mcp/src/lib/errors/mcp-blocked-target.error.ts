@@ -1,12 +1,8 @@
 import { AdkError } from "@nestjs-adk/core";
 
 /**
- * A connection was refused before it was attempted.
- *
- * The address came from configuration a developer wrote, and an MCP server pointed at a
- * loopback or a private range is how an integration becomes a way to reach the inside of
- * the network it runs in. It lives in this package because only this package connects to
- * one: the runtime has no opinion about addresses.
+ * The SSRF guard refused a target: a private, loopback or link-local address, or a public server
+ * over cleartext. `allowPrivateNetwork` is what allows the first case deliberately.
  */
 export class McpBlockedTargetError extends AdkError {
 	public readonly code = "MCP_BLOCKED_TARGET";

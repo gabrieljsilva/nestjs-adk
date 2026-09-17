@@ -2,11 +2,11 @@ import type { ModelChunk, TokenCount } from "@nestjs-adk/core";
 import type { GeminiRequest } from "../mapping/gemini-request.value-object";
 
 /**
- * What actually talks to Gemini.
+ * The single seam between this adapter and Google's SDK. Implement it and pass it to
+ * `GeminiModel` to route through a proxy, record traffic, or run without a network.
  *
- * It exists as a port so the adapter can be driven in a test without the SDK, without
- * a network and without a key. Unlike most providers, Gemini does count tokens before
- * the fact, so counting is part of the port rather than an estimate in the model.
+ * `stream` must honor `signal`, since aborting it is the only way to stop a generation that is
+ * still being billed.
  */
 export abstract class GeminiTransport {
 	public abstract stream(request: GeminiRequest, signal?: AbortSignal): AsyncIterable<ModelChunk>;

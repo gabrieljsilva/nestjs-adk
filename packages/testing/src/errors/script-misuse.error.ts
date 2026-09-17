@@ -1,6 +1,9 @@
 import { AdkError } from "@nestjs-adk/core";
 
-/** The script builder was used in an order that cannot mean anything, such as guarding a turn that was never queued. */
+/**
+ * The script itself was used wrongly, such as guarding a turn that was never queued. It is the
+ * test that is wrong here, not the run.
+ */
 export class ScriptMisuseError extends AdkError {
 	public readonly code = "SCRIPT_MISUSE";
 

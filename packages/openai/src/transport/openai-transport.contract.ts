@@ -2,11 +2,12 @@ import type { ModelChunk } from "@nestjs-adk/core";
 import type { OpenAiChatRequest } from "../mapping/openai-chat-request.value-object";
 
 /**
- * What actually talks to an OpenAI compatible endpoint.
+ * The single seam between this adapter and the HTTP client. Implement it and pass it to
+ * `OpenAiModel` to route through a proxy, record traffic, or run without a network;
+ * `SdkOpenAiTransport` is what is used otherwise.
  *
- * It exists as a port so the adapter can be driven in a test without the SDK, without
- * a network and without a key. The production implementation is the only file in this
- * package that imports `openai`.
+ * `stream` must honor `signal`, since aborting it is the only way to stop a generation that is
+ * still being billed.
  */
 export abstract class OpenAiTransport {
 	public abstract stream(request: OpenAiChatRequest, signal?: AbortSignal): AsyncIterable<ModelChunk>;

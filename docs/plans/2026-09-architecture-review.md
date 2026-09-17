@@ -135,6 +135,15 @@ Last, after everything above has settled the names.
 - Keep JSDoc only on exported public API, following `comments-and-jsdoc.md`.
 - A guideline captures anything a removed comment explained that a future reader still needs.
 
+**Phase 9 done.** Swept in three batches, each by a TypeScript-AST pass that stripped every
+comment, followed by JSDoc rewritten from scratch on the public surface only. Comment lines across
+the five packages fell from 8.363 to 1.855: core 6.710 to 1.413, google 274 to 43, openai 205 to
+34, mcp 587 to 193, testing 587 to 172. Line comments are down to ten magic values in the core's
+domain and common, plus the export-group labels in `packages/core/src/index.ts`; member JSDoc is
+down to ten blocks on the contracts an application implements.
+`packages/core/src/comment-sweep.spec.ts` asserts both, so a new comment is a failing test rather
+than a review finding, and `comments-and-jsdoc.md` has dropped `status: target`.
+
 ## Phase 10, optional: module-first tree
 
 Reorganize from layer-first (`domain/session`, `runtime/session`, `adapters/storage`) to module-first (`session/`, `tool/`, `model/`, each holding its own layers with category suffixes), as ADR 0018 does. Highest cost, decided separately.

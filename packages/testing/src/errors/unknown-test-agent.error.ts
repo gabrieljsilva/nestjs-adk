@@ -1,6 +1,8 @@
 import { AdkError } from "@nestjs-adk/core";
 
-/** A test named an agent the application never declared, which is a typo the boot can catch. */
+/**
+ * A bed was asked for an agent nobody declared. The message lists the agents that were.
+ */
 export class UnknownTestAgentError extends AdkError {
 	public readonly code = "UNKNOWN_TEST_AGENT";
 

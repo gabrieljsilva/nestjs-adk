@@ -1,6 +1,9 @@
 import { AdkError } from "@nestjs-adk/core";
 
-/** A decision was asked for on a run that is not waiting for one. */
+/**
+ * An approval or a rejection was asked for while the run is not waiting on one, or is waiting on
+ * a different tool. The message says what it is waiting on.
+ */
 export class NothingAwaitingError extends AdkError {
 	public readonly code = "NOTHING_AWAITING";
 

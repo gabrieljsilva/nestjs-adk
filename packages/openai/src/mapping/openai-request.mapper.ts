@@ -17,22 +17,8 @@ import type { OpenAiOptions } from "../model/openai.options";
 import { StrictSchemaValidator } from "../model/strict-schema-validator.adapter";
 import { OpenAiChatRequest } from "./openai-chat-request.value-object";
 
-/** An assistant turn as DeepSeek reads it back: the calls, and the thought that led to them. */
 type ReasonedToolCallsTurn = ChatCompletionAssistantMessageParam & { reasoning_content?: string };
 
-/**
- * Turns a neutral request into a Chat Completions body.
- *
- * Chat Completions and not Responses: every OpenAI compatible gateway implements the
- * former, and this adapter exists to reach them as much as to reach OpenAI itself.
- *
- * The causal pair survives the mapping. A tool call becomes an assistant turn carrying
- * `tool_calls`, its result becomes a `tool` turn carrying the same `tool_call_id`, and
- * the model reads back exactly the exchange the journal recorded. Calls the model made in
- * one breath are one assistant turn with several `tool_calls`, which is the shape it
- * produced them in: a thinking model attaches its reasoning to that turn, and split in
- * two, the second half would be a turn it never reasoned about.
- */
 export class OpenAiRequestMapper {
 	public constructor(private readonly strict: StrictSchemaValidator = new StrictSchemaValidator()) {}
 
@@ -45,11 +31,6 @@ export class OpenAiRequestMapper {
 		);
 	}
 
-	/**
-	 * Structured output travels as a json schema response format, which is what makes the
-	 * provider enforce it. `strict` is what makes enforcing mean the schema rather than
-	 * only valid JSON, and `StrictSchemaValidator` checks the claim before it is made.
-	 */
 	private buildResponseFormat(request: ModelRequest): Record<string, unknown> {
 		const schema = request.outputSchema;
 		if (schema === undefined) return {};
@@ -60,7 +41,6 @@ export class OpenAiRequestMapper {
 		return { response_format: { type: "json_schema", json_schema: { name: "response", schema, strict: true } } };
 	}
 
-	/** Explicit wins; otherwise a compatible endpoint replays and the official API does not. */
 	private replaysReasoning(options: OpenAiOptions): boolean {
 		return options.replaysReasoning ?? options.baseURL !== undefined;
 	}
@@ -87,8 +67,6 @@ export class OpenAiRequestMapper {
 
 	private buildCalls(calls: readonly ToolCallMessage[], replaysReasoning: boolean): ReasonedToolCallsTurn {
 		const reasoning = calls.find((message) => message.signature !== undefined)?.signature;
-		// `content` travels empty rather than absent: DeepSeek validates the turn as the message it
-		// returned, which always carried the field, and refuses the shape without it.
 		return {
 			role: "assistant",
 			content: "",
@@ -110,13 +88,6 @@ export class OpenAiRequestMapper {
 		return { role: "user", content: message.text };
 	}
 
-	/**
-	 * A message with an image stops being a string and becomes parts.
-	 *
-	 * One field carries both ways an image arrives: `image_url.url` is either the address
-	 * the provider fetches or the data URL the bytes became, and OpenAI documents it as
-	 * exactly that. The words follow the images.
-	 */
 	private buildUserContent(message: UserMessage): string | ChatCompletionContentPart[] {
 		if (!message.hasMedia) return message.text;
 		const media: ChatCompletionContentPart[] = message.media.map((part) => ({
@@ -126,7 +97,6 @@ export class OpenAiRequestMapper {
 		return [...media, { type: "text", text: message.text }];
 	}
 
-	/** A tool schema arrives as `unknown` and is checked here, never sent on trust. */
 	private buildTool(name: string, description: string, parameters: unknown): ChatCompletionFunctionTool {
 		if (typeof parameters !== "object" || parameters === null || Array.isArray(parameters)) {
 			throw new InvalidJsonSchemaError(name, this.readTypeName(parameters));
@@ -141,7 +111,6 @@ export class OpenAiRequestMapper {
 		return Array.isArray(value) ? "array" : typeof value;
 	}
 
-	/** Typed options win over the passthrough body, so a stray key cannot silently override them. */
 	private buildParameters(options: OpenAiOptions): Record<string, unknown> {
 		const parameters: Record<string, unknown> = { ...options.body };
 		if (options.temperature !== undefined) parameters.temperature = options.temperature;

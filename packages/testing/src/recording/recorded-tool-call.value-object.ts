@@ -1,12 +1,11 @@
-/** Where a tool call ended up, which is a different question from whether it was asked for. */
+/**
+ * How a tool call ended: it ran, it raised, a human refused it, or it is still waiting on one.
+ */
 export type ToolCallOutcome = "succeeded" | "failed" | "denied" | "pending";
 
 /**
- * One tool the model asked for, with what it chose and what came back.
- *
- * The arguments are what the model decided and the output is what the tool answered, both
- * read from the journal rather than from a double, so the same assertion holds whether the
- * run was scripted or a real provider decided it.
+ * One tool call as it happened: the tool, the arguments the model sent, the output it got back
+ * and how the call ended.
  */
 export class RecordedToolCall {
 	private constructor(
@@ -18,18 +17,10 @@ export class RecordedToolCall {
 		public readonly deniedReason?: string,
 	) {}
 
-	/** A call that was asked for and has not come back yet. */
 	public static requested(callId: string, tool: string, args: Readonly<Record<string, unknown>>): RecordedToolCall {
 		return new RecordedToolCall(callId, tool, args, "pending");
 	}
 
-	/**
-	 * What the call answered with.
-	 *
-	 * A refusal is an answer too: a denied call still produces a result the model reads, so
-	 * the outcome stays `denied` rather than being overwritten by the refusal travelling back
-	 * as an ordinary result.
-	 */
 	public settledWith(output: Readonly<Record<string, unknown>>, failed: boolean): RecordedToolCall {
 		if (this.outcome === "denied")
 			return new RecordedToolCall(this.callId, this.tool, this.args, "denied", output, this.deniedReason);

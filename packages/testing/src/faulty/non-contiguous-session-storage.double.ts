@@ -7,13 +7,8 @@ import {
 	StoredSessionEvent,
 } from "@nestjs-adk/core";
 
-/** How much this storage moves the revision per event, instead of the single step a gapless journal requires. */
 const REVISION_STEP = 2;
 
-/**
- * Breaks contiguity by advancing revisions two at a time: a reader can no longer tell a hole in the journal from an
- * event that was lost on the way, so every replay has to guess whether the history it holds is complete.
- */
 export class NonContiguousSessionStorage extends InMemorySessionStorage {
 	public override async append(context: SessionContext, command: AppendEventsCommand): Promise<AppendEventsResult> {
 		const result = await super.append(context, command);

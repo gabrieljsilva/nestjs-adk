@@ -3,25 +3,18 @@ import { isIP } from "node:net";
 import { McpBlockedTargetError } from "./errors/mcp-blocked-target.error";
 
 /**
- * How much a URL that reaches the network is trusted. `"user"` is the default for anything a
- * per-run source connects to: the URL came from an end user, so private addresses are refused and
- * public targets must speak https. `"private-ok"` keeps the https rule for public targets but
- * allows loopback, private and link-local addresses (a local dev server, an internal corporate
- * MCP), over http too: on the operator's own network, cleartext exposes nothing to a third party.
+ * How much a target is trusted: `user` refuses private, loopback and link-local addresses and
+ * cleartext, `private-ok` allows a server on your own network.
  */
 export type TargetTrust = "user" | "private-ok";
 
 const MAX_REDIRECTS = 5;
 
 /**
- * Refuses URLs a user-supplied address must not reach. Resolves the hostname and checks every
- * address it answers with, because `169.254.169.254`, `localhost` and a DNS name pointing at
- * either are the same attack written three ways.
- *
- * Known limit, on purpose: the connection that follows still dials the hostname, so a DNS name
- * that answers differently on the second query (rebinding) is not covered. Closing that requires
- * pinning the resolved address in the dialer, which is planned; do not present this guard as if
- * it covered it.
+ * Refuses a URL an MCP connection must not reach, throwing `McpBlockedTargetError`. Every
+ * address the hostname resolves to is checked, because a DNS name pointing at the metadata
+ * endpoint is the same attack as naming it. A target the connection then dials is resolved
+ * again, so DNS rebinding is not covered.
  */
 export async function assertSafeTarget(rawUrl: string | URL, trust: TargetTrust): Promise<URL> {
 	const url = typeof rawUrl === "string" ? new URL(rawUrl) : rawUrl;
@@ -30,10 +23,6 @@ export async function assertSafeTarget(rawUrl: string | URL, trust: TargetTrust)
 		throw new McpBlockedTargetError(url.href, `protocol ${url.protocol} is not allowed`);
 	}
 
-	// A name that does not resolve is treated as public: there is no address to protect, the
-	// connection that follows will fail on the same resolver, and blocking it here would turn every
-	// DNS hiccup into a security refusal. The window where it resolves differently at connect time
-	// is DNS rebinding, which this guard already documents as not covered.
 	const addresses = await resolve(url.hostname);
 	const priv = addresses.find(isPrivateAddress);
 
@@ -44,8 +33,6 @@ export async function assertSafeTarget(rawUrl: string | URL, trust: TargetTrust)
 		);
 	}
 
-	// A public server over cleartext would carry the user's credential for anyone on the path to
-	// read. There is no legitimate case, so there is no option: http is for private targets only.
 	if (priv === undefined && url.protocol !== "https:") {
 		throw new McpBlockedTargetError(url.href, "public servers must be served over https");
 	}
@@ -54,13 +41,8 @@ export async function assertSafeTarget(rawUrl: string | URL, trust: TargetTrust)
 }
 
 /**
- * `fetch` that runs every request, and every redirect hop, through `assertSafeTarget`. Native
- * fetch follows redirects on its own, and a public URL answering 302 to an internal address is
- * the classic way around a check that only looks at the first URL, so redirects are re-validated
- * here, manually.
- *
- * Shaped like fetch so it can be handed to the MCP SDK transports as their `fetch` option: that
- * places the guard on the whole connection, not only on the URL `open()` saw.
+ * An ordinary fetch behind `assertSafeTarget`, re-checking every redirect hop, for the calls the
+ * OAuth flow makes to endpoints a server's own metadata named.
  */
 export function guardedFetch(trust: TargetTrust): typeof fetch {
 	return async (input, init) => {
@@ -70,8 +52,6 @@ export function guardedFetch(trust: TargetTrust): typeof fetch {
 			const response = await fetch(new Request(url, init as RequestInit), { redirect: "manual" });
 			const location = response.headers.get("location");
 			if (!isRedirect(response.status) || !location) return response;
-			// Undici forbids reading the target of a manual redirect through response.url, so the hop is
-			// rebuilt from the Location header, relative URLs included.
 			url = await assertSafeTarget(new URL(location, url), trust);
 		}
 
@@ -88,7 +68,6 @@ function isRedirect(status: number): boolean {
 	return status === 301 || status === 302 || status === 303 || status === 307 || status === 308;
 }
 
-/** Every address the name answers with; an IP literal short-circuits, brackets stripped for IPv6. */
 async function resolve(hostname: string): Promise<string[]> {
 	const literal = hostname.startsWith("[") && hostname.endsWith("]") ? hostname.slice(1, -1) : hostname;
 	if (isIP(literal)) return [literal];
@@ -100,7 +79,6 @@ async function resolve(hostname: string): Promise<string[]> {
 	}
 }
 
-/** Loopback, RFC 1918, link-local, CGNAT, unspecified; IPv6 mapped forms unwrap to their IPv4. */
 function isPrivateAddress(address: string): boolean {
 	const v4 = extractIPv4(address);
 	if (v4) {
@@ -115,7 +93,6 @@ function isPrivateAddress(address: string): boolean {
 
 	const v6 = address.toLowerCase();
 	if (v6 === "::" || v6 === "::1") return true;
-	// fc00::/7 (unique local) and fe80::/10 (link-local)
 	return (
 		v6.startsWith("fc") ||
 		v6.startsWith("fd") ||
@@ -126,11 +103,6 @@ function isPrivateAddress(address: string): boolean {
 	);
 }
 
-/**
- * The IPv4 octets of a plain address or of an IPv6-mapped one. The mapped form arrives two ways:
- * dotted (`::ffff:10.0.0.1`) or, after URL canonicalization, hexadecimal (`::ffff:a00:1`), and
- * both name the same target.
- */
 function extractIPv4(address: string): number[] | undefined {
 	if (isIP(address) === 4) return address.split(".").map(Number);
 

@@ -13,60 +13,20 @@ import { signsFunctionCalls } from "../model/gemini-generation.service";
 import type { GeminiOptions } from "../model/gemini.options";
 import { GeminiRequest } from "./gemini-request.value-object";
 
-/**
- * What Google documents for a function call it did not write, and the only way to send one.
- *
- * It is a wire value and nothing else: it never reaches the journal, a domain message or
- * another provider, because a stored signature that is really a placeholder would be
- * indistinguishable from one the provider actually gave.
- */
 const UNSIGNED = "skip_thought_signature_validator";
 
-/**
- * Turns a neutral request into a Gemini generate call.
- *
- * Gemini has no system role: the prompt travels as `systemInstruction` in the config,
- * apart from the conversation, which is also what lets it be cached on its own.
- *
- * The causal pair survives the mapping. A tool call becomes a model turn carrying a
- * `functionCall`, its result becomes a user turn carrying a `functionResponse`, and
- * both keep the same id so the pair stays readable even when several calls are open.
- */
 export class GeminiRequestMapper {
 	public toRequest(model: string, request: ModelRequest, options: GeminiOptions = {}): GeminiRequest {
 		const contents = this.signContents(model, this.buildContents(request));
 		return new GeminiRequest(model, contents, this.buildConfig(request, options));
 	}
 
-	/**
-	 * A call written by another provider reaches Gemini 3 with the placeholder Google documents.
-	 *
-	 * A conversation does not always stay on one model. It changes hands on a transfer to an
-	 * agent that runs somewhere else, and it changes underneath itself when a failover reroutes
-	 * a turn to the next model in the chain. Either way the history handed over holds calls
-	 * nobody signed, and Gemini 3 answers 400 naming a tool, which reads like a broken schema
-	 * and is really a provider boundary.
-	 *
-	 * So the request says what is true: this call did not come from here. Google discourages
-	 * synthesised calls and warns the model reasons worse without the real signature, which is
-	 * the trade being made. It is worth making for a handover the application never asked
-	 * about, and it is never made for calls Gemini itself signed.
-	 */
 	private signContents(model: string, contents: Content[]): Content[] {
 		if (!signsFunctionCalls(model)) return contents;
 		const opened = this.currentTurnAt(contents);
 		return contents.map((content, at) => (at > opened ? this.signedTurn(content) : content));
 	}
 
-	/**
-	 * Where the turn being answered starts, which is the only stretch Gemini validates.
-	 *
-	 * It walks the history newest to oldest for the last user turn carrying ordinary content,
-	 * and everything after that is the current turn. A turn made only of function responses
-	 * does not open one: it is an answer to a call inside the turn. When nothing qualifies the
-	 * whole history is the current turn, which is the reading that errs toward sending a
-	 * placeholder rather than toward a 400.
-	 */
 	private currentTurnAt(contents: Content[]): number {
 		for (let at = contents.length - 1; at >= 0; at -= 1) {
 			const content = contents[at];
@@ -75,7 +35,6 @@ export class GeminiRequestMapper {
 		return -1;
 	}
 
-	/** Only the call that opens a step is validated, so a parallel call after it is left alone. */
 	private signedTurn(content: Content): Content {
 		const parts = content.parts ?? [];
 		const opens = parts.findIndex((part) => Reflect.get(part, "functionCall") !== undefined);
@@ -89,20 +48,6 @@ export class GeminiRequestMapper {
 		};
 	}
 
-	/**
-	 * The journal keeps one message per call; Gemini wants one turn per answer.
-	 *
-	 * Gemini 3 signs an answer on its first function call part only, and then refuses any
-	 * later turn whose calls are not signed. Calls the model asked for in one answer have to
-	 * go back as parts of one model turn, or the unsigned ones arrive alone and the request
-	 * is a 400 naming the tool.
-	 *
-	 * The context arrives paired, call then result then call then result, because a call and
-	 * its answer are one unit for everything upstream of here. So an unsigned call is put
-	 * back where it came from: it can only be a continuation of the last signed answer,
-	 * since a turn that opens an answer always carries a signature. Its result joins the
-	 * results already grouped, which is the shape the provider documents for parallel calls.
-	 */
 	private buildContents(request: ModelRequest): Content[] {
 		const contents: Content[] = [];
 		let lastAnswer: number | undefined;
@@ -116,7 +61,6 @@ export class GeminiRequestMapper {
 		return contents;
 	}
 
-	/** Where the message was folded, or nothing when it opens a turn of its own. */
 	private foldInto(contents: Content[], message: ModelMessage, lastAnswer?: number): number | undefined {
 		if (message instanceof ToolCallMessage) return this.foldCall(contents, message, lastAnswer);
 		if (message instanceof ToolResultMessage) return this.foldResult(contents, message);
@@ -138,13 +82,11 @@ export class GeminiRequestMapper {
 		return at;
 	}
 
-	/** Only an answer the provider signed can adopt a call that carries no signature. */
 	private isSignedAnswer(content: Content): boolean {
 		const first = content.parts?.[0];
 		return this.carries(content, "functionCall") && Reflect.get(Object(first), "thoughtSignature") !== undefined;
 	}
 
-	/** A turn is foldable when everything already in it is the same kind of part. */
 	private carries(content: Content, field: "functionCall" | "functionResponse"): boolean {
 		const parts = content.parts ?? [];
 		return parts.length > 0 && parts.every((part) => Reflect.get(part, field) !== undefined);
@@ -159,7 +101,6 @@ export class GeminiRequestMapper {
 	}
 
 	private buildCallPart(message: ToolCallMessage): Part {
-		// The signature rides next to the call, not inside it, which is where Gemini put it.
 		const call = { functionCall: { id: message.callId.value, name: message.toolName, args: message.args } };
 		return message.signature === undefined ? call : { ...call, thoughtSignature: message.signature };
 	}
@@ -168,21 +109,11 @@ export class GeminiRequestMapper {
 		return { functionResponse: { id: message.callId.value, name: message.toolName, response: message.output } };
 	}
 
-	/**
-	 * The image comes first and the words after it.
-	 * That is the order Google recommends for a prompt about a single image, and it is the
-	 * order that reads as a question about the picture rather than a caption under it.
-	 */
 	private buildUserParts(message: UserMessage): Part[] {
 		if (!message.hasMedia) return this.buildTextParts(message.text);
 		return [...message.media.map((part) => this.buildMediaPart(part)), { text: message.text }];
 	}
 
-	/**
-	 * Gemini keeps the two ways an image arrives in two different fields.
-	 * Bytes go inline, and an address goes as file data, which is the same field the Files
-	 * API and a Cloud Storage URI use: what varies is who fetches, not what is sent.
-	 */
 	private buildMediaPart(part: MediaPart): Part {
 		const url = part.url;
 		if (url !== undefined) return { fileData: { fileUri: url, mimeType: part.mediaType } };
@@ -222,7 +153,6 @@ export class GeminiRequestMapper {
 		return config;
 	}
 
-	/** A tool schema arrives as `unknown` and is checked here, never sent on trust. */
 	private buildDeclaration(name: string, description: string, parameters: unknown): FunctionDeclaration {
 		if (typeof parameters !== "object" || parameters === null || Array.isArray(parameters)) {
 			throw new InvalidJsonSchemaError(name, this.readTypeName(parameters));

@@ -1,11 +1,9 @@
 import { AdkError } from "@nestjs-adk/core";
 
 /**
- * The credential is gone and only the person who granted it can produce another one.
- *
- * This is the terminal end of renewal: the refresh token was revoked, rotated away or never
- * existed. `AdkMcpServer` turns it into `ToolSourceAuthError`, so the run continues without this
- * source and the application has something to show next to the integration.
+ * Only the user can fix this credential: the refresh token was revoked, rotated away or never
+ * existed. Throw it from `AdkMcpAuth.resolve` and the run records a reauth event naming the
+ * source and carries on with fewer tools, instead of failing.
  */
 export class McpReauthRequiredError extends AdkError {
 	public readonly code = "MCP_REAUTH_REQUIRED";

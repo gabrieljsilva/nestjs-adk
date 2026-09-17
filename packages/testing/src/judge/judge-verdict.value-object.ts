@@ -1,9 +1,6 @@
 /**
- * What a judge decided about one answer.
- *
- * The reason travels with the score because a failing assertion has to say something
- * useful: a bare 0.4 tells nobody what the answer was missing, and the judge is the only
- * one that knows.
+ * What the judge answered: whether the answer passed, the score it was given, and the reasoning
+ * behind it, which is what a failing assertion prints.
  */
 export class JudgeVerdict {
 	public readonly score: number;

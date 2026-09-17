@@ -6,12 +6,8 @@ const COLOR_TYPE_RGB = 2;
 const SIDE = 64;
 
 /**
- * A real image, small enough to send and simple enough to have one right answer.
- *
- * A suite that asks a provider what it sees needs an image the provider actually decodes,
- * and a base64 blob pasted into a file is something nobody can check by reading it. Sixty
- * four pixels of one colour is the smallest picture with an unambiguous answer, and it is
- * built here rather than downloaded so a test never depends on somebody else's uptime.
+ * The smallest images with an unambiguous answer, for a multimodal test that should not ship a
+ * fixture file.
  */
 export class TestImage {
 	private constructor(private readonly png: Buffer) {}
@@ -45,7 +41,6 @@ export class TestImage {
 		);
 	}
 
-	/** A red square, which is the one every multimodal suite here asks about. */
 	public static red(): TestImage {
 		return TestImage.solid(220, 20, 30);
 	}

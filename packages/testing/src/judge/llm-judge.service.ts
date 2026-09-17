@@ -15,14 +15,6 @@ const INSTRUCTIONS = [
 	"Score how completely the answer satisfies the criteria, not how well it is written.",
 ].join(" ");
 
-/** The shape the judge is asked for, and the only thing it is allowed to answer with. */
-/**
- * The shape the judge is asked for, in the strict subset every provider accepts.
- *
- * `additionalProperties: false` is not decoration: OpenAI refuses a structured output
- * schema without it, with a 400 that names the field, and Gemini does not care either way.
- * Measured against `gpt-5.6-luna`, which is what a judge running on OpenAI hits first.
- */
 const SCHEMA = {
 	type: "object",
 	properties: { score: { type: "number" }, reason: { type: "string" } },
@@ -31,16 +23,8 @@ const SCHEMA = {
 };
 
 /**
- * Asks a model whether an answer satisfies criteria, for assertions a string cannot make.
- *
- * A generated answer is worded differently every run, so `toBe` and `toContain` either
- * fail on a rewrite or assert so little that they pass on anything. A rubric asserts what
- * the answer had to contain and lets the wording move.
- *
- * The judge is a model like any other, so it costs a call and can be wrong: use a cheap
- * one, keep the criteria narrow, and treat a verdict as one opinion rather than a fact.
- * A judge that answers outside the shape it was asked for fails loudly, because a verdict
- * nobody can read is worse than no verdict.
+ * Grades prose a string match cannot assert, by asking a model to judge an answer against a
+ * rubric. It costs a provider call per judgement, so it belongs in a suite that means to spend.
  */
 export class LlmJudge {
 	public constructor(
@@ -59,7 +43,6 @@ export class LlmJudge {
 		return new ModelRequest([new UserMessage(question)], [], PromptInstructions.from(INSTRUCTIONS), SCHEMA);
 	}
 
-	/** A model without structured output still answers JSON, and it is read the same way. */
 	private parsed(text: string): unknown {
 		try {
 			return JSON.parse(text.trim());

@@ -1,9 +1,8 @@
 import { AdkError } from "@nestjs-adk/core";
 
 /**
- * A schema that reached the adapter is not a JSON Schema object.
- * Sending it anyway would fail at the provider with a message about a request nobody
- * wrote by hand, so it fails here, naming what declared it.
+ * Raised before a request leaves, when a tool or structured output declares something that is
+ * not a JSON Schema object and OpenAI would refuse it. `subject` names what declared it.
  */
 export class InvalidJsonSchemaError extends AdkError {
 	public readonly code = "OPENAI_INVALID_JSON_SCHEMA";

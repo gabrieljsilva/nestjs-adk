@@ -24,13 +24,6 @@ interface MatcherResult {
 	message: () => string;
 }
 
-/**
- * The events behind whatever was handed to a matcher.
- *
- * A run, the bed's own recorder or a plain `RunEvents` all answer the same questions, so a
- * test asserts on the thing it happens to be holding rather than on the one shape a matcher
- * was written for.
- */
 function readEvents(received: unknown): RunEvents | undefined {
 	if (received instanceof RunEvents) return received;
 	if (received instanceof RecordedRun) return received.events;
@@ -47,14 +40,11 @@ function matchesArgs(actual: Readonly<Record<string, unknown>>, expected: Record
 	return Object.entries(expected).every(([key, value]) => JSON.stringify(actual[key]) === JSON.stringify(value));
 }
 
+/**
+ * The assertions this package adds, registered by importing `@nestjs-adk/testing/matchers`.
+ * Each reads the run's events, so the same assertion holds against a script and a provider.
+ */
 export const adkMatchers = {
-	/**
-	 * The agent actually ran this tool, optionally with these arguments.
-	 *
-	 * It reads the run's own events, so the same assertion holds for a scripted run and for
-	 * one a real provider decided. A tool that was asked for and stopped in front of a human
-	 * has not run: that is `toAwaitApproval`.
-	 */
 	toHaveRunTool(received: unknown, tool: string, args?: Record<string, unknown>): MatcherResult {
 		const events = readEvents(received);
 		if (events === undefined) {
@@ -73,7 +63,6 @@ export const adkMatchers = {
 		};
 	},
 
-	/** The model asked for this tool, whether or not it ever ran. */
 	toHaveRequestedTool(received: unknown, tool: string): MatcherResult {
 		const events = readEvents(received);
 		if (events === undefined) {
@@ -87,7 +76,6 @@ export const adkMatchers = {
 		};
 	},
 
-	/** A human refused this call, and the conversation carried on knowing it. */
 	toHaveDeniedTool(received: unknown, tool: string): MatcherResult {
 		const events = readEvents(received);
 		if (events === undefined) {
@@ -99,7 +87,6 @@ export const adkMatchers = {
 		};
 	},
 
-	/** The session changed hands to this agent. */
 	toHaveTransferredTo(received: unknown, agent: string): MatcherResult {
 		const events = readEvents(received);
 		if (events === undefined) {
@@ -113,7 +100,6 @@ export const adkMatchers = {
 		};
 	},
 
-	/** One task was handed to this agent, with the conversation staying where it was. */
 	toHaveDelegatedTo(received: unknown, agent: string): MatcherResult {
 		const events = readEvents(received);
 		if (events === undefined) {
@@ -127,7 +113,6 @@ export const adkMatchers = {
 		};
 	},
 
-	/** The run stopped and is waiting for a human, optionally on one named tool. */
 	toAwaitApproval(received: unknown, tool?: string): MatcherResult {
 		if (!(received instanceof AgentResult)) {
 			return { pass: false, message: () => "toAwaitApproval expects an AgentResult." };
@@ -142,7 +127,6 @@ export const adkMatchers = {
 		};
 	},
 
-	/** The run ended in this state, named as the runtime names it. */
 	toHaveStatus(received: unknown, status: string): MatcherResult {
 		if (!(received instanceof AgentResult)) {
 			return { pass: false, message: () => "toHaveStatus expects an AgentResult." };
@@ -153,7 +137,6 @@ export const adkMatchers = {
 		};
 	},
 
-	/** A tool double was called with these arguments. */
 	toHaveBeenCalledWithArgs(received: unknown, args: Record<string, unknown>): MatcherResult {
 		if (!(received instanceof ToolFake)) {
 			return { pass: false, message: () => "toHaveBeenCalledWithArgs expects a ToolFake." };
@@ -167,7 +150,6 @@ export const adkMatchers = {
 		};
 	},
 
-	/** Every turn the script queued was played, so the conversation happened as described. */
 	toBeFullyPlayed(received: unknown): MatcherResult {
 		const script = received instanceof TestAgent ? received.script : received;
 		if (!(script instanceof ScriptedModel)) {
@@ -179,12 +161,6 @@ export const adkMatchers = {
 		};
 	},
 
-	/**
-	 * Two texts say close enough to the same thing.
-	 *
-	 * The comparison is the deterministic embedder, so it costs no call and reruns the same:
-	 * it catches a rewording, not a paraphrase that shares no words.
-	 */
 	async toBeSemanticallyCloseTo(received: unknown, expected: string, minimum = 0.8): Promise<MatcherResult> {
 		if (typeof received !== "string") {
 			return { pass: false, message: () => "toBeSemanticallyCloseTo expects a string." };
@@ -196,7 +172,6 @@ export const adkMatchers = {
 		};
 	},
 
-	/** Compares two embeddings without making a test know how cosine similarity is calculated. */
 	toBeSimilarTo(received: unknown, expected: EmbeddingVector, minimum = 0.8): MatcherResult {
 		if (!(received instanceof EmbeddingVector) || !(expected instanceof EmbeddingVector)) {
 			return { pass: false, message: () => "toBeSimilarTo expects two EmbeddingVector instances." };
@@ -208,12 +183,6 @@ export const adkMatchers = {
 		};
 	},
 
-	/**
-	 * Two or more model contexts kept the requested fraction of their opening byte identical.
-	 *
-	 * Pass one snapshot from each run. Unlike provider cache usage, this compares the text the
-	 * runtime assembled, so it is deterministic and can point at the exact segment that moved.
-	 */
 	toHaveStablePrefix(received: unknown, minimum: number): MatcherResult {
 		if (
 			!Array.isArray(received) ||
@@ -248,7 +217,6 @@ export const adkMatchers = {
 		};
 	},
 
-	/** A model graded the answer against criteria, which is the assertion a rewrite survives. */
 	async toSatisfyRubric(received: unknown, judge: LlmJudge, criteria: string | JudgeRubric): Promise<MatcherResult> {
 		if (typeof received !== "string") {
 			return { pass: false, message: () => "toSatisfyRubric expects a string." };
@@ -265,12 +233,6 @@ export const adkMatchers = {
 expect.extend(adkMatchers);
 
 declare module "vitest" {
-	// `Matchers` and not `Assertion`: since vitest 4 `Assertion` is only re-exported from
-	// `@vitest/expect`, and an augmentation aimed at the re-export merges into nothing, so every
-	// `expect(x).toHaveRunTool` fails to type-check while running fine. vitest folds `Matchers`
-	// into both `Assertion` and `AsymmetricMatchersContaining`, which is why there is one block.
-	// The parameter is declared without its default on purpose: repeating vitest's own
-	// `= any` would be the one place this package erases a type.
 	interface Matchers<T> {
 		toHaveRunTool(tool: string, args?: Record<string, unknown>): T;
 		toHaveRequestedTool(tool: string): T;

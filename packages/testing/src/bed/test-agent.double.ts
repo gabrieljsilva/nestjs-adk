@@ -14,14 +14,12 @@ import type { RunRecorder } from "../recording/run-recorder.service";
 import { StreamedRun } from "../recording/streamed-run.value-object";
 
 /**
- * A test's handle on one agent, over the real container and the real run path.
+ * One agent as a test drives it: `ask` and `stream` for a question, `approve` and `reject` for a
+ * run waiting on a human, `inspect` for where the session stands.
  *
- * It answers with the run the application would have got, carrying the evidence of what
- * happened along with it: nothing about the runtime is shortcut, and nothing has to be
- * correlated back out of a global recorder afterwards.
- *
- * The session is held between questions, so a follow up continues the conversation that
- * is actually open and a decision reaches the run that is actually waiting.
+ * The session is carried from one call to the next until `newSession`, and `approve` and
+ * `reject` find the pending call by tool name, so no test has to fish for a call id. `stream`
+ * drains the generator and answers a `StreamedRun`.
  */
 export class TestAgent {
 	private current?: SessionId;
@@ -29,16 +27,13 @@ export class TestAgent {
 	public constructor(
 		private readonly handle: AgentHandle,
 		private readonly recorder: RunRecorder,
-		/** The script behind this agent, when the test scripted one. */
 		public readonly script?: ScriptedModel,
 	) {}
 
-	/** The conversation this handle has been talking in, once it has said anything. */
 	public get sessionId(): SessionId | undefined {
 		return this.current;
 	}
 
-	/** The next question opens a new conversation instead of continuing this one. */
 	public newSession(): this {
 		this.current = undefined;
 		return this;
@@ -48,14 +43,6 @@ export class TestAgent {
 		return this.recorded(await this.handle.ask(message, this.continuing(options)));
 	}
 
-	/**
-	 * The same question, watched: the run plus the pieces the answer arrived in.
-	 *
-	 * The generator is drained here instead of being handed over, because
-	 * `AgentHandle.stream` returns the result as the generator's return value and a `for await`
-	 * silently discards it. A test that lost the result would assert on nothing, so the bed
-	 * iterates to the end and keeps both.
-	 */
 	public async stream(message: string, options?: AskOptions): Promise<StreamedRun> {
 		const streaming = this.handle.stream(message, this.continuing(options));
 		const chunks: ModelChunk[] = [];
@@ -67,12 +54,6 @@ export class TestAgent {
 		return new StreamedRun(this.recorded(next.value), chunks);
 	}
 
-	/**
-	 * Answers yes to a call the run is waiting on, naming the tool rather than the id.
-	 *
-	 * A run waits on a call id, and finding it is the one piece of bookkeeping every test
-	 * used to repeat. Naming the tool picks among several; naming nothing takes the only one.
-	 */
 	public async approve(tool?: string, approvedBy = "test"): Promise<RecordedRun> {
 		return this.recorded(await this.handle.approve(this.sessionOrFail(), await this.pendingCall(tool), approvedBy));
 	}
@@ -81,12 +62,10 @@ export class TestAgent {
 		return this.recorded(await this.handle.reject(this.sessionOrFail(), await this.pendingCall(tool), reason, deniedBy));
 	}
 
-	/** Where the conversation stands, which is how a test reads a session it did not keep. */
 	public async inspect(): Promise<SessionInspection> {
 		return this.handle.inspect(this.sessionOrFail());
 	}
 
-	/** The instruction the last turn was sent with, which is where an always skill lands. */
 	public lastInstruction(): string {
 		return this.script?.requests.at(-1)?.instructions?.text ?? "";
 	}
@@ -100,7 +79,6 @@ export class TestAgent {
 		return new RecordedRun(result, this.recorder.events.forRun(result.runId.value));
 	}
 
-	/** The call to decide on, read from the session so a resumed run finds what is still open. */
 	private async pendingCall(tool?: string): Promise<ToolCallId> {
 		const awaiting = (await this.inspect()).approval.awaiting;
 		const wanted = tool === undefined ? awaiting : awaiting.filter((call) => call.toolName === tool);

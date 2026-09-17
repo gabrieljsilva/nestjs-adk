@@ -6,16 +6,15 @@ import type { RunRecorder } from "../recording/run-recorder.service";
 import type { ToolFake } from "../tool-fake.double";
 import { TestAgent } from "./test-agent.double";
 
-/** Anything a token can be asked of: a class, a string or a symbol. */
 type Token<T> = (abstract new (...args: never[]) => T) | string | symbol;
 
 /**
- * A booted application, with the pieces the test replaced already in place.
+ * A booted application, as a test reaches into it: `get` for any provider, `agent` for one agent
+ * to drive, `script` and `tool` for the doubles, and `events` for everything that happened in
+ * the last run, whoever started it.
  *
- * The application itself is untouched: this is the real module, composed the way NestJS
- * composes it, with the model of each agent decided by the test and a recorder watching.
- * Everything reachable from the container stays reachable, so a use case is asked for by
- * type and answers through the same runtime a request would have used.
+ * `verify` fails when the test described a conversation the run never had. The bed owns the
+ * Nest application, so close it, or use `await using` and let disposal do it.
  */
 export class AdkTestBed {
 	public constructor(
@@ -25,7 +24,6 @@ export class AdkTestBed {
 		private readonly fakes: ReadonlyMap<unknown, ToolFake>,
 	) {}
 
-	/** Everything every run published, for an assertion about a run the test did not start. */
 	public get events(): RunEvents {
 		return this.recorder.events;
 	}
@@ -34,13 +32,6 @@ export class AdkTestBed {
 		return this.module.get(token);
 	}
 
-	/**
-	 * A handle on one agent, holding the session between questions.
-	 *
-	 * Takes the class an application injects or the name `@Agent` declared. Two calls for
-	 * the same agent answer the same handle, so a follow up continues the conversation
-	 * rather than opening a new one.
-	 */
 	public agent(agent: unknown): TestAgent {
 		const name = AdkTestBed.readName(agent);
 		const existing = this.agents.get(name);
@@ -50,22 +41,14 @@ export class AdkTestBed {
 		return handle;
 	}
 
-	/** The script behind one agent, for a test that queues turns as the conversation goes. */
 	public script(agent: unknown): ScriptedModel | undefined {
 		return this.scripts.get(AdkTestBed.readName(agent));
 	}
 
-	/** The double that replaced a tool class, with what it was called with. */
 	public tool(type: unknown): ToolFake | undefined {
 		return this.fakes.get(type);
 	}
 
-	/**
-	 * Fails when a script still holds turns nobody played.
-	 *
-	 * A conversation the test described and the run never had is a finding: the run either
-	 * stopped early or took a path the script does not cover.
-	 */
 	public verify(): void {
 		for (const script of this.scripts.values()) script.verify();
 	}
@@ -74,14 +57,12 @@ export class AdkTestBed {
 		await this.module.close();
 	}
 
-	/** Lets a test own the bed lexically with `await using`, including cleanup after failures. */
 	public async [Symbol.asyncDispose](): Promise<void> {
 		await this.close();
 	}
 
 	private readonly agents = new Map<string, TestAgent>();
 
-	/** A class carries its declared name in metadata; a string is already the name. */
 	private static readName(agent: unknown): string {
 		return typeof agent === "string" ? agent : AgentMetadata.findOrFail(agent).name;
 	}

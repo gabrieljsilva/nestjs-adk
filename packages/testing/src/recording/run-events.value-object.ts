@@ -11,12 +11,7 @@ const AGENT_TRANSFERRED = "agent.transferred";
 const DELEGATION_STARTED = "delegation.started";
 
 /**
- * What the runtime published, as a test can ask questions of it.
- *
- * Every assertion about what a run did reads this rather than the model double, which is
- * the whole point: a scripted run and a run a real provider decided publish the same
- * events, so one vocabulary answers for both. The events arrive through the ordinary
- * consumer port, so this sees exactly what an application watching its own runs sees.
+ * The events of one run alone, for asserting on a run the test did not start itself.
  */
 export class RunEvents {
 	private readonly received: PublishedEvent[] = [];
@@ -43,7 +38,6 @@ export class RunEvents {
 		return this.received.filter((event) => event.type === type).length;
 	}
 
-	/** Only what this run published, which is how one assertion survives a suite of several runs. */
 	public forRun(runId: string): RunEvents {
 		return RunEvents.fromEvents(this.received.filter((event) => event.correlation.runId.value === runId));
 	}
@@ -52,17 +46,6 @@ export class RunEvents {
 		return RunEvents.fromEvents(this.received.filter((event) => event.sessionId.value === sessionId));
 	}
 
-	/**
-	 * Every call the model asked for, paired with what came back.
-	 *
-	 * A call and its result share a callId, which is what pairs them here. A call still
-	 * waiting on a human stays `pending`, and one a human refused is `denied`, so a test can
-	 * tell "never asked for" apart from "asked for and stopped".
-	 *
-	 * A result whose request is not in this window still counts. That is the shape of every
-	 * approved call: the model asked in the run that suspended, and the tool answered in the
-	 * run that resumed, so requiring both halves would make an approved refund invisible.
-	 */
 	public get toolCalls(): readonly RecordedToolCall[] {
 		const byCallId = new Map<string, RecordedToolCall>();
 		const order: string[] = [];
@@ -99,7 +82,6 @@ export class RunEvents {
 		return this.toolCalls.filter((call) => call.tool === tool);
 	}
 
-	/** The tools that answered, which is what happened, not what the model asked for. */
 	public get toolsRun(): readonly string[] {
 		return this.toolCalls.filter((call) => call.hasRun).map((call) => call.tool);
 	}
@@ -130,7 +112,6 @@ export class RunEvents {
 		);
 	}
 
-	/** Everything the assistant said, in order, for an assertion about the words. */
 	public get assistantMessages(): readonly string[] {
 		return this.received.flatMap((event) => (event.type === ASSISTANT_MESSAGE ? [this.textIn(event, "text") ?? ""] : []));
 	}
@@ -139,12 +120,6 @@ export class RunEvents {
 		return this.received.flatMap((event) => (event.type === USER_MESSAGE ? [this.textIn(event, "text") ?? ""] : []));
 	}
 
-	/**
-	 * The most tool calls one turn asked for at once.
-	 *
-	 * A turn is a model answer followed by the calls it requested, so the longest run of
-	 * requests with no answer between them is how many the model asked for together.
-	 */
 	public get largestBatch(): number {
 		let largest = 0;
 		let current = 0;

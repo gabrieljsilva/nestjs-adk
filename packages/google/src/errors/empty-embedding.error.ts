@@ -1,12 +1,8 @@
 import { AdkError } from "@nestjs-adk/core";
 
 /**
- * The embedding call came back without a vector.
- *
- * It happens when the name is a generation model rather than an embedding one, or when
- * the text embedded to nothing. Either way the caller asked for a direction and got no
- * direction, and inventing a zero vector here would make every similarity that follows
- * score zero against everything, with nothing saying why.
+ * Raised when Gemini answers an embedding request with no vector, which is what a model name
+ * that does not embed, or empty text, looks like from here.
  */
 export class EmptyEmbeddingError extends AdkError {
 	public readonly code = "GEMINI_EMPTY_EMBEDDING";
