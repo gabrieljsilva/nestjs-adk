@@ -1,8 +1,6 @@
-import type { ModelResolver } from "../../contracts/model/model-resolver.contract";
 import type { AgentName } from "../../domain/agent/agent-name.value-object";
-import { AgentTransferred } from "../../domain/event/catalog/transfer/agent-transferred.event";
-import type { SessionEventBatch } from "../../domain/event/session-event-batch.value-object";
 import type { AgentCatalog } from "../catalog/agent-catalog.service";
+import type { ModelService } from "../model/model.service";
 import type { RunScopeFactory } from "../run/scope/run-scope.factory";
 import type { RunScope } from "../run/scope/run-scope.value-object";
 
@@ -20,15 +18,9 @@ import type { RunScope } from "../run/scope/run-scope.value-object";
 export class TransferSessionUseCase {
 	public constructor(
 		private readonly catalog: AgentCatalog,
-		private readonly models: ModelResolver,
+		private readonly models: ModelService,
 		private readonly scopes: RunScopeFactory,
 	) {}
-
-	/** The agent a committed batch handed the session to, or nothing when it handed it to nobody. */
-	public requestedIn(batch: SessionEventBatch): AgentName | undefined {
-		const transferred = batch.events.filter((event) => event instanceof AgentTransferred);
-		return transferred.at(-1)?.to;
-	}
 
 	public async execute(scope: RunScope, target: AgentName): Promise<RunScope> {
 		const definition = this.catalog.findOrFail(target);

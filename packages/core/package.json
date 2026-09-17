@@ -41,7 +41,5 @@
 	"bugs": {
 		"url": "https://github.com/gabrieljsilva/nestjs-adk/issues"
 	},
-	"dependencies": {
-		"@wirely/core": "0.1.1"
-	}
+	"dependencies": {}
 }

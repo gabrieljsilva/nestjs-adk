@@ -38,27 +38,23 @@ pricing/
   price-resolver.service.ts    # private
 ```
 
-## The internal container is invisible
+## There is no internal container
 
-The internal container is `@wirely/core` (https://github.com/gabrieljsilva/wirely). It is an implementation detail. The developer using the lib writes NestJS and never learns that it exists.
+There used to be one, `@wirely/core`, and on 2026-09-17 it was removed with its dependency. Every provider it held was registered as a value the composition had already built, so `container.get(X)` answered the variable three lines above it: a map from a class to something already in scope, plus an `init` and a `dispose` that had nothing to do.
 
-Rules that keep it invisible:
+What replaced it is three composers in `runtime/composition`, each with one `compose`: `ContextComposer` builds what turns a journal into what a model reads, `RunComposer` builds everything a command touches, and `SessionComposer` builds the read half of sessions. `RuntimeFactory` calls the three in that order and hands back `RuntimeServices`.
 
-- `@wirely/core` is a `dependency`, never a `peerDependency`. A peer range makes every major of the container a major of this lib.
-- No type from the container appears in `src/index.ts`, in a public method signature, or in a public type. If a `Container` or a module definition leaks into the public API, replacing the container becomes a breaking change.
-- Errors from the container never reach the user. Catch them at the adapter and rethrow as an `AdkError`. See [[error-taxonomy]].
+The rule the container existed to protect still holds, and now holds by construction: nothing about how the runtime is wired appears in `src/index.ts` or in any public signature.
 
 ## The bridge runs in one direction only
 
-Two containers exist at runtime: the NestJS container, which owns the classes the developer wrote, and the internal container, which owns the runtime of the lib.
+The NestJS container owns the classes the developer wrote. The composition owns the runtime of the lib, and it resolves nothing:
 
-The bridge goes from Nest to the internal container, and never back:
+1. The Nest adapter discovers the classes of the developer (agents, tools, skills) and reads them off the container NestJS has finished building, which is what gives them access to their own dependencies, like a repository or an HTTP client. `NestScanService` is the one door onto that reading.
+2. The adapter hands the resolved result to the composition as a value.
+3. The composed runtime depends on that value, and never asks the Nest container for anything.
 
-1. The Nest adapter discovers the classes of the developer (agents, tools, skills) and resolves them with the Nest container, which is what gives them access to their own dependencies, like a repository or an HTTP client.
-2. The adapter passes the resolved result into the internal container as a value provider.
-3. Internal services depend on that value, and never ask the Nest container for anything.
-
-If the internal container also resolved from Nest, the two graphs would depend on each other, and the boot order would stop being predictable.
+If the composition also resolved from Nest, the two graphs would depend on each other, and the boot order would stop being predictable.
 
 ## No global state
 
@@ -74,7 +70,7 @@ Keep it that way: a semantic that a second provider would also need belongs in t
 
 This guideline is `status: target` for one reason only: the module split itself.
 
-What already holds, verified on 2026-09-14: no file under `packages/core/src` or `packages/google/src` imports `@nestjs/*` outside `public/nest` and `adapters/nest`; there is no static mutable state in the core; `@wirely/core` is a plain dependency (`packages/core/package.json:45`) and no container type appears in the public surface.
+What already holds, verified on 2026-09-14: no file under `packages/core/src` or `packages/google/src` imports `@nestjs/*` outside `public/nest` and `adapters/nest`; there is no static mutable state in the core; and, since 2026-09-17, the core has no runtime dependency at all, so no container type can appear in the public surface.
 
 What does not hold yet:
 

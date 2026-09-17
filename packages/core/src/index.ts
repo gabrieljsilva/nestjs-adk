@@ -292,7 +292,7 @@ export { IncompatibleVectorsError } from "./domain/embedding/errors/incompatible
 // observation
 export { Secret } from "./common/secrecy/secret.value-object";
 export { SessionEventConsumer } from "./contracts/events/session-event-consumer.contract";
-export { ConsumerNoticeSink } from "./contracts/events/consumer-notice-sink.contract";
+export { ConsumerFailureSink } from "./contracts/events/consumer-failure-sink.contract";
 export { EventRedactor } from "./runtime/event/event-redactor.contract";
 export { FieldNameEventRedactor } from "./runtime/event/field-name-event-redactor.adapter";
 export { PublishedEvent } from "./domain/event/published-event.value-object";
@@ -379,6 +379,7 @@ export { ContextBudget } from "./domain/context/context-budget.value-object";
 export { ContextProjection } from "./domain/context/context-projection.value-object";
 export { ConsumerFailed } from "./domain/event/consumer-failed.notice";
 export { ContextNoticeSink } from "./contracts/context/context-notice-sink.contract";
+export { NoticeSink } from "./contracts/notice/notice-sink.contract";
 export { ContextWindowUnknown } from "./domain/context/context-window-unknown.value-object";
 export { MeteredEmbedding } from "./domain/embedding/metered-embedding.value-object";
 export { PriceBand } from "./domain/cost/price-band.value-object";

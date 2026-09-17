@@ -16,7 +16,6 @@ A free function is allowed only when the language or an external API requires on
 
 - TypeScript decorators;
 - callbacks passed to an external contract;
-- Wirely module declarations inside composition files;
 - a temporary compatibility wrapper for an existing public function.
 
 Keep an allowed function thin. Delegate owned behavior to a class method. New public builders and utilities use static named constructors or value object methods.
@@ -47,7 +46,7 @@ export class AgentRunFactory {
 - Do not read mutable module-level state or `process.env` inside behavior.
 - Do not resolve dependencies from a container inside a class.
 - Depend on abstract ports, not concrete adapters.
-- The class never knows whether NestJS or Wirely constructed it.
+- The class never knows whether NestJS or a composer constructed it.
 
 ## Module API
 

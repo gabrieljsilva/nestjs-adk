@@ -52,7 +52,7 @@ The tool itself moves nothing. It confirms to the model and stops there, because
 
 ## A handover changes who answers, not which run
 
-`TransferSessionUseCase` reads the transfer from the batch that was just committed and rebuilds the `RunScope` around the agent that received the session. Tools, skills and instructions come from the receiver. The run id, the session id, the cancellation, the resolved limits and the tool breaker all stay.
+The batch that was just committed answers who it handed the session to, through `SessionEventBatch.findTransferTarget`, and `TransferSessionUseCase.execute` rebuilds the `RunScope` around the agent that received it. Tools, skills and instructions come from the receiver. The run id, the session id, the cancellation, the resolved limits and the tool breaker all stay.
 
 Two of those are deliberate rather than incidental:
 
@@ -63,7 +63,7 @@ What the run's tool sources opened travels across too: `RunScope.remote` exists 
 
 ## The count is read from the batch, not from the state
 
-`SessionState.activeAgent` also changes on a transfer, but it carries the active agent of every previous run as well. A loop reading it would confuse "this session has belonged to billing since yesterday" with "this turn just transferred". The `AgentTransferred` event in the committed batch is the only reading with no ambiguity.
+`SessionState.activeAgent` also changes on a transfer, but it carries the active agent of every previous run as well. A loop reading it would confuse "this session has belonged to billing since yesterday" with "this turn just transferred". The `AgentTransferred` event in the committed batch is the only reading with no ambiguity, which is why the batch is what answers it: the reading belongs to the events, not to whoever asked.
 
 ## The cap is not opt in
 

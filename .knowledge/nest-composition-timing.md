@@ -35,9 +35,9 @@ Compose in `onModuleInit`, never in a provider. By the first lifecycle hook `cre
 
 That timing decides the shape of everything around it:
 
-- `ComposeRuntimeUseCase` owns the four steps, read the container, read the decorators, compose, bind, and the module only calls it from the hook;
+- `ComposeRuntimeUseCase` owns the four steps, read the container, read the decorators, compose, bind, and the module only calls it from the hook. The reading is one call per thing read on `NestScanService` (`readProviders`, `readSharedTools`, `readAgents`, `readExposedTools`), which is where the five scanners live and where the order they run in is written down;
 - anything the container builds before init holds `StartedRuntime` rather than `RuntimeServices`, because the runtime does not exist yet. `AgentRegistry` reads `host.runtime` per call for that reason;
-- `NestProviderScan` refuses what it cannot use instead of skipping it: a request or transient scoped component has no single instance to bind, and a declared component without an instance means the scan ran too early. Both raise `UnusableComponentError`.
+- `NestProviderScan`, behind that service, refuses what it cannot use instead of skipping it: a request or transient scoped component has no single instance to bind, and a declared component without an instance means the scan ran too early. Both raise `UnusableComponentError`.
 
 ## Why the options may come from the container
 

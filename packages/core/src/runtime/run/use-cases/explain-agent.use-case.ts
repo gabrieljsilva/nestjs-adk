@@ -23,15 +23,4 @@ export class ExplainAgentUseCase {
 		await this.asking.execute(command, RunObservers.capturing(captured));
 		return captured.all;
 	}
-
-	/** The snapshots and the failure together, for a run that did not get to the end. */
-	public async attempt(command: AgentRunCommand): Promise<readonly ContextSnapshot[]> {
-		const captured = new CapturedContexts();
-		try {
-			await this.asking.execute(command, RunObservers.capturing(captured));
-		} catch {
-			return captured.all;
-		}
-		return captured.all;
-	}
 }

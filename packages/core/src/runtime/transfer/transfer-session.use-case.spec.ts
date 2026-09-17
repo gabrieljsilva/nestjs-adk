@@ -28,6 +28,7 @@ import { RunContextFixture } from "../../support/run/run-context.fixture";
 import { ScriptedModel } from "../../support/run/scripted-model.fixture";
 import { AgentCatalog } from "../catalog/agent-catalog.service";
 import { RunCancellation } from "../lifecycle/run-cancellation.service";
+import { ModelService } from "../model/model.service";
 import { RunScopeFactory } from "../run/scope/run-scope.factory";
 import { StartedRun } from "../run/settle/started-run.value-object";
 import { TransferSessionUseCase } from "./transfer-session.use-case";
@@ -92,40 +93,16 @@ function startedRun(): StartedRun {
 function switchOver(...definitions: readonly AgentDefinition[]): TransferSessionUseCase {
 	const catalog = new AgentCatalog(definitions.map((definition) => new DeclaredAgent(definition, "Provider")));
 	const resolver = new DeclaredModelResolver();
-	return new TransferSessionUseCase(catalog, resolver, new RunScopeFactory());
+	return new TransferSessionUseCase(catalog, new ModelService(resolver), new RunScopeFactory());
 }
 
 describe("TransferSessionUseCase", () => {
-	it("finds the agent a committed batch handed the session to", async () => {
-		const batch = new SessionEventBatch([
-			new SessionCreated(header("e-1"), SUPPORT, undefined),
-			new AgentTransferred(header("e-2"), SUPPORT, BILLING),
-		]);
-
-		expect(switchOver().requestedIn(batch)?.value).toBe("billing");
-	});
-
-	it("finds nobody in a batch that handed the session to nobody", async () => {
-		const batch = new SessionEventBatch([new SessionCreated(header("e-1"), SUPPORT, undefined)]);
-
-		expect(switchOver().requestedIn(batch)).toBeUndefined();
-	});
-
-	it("takes the last handover when a turn produced more than one", async () => {
-		const batch = new SessionEventBatch([
-			new AgentTransferred(header("e-1"), SUPPORT, BILLING),
-			new AgentTransferred(header("e-2"), BILLING, SUPPORT),
-		]);
-
-		expect(switchOver().requestedIn(batch)?.value).toBe("support");
-	});
-
 	it("rebuilds the scope around the agent that received the session", async () => {
 		const support = agent(SUPPORT, SUPPORT_MODEL, [toolNamed("lookup_order")]);
 		const billing = agent(BILLING, BILLING_MODEL, [toolNamed("issue_refund")]);
 		const scopes = new RunScopeFactory();
 		const catalog = new AgentCatalog([new DeclaredAgent(support, "S"), new DeclaredAgent(billing, "B")]);
-		const agents = new TransferSessionUseCase(catalog, new DeclaredModelResolver(), scopes);
+		const agents = new TransferSessionUseCase(catalog, new ModelService(new DeclaredModelResolver()), scopes);
 		const started = startedRun();
 		const context = RunContextFixture.run(started.run.sessionId, {
 			agent: started.run.agent,
@@ -146,7 +123,7 @@ describe("TransferSessionUseCase", () => {
 		const billing = agent(BILLING, BILLING_MODEL, [toolNamed("issue_refund")]);
 		const scopes = new RunScopeFactory();
 		const catalog = new AgentCatalog([new DeclaredAgent(support, "S"), new DeclaredAgent(billing, "B")]);
-		const agents = new TransferSessionUseCase(catalog, new DeclaredModelResolver(), scopes);
+		const agents = new TransferSessionUseCase(catalog, new ModelService(new DeclaredModelResolver()), scopes);
 		const started = startedRun();
 		const context = RunContextFixture.run(started.run.sessionId, {
 			agent: started.run.agent,

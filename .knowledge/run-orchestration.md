@@ -19,7 +19,9 @@ Under it, one class per use case: `AskAgentUseCase` for a question, `DecideAppro
 
 | Class | Owns | Owns nothing about |
 | --- | --- | --- |
-| `SessionOpener` | create or rehydrate, refuse a closed session | what is then written to it |
+| `SessionOpener` | create or rehydrate, refuse a closed session, and answer which agent owns it now | what is then written to it |
+| `ModelService` | which model answers a command, and whether it can read what the command attached | what is then sent to it |
+| `ToolService` | the sources a run may use, for as long as the run lasts, and recording the ones that refused | what any tool does |
 | `SessionService` | opening a conversation and reading one, outside any run | anything a run does in it |
 | `RunScopeFactory` | the catalog, the limits and the breaker of one run | when any of them is used |
 | `TurnLoop` | model, tools, model again, and when to stop | what the events look like |
@@ -41,6 +43,19 @@ What it does not carry is where the run is happening. That is a `RunContext`, bu
 The breaker travels there too, and it is the one mutable thing in the bundle. It counts within one run and means nothing outside it, so it has the same lifetime as everything beside it.
 
 `RunJournal` deliberately does **not** take a `RunScope`. `AgentRunStarted` has to be written before the scope exists, because the scope needs the tools the sources opened and the sources open after the question is durable. A dependency that fits nine methods and fails two is not a dependency.
+
+## A use case is a sequence of awaits
+
+`AskAgentUseCase.execute` contains no loop, no nested `if`, no arithmetic and no `try/finally`. Every step is one call on a service whose name says what the step is, and each of those services owns the branch that used to be written out here:
+
+- `SessionOpener.enter` answers with the conversation *and* the agent that owns it, so the use case never compares an active agent with a called one;
+- `TransferGate.resolve` answers with a `Handover`, so a command that transfers and a command that does not take the same line;
+- `ModelService.resolve` picks the model and refuses an attachment it cannot read, because a caller asking for the model of a run is asking for one that can read what the run carries;
+- `ToolService.withSources` opens the sources and closes them however the body ends;
+- `AgentRunFactory.untilFinished` releases the run however it ends;
+- `RunSettler.settling` records the ending of everything after the first commit.
+
+The last three are `try/finally` and `try/catch` that used to sit in the use case. Written there, each one was a guarantee the next use case had to remember to write again; written here, it is the only way to call the body at all.
 
 ## Ordering is a decision, and it lives in the use case
 

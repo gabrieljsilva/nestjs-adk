@@ -1,6 +1,5 @@
 import type { SessionId } from "../../../common/identity/session-id.value-object";
 import type { ToolCallId } from "../../../common/identity/tool-call-id.value-object";
-import type { ModelResolver } from "../../../contracts/model/model-resolver.contract";
 import type { ToolCallObserver } from "../../../contracts/tool/tool-call-observer.contract";
 import type { ToolSource } from "../../../contracts/tool/tool-source.contract";
 import type { AgentDefinition } from "../../../domain/agent/agent-definition.value-object";
@@ -15,9 +14,11 @@ import type { AgentResult } from "../../../domain/session/run/agent-result.value
 import type { Session } from "../../../domain/session/session.entity";
 import type { Actor } from "../../../domain/tool/access/actor.value-object";
 import type { AgentCatalog } from "../../catalog/agent-catalog.service";
+import type { ModelService } from "../../model/model.service";
 import { OpenedSession } from "../../session/opened-session.value-object";
 import type { SessionRepository } from "../../session/session-repository.service";
-import { ToolSourceScope } from "../../tool/tool-source-scope.service";
+import type { ToolSourceScope } from "../../tool/tool-source-scope.service";
+import type { ToolService } from "../../tool/tool.service";
 import type { AgentRunFactory } from "../agent-run.factory";
 import type { RunJournal } from "../journal/run-journal.service";
 import { RunObservers } from "../journal/run-observers.value-object";
@@ -60,7 +61,7 @@ export interface ApprovalOptions {
 export class DecideApprovalUseCase {
 	public constructor(
 		private readonly catalog: AgentCatalog,
-		private readonly models: ModelResolver,
+		private readonly models: ModelService,
 		private readonly sessions: SessionRepository,
 		private readonly runs: AgentRunFactory,
 		private readonly scopes: RunScopeFactory,
@@ -69,7 +70,7 @@ export class DecideApprovalUseCase {
 		private readonly loop: TurnLoop,
 		private readonly settler: RunSettler,
 		private readonly results: RunResultFactory,
-		private readonly sources: readonly ToolSource[] = [],
+		private readonly tools: ToolService,
 	) {}
 
 	public async execute(
@@ -87,46 +88,45 @@ export class DecideApprovalUseCase {
 		const definition = this.catalog.findOrFail(rehydrated.state.activeAgent ?? rehydrated.session.rootAgent);
 		const model = this.models.resolve(definition);
 		const started = this.runs.resume(sessionId, definition.name, rehydrated.state.pendingTurn.runId, signal);
-		const sources = new ToolSourceScope(this.sources, perRun);
-		const context = RunContext.fromOpenedSession(rehydrated.session, rehydrated.state, started.run, { signal, actor });
-		const progress = new RunProgress(
-			await this.sessions.commit(
-				context,
-				rehydrated.session.revision,
-				new SessionEventBatch([
-					this.journal.started(started, definition.name, model.descriptor().identity),
-					this.journal.decision(
-						started,
-						callId,
-						decision,
-						by,
-						reason,
-						rehydrated.state.pendingTurn.find(callId)?.toolName,
-						actor?.id,
+		return await this.runs.untilFinished(started, async () =>
+			this.tools.withSources(perRun, started.run.id, async (sources) => {
+				const context = RunContext.fromOpenedSession(rehydrated.session, rehydrated.state, started.run, {
+					signal,
+					actor,
+				});
+				const progress = new RunProgress(
+					await this.sessions.commit(
+						context,
+						rehydrated.session.revision,
+						new SessionEventBatch([
+							this.journal.started(started, definition.name, model.descriptor().identity),
+							this.journal.decision(
+								started,
+								callId,
+								decision,
+								by,
+								reason,
+								rehydrated.state.pendingTurn?.find(callId)?.toolName,
+								actor?.id,
+							),
+						]),
+						rehydrated.state,
 					),
-				]),
-				rehydrated.state,
-			),
+				);
+				return await this.settler.settling(context, progress, started, async () =>
+					this.release(
+						context.withMetadata(progress.state.metadata),
+						definition,
+						model,
+						started,
+						progress,
+						sources,
+						rehydrated.session,
+						RunObservers.none().watchingTools(toolCalls),
+					),
+				);
+			}),
 		);
-
-		try {
-			return await this.release(
-				context.withMetadata(progress.state.metadata),
-				definition,
-				model,
-				started,
-				progress,
-				sources,
-				rehydrated.session,
-				RunObservers.none().watchingTools(toolCalls),
-			);
-		} catch (error) {
-			await this.settler.settle(context, progress.state, started, error);
-			throw error;
-		} finally {
-			await sources.close(started.run.id);
-			this.runs.finish(started.run);
-		}
 	}
 
 	/** The turn runs when nobody is waiting on it anymore, and stays suspended until then. */

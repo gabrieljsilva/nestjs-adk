@@ -1,0 +1,34 @@
+import type { ModelResolver } from "../../contracts/model/model-resolver.contract";
+import type { ToolDefinition } from "../../domain/tool/tool-definition.value-object";
+import type { ArtifactOffloader } from "../artifact/artifact-offloader.service";
+import type { EventPublisher } from "../event/event-publisher.service";
+import type { ActiveRunTracker } from "../lifecycle/active-run-tracker.service";
+import type { RuntimeLifecycle } from "../lifecycle/runtime-lifecycle.service";
+import type { AgentRunFactory } from "../run/agent-run.factory";
+import type { AgentRunner } from "../run/agent-runner.service";
+import type { RunJournal } from "../run/journal/run-journal.service";
+import type { SessionRepository } from "../session/session-repository.service";
+import type { ToolGate } from "../tool/tool-gate.service";
+
+/**
+ * Everything the run half of the composition built, for the halves assembled after it.
+ *
+ * Sessions and the journal are in here because the read half of sessions writes metadata
+ * under a run of its own, so the two halves cannot be built from nothing twice: one
+ * `SessionRepository` per runtime is what keeps a snapshot and a projection agreeing.
+ */
+export class ComposedRun {
+	public constructor(
+		public readonly runner: AgentRunner,
+		public readonly runs: AgentRunFactory,
+		public readonly journal: RunJournal,
+		public readonly sessions: SessionRepository,
+		public readonly events: EventPublisher,
+		public readonly resolver: ModelResolver,
+		public readonly tracker: ActiveRunTracker,
+		public readonly lifecycle: RuntimeLifecycle,
+		public readonly offloader: ArtifactOffloader,
+		public readonly readArtifact: ToolDefinition,
+		public readonly gate: ToolGate,
+	) {}
+}

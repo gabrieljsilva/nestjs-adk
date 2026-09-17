@@ -1,4 +1,3 @@
-import type { ModelResolver } from "../../contracts/model/model-resolver.contract";
 import type { AgentDefinition } from "../../domain/agent/agent-definition.value-object";
 import { AgentName } from "../../domain/agent/agent-name.value-object";
 import { DelegationNotDeclaredError } from "../../domain/agent/errors/delegation-not-declared.error";
@@ -7,6 +6,7 @@ import type { LlmModel } from "../../domain/model/llm-model.contract";
 import type { PendingCall } from "../../domain/session/approval/pending-call.value-object";
 import { AgentMaxDelegationDepthError } from "../../domain/session/errors/agent-max-delegation-depth.error";
 import type { AgentCatalog } from "../catalog/agent-catalog.service";
+import type { ModelService } from "../model/model.service";
 import type { AgentRunFactory } from "../run/agent-run.factory";
 import type { RunJournal } from "../run/journal/run-journal.service";
 import type { RunScopeFactory } from "../run/scope/run-scope.factory";
@@ -41,7 +41,7 @@ export class DelegationRunner {
 
 	public constructor(
 		private readonly catalog: AgentCatalog,
-		private readonly models: ModelResolver,
+		private readonly models: ModelService,
 		private readonly runs: AgentRunFactory,
 		private readonly scopes: RunScopeFactory,
 		private readonly journal: RunJournal,
@@ -112,6 +112,13 @@ export class DelegationRunner {
 			return childProgress.answer;
 		} finally {
 			this.runs.finish(child.run);
+		}
+	}
+
+	/** Refuses a delegation nobody declared, before a run exists to record it. */
+	public assertDeclares(from: AgentDefinition, to: AgentName): void {
+		if (!from.delegation.allows(to)) {
+			throw new DelegationNotDeclaredError(from.name.value, to.value, from.delegation.names);
 		}
 	}
 

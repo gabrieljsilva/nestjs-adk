@@ -29,14 +29,14 @@ describe("ExplainAgentUseCase", () => {
 		expect(snapshots[0]?.segment(ContextSegment.CONVERSATION)?.text).toContain("where is order 42?");
 	});
 
-	it("keeps what it saw of a run that failed, because a failed run is worth looking at", async () => {
+	it("lets the failure through, because a caller cannot read snapshots as an answer", async () => {
 		const stack = new NativeStackFixture(new ScriptedModel("primary", [], true));
 
-		const snapshots = await new ExplainAgentUseCase(stack.asking).attempt(
-			new AgentRunCommand(NativeStackFixture.AGENT, AskInput.fromMessage("hi")),
-		);
-
-		expect(snapshots).toHaveLength(1);
+		await expect(
+			new ExplainAgentUseCase(stack.asking).execute(
+				new AgentRunCommand(NativeStackFixture.AGENT, AskInput.fromMessage("hi")),
+			),
+		).rejects.toThrow();
 	});
 
 	it("runs the agent for real, so the session it explains exists afterwards", async () => {

@@ -16,7 +16,7 @@ import type { DelegationRunner } from "../../delegation/delegation-runner.servic
 import { ContextPhotographer } from "../../diagnostics/context-photographer.service";
 import type { ModelRunOutcome } from "../../model/model-run-outcome.value-object";
 import { ModelRunCommand } from "../../model/model-run.command";
-import type { ModelRunner } from "../../model/model-runner.service";
+import type { ModelService } from "../../model/model.service";
 import type { OpenedSession } from "../../session/opened-session.value-object";
 import type { SessionRepository } from "../../session/session-repository.service";
 import type { ChunkSink } from "../../stream/chunk-sink.contract";
@@ -46,7 +46,7 @@ const MAX_TRANSFERS = 8;
 export class TurnLoop extends DelegatedTurnLoop {
 	public constructor(
 		private readonly context: ContextService,
-		private readonly turns: ModelRunner,
+		private readonly models: ModelService,
 		private readonly sessions: SessionRepository,
 		private readonly journal: RunJournal,
 		private readonly executor: TurnExecutor,
@@ -73,7 +73,7 @@ export class TurnLoop extends DelegatedTurnLoop {
 			observers.context?.capture(
 				this.photographer.of(current.agent, current.model.descriptor().identity, prepared.projection),
 			);
-			const outcome = await this.consume(this.turns.stream(this.buildCommand(current, prepared)), observers.chunks);
+			const outcome = await this.consume(this.models.stream(this.buildCommand(current, prepared)), observers.chunks);
 			const calls = outcome.response.toolCalls;
 			const empty = outcome.response.isEmpty;
 			if (outcome.response.hasText) progress.said(outcome.response.text);
@@ -109,7 +109,7 @@ export class TurnLoop extends DelegatedTurnLoop {
 			const batch = await this.executor.execute(current, turn, false, delegated, observers.tools);
 			current = await this.commit(current, progress, batch);
 
-			const target = this.agents.requestedIn(batch);
+			const target = batch.findTransferTarget();
 			if (target !== undefined) {
 				transfers += 1;
 				if (transfers > MAX_TRANSFERS) throw new AgentMaxTransfersError(current.agent.value, MAX_TRANSFERS);

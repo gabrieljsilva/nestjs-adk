@@ -1,15 +1,8 @@
-import type { SessionId } from "../../../common/identity/session-id.value-object";
-import type { ToolCallId } from "../../../common/identity/tool-call-id.value-object";
 import type { AgentName } from "../../../domain/agent/agent-name.value-object";
-import type { ContextBudget } from "../../../domain/context/context-budget.value-object";
-import type { ModelChunk } from "../../../domain/model/streaming/model-chunk.value-object";
 import type { PromptContext } from "../../../domain/prompt/prompt-context.value-object";
-import type { AgentResult } from "../../../domain/session/run/agent-result.value-object";
-import type { SessionInspection } from "../../../domain/session/session-inspection.value-object";
-import type { Session } from "../../../domain/session/session.entity";
 import { AgentNotBoundError } from "../errors/agent-not-bound.error";
 import type { AgentPrompting } from "../prompt/agent-prompting.service";
-import type { AgentHandle, AskOptions, CreateSessionOptions, DecisionOptions } from "./agent-handle.edge";
+import { AgentHandle } from "./agent-handle.edge";
 
 /**
  * An agent an application can inject as itself.
@@ -33,74 +26,18 @@ import type { AgentHandle, AskOptions, CreateSessionOptions, DecisionOptions } f
  * Extending is optional, and `AgentRegistry` stays the way to reach an agent from a class
  * that already extends something else.
  */
-export abstract class AdkAgent {
-	private bound?: AgentHandle;
+export abstract class AdkAgent extends AgentHandle {
 	private prompts?: AgentPrompting;
 
 	/** Called once by the module, with the handle for the agent this class declared. */
 	public bindTo(handle: AgentHandle, prompting?: AgentPrompting): void {
-		this.bound = handle;
+		this.adopt(handle);
 		this.prompts = prompting;
 	}
 
+	/** The agent this class declared, under the name the runtime knows it by. */
 	public get agentName(): AgentName {
-		return this.handle.name;
-	}
-
-	public async ask(message: string, options?: AskOptions | SessionId | string): Promise<AgentResult> {
-		return this.handle.ask(message, options);
-	}
-
-	public stream(message: string, options?: AskOptions | SessionId | string): AsyncGenerator<ModelChunk, AgentResult> {
-		return this.handle.stream(message, options);
-	}
-
-	/** Opens a conversation under the identifier the application already uses for it. */
-	public async createSession(options?: CreateSessionOptions): Promise<Session> {
-		return this.handle.createSession(options);
-	}
-
-	public async findSessionById(sessionId: SessionId | string): Promise<Session | undefined> {
-		return this.handle.findSessionById(sessionId);
-	}
-
-	public async findSessionByIdOrFail(sessionId: SessionId | string): Promise<Session> {
-		return this.handle.findSessionByIdOrFail(sessionId);
-	}
-
-	public async inspect(sessionId: SessionId | string): Promise<SessionInspection> {
-		return this.handle.inspect(sessionId);
-	}
-
-	public async contextBudget(sessionId: SessionId | string): Promise<ContextBudget> {
-		return this.handle.contextBudget(sessionId);
-	}
-
-	public async approve(
-		sessionId: SessionId | string,
-		callId: ToolCallId,
-		options: DecisionOptions | string = {},
-	): Promise<AgentResult> {
-		return this.handle.approve(sessionId, callId, options);
-	}
-
-	public async reject(
-		sessionId: SessionId | string,
-		callId: ToolCallId,
-		reason: string,
-		options: DecisionOptions | string = {},
-	): Promise<AgentResult> {
-		return this.handle.reject(sessionId, callId, reason, options);
-	}
-
-	/** Hands one task to a specialist this agent declared, keeping the conversation here. */
-	public async delegate(sessionId: SessionId | string, to: AgentName, task: string): Promise<AgentResult> {
-		return this.handle.delegate(sessionId, to, task);
-	}
-
-	/** What each model call was actually given, for the same command `ask` would have run. */
-	public async explain(message: string, options?: AskOptions | SessionId | string) {
-		return this.handle.explain(message, options);
+		return this.name;
 	}
 
 	/**
@@ -144,11 +81,5 @@ export abstract class AdkAgent {
 		const prompting = this.prompts;
 		if (prompting === undefined) throw new AgentNotBoundError(this.constructor.name);
 		return prompting;
-	}
-
-	private get handle(): AgentHandle {
-		const bound = this.bound;
-		if (bound === undefined) throw new AgentNotBoundError(this.constructor.name);
-		return bound;
 	}
 }

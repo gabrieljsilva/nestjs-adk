@@ -1,14 +1,9 @@
-import { NestAgentScanner } from "../../../adapters/nest/scanning/nest-agent-scanner.service";
-import { NestComponentDiscovery } from "../../../adapters/nest/scanning/nest-component-discovery.service";
-import { NestControllerScanner } from "../../../adapters/nest/scanning/nest-controller-scanner.service";
 import type { ContainerProvider } from "../../../adapters/nest/scanning/nest-provider-scan.service";
-import { NestProviderScan } from "../../../adapters/nest/scanning/nest-provider-scan.service";
-import { FileSystemPromptSource } from "../../../adapters/prompt/file-system-prompt-source.adapter";
+import { NestScanService } from "../../../adapters/nest/scanning/nest-scan.service";
 import type { IdGenerator } from "../../../common/identity/id-generator.contract";
 import type { Clock } from "../../../common/time/clock.contract";
 import type { SessionEventConsumer } from "../../../contracts/events/session-event-consumer.contract";
 import type { ModelResolver } from "../../../contracts/model/model-resolver.contract";
-import type { PromptSource } from "../../../contracts/model/prompt-source.contract";
 import type { ArtifactStorage } from "../../../contracts/storage/artifact-storage.contract";
 import type { SessionStorage } from "../../../contracts/storage/session-storage.contract";
 import type { LlmModel } from "../../../domain/model/llm-model.contract";
@@ -16,7 +11,6 @@ import { RuntimeOptions, type RuntimeOptionsPatch } from "../../../runtime/compo
 import type { AdkRuntime } from "../../adk-runtime.edge";
 import { AgentBinder } from "../agent/agent-binder.service";
 import type { AgentRegistry } from "../agent/agent-registry.service";
-import { ConflictingPromptOptionsError } from "../errors/conflicting-prompt-options.error";
 import { AgentPromptScan } from "../prompt/agent-prompt-scan.service";
 import { AgentPrompting } from "../prompt/agent-prompting.service";
 import type { AdkModuleOptions } from "./adk-module.options";
@@ -50,32 +44,18 @@ export class ComposeRuntimeUseCase {
 		private readonly defaultModel?: LlmModel,
 		/** Runtime fields replaced by name after the application declared them. */
 		private readonly runtimePatch: RuntimeOptionsPatch = {},
-		private readonly scan: NestProviderScan = new NestProviderScan(),
-		private readonly scanner: NestAgentScanner = new NestAgentScanner(),
-		private readonly discovery: NestComponentDiscovery = new NestComponentDiscovery(),
-		private readonly prompts: AgentPromptScan = new AgentPromptScan(),
-		private readonly controllers: NestControllerScanner = new NestControllerScanner(),
+		private readonly scan: NestScanService = new NestScanService(new AgentPromptScan()),
 	) {}
 
 	/** Answers how many agent classes were bound, which is what a caller can assert on. */
 	public async execute(providers: readonly ContainerProvider[]): Promise<number> {
-		const scanned = this.scan.read(providers);
-		const shared = this.scanner.sharedTools(scanned);
-		const discovered = this.scanner.scan(scanned, this.defaultModel ?? this.options.defaultModel, shared);
-		const declared = this.discovery.discover(this.prompts.attach(discovered, scanned));
-
-		const exposed = this.controllers.scan(scanned, shared);
+		const scanned = this.scan.readProviders(providers);
+		const shared = this.scan.readSharedTools(scanned);
+		const declared = this.scan.readAgents(scanned, this.defaultModel ?? this.options.defaultModel, shared);
+		const exposed = this.scan.readExposedTools(scanned, shared);
 
 		await this.host.start(declared, this.storage, this.artifacts, this.clock, this.ids, this.declaredRuntime(), exposed);
-		return new AgentBinder(this.registry, new AgentPrompting(this.promptSource())).bind(scanned);
-	}
-
-	/** The application's own source, or files under the directory it named. */
-	private promptSource(): PromptSource {
-		const declared = this.options.promptSource;
-		const dir = this.options.prompts?.dir;
-		if (declared !== undefined && dir !== undefined) throw new ConflictingPromptOptionsError();
-		return declared ?? new FileSystemPromptSource(dir);
+		return new AgentBinder(this.registry, new AgentPrompting(this.options.resolvePromptSource())).bind(scanned);
 	}
 
 	/** The options' runtime, patched by name, with the container's resolver and appended consumers. */

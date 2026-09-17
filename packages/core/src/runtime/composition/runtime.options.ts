@@ -2,7 +2,7 @@ import type { AttachmentResolver } from "../../contracts/context/attachment-reso
 import type { CompactionStrategy } from "../../contracts/context/compaction-strategy.contract";
 import type { ContextNoticeSink } from "../../contracts/context/context-notice-sink.contract";
 import type { ContextSummarizer } from "../../contracts/context/context-summarizer.contract";
-import type { ConsumerNoticeSink } from "../../contracts/events/consumer-notice-sink.contract";
+import type { ConsumerFailureSink } from "../../contracts/events/consumer-failure-sink.contract";
 import type { SessionEventConsumer } from "../../contracts/events/session-event-consumer.contract";
 import type { ModelResolver } from "../../contracts/model/model-resolver.contract";
 import type { PricingNoticeSink } from "../../contracts/pricing/pricing-notice-sink.contract";
@@ -38,7 +38,7 @@ export interface RuntimeOptionsPatch {
 	models?: ModelResolver;
 	summarizer?: ContextSummarizer;
 	contextNotices?: ContextNoticeSink;
-	consumerNotices?: ConsumerNoticeSink;
+	consumerNotices?: ConsumerFailureSink;
 	compaction?: AdkCompactionPolicy | false;
 	/** How a context that grew too long becomes one that fits. Absent keeps the shipped strategy. */
 	compactionStrategy?: CompactionStrategy;
@@ -80,7 +80,7 @@ export class RuntimeOptions {
 		public readonly models?: ModelResolver,
 		public readonly summarizer?: ContextSummarizer,
 		public readonly contextNotices?: ContextNoticeSink,
-		public readonly consumerNotices?: ConsumerNoticeSink,
+		public readonly consumerNotices?: ConsumerFailureSink,
 		/**
 		 * What every agent that declared none runs under; one that declared its own keeps it.
 		 * Absent means the standard share of the window, and `false` means no conversation

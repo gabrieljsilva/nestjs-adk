@@ -2,6 +2,7 @@ import type { AgentDefinition } from "../../domain/agent/agent-definition.value-
 import type { AgentName } from "../../domain/agent/agent-name.value-object";
 import { TransferNotDeclaredError } from "../../domain/agent/errors/transfer-not-declared.error";
 import type { AgentCatalog } from "../catalog/agent-catalog.service";
+import { Handover } from "./handover.value-object";
 
 /**
  * The one place that decides whether a handover is allowed to happen.
@@ -27,5 +28,17 @@ export class TransferGate {
 			throw new TransferNotDeclaredError(from.name.value, to.value, from.transfer.names);
 		}
 		return this.catalog.findOrFail(to);
+	}
+
+	/**
+	 * Who answers a command, for a command that may be handing the session over first.
+	 *
+	 * A command naming no target is not a transfer, and answers with the agent it entered
+	 * with. One that names a target goes through the same check as the model's, before the
+	 * session is touched, so a handover nobody declared leaves no trace at all.
+	 */
+	public resolve(entry: AgentDefinition, to?: AgentName): Handover {
+		if (to === undefined) return new Handover(entry);
+		return new Handover(this.open(entry, to), entry.name);
 	}
 }

@@ -41,7 +41,7 @@ flowchart LR
 - Public API converts public requests into command classes and maps runtime results into public response classes.
 - Support does not ship runtime behavior.
 - NestJS stays in the public composition surface and Nest adapter.
-- Wirely stays in internal `*.module.ts` composition files. See [[module-boundaries]].
+- Composition stays in `runtime/composition`, and resolves nothing from a container. See [[module-boundaries]].
 
 Mechanical code may exist at lower levels, but it stays behind a declarative service API. A feature module exports one high-level service or an abstract port needed by another module.
 

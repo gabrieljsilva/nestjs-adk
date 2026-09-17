@@ -1,6 +1,4 @@
 import { ToolCallId } from "../../../common/identity/tool-call-id.value-object";
-import type { ModelResolver } from "../../../contracts/model/model-resolver.contract";
-import { DelegationNotDeclaredError } from "../../../domain/agent/errors/delegation-not-declared.error";
 import { RunContext } from "../../../domain/run/run-context.value-object";
 import { SessionContext } from "../../../domain/run/session-context.value-object";
 import { PendingCall } from "../../../domain/session/approval/pending-call.value-object";
@@ -9,6 +7,7 @@ import type { AgentResult } from "../../../domain/session/run/agent-result.value
 import type { AgentCatalog } from "../../catalog/agent-catalog.service";
 import { DelegateToAgentTool } from "../../delegation/delegate-to-agent.tool";
 import type { DelegationRunner } from "../../delegation/delegation-runner.service";
+import type { ModelService } from "../../model/model.service";
 import { OpenedSession } from "../../session/opened-session.value-object";
 import type { SessionRepository } from "../../session/session-repository.service";
 import type { AgentRunFactory } from "../agent-run.factory";
@@ -31,7 +30,7 @@ import type { RunSettler } from "../settle/run-settler.service";
 export class DelegateAgentUseCase {
 	public constructor(
 		private readonly catalog: AgentCatalog,
-		private readonly models: ModelResolver,
+		private readonly models: ModelService,
 		private readonly sessions: SessionRepository,
 		private readonly runs: AgentRunFactory,
 		private readonly scopes: RunScopeFactory,
@@ -43,25 +42,20 @@ export class DelegateAgentUseCase {
 	public async execute(input: DelegateInput): Promise<AgentResult> {
 		const parent = this.catalog.findOrFail(input.from);
 		// Checked before a run exists, so a delegation nobody declared leaves the journal alone.
-		if (!parent.delegation.allows(input.to)) {
-			throw new DelegationNotDeclaredError(parent.name.value, input.to.value, parent.delegation.names);
-		}
+		this.delegations.assertDeclares(parent, input.to);
 		const rehydrated = await this.sessions.rehydrate(SessionContext.fromSessionId(input.sessionId));
 		const started = this.runs.start(input.sessionId, parent.name);
 		const progress = new RunProgress(rehydrated.state);
 		const opened = new OpenedSession(rehydrated.session, rehydrated.state, false);
 		const context = RunContext.fromOpenedSession(rehydrated.session, rehydrated.state, started.run);
 
-		try {
-			const scope = await this.scopes.create(context, parent, this.models.resolve(parent), started);
-			const answers = await this.delegations.runAll(scope, opened, progress, [this.buildCall(input)]);
-			return await this.results.answering(context, started, progress, answers.values().next().value ?? "");
-		} catch (error) {
-			await this.settler.settle(context, progress.state, started, error);
-			throw error;
-		} finally {
-			this.runs.finish(started.run);
-		}
+		return await this.runs.untilFinished(started, async () =>
+			this.settler.settling(context, progress, started, async () => {
+				const scope = await this.scopes.create(context, parent, this.models.resolve(parent), started);
+				const answers = await this.delegations.runAll(scope, opened, progress, [this.buildCall(input)]);
+				return await this.results.answering(context, started, progress, answers.values().next().value ?? "");
+			}),
+		);
 	}
 
 	/** The same call the model would have made, built from what the code asked for. */

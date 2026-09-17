@@ -1,3 +1,4 @@
+import { AgentPromptAttachment } from "../../../adapters/nest/scanning/agent-prompt-attachment.contract";
 import type { DiscoveredProvider } from "../../../adapters/nest/scanning/nest-component-discovery.service";
 import type { ScannedProvider } from "../../../adapters/nest/scanning/scanned-provider.value-object";
 import { AmbiguousAgentPromptError } from "../errors/ambiguous-agent-prompt.error";
@@ -14,7 +15,7 @@ import { MethodPromptBuilder } from "./method-prompt-builder.adapter";
  * counts as an overridden `prompt()` means knowing `AdkAgent`, and the adapter is not
  * allowed to know the base class an application extends.
  */
-export class AgentPromptScan {
+export class AgentPromptScan extends AgentPromptAttachment {
 	public attach(
 		discovered: readonly DiscoveredProvider[],
 		scanned: readonly ScannedProvider[],

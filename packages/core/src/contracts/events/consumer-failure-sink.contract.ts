@@ -1,5 +1,5 @@
 import type { ConsumerFailed } from "../../domain/event/consumer-failed.notice";
-import type { SessionContext } from "../../domain/run/session-context.value-object";
+import { NoticeSink } from "../notice/notice-sink.contract";
 
 /**
  * Where the fact that a consumer did not handle an event goes.
@@ -13,6 +13,4 @@ import type { SessionContext } from "../../domain/run/session-context.value-obje
  * fails while being flushed at shutdown was holding a batch it never said which sessions
  * came from, so naming one would be inventing it.
  */
-export abstract class ConsumerNoticeSink {
-	public abstract report(context: SessionContext | undefined, notice: ConsumerFailed): void;
-}
+export abstract class ConsumerFailureSink extends NoticeSink<ConsumerFailed> {}

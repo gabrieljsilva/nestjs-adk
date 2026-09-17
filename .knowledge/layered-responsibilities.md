@@ -48,10 +48,12 @@ The names landed on 2026-09-17, verified against `packages/core/src`:
 
 | Layer | Today | Still to come |
 | --- | --- | --- |
-| Edge | `AgentHandle`, `AdkRuntime`, `AdkModule`, `AdkAgent`, `read_artifact` | `AdkAgent` stops mirroring `AgentHandle` method by method and exposes the handle |
-| UseCase | `AskAgentUseCase`, `StreamAgentUseCase`, `ExplainAgentUseCase`, `DecideApprovalUseCase`, `DelegateAgentUseCase`, `CreateSessionUseCase`, `InspectSessionUseCase`, `InspectContextBudgetUseCase`, `TransferSessionUseCase`, `ComposeRuntimeUseCase` | Each one down to a single public `execute`: `TransferSessionUseCase` still exposes `requestedIn` beside it, and `ExplainAgentUseCase` still exposes `attempt` |
-| Service | `SessionService` with `SessionRepository` behind it, `ContextService` with `ContextProjector` and `TurnLoop` behind it, `ToolExecutor`, `ModelRunner`, five Nest scanners | `ToolService` and `ModelService` once a module facade exists; the five scanners become one `NestScanService` |
+| Edge | `AgentHandle`, `AdkRuntime`, `AdkModule`, `AdkAgent`, `read_artifact` | — `AdkAgent` extends `AgentHandle` and is bound after NestJS builds it, so the surface is declared once |
+| UseCase | `AskAgentUseCase`, `StreamAgentUseCase`, `ExplainAgentUseCase`, `DecideApprovalUseCase`, `DelegateAgentUseCase`, `CreateSessionUseCase`, `InspectSessionUseCase`, `InspectContextBudgetUseCase`, `TransferSessionUseCase`, `ComposeRuntimeUseCase` | — every one is a single public `execute`. `requestedIn` moved onto `SessionEventBatch.findTransferTarget`, and `attempt` is gone |
+| Service | `SessionService`, `ContextService`, `ModelService`, `ToolService`, `NestScanService`, with `SessionRepository`, `ContextProjector`, `TurnLoop`, `ToolExecutor`, `ModelRunner` and the five Nest scanners behind them | — |
 | Repository | `SessionStorage`, `ArtifactStorage`, `PricingSource`, `GeminiTransport` | Same names |
+
+Phase 6A landed on 2026-09-17: the dirty code moved inward, and the constructors shrank behind it. `AskAgentUseCase` went from fourteen parameters to twelve, `ComposeRuntimeUseCase` from sixteen to twelve, and `RuntimeFactory.create` became three `compose` calls.
 
 Two entries of the original mapping were corrected against the code rather than followed:
 

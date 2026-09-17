@@ -86,6 +86,21 @@ export class AgentRunFactory {
 	}
 
 	/**
+	 * Runs the body and releases the run however it ends.
+	 *
+	 * A run has to leave the active set whichever way it settles, so a shutdown draining on
+	 * it is not waiting on something already over. Leaving the `finally` to each caller makes
+	 * that guarantee a discipline; here it is the only way to call the body at all.
+	 */
+	public async untilFinished<T>(started: StartedRun, body: () => Promise<T>): Promise<T> {
+		try {
+			return await body();
+		} finally {
+			this.finish(started.run);
+		}
+	}
+
+	/**
 	 * The run's own cancellation, wired to the caller's signal when there is one.
 	 *
 	 * A signal that already aborted cancels the run before it does anything, because the

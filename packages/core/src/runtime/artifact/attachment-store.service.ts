@@ -4,6 +4,7 @@ import type { ArtifactReference } from "../../domain/artifact/artifact-reference
 import { AttachmentReference } from "../../domain/model/attachment/attachment-reference.value-object";
 import type { MediaPart } from "../../domain/model/messages/media-part.value-object";
 import type { SessionContext } from "../../domain/run/session-context.value-object";
+import { AbsentArtifactStorage } from "./absent-artifact-storage.adapter";
 import { AttachmentNotStoredError } from "./errors/attachment-not-stored.error";
 
 /**
@@ -30,7 +31,7 @@ export class AttachmentStore {
 	 * missing dependency and a lost image.
 	 */
 	public static none(): AttachmentStore {
-		return new AttachmentStore(new UnwritableArtifactStorage());
+		return new AttachmentStore(new AbsentArtifactStorage("This runtime was assembled without artifact storage."));
 	}
 
 	/**
@@ -61,24 +62,5 @@ export class AttachmentStore {
 		} catch (error) {
 			throw new AttachmentNotStoredError(part.mediaType, error);
 		}
-	}
-}
-
-/** Storage that takes nothing, which is the honest shape of having none. */
-class UnwritableArtifactStorage extends ArtifactStorage {
-	public async put(): Promise<ArtifactReference> {
-		throw new Error("This runtime was assembled without artifact storage.");
-	}
-
-	public async read(): Promise<ArtifactContent> {
-		throw new Error("This runtime was assembled without artifact storage.");
-	}
-
-	public async find(): Promise<ArtifactReference | undefined> {
-		return undefined;
-	}
-
-	public async deleteAll(): Promise<void> {
-		return undefined;
 	}
 }

@@ -20,6 +20,13 @@ import type { Session } from "../../../domain/session/session.entity";
 import type { Actor } from "../../../domain/tool/access/actor.value-object";
 import type { RuntimeServices } from "../../../runtime/composition/runtime-services.value-object";
 import { AgentRunCommand } from "../../../runtime/run/agent-run.command";
+import { AgentNotBoundError } from "../errors/agent-not-bound.error";
+
+/** What a handle asks with: which agent, and the runtime that answers for it. */
+interface AgentBinding {
+	name: AgentName;
+	runtime: RuntimeServices;
+}
 
 /**
  * Everything a question can carry besides the words.
@@ -135,10 +142,38 @@ export interface DecisionOptions {
  * about how a run works is decided twice.
  */
 export class AgentHandle {
-	public constructor(
-		public readonly name: AgentName,
-		private readonly runtime: RuntimeServices,
-	) {}
+	private binding?: AgentBinding;
+
+	public constructor(name?: AgentName, runtime?: RuntimeServices) {
+		if (name !== undefined && runtime !== undefined) this.binding = { name, runtime };
+	}
+
+	/** The agent this handle asks for. */
+	public get name(): AgentName {
+		return this.bound.name;
+	}
+
+	/**
+	 * Takes over what another handle was bound to.
+	 *
+	 * It exists for `AdkAgent`, which is the same surface with a NestJS lifecycle in front of
+	 * it: the class is built by the container long before a runtime exists, so it is handed
+	 * the handle afterwards instead of being constructed with one. Declaring the verbs twice
+	 * was the alternative, and two copies of thirteen methods drift.
+	 */
+	protected adopt(handle: AgentHandle): void {
+		this.binding = handle.binding;
+	}
+
+	private get runtime(): RuntimeServices {
+		return this.bound.runtime;
+	}
+
+	private get bound(): AgentBinding {
+		const binding = this.binding;
+		if (binding === undefined) throw new AgentNotBoundError(this.constructor.name);
+		return binding;
+	}
 
 	/**
 	 * Asks the agent something, optionally continuing a session or attaching media.

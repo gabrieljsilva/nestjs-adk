@@ -36,7 +36,7 @@ import { DelegationRunner } from "../../runtime/delegation/delegation-runner.ser
 import { ActiveRunTracker } from "../../runtime/lifecycle/active-run-tracker.service";
 import { RuntimeLifecycle } from "../../runtime/lifecycle/runtime-lifecycle.service";
 import { ShutdownOptions } from "../../runtime/lifecycle/shutdown.options";
-import { ModelRunner } from "../../runtime/model/model-runner.service";
+import { ModelService } from "../../runtime/model/model.service";
 import { AgentRunFactory } from "../../runtime/run/agent-run.factory";
 import { AgentRunner } from "../../runtime/run/agent-runner.service";
 import { RunEventFactory } from "../../runtime/run/journal/run-event.factory";
@@ -55,6 +55,7 @@ import { ExplainAgentUseCase } from "../../runtime/run/use-cases/explain-agent.u
 import { StreamAgentUseCase } from "../../runtime/run/use-cases/stream-agent.use-case";
 import { SessionRepository } from "../../runtime/session/session-repository.service";
 import { ToolExecutor } from "../../runtime/tool/tool-executor.service";
+import { ToolService } from "../../runtime/tool/tool.service";
 import { TransferGate } from "../../runtime/transfer/transfer-gate.service";
 import { TransferSessionUseCase } from "../../runtime/transfer/transfer-session.use-case";
 import { FakeClock } from "../fake-clock.double";
@@ -115,6 +116,7 @@ export class NativeStackFixture {
 		const journal = new RunJournal(new RunEventFactory(this.ids, this.clock));
 		const catalog = new AgentCatalog([new DeclaredAgent(definition, "SupportAgent")]);
 		const resolver = new FixedModelResolver(model);
+		const models = new ModelService(resolver);
 		const scopes = new RunScopeFactory();
 		const settler = new RunSettler(this.sessions, journal);
 		const results = new RunResultFactory(new RunCostReporter(new CostCalculator(), pricing, pricingNotices));
@@ -122,23 +124,23 @@ export class NativeStackFixture {
 			new ToolExecutor(new ArtifactOffloader(this.artifacts), approvals, new AttachmentStore(this.artifacts)),
 			journal,
 		);
-		const delegations = new DelegationRunner(catalog, resolver, runs, scopes, journal, this.sessions);
+		const delegations = new DelegationRunner(catalog, models, runs, scopes, journal, this.sessions);
 		const loop = new TurnLoop(
 			context,
-			new ModelRunner(),
+			models,
 			this.sessions,
 			journal,
 			executor,
 			new ApprovalGate(approvals),
-			new TransferSessionUseCase(catalog, resolver, scopes),
+			new TransferSessionUseCase(catalog, models, scopes),
 			delegations,
 		);
 		delegations.uses(loop);
 
+		const tools = new ToolService(this.sessions, journal, sources);
 		this.asking = new AskAgentUseCase(
-			catalog,
-			resolver,
-			new SessionOpener(this.sessions, this.clock),
+			new SessionOpener(this.sessions, this.clock, catalog, this.ids),
+			models,
 			this.sessions,
 			runs,
 			scopes,
@@ -146,14 +148,13 @@ export class NativeStackFixture {
 			loop,
 			settler,
 			new TransferGate(catalog),
-			this.ids,
 			new AttachmentStore(this.artifacts),
 			results,
-			sources,
+			tools,
 		);
 		this.deciding = new DecideApprovalUseCase(
 			catalog,
-			resolver,
+			models,
 			this.sessions,
 			runs,
 			scopes,
@@ -162,14 +163,14 @@ export class NativeStackFixture {
 			loop,
 			settler,
 			results,
-			sources,
+			tools,
 		);
 		this.runner = new AgentRunner(
 			this.asking,
 			this.deciding,
 			new StreamAgentUseCase(this.asking),
 			new ExplainAgentUseCase(this.asking),
-			new DelegateAgentUseCase(catalog, resolver, this.sessions, runs, scopes, delegations, settler, results),
+			new DelegateAgentUseCase(catalog, models, this.sessions, runs, scopes, delegations, settler, results),
 		);
 	}
 

@@ -50,7 +50,7 @@ export class CreateSessionUseCase {
 	/** The metadata of a conversation nobody has asked anything in yet, as events of its own run. */
 	private async record(session: Session, agent: AgentName, input: CreateSessionInput): Promise<Session> {
 		const started = this.runs.start(session.id, agent);
-		try {
+		return await this.runs.untilFinished(started, async () => {
 			const state = await this.sessions.commit(
 				new SessionContext(session.id, input.metadata, session.revision),
 				session.revision,
@@ -58,8 +58,6 @@ export class CreateSessionUseCase {
 				SessionState.initial(),
 			);
 			return session.at(state.revision, this.clock.now());
-		} finally {
-			this.runs.finish(started.run);
-		}
+		});
 	}
 }

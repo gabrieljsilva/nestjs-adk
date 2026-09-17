@@ -27,6 +27,7 @@ import { AgentCatalog } from "../catalog/agent-catalog.service";
 import { ActiveRunTracker } from "../lifecycle/active-run-tracker.service";
 import { RuntimeLifecycle } from "../lifecycle/runtime-lifecycle.service";
 import { ShutdownOptions } from "../lifecycle/shutdown.options";
+import { ModelService } from "../model/model.service";
 import { AgentRunFactory } from "../run/agent-run.factory";
 import { RunEventFactory } from "../run/journal/run-event.factory";
 import { RunJournal } from "../run/journal/run-journal.service";
@@ -99,7 +100,7 @@ function stack(support: AgentDefinition, models: ModelResolver = new FixedResolv
 	const runs = new AgentRunFactory(ids, clock, tracker, lifecycle);
 	const scopes = new RunScopeFactory();
 	const journal = new RunJournal(new RunEventFactory(ids, clock));
-	const runner = new DelegationRunner(catalog, models, runs, scopes, journal, sessions);
+	const runner = new DelegationRunner(catalog, new ModelService(models), runs, scopes, journal, sessions);
 	return { storage, clock, sessions, runs, scopes, runner, support };
 }
 

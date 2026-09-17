@@ -4,6 +4,7 @@ import type { SessionContext } from "../../../domain/run/session-context.value-o
 import type { SessionState } from "../../../domain/session/state/session-state.value-object";
 import type { SessionRepository } from "../../session/session-repository.service";
 import type { RunJournal } from "../journal/run-journal.service";
+import type { RunProgress } from "./run-progress.value-object";
 import type { StartedRun } from "./started-run.value-object";
 
 /**
@@ -24,6 +25,28 @@ export class RunSettler {
 		private readonly sessions: SessionRepository,
 		private readonly journal: RunJournal,
 	) {}
+
+	/**
+	 * Runs the body, and records how the run ended when it does not reach the end.
+	 *
+	 * From the first commit on, every ending a run can reach has to be written down, and a
+	 * use case that wrote the `try/catch` itself would be one early `return` away from a run
+	 * that reads as still going. The failure is rethrown untouched: settling is a record, not
+	 * a recovery.
+	 */
+	public async settling<T>(
+		context: SessionContext,
+		progress: RunProgress,
+		started: StartedRun,
+		body: () => Promise<T>,
+	): Promise<T> {
+		try {
+			return await body();
+		} catch (error) {
+			await this.settle(context, progress.state, started, error);
+			throw error;
+		}
+	}
 
 	public async settle(context: SessionContext, state: SessionState, started: StartedRun, error: unknown): Promise<void> {
 		const terminal = this.journal.terminal(started, error);

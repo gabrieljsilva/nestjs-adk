@@ -1,3 +1,4 @@
+import { FileSystemPromptSource } from "../../../adapters/prompt/file-system-prompt-source.adapter";
 import type { IdGenerator } from "../../../common/identity/id-generator.contract";
 import type { Clock } from "../../../common/time/clock.contract";
 import type { Embedder } from "../../../contracts/model/embedder.contract";
@@ -6,6 +7,8 @@ import type { ArtifactStorage } from "../../../contracts/storage/artifact-storag
 import type { SessionStorage } from "../../../contracts/storage/session-storage.contract";
 import type { LlmModel } from "../../../domain/model/llm-model.contract";
 import type { RuntimeOptions } from "../../../runtime/composition/runtime.options";
+
+import { ConflictingPromptOptionsError } from "../errors/conflicting-prompt-options.error";
 
 /** The full literal form of the options; `from` turns one into the class. */
 export interface AdkModuleOptionsInput {
@@ -100,5 +103,18 @@ export class AdkModuleOptions {
 			patch.prompts ?? this.prompts,
 			patch.promptSource ?? this.promptSource,
 		);
+	}
+
+	/**
+	 * The prompt source this module reads from: the application's own, or files under the
+	 * directory it named.
+	 *
+	 * Declaring both is refused rather than resolved by precedence, because a precedence rule
+	 * is a declaration silently ignored, and the one ignored here is the one somebody wrote
+	 * last.
+	 */
+	public resolvePromptSource(): PromptSource {
+		if (this.promptSource !== undefined && this.prompts?.dir !== undefined) throw new ConflictingPromptOptionsError();
+		return this.promptSource ?? new FileSystemPromptSource(this.prompts?.dir);
 	}
 }

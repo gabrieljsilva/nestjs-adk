@@ -1,20 +1,20 @@
 import type { ArtifactId } from "../../common/identity/artifact-id.value-object";
 import type { SessionRevision } from "../../common/revision/session-revision.value-object";
 import type { AttachmentResolver } from "../../contracts/context/attachment-resolver.contract";
-import { ArtifactStorage } from "../../contracts/storage/artifact-storage.contract";
-import type { ArtifactContent } from "../../domain/artifact/artifact-content.value-object";
-import type { ArtifactReference } from "../../domain/artifact/artifact-reference.value-object";
+import type { ArtifactStorage } from "../../contracts/storage/artifact-storage.contract";
 import { AttachmentProjection } from "../../domain/model/attachment/attachment-projection.value-object";
 import type { AttachmentReference } from "../../domain/model/attachment/attachment-reference.value-object";
 import { AttachmentRequest } from "../../domain/model/attachment/attachment-request.value-object";
 import { MediaLimits } from "../../domain/model/descriptor/media-limits.value-object";
 import { MediaPart } from "../../domain/model/messages/media-part.value-object";
 import type { SessionContext } from "../../domain/run/session-context.value-object";
+import { AbsentArtifactStorage } from "./absent-artifact-storage.adapter";
+import { AttachmentCache } from "./attachment-cache.service";
 import { DefaultAttachmentResolver } from "./default-attachment-resolver.adapter";
 import { ResolvedAttachments } from "./resolved-attachments.value-object";
 
-/** How much of the cache is worth keeping: one request's worth of media, and no more. */
-const MAX_CACHED_BYTES = 8 * 1024 * 1024;
+/** What a projection built without artifact storage says when somebody asks it for bytes. */
+const ABSENT = "This projection was built without artifact storage.";
 
 /**
  * Brings attachments back so a message can be read as it was sent, asking the resolver
@@ -39,12 +39,10 @@ const MAX_CACHED_BYTES = 8 * 1024 * 1024;
  * an attachment stood there.
  */
 export class AttachmentReader {
-	private readonly cached = new Map<string, MediaPart>();
-	private cachedBytes = 0;
-
 	public constructor(
 		private readonly storage: ArtifactStorage,
 		private readonly resolver: AttachmentResolver = new DefaultAttachmentResolver(),
+		private readonly cache: AttachmentCache = new AttachmentCache(),
 	) {}
 
 	/**
@@ -53,7 +51,7 @@ export class AttachmentReader {
 	 * runtime needs: the words are all it was ever going to get.
 	 */
 	public static none(): AttachmentReader {
-		return new AttachmentReader(new UnreachableArtifactStorage());
+		return new AttachmentReader(new AbsentArtifactStorage(ABSENT));
 	}
 
 	/**
@@ -65,10 +63,7 @@ export class AttachmentReader {
 	 * public so an application deleting through the port itself can say the same thing.
 	 */
 	public forget(context: SessionContext): void {
-		const prefix = `${context.sessionId.value}/`;
-		for (const key of [...this.cached.keys()]) {
-			if (key.startsWith(prefix)) this.forgetKey(key);
-		}
+		this.cache.forget(context.sessionId);
 	}
 
 	public async read(
@@ -108,12 +103,11 @@ export class AttachmentReader {
 
 		const id = reference.artifactId;
 		if (id === undefined) return undefined;
-		const key = `${context.sessionId.value}/${id.value}`;
-		const hit = this.cached.get(key);
+		const hit = this.cache.find(context.sessionId, id);
 		if (hit !== undefined) return hit;
 
 		const part = await this.fetch(context, id);
-		if (part !== undefined) this.remember(key, part);
+		if (part !== undefined) this.cache.remember(context.sessionId, id, part);
 		return part;
 	}
 
@@ -141,43 +135,5 @@ export class AttachmentReader {
 		} catch {
 			return undefined;
 		}
-	}
-
-	/** Oldest out first: a conversation reads its recent images far more often than its old ones. */
-	private remember(key: string, part: MediaPart): void {
-		if (part.encodedBytes > MAX_CACHED_BYTES) return;
-		while (this.cachedBytes + part.encodedBytes > MAX_CACHED_BYTES) {
-			const oldest = this.cached.keys().next();
-			if (oldest.done === true) break;
-			this.forgetKey(oldest.value);
-		}
-		this.cached.set(key, part);
-		this.cachedBytes += part.encodedBytes;
-	}
-
-	private forgetKey(key: string): void {
-		const part = this.cached.get(key);
-		if (part === undefined) return;
-		this.cached.delete(key);
-		this.cachedBytes -= part.encodedBytes;
-	}
-}
-
-/** Storage that holds nothing, which is the honest shape of having none. */
-class UnreachableArtifactStorage extends ArtifactStorage {
-	public async put(): Promise<ArtifactReference> {
-		throw new Error("This projection was built without artifact storage.");
-	}
-
-	public async read(): Promise<ArtifactContent> {
-		throw new Error("This projection was built without artifact storage.");
-	}
-
-	public async find(): Promise<ArtifactReference | undefined> {
-		return undefined;
-	}
-
-	public async deleteAll(): Promise<void> {
-		return undefined;
 	}
 }

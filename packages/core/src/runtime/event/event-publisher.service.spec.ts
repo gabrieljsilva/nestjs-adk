@@ -7,7 +7,7 @@ import { SessionId } from "../../common/identity/session-id.value-object";
 import { ToolCallId } from "../../common/identity/tool-call-id.value-object";
 import { SessionRevision } from "../../common/revision/session-revision.value-object";
 import { Instant } from "../../common/time/instant.value-object";
-import { ConsumerNoticeSink } from "../../contracts/events/consumer-notice-sink.contract";
+import { ConsumerFailureSink } from "../../contracts/events/consumer-failure-sink.contract";
 import { SessionEventConsumer } from "../../contracts/events/session-event-consumer.contract";
 import { UserMessageReceived } from "../../domain/event/catalog/session/user-message-received.event";
 import { ToolCallRequested } from "../../domain/event/catalog/tool/tool-call-requested.event";
@@ -80,13 +80,13 @@ class HangingConsumer extends SessionEventConsumer {
 }
 
 /** A sink that breaks while being told something broke, which must not reach the run. */
-class ThrowingSink extends ConsumerNoticeSink {
+class ThrowingSink extends ConsumerFailureSink {
 	public report(_context: SessionContext | undefined): void {
 		throw new Error("the notice sink is down too");
 	}
 }
 
-class RecordingSink extends ConsumerNoticeSink {
+class RecordingSink extends ConsumerFailureSink {
 	public readonly notices: ConsumerFailed[] = [];
 
 	public report(_context: SessionContext | undefined, notice: ConsumerFailed): void {

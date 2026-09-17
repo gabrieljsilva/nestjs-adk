@@ -1,3 +1,5 @@
+import type { AgentName } from "../agent/agent-name.value-object";
+import { AgentTransferred } from "./catalog/transfer/agent-transferred.event";
 import { DuplicatedEventIdError } from "./errors/duplicated-event-id.error";
 import type { SessionEvent } from "./session-event.event";
 
@@ -28,5 +30,18 @@ export class SessionEventBatch {
 
 	public get isEmpty(): boolean {
 		return this.events.length === 0;
+	}
+
+	/**
+	 * The agent this batch handed the session to, or nothing when it handed it to nobody.
+	 *
+	 * A handover is read from the batch that was just committed rather than from the folded
+	 * state: the state carries the active agent of every previous run as well, and a reader of
+	 * it cannot tell "this session has belonged to billing since yesterday" from "this turn
+	 * just transferred". The last one wins, because a batch that transferred twice ends where
+	 * its last event left it.
+	 */
+	public findTransferTarget(): AgentName | undefined {
+		return this.events.filter((event) => event instanceof AgentTransferred).at(-1)?.to;
 	}
 }

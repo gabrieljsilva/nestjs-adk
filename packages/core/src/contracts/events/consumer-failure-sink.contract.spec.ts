@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { ConsumerFailed } from "../../domain/event/consumer-failed.notice";
 import type { SessionContext } from "../../domain/run/session-context.value-object";
-import { ConsumerNoticeSink } from "./consumer-notice-sink.contract";
+import { ConsumerFailureSink } from "./consumer-failure-sink.contract";
 
-class RecordingSink extends ConsumerNoticeSink {
+class RecordingSink extends ConsumerFailureSink {
 	public readonly notices: ConsumerFailed[] = [];
 
 	public report(_context: SessionContext | undefined, notice: ConsumerFailed): void {
@@ -11,7 +11,7 @@ class RecordingSink extends ConsumerNoticeSink {
 	}
 }
 
-describe("ConsumerNoticeSink", () => {
+describe("ConsumerFailureSink", () => {
 	it("receives the notice a failed consumer produced", () => {
 		const sink = new RecordingSink();
 
@@ -21,6 +21,6 @@ describe("ConsumerNoticeSink", () => {
 	});
 
 	it("is the type the runtime depends on", () => {
-		expect(new RecordingSink()).toBeInstanceOf(ConsumerNoticeSink);
+		expect(new RecordingSink()).toBeInstanceOf(ConsumerFailureSink);
 	});
 });

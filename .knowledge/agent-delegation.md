@@ -41,7 +41,7 @@ Depth is capped at 3, checked before a child run exists. Like the transfer cap a
 A loop runs turns, a turn delegates, a delegation runs turns. No construction order breaks that, so it is made explicit instead of implied:
 
 - `DelegatedTurnLoop` is the half of the loop a delegation is allowed to reach.
-- The composition calls `delegations.uses(loop)` immediately after building the loop.
+- `RunComposer.compose` calls `delegations.uses(loop)` immediately after building the loop, with the reason written beside it. It is the one named place the cycle is tied, so a reader never has to find it twice.
 - A runner that was never bound throws `DelegationUnboundError` rather than returning silence.
 
 ## Two consequences worth knowing

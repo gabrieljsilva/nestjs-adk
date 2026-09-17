@@ -216,4 +216,18 @@ describe("AdkAgent", () => {
 			expect(agent.reachPrompting().render("Hello {{name}}.", { name: "Ana" })).toBe("Hello Ana.");
 		});
 	});
+
+	/**
+	 * The surface is declared once. A verb added to the handle reaches an application that
+	 * injected its agent class without anybody remembering to copy it.
+	 */
+	it("answers every verb a handle answers", () => {
+		const handle = Object.getOwnPropertyNames(AgentHandle.prototype).filter((name) => name !== "constructor");
+		const agent = new SupportAgent();
+
+		for (const verb of handle) {
+			expect(Reflect.has(agent, verb)).toBe(true);
+		}
+		expect(handle.length).toBeGreaterThan(10);
+	});
 });

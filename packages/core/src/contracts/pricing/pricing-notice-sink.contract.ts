@@ -1,5 +1,5 @@
 import type { ModelUnpriced } from "../../domain/cost/model-unpriced.value-object";
-import type { SessionContext } from "../../domain/run/session-context.value-object";
+import { NoticeSink } from "../notice/notice-sink.contract";
 
 /**
  * Where the fact that a call could not be priced goes.
@@ -16,6 +16,4 @@ import type { SessionContext } from "../../domain/run/session-context.value-obje
  * an embedding asked for outside a run, which has a model and a usage but no conversation to
  * name. Everything a run does carries one.
  */
-export abstract class PricingNoticeSink {
-	public abstract report(context: SessionContext | undefined, notice: ModelUnpriced): void;
-}
+export abstract class PricingNoticeSink extends NoticeSink<ModelUnpriced> {}

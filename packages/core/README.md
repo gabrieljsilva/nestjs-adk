@@ -1173,7 +1173,7 @@ Everything the package exports, and nothing else: a name that is not here is not
 | `ArtifactStorage`, `InMemoryArtifactStorage` | Where a large result or an upload lives |
 | `OffloadPolicy`, `CharacterCountOffloadPolicy` | When a result becomes an artifact instead of a message, and the shipped answer |
 | `SessionEventConsumer`, `PublishedEvent` | Being told what happened, after it was committed |
-| `ConsumerNoticeSink` | Where a consumer's own failure is reported |
+| `ConsumerFailureSink` | Where a consumer's own failure is reported |
 | `ChunkSink` | Watching the pieces of a turn as they arrive |
 | `ToolCallObserver`, `ToolCallNotice`, `ToolResultNotice` | Being told, from inside one run, which tool was asked for, whether it is held, and what it answered |
 | `ToolOutcome` | What one tool call produced, as a result notice carries it |

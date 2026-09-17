@@ -1,13 +1,11 @@
 import type { ContextWindowUnknown } from "../../domain/context/context-window-unknown.value-object";
-import type { SessionContext } from "../../domain/run/session-context.value-object";
+import { NoticeSink } from "../notice/notice-sink.contract";
 
 /**
- * Where a context notice goes.
+ * Where a context notice goes, such as a window nobody could measure.
  *
- * Notices describe degraded, not broken: implement it to send them to a logger or to
- * telemetry. A sink is never on the path of a decision, so nothing it does, including
- * failing, changes what the runtime does next.
+ * It is a `NoticeSink` like the other two: off the path of every decision, so nothing it
+ * does, including failing, changes what the runtime does next. See [[NoticeSink]] for what
+ * the family promises.
  */
-export abstract class ContextNoticeSink {
-	public abstract report(context: SessionContext, notice: ContextWindowUnknown): void;
-}
+export abstract class ContextNoticeSink extends NoticeSink<ContextWindowUnknown> {}
