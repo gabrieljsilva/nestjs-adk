@@ -1,11 +1,11 @@
 import { ArtifactId } from "../../common/identity/artifact-id";
-import type { ArtifactStorage } from "../../contracts/artifact-storage";
+import type { ArtifactStorage } from "../../contracts/storage/artifact-storage";
 import { ArtifactNotFoundError } from "../../domain/artifact/errors/artifact-not-found.error";
-import { ParsedArguments } from "../../domain/tool/parsed-arguments";
-import type { ToolContext } from "../../domain/tool/tool-context";
+import { ToolEffect } from "../../domain/tool/approval/tool-effect";
+import { ParsedArguments } from "../../domain/tool/invocation/parsed-arguments";
+import type { ToolContext } from "../../domain/tool/invocation/tool-context";
+import { ToolHandler } from "../../domain/tool/invocation/tool-handler";
 import { ToolDefinition } from "../../domain/tool/tool-definition";
-import { ToolEffect } from "../../domain/tool/tool-effect";
-import { ToolHandler } from "../../domain/tool/tool-handler";
 import { ToolSchema } from "../../domain/tool/tool-schema";
 
 const NAME = "read_artifact";

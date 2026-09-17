@@ -1,17 +1,17 @@
-import { AgentRunCancelled } from "../../domain/event/catalog/agent-run-cancelled";
-import { AgentRunCompleted } from "../../domain/event/catalog/agent-run-completed";
-import { AgentRunFailed } from "../../domain/event/catalog/agent-run-failed";
-import { AgentRunSuspended } from "../../domain/event/catalog/agent-run-suspended";
-import { AgentTransferred } from "../../domain/event/catalog/agent-transferred";
-import { AssistantMessageProduced } from "../../domain/event/catalog/assistant-message-produced";
-import { SessionCreated } from "../../domain/event/catalog/session-created";
-import { SessionMetadataDeleted } from "../../domain/event/catalog/session-metadata-deleted";
-import { SessionMetadataSet } from "../../domain/event/catalog/session-metadata-set";
-import { ToolApprovalDenied } from "../../domain/event/catalog/tool-approval-denied";
-import { ToolApprovalGranted } from "../../domain/event/catalog/tool-approval-granted";
+import { ToolApprovalDenied } from "../../domain/event/catalog/approval/tool-approval-denied";
+import { ToolApprovalGranted } from "../../domain/event/catalog/approval/tool-approval-granted";
+import { SessionMetadataDeleted } from "../../domain/event/catalog/metadata/session-metadata-deleted";
+import { SessionMetadataSet } from "../../domain/event/catalog/metadata/session-metadata-set";
+import { AgentRunCancelled } from "../../domain/event/catalog/run/agent-run-cancelled";
+import { AgentRunCompleted } from "../../domain/event/catalog/run/agent-run-completed";
+import { AgentRunFailed } from "../../domain/event/catalog/run/agent-run-failed";
+import { AgentRunSuspended } from "../../domain/event/catalog/run/agent-run-suspended";
+import { AssistantMessageProduced } from "../../domain/event/catalog/session/assistant-message-produced";
+import { SessionCreated } from "../../domain/event/catalog/session/session-created";
+import { AgentTransferred } from "../../domain/event/catalog/transfer/agent-transferred";
 import type { StoredSessionEvent } from "../../domain/event/stored-session-event";
-import { PendingTurn } from "../../domain/session/pending-turn";
-import type { SessionState } from "../../domain/session/session-state";
+import { PendingTurn } from "../../domain/session/approval/pending-turn";
+import type { SessionState } from "../../domain/session/state/session-state";
 
 /** The version that started folding the durable metadata a session carries. */
 const VERSION = 5;

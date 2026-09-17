@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { ContextWindow } from "../model/context-window";
-import { ModelContextWindow } from "../model/model-context-window";
-import { ModelUsage } from "../model/model-usage";
-import { PromptMeasurement } from "../model/prompt-measurement";
-import { UnknownContextWindow } from "../model/unknown-context-window";
+import type { ContextWindow } from "../model/descriptor/context-window";
+import { ModelContextWindow } from "../model/descriptor/model-context-window";
+import { UnknownContextWindow } from "../model/descriptor/unknown-context-window";
+import { ModelUsage } from "../model/usage/model-usage";
+import { PromptMeasurement } from "../model/usage/prompt-measurement";
 import { ContextBudget } from "./context-budget";
 import { InvalidCompactionThresholdError } from "./errors/invalid-compaction-threshold.error";
 import { WindowShareCompactionPolicy } from "./window-share-compaction-policy";

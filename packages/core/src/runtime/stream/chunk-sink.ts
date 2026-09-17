@@ -1,4 +1,4 @@
-import type { ModelChunk } from "../../domain/model/model-chunk";
+import type { ModelChunk } from "../../domain/model/streaming/model-chunk";
 
 /**
  * Where a run sends the pieces of an answer while it is still producing them.

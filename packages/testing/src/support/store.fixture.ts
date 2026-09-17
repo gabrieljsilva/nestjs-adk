@@ -13,7 +13,7 @@ import {
 } from "@nestjs-adk/core";
 import { Injectable, Module } from "@nestjs/common";
 import { z } from "zod";
-import { ScriptedModel } from "../scripted-model";
+import { ScriptedModel } from "../model/scripted-model";
 
 const orderSchema = z.object({ orderId: z.string() });
 const refundSchema = z.object({ orderId: z.string(), amountBrl: z.number() });

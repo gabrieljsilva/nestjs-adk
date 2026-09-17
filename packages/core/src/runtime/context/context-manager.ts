@@ -1,15 +1,15 @@
 import type { ContentDigest } from "../../common/digest/content-digest";
 import type { AgentRunId } from "../../common/identity/agent-run-id";
 import { SessionRevision } from "../../common/revision/session-revision";
-import type { CompactionStrategy } from "../../contracts/compaction-strategy";
-import type { SessionStorage } from "../../contracts/session-storage";
+import type { CompactionStrategy } from "../../contracts/context/compaction-strategy";
+import type { SessionStorage } from "../../contracts/storage/session-storage";
 import { CompactionDecision } from "../../domain/context/compaction-decision";
 import type { ContextBlock } from "../../domain/context/context-block";
 import { ContextBudget } from "../../domain/context/context-budget";
 import { ContextCheckpoint } from "../../domain/context/context-checkpoint";
 import { ContextProjection } from "../../domain/context/context-projection";
 import { PreparedModelContext } from "../../domain/context/prepared-model-context";
-import { ModelCapability } from "../../domain/model/model-capability";
+import { ModelCapability } from "../../domain/model/descriptor/model-capability";
 import type { RunContext } from "../../domain/run/run-context";
 import type { SessionContext } from "../../domain/run/session-context";
 import type { ContextMeasurer } from "./context-measurer";

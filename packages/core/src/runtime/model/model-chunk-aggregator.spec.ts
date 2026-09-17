@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { ModelIdentity } from "../../domain/model/descriptor/model-identity";
 import { MalformedToolCallError } from "../../domain/model/errors/malformed-tool-call.error";
-import { ModelChunk } from "../../domain/model/model-chunk";
-import { ModelIdentity } from "../../domain/model/model-identity";
-import { ModelUsage } from "../../domain/model/model-usage";
-import { ToolCallDelta } from "../../domain/model/tool-call-delta";
+import { ModelChunk } from "../../domain/model/streaming/model-chunk";
+import { ToolCallDelta } from "../../domain/model/streaming/tool-call-delta";
+import { ModelUsage } from "../../domain/model/usage/model-usage";
 import { ModelChunkAggregator } from "./model-chunk-aggregator";
 
 const MODEL = ModelIdentity.of("acme", "m-1");

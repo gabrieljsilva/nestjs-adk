@@ -1,5 +1,5 @@
 import type { SessionRevision } from "../../../common/revision/session-revision";
-import type { SessionState } from "../../../domain/session/session-state";
+import type { SessionState } from "../../../domain/session/state/session-state";
 
 /**
  * Decides when writing a snapshot is worth it.

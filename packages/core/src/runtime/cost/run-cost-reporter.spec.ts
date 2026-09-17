@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import { SessionId } from "../../common/identity/session-id";
-import { PricingNoticeSink } from "../../contracts/pricing-notice-sink";
-import { PricingSource } from "../../contracts/pricing-source";
+import { PricingNoticeSink } from "../../contracts/pricing/pricing-notice-sink";
+import { PricingSource } from "../../contracts/pricing/pricing-source";
 import { BilledCall } from "../../domain/cost/billed-call";
 import { ModelPrice } from "../../domain/cost/model-price";
 import type { ModelUnpriced } from "../../domain/cost/model-unpriced";
 import { TokenRate } from "../../domain/cost/token-rate";
-import { ModelIdentity } from "../../domain/model/model-identity";
-import { ModelUsage } from "../../domain/model/model-usage";
+import { ModelIdentity } from "../../domain/model/descriptor/model-identity";
+import { ModelUsage } from "../../domain/model/usage/model-usage";
 import { SessionContext } from "../../domain/run/session-context";
 import { CostCalculator } from "./cost-calculator";
 import { RunCostReporter } from "./run-cost-reporter";

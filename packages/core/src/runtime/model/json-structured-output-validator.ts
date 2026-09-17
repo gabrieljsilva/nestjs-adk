@@ -1,4 +1,4 @@
-import { StructuredOutputValidator } from "../../contracts/structured-output-validator";
+import { StructuredOutputValidator } from "../../contracts/model/structured-output-validator";
 import { InvalidStructuredOutputError } from "../../domain/model/errors/invalid-structured-output.error";
 import type { RunContext } from "../../domain/run/run-context";
 

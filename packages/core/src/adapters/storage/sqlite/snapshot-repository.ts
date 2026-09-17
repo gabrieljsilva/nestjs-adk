@@ -1,6 +1,6 @@
 import type { SessionId } from "../../../common/identity/session-id";
-import type { SessionSnapshot } from "../../../domain/session/session-snapshot";
-import type { SnapshotCodec } from "../codec/snapshot-codec";
+import type { SessionSnapshot } from "../../../domain/session/state/session-snapshot";
+import type { SnapshotCodec } from "../codec/snapshot/snapshot-codec";
 import { StoredRow } from "../codec/stored-row";
 import type { SqliteConnection } from "./sqlite-connection";
 

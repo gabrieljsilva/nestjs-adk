@@ -1,8 +1,8 @@
 import { CallCost } from "../../domain/cost/call-cost";
 import { CostBreakdown } from "../../domain/cost/cost-breakdown";
 import type { ModelPrice } from "../../domain/cost/model-price";
-import type { ModelIdentity } from "../../domain/model/model-identity";
-import type { ModelUsage } from "../../domain/model/model-usage";
+import type { ModelIdentity } from "../../domain/model/descriptor/model-identity";
+import type { ModelUsage } from "../../domain/model/usage/model-usage";
 
 /**
  * Turns tokens into money, and nothing else.

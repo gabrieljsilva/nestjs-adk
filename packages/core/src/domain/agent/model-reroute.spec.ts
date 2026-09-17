@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ModelIdentity } from "../model/model-identity";
-import { RateLimitedFailure } from "../model/rate-limited-failure";
+import { ModelIdentity } from "../model/descriptor/model-identity";
+import { RateLimitedFailure } from "../model/failures/rate-limited-failure";
 import { ModelReroute } from "./model-reroute";
 
 const PRIMARY = ModelIdentity.of("acme", "primary");

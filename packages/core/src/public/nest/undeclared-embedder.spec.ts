@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Embedder } from "../../contracts/embedder";
+import { Embedder } from "../../contracts/model/embedder";
 import { EmbedderNotDeclaredError } from "./errors/embedder-not-declared.error";
 import { UndeclaredEmbedder } from "./undeclared-embedder";
 

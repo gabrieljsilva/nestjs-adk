@@ -7,7 +7,7 @@ import { AgentName } from "../../domain/agent/agent-name";
 import { ArtifactContent } from "../../domain/artifact/artifact-content";
 import { ArtifactNotFoundError } from "../../domain/artifact/errors/artifact-not-found.error";
 import { SessionContext } from "../../domain/run/session-context";
-import { ToolContext } from "../../domain/tool/tool-context";
+import { ToolContext } from "../../domain/tool/invocation/tool-context";
 import type { ToolDefinition } from "../../domain/tool/tool-definition";
 import { SequenceIdGenerator } from "../../support/sequence-id-generator";
 import { ReadArtifactTool } from "./read-artifact-tool";

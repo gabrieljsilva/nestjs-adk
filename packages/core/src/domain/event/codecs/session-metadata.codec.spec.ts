@@ -4,13 +4,13 @@ import { AgentRunId } from "../../../common/identity/agent-run-id";
 import { CorrelationId } from "../../../common/identity/correlation-id";
 import { EventId } from "../../../common/identity/event-id";
 import { Instant } from "../../../common/time/instant";
-import { SessionMetadataDeleted } from "../catalog/session-metadata-deleted";
-import { SessionMetadataSet } from "../catalog/session-metadata-set";
+import { SessionMetadataDeleted } from "../catalog/metadata/session-metadata-deleted";
+import { SessionMetadataSet } from "../catalog/metadata/session-metadata-set";
 import { InvalidEventPayloadError } from "../errors/invalid-event-payload.error";
 import { EventCorrelation } from "../event-correlation";
 import { EventHeader } from "../event-header";
-import { SessionMetadataDeletedCodec } from "./session-metadata-deleted.codec";
-import { SessionMetadataSetCodec } from "./session-metadata-set.codec";
+import { SessionMetadataDeletedCodec } from "./metadata/session-metadata-deleted.codec";
+import { SessionMetadataSetCodec } from "./metadata/session-metadata-set.codec";
 
 const header = new EventHeader(
 	EventId.from("e-1"),

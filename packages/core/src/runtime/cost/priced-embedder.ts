@@ -1,4 +1,4 @@
-import type { Embedder } from "../../contracts/embedder";
+import type { Embedder } from "../../contracts/model/embedder";
 import { PricedEmbedding } from "../../domain/embedding/priced-embedding";
 import type { RunCostReporter } from "./run-cost-reporter";
 

@@ -2,8 +2,8 @@ import type { AgentRunId } from "../../common/identity/agent-run-id";
 import type { SessionId } from "../../common/identity/session-id";
 import type { AdkCompactionPolicy } from "../../domain/context/adk-compaction-policy";
 import type { LlmModel } from "../../domain/model/llm-model";
-import type { PromptMeasurement } from "../../domain/model/prompt-measurement";
-import type { ToolDeclaration } from "../../domain/model/tool-declaration";
+import type { ToolDeclaration } from "../../domain/model/messages/tool-declaration";
+import type { PromptMeasurement } from "../../domain/model/usage/prompt-measurement";
 import type { PromptInstructions } from "../../domain/prompt/prompt-instructions";
 import type { RunContext } from "../../domain/run/run-context";
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ModelIdentity } from "../model/model-identity";
+import { ModelIdentity } from "../model/descriptor/model-identity";
 import { ContextWindowUnknown } from "./context-window-unknown";
 
 describe("ContextWindowUnknown", () => {

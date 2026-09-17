@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ContextSummarizer } from "../../contracts/context-summarizer";
+import { ContextSummarizer } from "../../contracts/context/context-summarizer";
 import { CompactionDecision } from "../../domain/context/compaction-decision";
 import type { ContextBlock } from "../../domain/context/context-block";
 import { ContextCategory } from "../../domain/context/context-category";

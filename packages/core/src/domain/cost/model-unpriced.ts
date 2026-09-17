@@ -1,4 +1,4 @@
-import type { ModelIdentity } from "../model/model-identity";
+import type { ModelIdentity } from "../model/descriptor/model-identity";
 
 /**
  * Why a call could not be priced. Each one is a different thing for an operator to fix.

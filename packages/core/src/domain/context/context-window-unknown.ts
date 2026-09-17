@@ -1,4 +1,4 @@
-import type { ModelIdentity } from "../model/model-identity";
+import type { ModelIdentity } from "../model/descriptor/model-identity";
 
 /**
  * The runtime met a model that never declared how much it can read.

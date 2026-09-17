@@ -3,10 +3,10 @@ import { ContentDigest } from "../../../common/digest/content-digest";
 import { SessionId } from "../../../common/identity/session-id";
 import { SessionRevision } from "../../../common/revision/session-revision";
 import { AgentName } from "../../../domain/agent/agent-name";
-import { SessionSnapshot } from "../../../domain/session/session-snapshot";
-import { SessionState } from "../../../domain/session/session-state";
-import { StateValues } from "../../../domain/session/state-values";
-import { SnapshotCodec } from "../codec/snapshot-codec";
+import { SessionSnapshot } from "../../../domain/session/state/session-snapshot";
+import { SessionState } from "../../../domain/session/state/session-state";
+import { StateValues } from "../../../domain/session/state/state-values";
+import { SnapshotCodec } from "../codec/snapshot/snapshot-codec";
 import { SnapshotRepository } from "./snapshot-repository";
 import { SqliteConnection } from "./sqlite-connection";
 

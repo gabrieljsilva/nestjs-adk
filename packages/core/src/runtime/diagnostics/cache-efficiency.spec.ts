@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ModelUsage } from "../../domain/model/model-usage";
+import { ModelUsage } from "../../domain/model/usage/model-usage";
 import { CacheEfficiency } from "./cache-efficiency";
 import { NotEnoughRunsError } from "./errors/not-enough-runs.error";
 

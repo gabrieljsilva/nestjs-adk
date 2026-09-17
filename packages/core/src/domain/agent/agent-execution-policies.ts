@@ -1,5 +1,5 @@
 import type { AdkCompactionPolicy } from "../context/adk-compaction-policy";
-import type { RunLimits } from "../session/run-limits";
+import type { RunLimits } from "../session/run/run-limits";
 import { AgentDelegationPolicy } from "./agent-delegation-policy";
 import type { AgentFailoverPolicy } from "./agent-failover-policy";
 import { AgentTransferPolicy } from "./agent-transfer-policy";

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { ModelIdentity } from "../../domain/model/model-identity";
+import { ModelIdentity } from "../../domain/model/descriptor/model-identity";
 import { FakeClock } from "../../support/fake-clock";
 import { CatalogTransport } from "./catalog-transport";
 import { CatalogUnreachableError } from "./errors/catalog-unreachable.error";

@@ -1,11 +1,11 @@
-import { StructuredOutputValidator } from "../../contracts/structured-output-validator";
+import { StructuredOutputValidator } from "../../contracts/model/structured-output-validator";
+import { ModelCapability } from "../../domain/model/descriptor/model-capability";
+import type { ModelDescriptor } from "../../domain/model/descriptor/model-descriptor";
 import { UnsupportedCapabilityError } from "../../domain/model/errors/unsupported-capability.error";
 import type { LlmModel } from "../../domain/model/llm-model";
-import { ModelCapability } from "../../domain/model/model-capability";
-import type { ModelChunk } from "../../domain/model/model-chunk";
-import type { ModelDescriptor } from "../../domain/model/model-descriptor";
 import type { ModelRequest } from "../../domain/model/model-request";
 import type { ModelResponse } from "../../domain/model/model-response";
+import type { ModelChunk } from "../../domain/model/streaming/model-chunk";
 import type { RunContext } from "../../domain/run/run-context";
 import { JsonStructuredOutputValidator } from "./json-structured-output-validator";
 import { MediaFit } from "./media-fit";

@@ -4,11 +4,11 @@ import type { Clock } from "../../common/time/clock";
 import type { AgentName } from "../../domain/agent/agent-name";
 import { SessionEventBatch } from "../../domain/event/session-event-batch";
 import { SessionContext } from "../../domain/run/session-context";
-import type { CreateSessionInput } from "../../domain/session/create-session-input";
+import type { CreateSessionInput } from "../../domain/session/input/create-session-input";
 import { Session } from "../../domain/session/session";
-import { SessionState } from "../../domain/session/session-state";
+import { SessionState } from "../../domain/session/state/session-state";
 import type { AgentRunFactory } from "../run/agent-run-factory";
-import type { RunJournal } from "../run/run-journal";
+import type { RunJournal } from "../run/journal/run-journal";
 import type { SessionManager } from "./session-manager";
 
 /**

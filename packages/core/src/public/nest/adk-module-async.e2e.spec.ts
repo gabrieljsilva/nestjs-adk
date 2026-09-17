@@ -3,15 +3,15 @@ import { Injectable, Module } from "@nestjs/common";
 import { Test, type TestingModule } from "@nestjs/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { InMemorySessionStorage } from "../../adapters/storage/in-memory-session-storage";
-import { SessionStorage } from "../../contracts/session-storage";
+import { SessionStorage } from "../../contracts/storage/session-storage";
 import type { SessionContext } from "../../domain/run/session-context";
 import type { Session } from "../../domain/session/session";
 import { RecordingModel } from "../../support/nest/recording-model.fixture";
-import { AdkModule } from "./adk-module";
-import type { AdkModuleAsyncOptions, AdkOptionsFactory } from "./adk-module-async-options";
-import { AdkModuleOptions } from "./adk-module-options";
-import { AgentRegistry } from "./agent-registry";
+import { AgentRegistry } from "./agent/agent-registry";
 import { Agent } from "./decorators/agent.decorator";
+import { AdkModule } from "./module/adk-module";
+import type { AdkModuleAsyncOptions, AdkOptionsFactory } from "./module/adk-module-async-options";
+import { AdkModuleOptions } from "./module/adk-module-options";
 
 /** Stands in for the client a real adapter holds, and the reason a storage cannot be a value. */
 @Injectable()

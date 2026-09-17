@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { ToolCallId } from "../../common/identity/tool-call-id";
-import { ModelIdentity } from "./model-identity";
+import { ModelIdentity } from "./descriptor/model-identity";
+import { ToolCall } from "./messages/tool-call";
 import { ModelResponse } from "./model-response";
-import { ModelUsage } from "./model-usage";
-import { ToolCall } from "./tool-call";
+import { ModelUsage } from "./usage/model-usage";
 
 const MODEL = ModelIdentity.of("acme", "m-1");
 const call = new ToolCall(ToolCallId.from("call-1"), "refund", {});

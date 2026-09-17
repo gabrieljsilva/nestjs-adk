@@ -1,5 +1,5 @@
-import type { ModelFailure } from "../model/model-failure";
-import type { ModelIdentity } from "../model/model-identity";
+import type { ModelIdentity } from "../model/descriptor/model-identity";
+import type { ModelFailure } from "../model/failures/model-failure";
 
 /**
  * One switch of model inside a single request.

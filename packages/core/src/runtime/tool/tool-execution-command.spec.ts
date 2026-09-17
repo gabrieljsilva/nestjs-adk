@@ -3,7 +3,7 @@ import { AgentRunId } from "../../common/identity/agent-run-id";
 import { SessionId } from "../../common/identity/session-id";
 import { ToolCallId } from "../../common/identity/tool-call-id";
 import { AgentName } from "../../domain/agent/agent-name";
-import { ToolInvocation } from "../../domain/tool/tool-invocation";
+import { ToolInvocation } from "../../domain/tool/invocation/tool-invocation";
 import { RunContextFixture } from "../../support/run/run-context.fixture";
 import { ToolCatalog } from "./tool-catalog";
 import { ToolExecutionCommand } from "./tool-execution-command";

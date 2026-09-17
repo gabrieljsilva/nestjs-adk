@@ -1,9 +1,9 @@
 import type { SessionId } from "../../common/identity/session-id";
-import type { ArtifactStorage } from "../../contracts/artifact-storage";
+import type { ArtifactStorage } from "../../contracts/storage/artifact-storage";
 import type { AgentName } from "../../domain/agent/agent-name";
 import type { ContextBudget } from "../../domain/context/context-budget";
 import { SessionContext } from "../../domain/run/session-context";
-import type { CreateSessionInput } from "../../domain/session/create-session-input";
+import type { CreateSessionInput } from "../../domain/session/input/create-session-input";
 import type { Session } from "../../domain/session/session";
 import type { SessionInspection } from "../../domain/session/session-inspection";
 import type { ContextManager } from "../context/context-manager";

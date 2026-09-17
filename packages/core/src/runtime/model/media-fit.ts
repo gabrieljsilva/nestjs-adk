@@ -1,8 +1,8 @@
-import { ModelCapability } from "../../domain/model/model-capability";
-import type { ModelDescriptor } from "../../domain/model/model-descriptor";
-import type { ModelMessage } from "../../domain/model/model-message";
+import { ModelCapability } from "../../domain/model/descriptor/model-capability";
+import type { ModelDescriptor } from "../../domain/model/descriptor/model-descriptor";
+import type { ModelMessage } from "../../domain/model/messages/model-message";
+import { UserMessage } from "../../domain/model/messages/user-message";
 import { ModelRequest } from "../../domain/model/model-request";
-import { UserMessage } from "../../domain/model/user-message";
 
 /** What the model reads in place of an image it was never able to look at. */
 const PLACEHOLDER = "[image attached: this model cannot see images]";

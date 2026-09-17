@@ -1,4 +1,4 @@
-import type { ToolCallDelta } from "../../domain/model/tool-call-delta";
+import type { ToolCallDelta } from "../../domain/model/streaming/tool-call-delta";
 
 /**
  * A tool call while it is still arriving.

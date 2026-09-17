@@ -1,9 +1,9 @@
 import "reflect-metadata";
 import "./matchers";
 import { afterEach, describe, expect, it } from "vitest";
-import type { AdkTestBed } from "./adk-test-bed";
-import { AdkTestBedBuilder } from "./adk-test-bed-builder";
-import type { ScriptedModel } from "./scripted-model";
+import type { AdkTestBed } from "./bed/adk-test-bed";
+import { AdkTestBedBuilder } from "./bed/adk-test-bed-builder";
+import type { ScriptedModel } from "./model/scripted-model";
 import { BillingAgent, ConciergeAgent, WarrantyAgent, storeModule } from "./support/store.fixture";
 
 const ORDER = "A-1042";

@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { ArtifactId } from "../../common/identity/artifact-id";
 import { SessionId } from "../../common/identity/session-id";
 import { SessionRevision } from "../../common/revision/session-revision";
-import { AttachmentReference } from "../../domain/model/attachment-reference";
-import { AttachmentRequest } from "../../domain/model/attachment-request";
-import { MediaPart } from "../../domain/model/media-part";
+import { AttachmentReference } from "../../domain/model/attachment/attachment-reference";
+import { AttachmentRequest } from "../../domain/model/attachment/attachment-request";
+import { MediaPart } from "../../domain/model/messages/media-part";
 import { SessionContext } from "../../domain/run/session-context";
 import { DefaultAttachmentResolver } from "./default-attachment-resolver";
 

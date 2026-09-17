@@ -1,5 +1,5 @@
 import { type ZodType, toJSONSchema } from "zod";
-import { ParsedArguments } from "../../domain/tool/parsed-arguments";
+import { ParsedArguments } from "../../domain/tool/invocation/parsed-arguments";
 import { ToolSchema } from "../../domain/tool/tool-schema";
 
 /**

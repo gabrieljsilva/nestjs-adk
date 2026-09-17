@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { ParsedArguments } from "./parsed-arguments";
+import { ToolEffect } from "./approval/tool-effect";
+import { ParsedArguments } from "./invocation/parsed-arguments";
+import { ToolHandler } from "./invocation/tool-handler";
 import { ToolDefinition } from "./tool-definition";
-import { ToolEffect } from "./tool-effect";
-import { ToolHandler } from "./tool-handler";
 import { ToolSchema } from "./tool-schema";
 
 class FixedSchema extends ToolSchema {

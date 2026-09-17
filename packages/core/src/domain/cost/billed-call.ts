@@ -1,5 +1,5 @@
-import type { ModelIdentity } from "../model/model-identity";
-import type { ModelUsage } from "../model/model-usage";
+import type { ModelIdentity } from "../model/descriptor/model-identity";
+import type { ModelUsage } from "../model/usage/model-usage";
 
 /**
  * One model call that happened, and who served it.

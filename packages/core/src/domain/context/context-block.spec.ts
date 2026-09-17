@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { ToolCallId } from "../../common/identity/tool-call-id";
 import { SessionRevision } from "../../common/revision/session-revision";
-import { ToolCallMessage } from "../model/tool-call-message";
-import { ToolResultMessage } from "../model/tool-result-message";
-import { UserMessage } from "../model/user-message";
+import { ToolCallMessage } from "../model/messages/tool-call-message";
+import { ToolResultMessage } from "../model/messages/tool-result-message";
+import { UserMessage } from "../model/messages/user-message";
 import { ContextBlock } from "./context-block";
 import { ContextCategory } from "./context-category";
 

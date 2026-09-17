@@ -3,7 +3,7 @@ import type { Clock } from "../../common/time/clock";
 import { SessionContext } from "../../domain/run/session-context";
 import { SessionClosedError } from "../../domain/session/errors/session-closed.error";
 import { Session } from "../../domain/session/session";
-import { SessionState } from "../../domain/session/session-state";
+import { SessionState } from "../../domain/session/state/session-state";
 import { OpenedSession } from "../session/opened-session";
 import type { SessionManager } from "../session/session-manager";
 import type { AgentRunCommand } from "./agent-run-command";

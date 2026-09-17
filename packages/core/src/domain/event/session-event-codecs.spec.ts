@@ -4,7 +4,7 @@ import { AgentRunId } from "../../common/identity/agent-run-id";
 import { CorrelationId } from "../../common/identity/correlation-id";
 import { EventId } from "../../common/identity/event-id";
 import { Instant } from "../../common/time/instant";
-import { UserMessageReceived } from "./catalog/user-message-received";
+import { UserMessageReceived } from "./catalog/session/user-message-received";
 import { EventCorrelation } from "./event-correlation";
 import { EventHeader } from "./event-header";
 import { SessionEventCodecs } from "./session-event-codecs";

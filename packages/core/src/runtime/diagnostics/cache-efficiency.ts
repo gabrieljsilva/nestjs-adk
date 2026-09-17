@@ -1,5 +1,5 @@
 import { CacheReport } from "../../domain/diagnostics/cache-report";
-import type { ModelUsage } from "../../domain/model/model-usage";
+import type { ModelUsage } from "../../domain/model/usage/model-usage";
 import { NotEnoughRunsError } from "./errors/not-enough-runs.error";
 
 /** The first run pays for the prefix; measuring it would report zero and blame the agent. */

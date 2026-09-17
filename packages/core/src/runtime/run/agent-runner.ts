@@ -1,15 +1,15 @@
 import type { ContextSnapshot } from "../../domain/diagnostics/context-snapshot";
-import type { ModelChunk } from "../../domain/model/model-chunk";
-import type { AgentResult } from "../../domain/session/agent-result";
-import type { ApproveInput } from "../../domain/session/approve-input";
-import type { DelegateInput } from "../../domain/session/delegate-input";
-import type { RejectInput } from "../../domain/session/reject-input";
+import type { ModelChunk } from "../../domain/model/streaming/model-chunk";
+import type { ApproveInput } from "../../domain/session/input/approve-input";
+import type { DelegateInput } from "../../domain/session/input/delegate-input";
+import type { RejectInput } from "../../domain/session/input/reject-input";
+import type { AgentResult } from "../../domain/session/run/agent-result";
 import type { AgentRunCommand } from "./agent-run-command";
-import type { AskAgent } from "./ask-agent";
-import type { DecideApproval } from "./decide-approval";
-import type { DelegateAgent } from "./delegate-agent";
-import type { ExplainAgent } from "./explain-agent";
-import type { StreamAgent } from "./stream-agent";
+import type { AskAgent } from "./use-cases/ask-agent";
+import type { DecideApproval } from "./use-cases/decide-approval";
+import type { DelegateAgent } from "./use-cases/delegate-agent";
+import type { ExplainAgent } from "./use-cases/explain-agent";
+import type { StreamAgent } from "./use-cases/stream-agent";
 
 /**
  * What an application calls to talk to an agent.

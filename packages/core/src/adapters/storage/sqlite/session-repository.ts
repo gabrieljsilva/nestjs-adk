@@ -1,6 +1,6 @@
 import type { SessionId } from "../../../common/identity/session-id";
 import type { Session } from "../../../domain/session/session";
-import type { SessionHeadCodec } from "../codec/session-head-codec";
+import type { SessionHeadCodec } from "../codec/session-head/session-head-codec";
 import { StoredRow } from "../codec/stored-row";
 import type { SqliteConnection } from "./sqlite-connection";
 

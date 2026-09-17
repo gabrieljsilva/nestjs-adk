@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
-import { AGENT_METADATA } from "../../../adapters/nest/metadata-keys";
-import type { AgentOptions } from "../agent-options";
+import { AGENT_METADATA } from "../../../adapters/nest/metadata/metadata-keys";
+import type { AgentOptions } from "../agent/agent-options";
 
 /** Nest's own decorator takes a constructor; a `ClassDecorator` is handed the same thing. */
 function markInjectable(target: object): void {

@@ -1,9 +1,9 @@
-import { CompactionStrategy } from "../../contracts/compaction-strategy";
-import type { ContextSummarizer } from "../../contracts/context-summarizer";
+import { CompactionStrategy } from "../../contracts/context/compaction-strategy";
+import type { ContextSummarizer } from "../../contracts/context/context-summarizer";
 import type { CompactionDecision } from "../../domain/context/compaction-decision";
 import { ContextBlock } from "../../domain/context/context-block";
 import type { ContextProjection } from "../../domain/context/context-projection";
-import { UserMessage } from "../../domain/model/user-message";
+import { UserMessage } from "../../domain/model/messages/user-message";
 import type { RunContext } from "../../domain/run/run-context";
 import type { ContextMeasurer } from "./context-measurer";
 

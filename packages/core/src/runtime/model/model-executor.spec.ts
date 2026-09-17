@@ -1,18 +1,18 @@
 import { describe, expect, it } from "vitest";
+import { ModelCapabilities } from "../../domain/model/descriptor/model-capabilities";
+import { ModelCapability } from "../../domain/model/descriptor/model-capability";
+import { ModelContextWindow } from "../../domain/model/descriptor/model-context-window";
+import { ModelDescriptor } from "../../domain/model/descriptor/model-descriptor";
+import { ModelIdentity } from "../../domain/model/descriptor/model-identity";
 import { InvalidStructuredOutputError } from "../../domain/model/errors/invalid-structured-output.error";
 import { UnsupportedCapabilityError } from "../../domain/model/errors/unsupported-capability.error";
 import { LlmModel } from "../../domain/model/llm-model";
-import { ModelCapabilities } from "../../domain/model/model-capabilities";
-import { ModelCapability } from "../../domain/model/model-capability";
-import { ModelChunk } from "../../domain/model/model-chunk";
-import { ModelContextWindow } from "../../domain/model/model-context-window";
-import { ModelDescriptor } from "../../domain/model/model-descriptor";
-import { ModelIdentity } from "../../domain/model/model-identity";
+import { ToolDeclaration } from "../../domain/model/messages/tool-declaration";
+import { UserMessage } from "../../domain/model/messages/user-message";
 import { ModelRequest } from "../../domain/model/model-request";
-import { ModelUsage } from "../../domain/model/model-usage";
-import { ToolCallDelta } from "../../domain/model/tool-call-delta";
-import { ToolDeclaration } from "../../domain/model/tool-declaration";
-import { UserMessage } from "../../domain/model/user-message";
+import { ModelChunk } from "../../domain/model/streaming/model-chunk";
+import { ToolCallDelta } from "../../domain/model/streaming/tool-call-delta";
+import { ModelUsage } from "../../domain/model/usage/model-usage";
 import { ModelExecutor } from "./model-executor";
 
 const IDENTITY = ModelIdentity.of("acme", "m-1");

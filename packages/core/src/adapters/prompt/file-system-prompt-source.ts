@@ -1,5 +1,5 @@
 import { isAbsolute, resolve } from "node:path";
-import { PromptSource } from "../../contracts/prompt-source";
+import { PromptSource } from "../../contracts/model/prompt-source";
 import { FsPromptFileReader } from "./fs-prompt-file-reader";
 import { PromptFileCache } from "./prompt-file-cache";
 import type { PromptFileReader } from "./prompt-file-reader";

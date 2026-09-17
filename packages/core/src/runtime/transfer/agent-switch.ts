@@ -1,10 +1,10 @@
-import type { ModelResolver } from "../../contracts/model-resolver";
+import type { ModelResolver } from "../../contracts/model/model-resolver";
 import type { AgentName } from "../../domain/agent/agent-name";
-import { AgentTransferred } from "../../domain/event/catalog/agent-transferred";
+import { AgentTransferred } from "../../domain/event/catalog/transfer/agent-transferred";
 import type { SessionEventBatch } from "../../domain/event/session-event-batch";
 import type { AgentCatalog } from "../catalog/agent-catalog";
-import type { RunScope } from "../run/run-scope";
-import type { RunScopeFactory } from "../run/run-scope-factory";
+import type { RunScope } from "../run/scope/run-scope";
+import type { RunScopeFactory } from "../run/scope/run-scope-factory";
 
 /**
  * Puts a different agent behind a run that is already going.

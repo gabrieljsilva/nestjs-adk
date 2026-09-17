@@ -1,5 +1,5 @@
-import type { ConsumerNoticeSink } from "../../contracts/consumer-notice-sink";
-import type { SessionEventConsumer } from "../../contracts/session-event-consumer";
+import type { ConsumerNoticeSink } from "../../contracts/events/consumer-notice-sink";
+import type { SessionEventConsumer } from "../../contracts/events/session-event-consumer";
 import { ConsumerFailed } from "../../domain/event/consumer-failed";
 import { PublishedEvent } from "../../domain/event/published-event";
 import type { SessionEvent } from "../../domain/event/session-event";

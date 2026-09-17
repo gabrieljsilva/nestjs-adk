@@ -2,7 +2,7 @@ import type { SessionId } from "../../../common/identity/session-id";
 import { SessionRevision } from "../../../common/revision/session-revision";
 import type { SessionEvent } from "../../../domain/event/session-event";
 import { StoredSessionEvent } from "../../../domain/event/stored-session-event";
-import type { JournalCodec } from "../codec/journal-codec";
+import type { JournalCodec } from "../codec/journal/journal-codec";
 import { StoredRow } from "../codec/stored-row";
 import type { SqliteConnection } from "./sqlite-connection";
 

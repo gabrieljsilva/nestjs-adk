@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { ToolCallId } from "../../common/identity/tool-call-id";
-import { AssistantMessage } from "../model/assistant-message";
-import { MediaPart } from "../model/media-part";
-import { ToolResultMessage } from "../model/tool-result-message";
-import { UserMessage } from "../model/user-message";
+import { AssistantMessage } from "../model/messages/assistant-message";
+import { MediaPart } from "../model/messages/media-part";
+import { ToolResultMessage } from "../model/messages/tool-result-message";
+import { UserMessage } from "../model/messages/user-message";
 import { MediaSplitter } from "./media-splitter";
 
 const CALL = ToolCallId.from("c-1");

@@ -1,4 +1,4 @@
-import { ContextNoticeSink } from "../../contracts/context-notice-sink";
+import { ContextNoticeSink } from "../../contracts/context/context-notice-sink";
 import type { ContextWindowUnknown } from "../../domain/context/context-window-unknown";
 import type { SessionContext } from "../../domain/run/session-context";
 

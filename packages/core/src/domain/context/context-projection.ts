@@ -1,7 +1,7 @@
 import { SessionRevision } from "../../common/revision/session-revision";
-import type { ModelMessage } from "../model/model-message";
+import type { ModelMessage } from "../model/messages/model-message";
+import type { ToolDeclaration } from "../model/messages/tool-declaration";
 import { ModelRequest } from "../model/model-request";
-import type { ToolDeclaration } from "../model/tool-declaration";
 import type { PromptInstructions } from "../prompt/prompt-instructions";
 import type { ContextBlock } from "./context-block";
 import { MediaSplitter } from "./media-splitter";

@@ -3,7 +3,7 @@ import { SessionId } from "../../common/identity/session-id";
 import { Instant } from "../../common/time/instant";
 import { AgentName } from "../../domain/agent/agent-name";
 import { Session } from "../../domain/session/session";
-import { SessionState } from "../../domain/session/session-state";
+import { SessionState } from "../../domain/session/state/session-state";
 import { OpenedSession } from "./opened-session";
 
 const session = Session.start(

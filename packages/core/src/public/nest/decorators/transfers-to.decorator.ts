@@ -1,5 +1,5 @@
-import { TRANSFERS_TO_METADATA } from "../../../adapters/nest/metadata-keys";
-import type { AgentTarget } from "../agent-target";
+import { TRANSFERS_TO_METADATA } from "../../../adapters/nest/metadata/metadata-keys";
+import type { AgentTarget } from "../agent/agent-target";
 
 /**
  * Declares which agents this one may hand a conversation to.

@@ -4,7 +4,7 @@ import { SessionRevision } from "../../../common/revision/session-revision";
 import { Instant } from "../../../common/time/instant";
 import { AgentName } from "../../../domain/agent/agent-name";
 import { Session } from "../../../domain/session/session";
-import { SessionHeadCodec } from "../codec/session-head-codec";
+import { SessionHeadCodec } from "../codec/session-head/session-head-codec";
 import { SessionRepository } from "./session-repository";
 import { SqliteConnection } from "./sqlite-connection";
 

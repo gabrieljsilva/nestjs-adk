@@ -1,10 +1,10 @@
 import { ToolCallId } from "../../common/identity/tool-call-id";
+import type { ModelIdentity } from "../../domain/model/descriptor/model-identity";
 import { MalformedToolCallError } from "../../domain/model/errors/malformed-tool-call.error";
-import type { ModelChunk } from "../../domain/model/model-chunk";
-import type { ModelIdentity } from "../../domain/model/model-identity";
+import { ToolCall } from "../../domain/model/messages/tool-call";
 import { ModelResponse } from "../../domain/model/model-response";
-import { ModelUsage } from "../../domain/model/model-usage";
-import { ToolCall } from "../../domain/model/tool-call";
+import type { ModelChunk } from "../../domain/model/streaming/model-chunk";
+import { ModelUsage } from "../../domain/model/usage/model-usage";
 import { PartialToolCall } from "./partial-tool-call";
 
 /**

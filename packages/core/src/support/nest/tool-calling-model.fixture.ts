@@ -1,13 +1,13 @@
+import { ModelCapabilities } from "../../domain/model/descriptor/model-capabilities";
+import { ModelCapability } from "../../domain/model/descriptor/model-capability";
+import { ModelContextWindow } from "../../domain/model/descriptor/model-context-window";
+import { ModelDescriptor } from "../../domain/model/descriptor/model-descriptor";
+import { ModelIdentity } from "../../domain/model/descriptor/model-identity";
 import { LlmModel } from "../../domain/model/llm-model";
-import { ModelCapabilities } from "../../domain/model/model-capabilities";
-import { ModelCapability } from "../../domain/model/model-capability";
-import { ModelChunk } from "../../domain/model/model-chunk";
-import { ModelContextWindow } from "../../domain/model/model-context-window";
-import { ModelDescriptor } from "../../domain/model/model-descriptor";
-import { ModelIdentity } from "../../domain/model/model-identity";
 import type { ModelRequest } from "../../domain/model/model-request";
-import { ModelUsage } from "../../domain/model/model-usage";
-import { ToolCallDelta } from "../../domain/model/tool-call-delta";
+import { ModelChunk } from "../../domain/model/streaming/model-chunk";
+import { ToolCallDelta } from "../../domain/model/streaming/tool-call-delta";
+import { ModelUsage } from "../../domain/model/usage/model-usage";
 
 /**
  * Calls one tool on the first turn, answers on the second, and keeps every request.

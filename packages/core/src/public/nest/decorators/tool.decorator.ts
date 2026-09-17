@@ -1,8 +1,8 @@
 import { Injectable } from "@nestjs/common";
 import type { ZodType, z } from "zod";
-import { INLINE_TOOLS_METADATA, TOOL_METADATA } from "../../../adapters/nest/metadata-keys";
-import type { ToolContext } from "../../../domain/tool/tool-context";
-import type { AdkTool } from "../adk-tool";
+import { INLINE_TOOLS_METADATA, TOOL_METADATA } from "../../../adapters/nest/metadata/metadata-keys";
+import type { ToolContext } from "../../../domain/tool/invocation/tool-context";
+import type { AdkTool } from "../tool/adk-tool";
 
 /** What `@Tool` declares. The effect defaults to `write`, which is the answer that asks. */
 export interface ToolOptions<TSchema extends ZodType = ZodType> {

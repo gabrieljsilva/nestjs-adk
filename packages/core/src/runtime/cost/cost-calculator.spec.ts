@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { ModelPrice } from "../../domain/cost/model-price";
 import { PriceBand } from "../../domain/cost/price-band";
 import { TokenRate } from "../../domain/cost/token-rate";
-import { ModelIdentity } from "../../domain/model/model-identity";
-import { ModelUsage } from "../../domain/model/model-usage";
+import { ModelIdentity } from "../../domain/model/descriptor/model-identity";
+import { ModelUsage } from "../../domain/model/usage/model-usage";
 import { CostCalculator } from "./cost-calculator";
 
 const LUNA = ModelIdentity.of("openai", "gpt-5.6-luna");

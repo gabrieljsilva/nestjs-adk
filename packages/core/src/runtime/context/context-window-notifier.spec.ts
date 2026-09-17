@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { SessionId } from "../../common/identity/session-id";
-import { ContextNoticeSink } from "../../contracts/context-notice-sink";
+import { ContextNoticeSink } from "../../contracts/context/context-notice-sink";
 import type { ContextWindowUnknown } from "../../domain/context/context-window-unknown";
-import { ModelCapabilities } from "../../domain/model/model-capabilities";
-import { ModelContextWindow } from "../../domain/model/model-context-window";
-import { ModelDescriptor } from "../../domain/model/model-descriptor";
-import { ModelIdentity } from "../../domain/model/model-identity";
-import { UnknownContextWindow } from "../../domain/model/unknown-context-window";
+import { ModelCapabilities } from "../../domain/model/descriptor/model-capabilities";
+import { ModelContextWindow } from "../../domain/model/descriptor/model-context-window";
+import { ModelDescriptor } from "../../domain/model/descriptor/model-descriptor";
+import { ModelIdentity } from "../../domain/model/descriptor/model-identity";
+import { UnknownContextWindow } from "../../domain/model/descriptor/unknown-context-window";
 import { SessionContext } from "../../domain/run/session-context";
 import { ContextWindowNotifier } from "./context-window-notifier";
 

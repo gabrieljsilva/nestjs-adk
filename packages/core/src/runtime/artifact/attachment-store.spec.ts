@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { InMemoryArtifactStorage } from "../../adapters/storage/in-memory-artifact-storage";
 import { SessionId } from "../../common/identity/session-id";
-import { ArtifactStorage } from "../../contracts/artifact-storage";
+import { ArtifactStorage } from "../../contracts/storage/artifact-storage";
 import type { ArtifactContent } from "../../domain/artifact/artifact-content";
 import type { ArtifactReference } from "../../domain/artifact/artifact-reference";
-import { AttachmentReference } from "../../domain/model/attachment-reference";
-import { MediaPart } from "../../domain/model/media-part";
+import { AttachmentReference } from "../../domain/model/attachment/attachment-reference";
+import { MediaPart } from "../../domain/model/messages/media-part";
 import { SessionContext } from "../../domain/run/session-context";
 import { SequenceIdGenerator } from "../../support/sequence-id-generator";
 import { AttachmentStore } from "./attachment-store";

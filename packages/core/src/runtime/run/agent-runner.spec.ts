@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { SessionId } from "../../common/identity/session-id";
 import { ToolCallId } from "../../common/identity/tool-call-id";
-import { ApproveInput } from "../../domain/session/approve-input";
-import { AskInput } from "../../domain/session/ask-input";
 import { ApprovalNotPendingError } from "../../domain/session/errors/approval-not-pending.error";
-import { RejectInput } from "../../domain/session/reject-input";
+import { ApproveInput } from "../../domain/session/input/approve-input";
+import { AskInput } from "../../domain/session/input/ask-input";
+import { RejectInput } from "../../domain/session/input/reject-input";
 import { NativeStackFixture } from "../../support/run/native-stack.fixture";
 import { ScriptedModel } from "../../support/run/scripted-model.fixture";
 import { AgentRunCommand } from "./agent-run-command";

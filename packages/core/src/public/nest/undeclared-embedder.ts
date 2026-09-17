@@ -1,4 +1,4 @@
-import { Embedder } from "../../contracts/embedder";
+import { Embedder } from "../../contracts/model/embedder";
 import type { EmbeddingVector } from "../../domain/embedding/embedding-vector";
 import { EmbedderNotDeclaredError } from "./errors/embedder-not-declared.error";
 

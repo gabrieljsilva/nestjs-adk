@@ -5,11 +5,11 @@ import { Instant } from "../../common/time/instant";
 import { AgentName } from "../../domain/agent/agent-name";
 import { RunContext } from "../../domain/run/run-context";
 import { SessionContext } from "../../domain/run/session-context";
-import { AgentRun } from "../../domain/session/agent-run";
+import type { SessionMetadata } from "../../domain/session/metadata/session-metadata";
+import { AgentRun } from "../../domain/session/run/agent-run";
 import { Session } from "../../domain/session/session";
-import type { SessionMetadata } from "../../domain/session/session-metadata";
-import { SessionState } from "../../domain/session/session-state";
-import type { Actor } from "../../domain/tool/actor";
+import { SessionState } from "../../domain/session/state/session-state";
+import type { Actor } from "../../domain/tool/access/actor";
 
 const START = Instant.fromIso("2026-01-01T00:00:00.000Z");
 

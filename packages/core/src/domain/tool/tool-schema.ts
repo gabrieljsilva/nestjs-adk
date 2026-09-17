@@ -1,4 +1,4 @@
-import type { ParsedArguments } from "./parsed-arguments";
+import type { ParsedArguments } from "./invocation/parsed-arguments";
 
 /**
  * What a tool accepts, in the two forms it needs to be in.

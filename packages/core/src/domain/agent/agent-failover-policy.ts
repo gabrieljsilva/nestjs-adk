@@ -1,5 +1,5 @@
+import type { ModelFailure } from "../model/failures/model-failure";
 import type { LlmModel } from "../model/llm-model";
-import type { ModelFailure } from "../model/model-failure";
 import type { FailoverContext } from "./failover-context";
 
 /**

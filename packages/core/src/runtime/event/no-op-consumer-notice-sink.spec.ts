@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SessionId } from "../../common/identity/session-id";
-import { ConsumerNoticeSink } from "../../contracts/consumer-notice-sink";
+import { ConsumerNoticeSink } from "../../contracts/events/consumer-notice-sink";
 import { ConsumerFailed } from "../../domain/event/consumer-failed";
 import { SessionContext } from "../../domain/run/session-context";
 import { NoOpConsumerNoticeSink } from "./no-op-consumer-notice-sink";

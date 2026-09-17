@@ -1,5 +1,5 @@
-import type { ModelIdentity } from "../model/model-identity";
-import { ModelUsage } from "../model/model-usage";
+import type { ModelIdentity } from "../model/descriptor/model-identity";
+import { ModelUsage } from "../model/usage/model-usage";
 import { CostBreakdown } from "./cost-breakdown";
 import type { UsdAmount } from "./usd-amount";
 

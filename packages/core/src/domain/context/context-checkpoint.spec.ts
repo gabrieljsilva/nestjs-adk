@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ContentDigest } from "../../common/digest/content-digest";
 import { SessionId } from "../../common/identity/session-id";
 import { SessionRevision } from "../../common/revision/session-revision";
-import { UserMessage } from "../model/user-message";
+import { UserMessage } from "../model/messages/user-message";
 import { ContextBlock } from "./context-block";
 import { ContextCheckpoint } from "./context-checkpoint";
 

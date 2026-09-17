@@ -6,24 +6,24 @@ import { InMemorySessionStorage } from "../../adapters/storage/in-memory-session
 import { SessionId } from "../../common/identity/session-id";
 import { ContextBudgetExceededError } from "../../domain/context/errors/context-budget-exceeded.error";
 import { WindowShareCompactionPolicy } from "../../domain/context/window-share-compaction-policy";
-import type { ContextWindow } from "../../domain/model/context-window";
+import type { ContextWindow } from "../../domain/model/descriptor/context-window";
+import { ModelCapabilities } from "../../domain/model/descriptor/model-capabilities";
+import { ModelContextWindow } from "../../domain/model/descriptor/model-context-window";
+import { ModelDescriptor } from "../../domain/model/descriptor/model-descriptor";
+import { ModelIdentity } from "../../domain/model/descriptor/model-identity";
+import { UnknownContextWindow } from "../../domain/model/descriptor/unknown-context-window";
 import { LlmModel } from "../../domain/model/llm-model";
-import { ModelCapabilities } from "../../domain/model/model-capabilities";
-import { ModelChunk } from "../../domain/model/model-chunk";
-import { ModelContextWindow } from "../../domain/model/model-context-window";
-import { ModelDescriptor } from "../../domain/model/model-descriptor";
-import { ModelIdentity } from "../../domain/model/model-identity";
 import type { ModelRequest } from "../../domain/model/model-request";
-import { ModelUsage } from "../../domain/model/model-usage";
-import { UnknownContextWindow } from "../../domain/model/unknown-context-window";
+import { ModelChunk } from "../../domain/model/streaming/model-chunk";
+import { ModelUsage } from "../../domain/model/usage/model-usage";
 import { SessionContext } from "../../domain/run/session-context";
 import { RuntimeOptions } from "../../runtime/composition/runtime-options";
 import { FakeClock } from "../../support/fake-clock";
 import { SequenceIdGenerator } from "../../support/sequence-id-generator";
-import { AdkAgent } from "./adk-agent";
-import { AdkModule } from "./adk-module";
-import { AdkModuleOptions } from "./adk-module-options";
+import { AdkAgent } from "./agent/adk-agent";
 import { Agent } from "./decorators/agent.decorator";
+import { AdkModule } from "./module/adk-module";
+import { AdkModuleOptions } from "./module/adk-module-options";
 
 const CHAT = "chat-42";
 

@@ -1,9 +1,9 @@
 import { SessionEventCodecs } from "../../../domain/event/session-event-codecs";
 import type { SessionEventRegistry } from "../../../domain/event/session-event-registry";
-import { CheckpointCodec } from "./checkpoint-codec";
-import { JournalCodec } from "./journal-codec";
-import { SessionHeadCodec } from "./session-head-codec";
-import { SnapshotCodec } from "./snapshot-codec";
+import { CheckpointCodec } from "./checkpoint/checkpoint-codec";
+import { JournalCodec } from "./journal/journal-codec";
+import { SessionHeadCodec } from "./session-head/session-head-codec";
+import { SnapshotCodec } from "./snapshot/snapshot-codec";
 
 /**
  * One codec per collection a `SessionStorage` keeps, as one thing to hold.

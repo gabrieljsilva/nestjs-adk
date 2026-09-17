@@ -2,9 +2,9 @@ import { ModelsExhaustedError } from "../../domain/agent/errors/models-exhausted
 import { FailoverContext } from "../../domain/agent/failover-context";
 import { ModelReroute } from "../../domain/agent/model-reroute";
 import { ModelCallFailedError } from "../../domain/model/errors/model-call-failed.error";
+import type { ModelFailure } from "../../domain/model/failures/model-failure";
 import type { LlmModel } from "../../domain/model/llm-model";
-import type { ModelChunk } from "../../domain/model/model-chunk";
-import type { ModelFailure } from "../../domain/model/model-failure";
+import type { ModelChunk } from "../../domain/model/streaming/model-chunk";
 import { ModelExecutor } from "./model-executor";
 import type { ModelRunCommand } from "./model-run-command";
 import { ModelRunOutcome } from "./model-run-outcome";

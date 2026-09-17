@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ModelIdentity } from "../model/model-identity";
-import { ModelUsage } from "../model/model-usage";
+import { ModelIdentity } from "../model/descriptor/model-identity";
+import { ModelUsage } from "../model/usage/model-usage";
 import { CostBreakdown } from "./cost-breakdown";
 import { ModelCost } from "./model-cost";
 import { ModelUnpriced } from "./model-unpriced";

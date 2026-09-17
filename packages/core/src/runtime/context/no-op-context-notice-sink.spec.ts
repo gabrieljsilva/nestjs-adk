@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { SessionId } from "../../common/identity/session-id";
-import { ContextNoticeSink } from "../../contracts/context-notice-sink";
+import { ContextNoticeSink } from "../../contracts/context/context-notice-sink";
 import { ContextWindowUnknown } from "../../domain/context/context-window-unknown";
-import { ModelIdentity } from "../../domain/model/model-identity";
+import { ModelIdentity } from "../../domain/model/descriptor/model-identity";
 import { SessionContext } from "../../domain/run/session-context";
 import { NoOpContextNoticeSink } from "./no-op-context-notice-sink";
 

@@ -4,7 +4,7 @@ import { SessionId } from "../../common/identity/session-id";
 import { ToolCallId } from "../../common/identity/tool-call-id";
 import { AgentName } from "../../domain/agent/agent-name";
 import { AgentTransferPolicy } from "../../domain/agent/agent-transfer-policy";
-import { ToolContext } from "../../domain/tool/tool-context";
+import { ToolContext } from "../../domain/tool/invocation/tool-context";
 import { TransferToAgentTool } from "./transfer-to-agent-tool";
 
 const BILLING = AgentName.from("billing");

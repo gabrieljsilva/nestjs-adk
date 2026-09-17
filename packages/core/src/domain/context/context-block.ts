@@ -1,8 +1,8 @@
 import type { ToolCallId } from "../../common/identity/tool-call-id";
 import type { SessionRevision } from "../../common/revision/session-revision";
-import type { ModelMessage } from "../model/model-message";
-import { ToolCallMessage } from "../model/tool-call-message";
-import { ToolResultMessage } from "../model/tool-result-message";
+import type { ModelMessage } from "../model/messages/model-message";
+import { ToolCallMessage } from "../model/messages/tool-call-message";
+import { ToolResultMessage } from "../model/messages/tool-result-message";
 import { ContextCategory } from "./context-category";
 
 /**

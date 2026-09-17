@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { AdkError } from "../../../common/errors/adk.error";
-import { RateLimitedFailure } from "../rate-limited-failure";
-import { UnknownFailure } from "../unknown-failure";
+import { RateLimitedFailure } from "../failures/rate-limited-failure";
+import { UnknownFailure } from "../failures/unknown-failure";
 import { ModelCallFailedError } from "./model-call-failed.error";
 
 describe("ModelCallFailedError", () => {

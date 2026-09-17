@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { SessionId } from "../../common/identity/session-id";
 import { AgentName } from "../../domain/agent/agent-name";
-import { AskInput } from "../../domain/session/ask-input";
-import { RunLimits } from "../../domain/session/run-limits";
+import { AskInput } from "../../domain/session/input/ask-input";
+import { RunLimits } from "../../domain/session/run/run-limits";
 import { AgentRunCommand } from "./agent-run-command";
 
 const SUPPORT = AgentName.from("support");

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { ModelReroute } from "../../domain/agent/model-reroute";
-import { ModelIdentity } from "../../domain/model/model-identity";
+import { ModelIdentity } from "../../domain/model/descriptor/model-identity";
+import { RateLimitedFailure } from "../../domain/model/failures/rate-limited-failure";
 import { ModelResponse } from "../../domain/model/model-response";
-import { RateLimitedFailure } from "../../domain/model/rate-limited-failure";
 import { ModelRunOutcome } from "./model-run-outcome";
 
 const PRIMARY = ModelIdentity.of("acme", "primary");

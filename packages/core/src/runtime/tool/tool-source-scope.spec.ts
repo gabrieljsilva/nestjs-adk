@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { AgentRunId } from "../../common/identity/agent-run-id";
 import { SessionId } from "../../common/identity/session-id";
-import { ToolSource } from "../../contracts/tool-source";
+import { ToolSource } from "../../contracts/tool/tool-source";
+import { ToolEffect } from "../../domain/tool/approval/tool-effect";
 import { ToolSourceAuthError } from "../../domain/tool/errors/tool-source-auth.error";
-import { ParsedArguments } from "../../domain/tool/parsed-arguments";
+import { ParsedArguments } from "../../domain/tool/invocation/parsed-arguments";
+import { ToolHandler } from "../../domain/tool/invocation/tool-handler";
 import { ToolDefinition } from "../../domain/tool/tool-definition";
-import { ToolEffect } from "../../domain/tool/tool-effect";
-import { ToolHandler } from "../../domain/tool/tool-handler";
 import { ToolSchema } from "../../domain/tool/tool-schema";
 import { ToolSourceScope } from "./tool-source-scope";
 

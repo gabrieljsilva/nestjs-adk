@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { ZodToolSchema } from "../../adapters/schema/zod-tool-schema";
 import { ToolCallId } from "../../common/identity/tool-call-id";
-import { Actor } from "../../domain/tool/actor";
-import { AdkAccessPolicy } from "../../domain/tool/adk-access-policy";
-import { ToolAccess } from "../../domain/tool/tool-access";
+import { Actor } from "../../domain/tool/access/actor";
+import { AdkAccessPolicy } from "../../domain/tool/access/adk-access-policy";
+import { ToolAccess } from "../../domain/tool/access/tool-access";
+import { ToolEffect } from "../../domain/tool/approval/tool-effect";
+import { ToolHandler } from "../../domain/tool/invocation/tool-handler";
+import { ToolInvocation } from "../../domain/tool/invocation/tool-invocation";
 import { ToolDefinition } from "../../domain/tool/tool-definition";
-import { ToolEffect } from "../../domain/tool/tool-effect";
-import { ToolHandler } from "../../domain/tool/tool-handler";
-import { ToolInvocation } from "../../domain/tool/tool-invocation";
 import { ToolGate } from "./tool-gate";
 
 class NoopHandler extends ToolHandler {

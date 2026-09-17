@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ToolCallDelta } from "../../domain/model/tool-call-delta";
+import { ToolCallDelta } from "../../domain/model/streaming/tool-call-delta";
 import { PartialToolCall } from "./partial-tool-call";
 
 describe("PartialToolCall", () => {

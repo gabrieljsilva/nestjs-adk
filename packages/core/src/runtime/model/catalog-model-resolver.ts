@@ -1,4 +1,4 @@
-import { ModelResolver } from "../../contracts/model-resolver";
+import { ModelResolver } from "../../contracts/model/model-resolver";
 import type { AgentDefinition } from "../../domain/agent/agent-definition";
 import type { LlmModel } from "../../domain/model/llm-model";
 

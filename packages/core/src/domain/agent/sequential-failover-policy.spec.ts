@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { AgentRunId } from "../../common/identity/agent-run-id";
-import { ContextExceededFailure } from "../model/context-exceeded-failure";
-import { InvalidRequestFailure } from "../model/invalid-request-failure";
+import { ModelCapabilities } from "../model/descriptor/model-capabilities";
+import { ModelContextWindow } from "../model/descriptor/model-context-window";
+import { ModelDescriptor } from "../model/descriptor/model-descriptor";
+import { ModelIdentity } from "../model/descriptor/model-identity";
+import { ContextExceededFailure } from "../model/failures/context-exceeded-failure";
+import { InvalidRequestFailure } from "../model/failures/invalid-request-failure";
+import { RateLimitedFailure } from "../model/failures/rate-limited-failure";
 import { LlmModel } from "../model/llm-model";
-import { ModelCapabilities } from "../model/model-capabilities";
-import type { ModelChunk } from "../model/model-chunk";
-import { ModelContextWindow } from "../model/model-context-window";
-import { ModelDescriptor } from "../model/model-descriptor";
-import { ModelIdentity } from "../model/model-identity";
-import { RateLimitedFailure } from "../model/rate-limited-failure";
+import type { ModelChunk } from "../model/streaming/model-chunk";
 import { FailoverContext } from "./failover-context";
 import { SequentialFailoverPolicy } from "./sequential-failover-policy";
 

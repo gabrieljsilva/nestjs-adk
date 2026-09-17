@@ -1,4 +1,4 @@
-import type { ToolDeclaration } from "../../domain/model/tool-declaration";
+import type { ToolDeclaration } from "../../domain/model/messages/tool-declaration";
 import { ToolNotFoundError } from "../../domain/tool/errors/tool-not-found.error";
 import type { ToolDefinition } from "../../domain/tool/tool-definition";
 

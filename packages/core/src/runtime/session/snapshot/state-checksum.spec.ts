@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { SessionId } from "../../../common/identity/session-id";
 import { SessionRevision } from "../../../common/revision/session-revision";
-import { SessionState } from "../../../domain/session/session-state";
-import { StateValues } from "../../../domain/session/state-values";
+import { SessionState } from "../../../domain/session/state/session-state";
+import { StateValues } from "../../../domain/session/state/state-values";
 import { StateChecksum } from "./state-checksum";
 
 const checksum = new StateChecksum();

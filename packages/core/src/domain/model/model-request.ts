@@ -1,7 +1,7 @@
 import type { PromptInstructions } from "../prompt/prompt-instructions";
-import type { ModelMessage } from "./model-message";
-import type { ToolDeclaration } from "./tool-declaration";
-import { UserMessage } from "./user-message";
+import type { ModelMessage } from "./messages/model-message";
+import type { ToolDeclaration } from "./messages/tool-declaration";
+import { UserMessage } from "./messages/user-message";
 
 /** Everything a model needs for one turn, already composed by the runtime. */
 export class ModelRequest {

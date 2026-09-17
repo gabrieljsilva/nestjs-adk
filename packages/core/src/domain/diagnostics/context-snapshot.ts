@@ -1,5 +1,5 @@
 import type { AgentName } from "../agent/agent-name";
-import type { ModelIdentity } from "../model/model-identity";
+import type { ModelIdentity } from "../model/descriptor/model-identity";
 import { ContextSegment } from "./context-segment";
 
 /**

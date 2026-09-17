@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { ContentDigest } from "../../common/digest/content-digest";
 import { SessionRevision } from "../../common/revision/session-revision";
-import { ModelContextWindow } from "../model/model-context-window";
-import { UserMessage } from "../model/user-message";
+import { ModelContextWindow } from "../model/descriptor/model-context-window";
+import { UserMessage } from "../model/messages/user-message";
 import { ContextBlock } from "./context-block";
 import { ContextBudget } from "./context-budget";
 import { ContextProjection } from "./context-projection";

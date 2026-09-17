@@ -2,7 +2,7 @@ import "reflect-metadata";
 import { describe, expect, it } from "vitest";
 import { AgentTargets } from "./agent-targets";
 import { InvalidAgentMetadataError } from "./errors/invalid-agent-metadata.error";
-import { AGENT_METADATA } from "./metadata-keys";
+import { AGENT_METADATA } from "./metadata/metadata-keys";
 
 class BillingAgent {}
 Reflect.defineMetadata(AGENT_METADATA, { name: "billing", description: "Handles money." }, BillingAgent);

@@ -2,7 +2,7 @@ import type { AdkCompactionPolicy } from "../context/adk-compaction-policy";
 import type { LlmModel } from "../model/llm-model";
 import type { PromptBuilder } from "../prompt/prompt-builder";
 import type { PromptInstructions } from "../prompt/prompt-instructions";
-import type { RunLimits } from "../session/run-limits";
+import type { RunLimits } from "../session/run/run-limits";
 import type { SkillDefinition } from "../skill/skill-definition";
 import type { ToolDefinition } from "../tool/tool-definition";
 import type { AgentDelegationPolicy } from "./agent-delegation-policy";

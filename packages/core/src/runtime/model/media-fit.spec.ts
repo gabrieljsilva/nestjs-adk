@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { AssistantMessage } from "../../domain/model/assistant-message";
-import { MediaPart } from "../../domain/model/media-part";
-import { ModelCapabilities } from "../../domain/model/model-capabilities";
-import { ModelCapability } from "../../domain/model/model-capability";
-import { ModelContextWindow } from "../../domain/model/model-context-window";
-import { ModelDescriptor } from "../../domain/model/model-descriptor";
-import { ModelIdentity } from "../../domain/model/model-identity";
+import { ModelCapabilities } from "../../domain/model/descriptor/model-capabilities";
+import { ModelCapability } from "../../domain/model/descriptor/model-capability";
+import { ModelContextWindow } from "../../domain/model/descriptor/model-context-window";
+import { ModelDescriptor } from "../../domain/model/descriptor/model-descriptor";
+import { ModelIdentity } from "../../domain/model/descriptor/model-identity";
+import { AssistantMessage } from "../../domain/model/messages/assistant-message";
+import { MediaPart } from "../../domain/model/messages/media-part";
+import { UserMessage } from "../../domain/model/messages/user-message";
 import { ModelRequest } from "../../domain/model/model-request";
-import { UserMessage } from "../../domain/model/user-message";
 import { MediaFit } from "./media-fit";
 
 const PIXEL = "iVBORw0KGgo=";

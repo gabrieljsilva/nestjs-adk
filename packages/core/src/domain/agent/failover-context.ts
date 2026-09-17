@@ -1,6 +1,6 @@
 import type { AgentRunId } from "../../common/identity/agent-run-id";
+import type { ModelFailure } from "../model/failures/model-failure";
 import type { LlmModel } from "../model/llm-model";
-import type { ModelFailure } from "../model/model-failure";
 
 /**
  * What the run knows when a model fails, handed to the policy so it can decide.

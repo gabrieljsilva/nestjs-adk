@@ -1,5 +1,5 @@
 import type { Session } from "../../domain/session/session";
-import type { SessionState } from "../../domain/session/session-state";
+import type { SessionState } from "../../domain/session/state/session-state";
 
 /** A session brought back from storage, with the state its journal implies. */
 export class RehydratedSession {

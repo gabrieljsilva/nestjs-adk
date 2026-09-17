@@ -1,5 +1,5 @@
-import type { ModelResolver } from "../../contracts/model-resolver";
-import type { RunLimits } from "../../domain/session/run-limits";
+import type { ModelResolver } from "../../contracts/model/model-resolver";
+import type { RunLimits } from "../../domain/session/run/run-limits";
 import type { ToolDefinition } from "../../domain/tool/tool-definition";
 import type { ArtifactOffloader } from "../artifact/artifact-offloader";
 import type { AgentCatalog } from "../catalog/agent-catalog";

@@ -3,7 +3,7 @@ import type { AgentName } from "../../domain/agent/agent-name";
 import type { ContextProjection } from "../../domain/context/context-projection";
 import { ContextSegment } from "../../domain/diagnostics/context-segment";
 import { ContextSnapshot } from "../../domain/diagnostics/context-snapshot";
-import type { ModelIdentity } from "../../domain/model/model-identity";
+import type { ModelIdentity } from "../../domain/model/descriptor/model-identity";
 
 /**
  * Turns a prepared context into the three strings a comparison can be run on.

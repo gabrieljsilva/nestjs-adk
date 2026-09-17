@@ -1,5 +1,5 @@
-import type { RunProgress } from "../run/run-progress";
-import type { RunScope } from "../run/run-scope";
+import type { RunScope } from "../run/scope/run-scope";
+import type { RunProgress } from "../run/settle/run-progress";
 import type { OpenedSession } from "../session/opened-session";
 
 /**

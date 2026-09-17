@@ -1,11 +1,11 @@
-import type { ToolCallObserver } from "../../contracts/tool-call-observer";
-import type { ToolSource } from "../../contracts/tool-source";
+import type { ToolCallObserver } from "../../contracts/tool/tool-call-observer";
+import type { ToolSource } from "../../contracts/tool/tool-source";
 import type { AgentName } from "../../domain/agent/agent-name";
 import type { LlmModel } from "../../domain/model/llm-model";
-import type { AskInput } from "../../domain/session/ask-input";
-import { RunLimits } from "../../domain/session/run-limits";
-import type { SessionMetadata } from "../../domain/session/session-metadata";
-import type { Actor } from "../../domain/tool/actor";
+import type { AskInput } from "../../domain/session/input/ask-input";
+import type { SessionMetadata } from "../../domain/session/metadata/session-metadata";
+import { RunLimits } from "../../domain/session/run/run-limits";
+import type { Actor } from "../../domain/tool/access/actor";
 
 /**
  * One command to run, resolved: which agent, what was said and under which limits.

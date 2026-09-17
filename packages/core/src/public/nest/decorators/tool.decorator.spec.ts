@@ -1,9 +1,9 @@
 import "reflect-metadata";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { INLINE_TOOLS_METADATA, TOOL_METADATA } from "../../../adapters/nest/metadata-keys";
-import type { ToolContext } from "../../../domain/tool/tool-context";
-import { AdkTool } from "../adk-tool";
+import { INLINE_TOOLS_METADATA, TOOL_METADATA } from "../../../adapters/nest/metadata/metadata-keys";
+import type { ToolContext } from "../../../domain/tool/invocation/tool-context";
+import { AdkTool } from "../tool/adk-tool";
 import { Tool } from "./tool.decorator";
 
 const schema = z.object({ orderId: z.string() });

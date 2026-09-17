@@ -1,6 +1,6 @@
-import type { ModelIdentity } from "./model-identity";
-import { ModelUsage } from "./model-usage";
-import type { ToolCall } from "./tool-call";
+import type { ModelIdentity } from "./descriptor/model-identity";
+import type { ToolCall } from "./messages/tool-call";
+import { ModelUsage } from "./usage/model-usage";
 
 /**
  * One turn of a model, whole.

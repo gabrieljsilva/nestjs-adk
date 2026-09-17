@@ -1,4 +1,4 @@
-import type { MediaPart } from "../../domain/model/media-part";
+import type { MediaPart } from "../../domain/model/messages/media-part";
 
 /**
  * What a message's attachments became for the context being built: the media the model

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SessionId } from "../../common/identity/session-id";
 import { WindowShareCompactionPolicy } from "../../domain/context/window-share-compaction-policy";
-import { ToolDeclaration } from "../../domain/model/tool-declaration";
+import { ToolDeclaration } from "../../domain/model/messages/tool-declaration";
 import { PromptInstructions } from "../../domain/prompt/prompt-instructions";
 import { StubModel } from "../../support/model/stub-model.fixture";
 import { RunContextFixture } from "../../support/run/run-context.fixture";

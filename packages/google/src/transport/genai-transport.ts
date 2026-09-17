@@ -1,0 +1,83 @@
+import { ModelCallFailedError, type ModelChunk, TokenCount } from "@nestjs-adk/core";
+import { GeminiFailureMapper } from "../mapping/gemini-failure-mapper";
+import type { GeminiRequest } from "../mapping/gemini-request";
+import { type GeminiResponseChunk, GeminiStreamMapper } from "../mapping/gemini-stream-mapper";
+import type { GeminiOptions } from "../model/gemini-options";
+import { GeminiTransport } from "./gemini-transport";
+import type { GenAiClient } from "./genai-client";
+import { GenAiClientFactory } from "./genai-client-factory";
+
+/**
+ * Talks to a real Gemini endpoint, on either surface.
+ *
+ * Always streaming, even when the caller wants one answer: the contract says a model
+ * emits chunks and the executor aggregates them, so a non streaming call would only
+ * mean the same aggregation happening twice in different places.
+ */
+export class GenAiTransport extends GeminiTransport {
+	private readonly client: GenAiClient;
+
+	public constructor(
+		private readonly options: GeminiOptions = {},
+		factory: GenAiClientFactory = new GenAiClientFactory(),
+		private readonly chunks: GeminiStreamMapper = new GeminiStreamMapper(),
+		private readonly failures: GeminiFailureMapper = new GeminiFailureMapper(),
+	) {
+		super();
+		this.client = factory.create(options);
+	}
+
+	/** Which surface this transport was pointed at, which is the only difference between them. */
+	public get isVertex(): boolean {
+		return this.options.vertexai === true;
+	}
+
+	/**
+	 * One answer, chunk by chunk, with the calls in it counted from here.
+	 *
+	 * Calls the model asked for together arrive in separate chunks, and each needs an index
+	 * of its own or the executor assembles them into one call with both sets of arguments
+	 * concatenated. The count belongs to this loop because this is what knows where an
+	 * answer starts: a mapper that counted for itself would either reset per chunk or leak
+	 * the previous turn's total into the next one.
+	 */
+	public async *stream(request: GeminiRequest, signal?: AbortSignal): AsyncIterable<ModelChunk> {
+		const stream = await this.open(request, signal);
+		let calls = 0;
+		try {
+			for await (const raw of stream) {
+				for (const chunk of this.chunks.toChunks(raw, calls)) {
+					if (chunk.toolCall !== undefined) calls += 1;
+					yield chunk;
+				}
+			}
+		} catch (error) {
+			throw new ModelCallFailedError(this.failures.toFailure(error), request.model);
+		}
+	}
+
+	/** Gemini counts before the fact, so this is measured and never an estimate. */
+	public async countTokens(request: GeminiRequest): Promise<TokenCount> {
+		try {
+			const response = await this.client.models.countTokens({
+				model: request.model,
+				contents: [...request.contents],
+			});
+			return TokenCount.measured(response.totalTokens ?? 0);
+		} catch (error) {
+			throw new ModelCallFailedError(this.failures.toFailure(error), request.model);
+		}
+	}
+
+	private async open(request: GeminiRequest, signal?: AbortSignal): Promise<AsyncIterable<GeminiResponseChunk>> {
+		try {
+			return await this.client.models.generateContentStream({
+				model: request.model,
+				contents: [...request.contents],
+				config: { ...request.config, abortSignal: signal },
+			});
+		} catch (error) {
+			throw new ModelCallFailedError(this.failures.toFailure(error), request.model);
+		}
+	}
+}

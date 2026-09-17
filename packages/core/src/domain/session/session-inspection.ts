@@ -1,12 +1,12 @@
 import type { SessionId } from "../../common/identity/session-id";
 import type { SessionRevision } from "../../common/revision/session-revision";
 import type { AgentName } from "../agent/agent-name";
-import type { PromptMeasurement } from "../model/prompt-measurement";
-import { ApprovalStatus } from "./approval-status";
+import type { PromptMeasurement } from "../model/usage/prompt-measurement";
+import { ApprovalStatus } from "./approval/approval-status";
+import type { SessionMetadata } from "./metadata/session-metadata";
 import type { Session } from "./session";
-import type { SessionMetadata } from "./session-metadata";
-import type { SessionState } from "./session-state";
-import type { StateValues } from "./state-values";
+import type { SessionState } from "./state/session-state";
+import type { StateValues } from "./state/state-values";
 
 /**
  * Where a session stands right now, without running anything to find out.

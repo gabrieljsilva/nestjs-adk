@@ -1,11 +1,11 @@
-import type { ContextWindow } from "../../domain/model/context-window";
+import type { ContextWindow } from "../../domain/model/descriptor/context-window";
+import { ModelCapabilities } from "../../domain/model/descriptor/model-capabilities";
+import { ModelContextWindow } from "../../domain/model/descriptor/model-context-window";
+import { ModelDescriptor } from "../../domain/model/descriptor/model-descriptor";
+import { ModelIdentity } from "../../domain/model/descriptor/model-identity";
 import { LlmModel } from "../../domain/model/llm-model";
-import { ModelCapabilities } from "../../domain/model/model-capabilities";
-import { ModelChunk } from "../../domain/model/model-chunk";
-import { ModelContextWindow } from "../../domain/model/model-context-window";
-import { ModelDescriptor } from "../../domain/model/model-descriptor";
-import { ModelIdentity } from "../../domain/model/model-identity";
 import type { ModelRequest } from "../../domain/model/model-request";
+import { ModelChunk } from "../../domain/model/streaming/model-chunk";
 
 /**
  * A model that answers a script and nothing else.

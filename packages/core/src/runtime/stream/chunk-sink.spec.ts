@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ModelChunk } from "../../domain/model/model-chunk";
+import { ModelChunk } from "../../domain/model/streaming/model-chunk";
 import { ChunkSink } from "./chunk-sink";
 
 describe("ChunkSink", () => {

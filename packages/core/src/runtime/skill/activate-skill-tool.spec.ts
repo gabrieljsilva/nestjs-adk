@@ -4,8 +4,8 @@ import { SessionId } from "../../common/identity/session-id";
 import { ToolCallId } from "../../common/identity/tool-call-id";
 import { AgentName } from "../../domain/agent/agent-name";
 import { SkillDefinition } from "../../domain/skill/skill-definition";
-import { ToolContext } from "../../domain/tool/tool-context";
-import { ToolEffect } from "../../domain/tool/tool-effect";
+import { ToolEffect } from "../../domain/tool/approval/tool-effect";
+import { ToolContext } from "../../domain/tool/invocation/tool-context";
 import { ActivateSkillTool } from "./activate-skill-tool";
 import { SkillCatalog } from "./skill-catalog";
 

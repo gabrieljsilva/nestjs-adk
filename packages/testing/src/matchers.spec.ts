@@ -12,10 +12,10 @@ import {
 	ToolCallId,
 } from "@nestjs-adk/core";
 import { describe, expect, it } from "vitest";
-import { JudgeRubric } from "./judge-rubric";
-import { LlmJudge } from "./llm-judge";
+import { JudgeRubric } from "./judge/judge-rubric";
+import { LlmJudge } from "./judge/llm-judge";
 import { adkMatchers } from "./matchers";
-import { ScriptedModel } from "./scripted-model";
+import { ScriptedModel } from "./model/scripted-model";
 import { IssueRefundTool } from "./support/store.fixture";
 import { ToolFake } from "./tool-fake";
 

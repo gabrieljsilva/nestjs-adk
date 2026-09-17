@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { ModelContextWindow } from "../model/model-context-window";
-import { ModelIdentity } from "../model/model-identity";
-import { ModelUsage } from "../model/model-usage";
-import { PromptMeasurement } from "../model/prompt-measurement";
-import { UnknownContextWindow } from "../model/unknown-context-window";
+import { ModelContextWindow } from "../model/descriptor/model-context-window";
+import { ModelIdentity } from "../model/descriptor/model-identity";
+import { UnknownContextWindow } from "../model/descriptor/unknown-context-window";
+import { ModelUsage } from "../model/usage/model-usage";
+import { PromptMeasurement } from "../model/usage/prompt-measurement";
 import { ContextBudget } from "./context-budget";
 import { ContextBudgetExceededError } from "./errors/context-budget-exceeded.error";
 

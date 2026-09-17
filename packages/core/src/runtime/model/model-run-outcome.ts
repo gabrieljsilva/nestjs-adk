@@ -1,5 +1,5 @@
 import type { ModelReroute } from "../../domain/agent/model-reroute";
-import type { ModelIdentity } from "../../domain/model/model-identity";
+import type { ModelIdentity } from "../../domain/model/descriptor/model-identity";
 import type { ModelResponse } from "../../domain/model/model-response";
 
 /**

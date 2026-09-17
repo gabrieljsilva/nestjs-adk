@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ParsedArguments } from "./parsed-arguments";
+import { ParsedArguments } from "./invocation/parsed-arguments";
 import { ToolSchema } from "./tool-schema";
 
 class AlwaysValidSchema extends ToolSchema {

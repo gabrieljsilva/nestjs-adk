@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { InMemoryArtifactStorage } from "../../adapters/storage/in-memory-artifact-storage";
 import { SessionId } from "../../common/identity/session-id";
-import { ArtifactStorage } from "../../contracts/artifact-storage";
+import { ArtifactStorage } from "../../contracts/storage/artifact-storage";
 import type { ArtifactContent } from "../../domain/artifact/artifact-content";
 import type { ArtifactReference } from "../../domain/artifact/artifact-reference";
 import { CharacterCountOffloadPolicy } from "../../domain/artifact/character-count-offload-policy";

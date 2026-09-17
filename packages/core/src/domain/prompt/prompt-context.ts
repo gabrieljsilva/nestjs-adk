@@ -1,8 +1,8 @@
 import type { AgentRunId } from "../../common/identity/agent-run-id";
 import type { SessionId } from "../../common/identity/session-id";
 import type { AgentName } from "../agent/agent-name";
-import { SessionMetadata } from "../session/session-metadata";
-import type { Actor } from "../tool/actor";
+import { SessionMetadata } from "../session/metadata/session-metadata";
+import type { Actor } from "../tool/access/actor";
 
 /**
  * What an agent knows about the run it is building a prompt for.

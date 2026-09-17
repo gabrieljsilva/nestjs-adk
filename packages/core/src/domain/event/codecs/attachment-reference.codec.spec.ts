@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ArtifactId } from "../../../common/identity/artifact-id";
-import { AttachmentReference } from "../../model/attachment-reference";
+import { AttachmentReference } from "../../model/attachment/attachment-reference";
 import { AttachmentReferenceCodec } from "./attachment-reference.codec";
 
 const codec = new AttachmentReferenceCodec();

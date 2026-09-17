@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { ContentDigest } from "../../../common/digest/content-digest";
 import type { SessionId } from "../../../common/identity/session-id";
-import type { SessionState } from "../../../domain/session/session-state";
+import type { SessionState } from "../../../domain/session/state/session-state";
 import { CanonicalStateSerializer } from "./canonical-state-serializer";
 
 const ALGORITHM = "sha256";

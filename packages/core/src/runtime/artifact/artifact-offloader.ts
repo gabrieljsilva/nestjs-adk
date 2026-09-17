@@ -1,4 +1,4 @@
-import type { ArtifactStorage } from "../../contracts/artifact-storage";
+import type { ArtifactStorage } from "../../contracts/storage/artifact-storage";
 import { ArtifactContent } from "../../domain/artifact/artifact-content";
 import { CharacterCountOffloadPolicy } from "../../domain/artifact/character-count-offload-policy";
 import type { OffloadPolicy } from "../../domain/artifact/offload-policy";

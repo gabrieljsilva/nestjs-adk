@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { AgentName } from "../../domain/agent/agent-name";
 import { ContextSegment } from "../../domain/diagnostics/context-segment";
 import { ContextSnapshot } from "../../domain/diagnostics/context-snapshot";
-import { ModelIdentity } from "../../domain/model/model-identity";
+import { ModelIdentity } from "../../domain/model/descriptor/model-identity";
 import { CapturedContexts } from "./captured-contexts";
 
 function snapshotOf(text: string): ContextSnapshot {

@@ -1,7 +1,7 @@
 import { Test } from "@nestjs/testing";
 import { describe, expect, it, vi } from "vitest";
-import { AdkTestBed } from "./adk-test-bed";
-import { RunRecorder } from "./run-recorder";
+import { AdkTestBed } from "./bed/adk-test-bed";
+import { RunRecorder } from "./recording/run-recorder";
 
 describe("AdkTestBed disposal", () => {
 	it("closes its module when the test leaves an await using scope", async () => {

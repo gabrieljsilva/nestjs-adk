@@ -4,12 +4,12 @@ import type { ToolCallId } from "../../common/identity/tool-call-id";
 import type { SessionRevision } from "../../common/revision/session-revision";
 import type { Instant } from "../../common/time/instant";
 import type { AgentName } from "../agent/agent-name";
-import type { AgentRun } from "../session/agent-run";
+import type { SessionMetadata } from "../session/metadata/session-metadata";
+import type { AgentRun } from "../session/run/agent-run";
 import type { Session } from "../session/session";
-import type { SessionMetadata } from "../session/session-metadata";
-import type { SessionState } from "../session/session-state";
-import type { Actor } from "../tool/actor";
-import { ToolContext } from "../tool/tool-context";
+import type { SessionState } from "../session/state/session-state";
+import type { Actor } from "../tool/access/actor";
+import { ToolContext } from "../tool/invocation/tool-context";
 import { SessionContext } from "./session-context";
 
 /**

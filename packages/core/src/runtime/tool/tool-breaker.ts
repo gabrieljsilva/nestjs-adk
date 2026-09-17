@@ -1,4 +1,4 @@
-import type { RunLimits } from "../../domain/session/run-limits";
+import type { RunLimits } from "../../domain/session/run/run-limits";
 import { ToolInvalidArgsError } from "../../domain/tool/errors/tool-invalid-args.error";
 import { ToolRepeatedFailureError } from "../../domain/tool/errors/tool-repeated-failure.error";
 

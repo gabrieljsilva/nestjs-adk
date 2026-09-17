@@ -1,4 +1,4 @@
-import type { SessionState } from "../../../domain/session/session-state";
+import type { SessionState } from "../../../domain/session/state/session-state";
 
 /**
  * Renders a state to the one text that represents it.

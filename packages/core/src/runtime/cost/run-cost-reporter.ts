@@ -1,11 +1,11 @@
-import type { PricingNoticeSink } from "../../contracts/pricing-notice-sink";
-import type { PricingSource } from "../../contracts/pricing-source";
+import type { PricingNoticeSink } from "../../contracts/pricing/pricing-notice-sink";
+import type { PricingSource } from "../../contracts/pricing/pricing-source";
 import type { BilledCall } from "../../domain/cost/billed-call";
 import { ModelCost } from "../../domain/cost/model-cost";
 import type { ModelPrice } from "../../domain/cost/model-price";
 import { ModelUnpriced, type UnpricedReason } from "../../domain/cost/model-unpriced";
 import { RunCost } from "../../domain/cost/run-cost";
-import type { ModelIdentity } from "../../domain/model/model-identity";
+import type { ModelIdentity } from "../../domain/model/descriptor/model-identity";
 import type { SessionContext } from "../../domain/run/session-context";
 import type { CostCalculator } from "./cost-calculator";
 

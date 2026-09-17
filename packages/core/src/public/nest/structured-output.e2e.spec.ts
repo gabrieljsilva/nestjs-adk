@@ -3,24 +3,24 @@ import { Module } from "@nestjs/common";
 import { Test, type TestingModule } from "@nestjs/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { InvalidAgentMetadataError } from "../../adapters/nest/errors/invalid-agent-metadata.error";
+import { ModelCapabilities } from "../../domain/model/descriptor/model-capabilities";
+import { ModelCapability } from "../../domain/model/descriptor/model-capability";
+import { ModelContextWindow } from "../../domain/model/descriptor/model-context-window";
+import { ModelDescriptor } from "../../domain/model/descriptor/model-descriptor";
+import { ModelIdentity } from "../../domain/model/descriptor/model-identity";
 import { UnsupportedCapabilityError } from "../../domain/model/errors/unsupported-capability.error";
 import { LlmModel } from "../../domain/model/llm-model";
-import { ModelCapabilities } from "../../domain/model/model-capabilities";
-import { ModelCapability } from "../../domain/model/model-capability";
-import { ModelChunk } from "../../domain/model/model-chunk";
-import { ModelContextWindow } from "../../domain/model/model-context-window";
-import { ModelDescriptor } from "../../domain/model/model-descriptor";
-import { ModelIdentity } from "../../domain/model/model-identity";
 import type { ModelRequest } from "../../domain/model/model-request";
-import { ModelUsage } from "../../domain/model/model-usage";
+import { ModelChunk } from "../../domain/model/streaming/model-chunk";
+import { ModelUsage } from "../../domain/model/usage/model-usage";
 import { FakeClock } from "../../support/fake-clock";
 import { RecordingModel } from "../../support/nest/recording-model.fixture";
 import { SequenceIdGenerator } from "../../support/sequence-id-generator";
-import { AdkAgent } from "./adk-agent";
-import { AdkModule } from "./adk-module";
-import { AdkModuleOptions } from "./adk-module-options";
-import { AgentRegistry } from "./agent-registry";
+import { AdkAgent } from "./agent/adk-agent";
+import { AgentRegistry } from "./agent/agent-registry";
 import { Agent } from "./decorators/agent.decorator";
+import { AdkModule } from "./module/adk-module";
+import { AdkModuleOptions } from "./module/adk-module-options";
 
 const TITLE_SCHEMA = {
 	type: "object",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MediaPart } from "../../domain/model/media-part";
+import { MediaPart } from "../../domain/model/messages/media-part";
 import { ResolvedAttachments } from "./resolved-attachments";
 
 const PIXEL = "iVBORw0KGgo=";

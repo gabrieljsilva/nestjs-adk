@@ -1,8 +1,8 @@
-import { ArtifactStorage } from "../../contracts/artifact-storage";
+import { ArtifactStorage } from "../../contracts/storage/artifact-storage";
 import { ArtifactContent } from "../../domain/artifact/artifact-content";
 import type { ArtifactReference } from "../../domain/artifact/artifact-reference";
-import { AttachmentReference } from "../../domain/model/attachment-reference";
-import type { MediaPart } from "../../domain/model/media-part";
+import { AttachmentReference } from "../../domain/model/attachment/attachment-reference";
+import type { MediaPart } from "../../domain/model/messages/media-part";
 import type { SessionContext } from "../../domain/run/session-context";
 import { AttachmentNotStoredError } from "./errors/attachment-not-stored.error";
 

@@ -1,6 +1,6 @@
 import { ArtifactId } from "../../common/identity/artifact-id";
 import type { IdGenerator } from "../../common/identity/id-generator";
-import { ArtifactStorage } from "../../contracts/artifact-storage";
+import { ArtifactStorage } from "../../contracts/storage/artifact-storage";
 import type { ArtifactContent } from "../../domain/artifact/artifact-content";
 import { ArtifactReference } from "../../domain/artifact/artifact-reference";
 import { ArtifactNotFoundError } from "../../domain/artifact/errors/artifact-not-found.error";

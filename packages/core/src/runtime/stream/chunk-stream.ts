@@ -1,4 +1,4 @@
-import type { ModelChunk } from "../../domain/model/model-chunk";
+import type { ModelChunk } from "../../domain/model/streaming/model-chunk";
 import { ChunkSink } from "./chunk-sink";
 
 /**

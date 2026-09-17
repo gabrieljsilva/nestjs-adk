@@ -1,6 +1,6 @@
-import type { ModelMessage } from "../model/model-message";
-import { ToolResultMessage } from "../model/tool-result-message";
-import { UserMessage } from "../model/user-message";
+import type { ModelMessage } from "../model/messages/model-message";
+import { ToolResultMessage } from "../model/messages/tool-result-message";
+import { UserMessage } from "../model/messages/user-message";
 
 /** What introduces the image, in the message that carries it. */
 function noteFor(toolName: string): string {

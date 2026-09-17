@@ -1,8 +1,8 @@
 import type { AgentDelegationPolicy } from "../../domain/agent/agent-delegation-policy";
-import { ParsedArguments } from "../../domain/tool/parsed-arguments";
+import { ToolEffect } from "../../domain/tool/approval/tool-effect";
+import { ParsedArguments } from "../../domain/tool/invocation/parsed-arguments";
+import { ToolHandler } from "../../domain/tool/invocation/tool-handler";
 import { ToolDefinition } from "../../domain/tool/tool-definition";
-import { ToolEffect } from "../../domain/tool/tool-effect";
-import { ToolHandler } from "../../domain/tool/tool-handler";
 import { ToolSchema } from "../../domain/tool/tool-schema";
 import { DelegationRequest } from "./delegation-request";
 

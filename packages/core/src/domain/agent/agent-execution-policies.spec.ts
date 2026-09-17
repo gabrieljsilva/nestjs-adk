@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RunLimits } from "../session/run-limits";
+import { RunLimits } from "../session/run/run-limits";
 import { AgentExecutionPolicies } from "./agent-execution-policies";
 import { AgentName } from "./agent-name";
 import { AgentTransferPolicy } from "./agent-transfer-policy";

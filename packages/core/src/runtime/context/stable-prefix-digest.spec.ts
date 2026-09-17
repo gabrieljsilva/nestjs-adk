@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { SessionRevision } from "../../common/revision/session-revision";
 import { ContextBlock } from "../../domain/context/context-block";
 import { ContextProjection } from "../../domain/context/context-projection";
-import { ToolDeclaration } from "../../domain/model/tool-declaration";
-import { UserMessage } from "../../domain/model/user-message";
+import { ToolDeclaration } from "../../domain/model/messages/tool-declaration";
+import { UserMessage } from "../../domain/model/messages/user-message";
 import { PromptInstructions } from "../../domain/prompt/prompt-instructions";
 import { StablePrefixDigest } from "./stable-prefix-digest";
 

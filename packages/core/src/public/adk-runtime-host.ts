@@ -1,7 +1,7 @@
 import type { IdGenerator } from "../common/identity/id-generator";
 import type { Clock } from "../common/time/clock";
-import type { ArtifactStorage } from "../contracts/artifact-storage";
-import type { SessionStorage } from "../contracts/session-storage";
+import type { ArtifactStorage } from "../contracts/storage/artifact-storage";
+import type { SessionStorage } from "../contracts/storage/session-storage";
 import type { DeclaredAgent } from "../domain/agent/declared-agent";
 import type { ToolDefinition } from "../domain/tool/tool-definition";
 import { AgentCatalogBuilder } from "../runtime/catalog/agent-catalog-builder";

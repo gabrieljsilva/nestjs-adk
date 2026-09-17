@@ -1,7 +1,7 @@
-import type { ModelChunk } from "./model-chunk";
-import type { ModelDescriptor } from "./model-descriptor";
+import type { ModelDescriptor } from "./descriptor/model-descriptor";
 import type { ModelRequest } from "./model-request";
-import type { TokenCount } from "./token-count";
+import type { ModelChunk } from "./streaming/model-chunk";
+import type { TokenCount } from "./usage/token-count";
 
 /**
  * The component that turns execution context into the agent's next decision.

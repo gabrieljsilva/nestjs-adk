@@ -1,10 +1,10 @@
+import { ModelCapabilities } from "../../domain/model/descriptor/model-capabilities";
+import { ModelCapability } from "../../domain/model/descriptor/model-capability";
+import { ModelContextWindow } from "../../domain/model/descriptor/model-context-window";
+import { ModelDescriptor } from "../../domain/model/descriptor/model-descriptor";
+import { ModelIdentity } from "../../domain/model/descriptor/model-identity";
 import { LlmModel } from "../../domain/model/llm-model";
-import { ModelCapabilities } from "../../domain/model/model-capabilities";
-import { ModelCapability } from "../../domain/model/model-capability";
-import { ModelChunk } from "../../domain/model/model-chunk";
-import { ModelContextWindow } from "../../domain/model/model-context-window";
-import { ModelDescriptor } from "../../domain/model/model-descriptor";
-import { ModelIdentity } from "../../domain/model/model-identity";
+import { ModelChunk } from "../../domain/model/streaming/model-chunk";
 
 /**
  * Answers a different script on each turn, which is what a loop test needs.

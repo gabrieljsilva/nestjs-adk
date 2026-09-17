@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { ParsedArguments } from "../../domain/tool/parsed-arguments";
+import { ToolEffect } from "../../domain/tool/approval/tool-effect";
+import { ParsedArguments } from "../../domain/tool/invocation/parsed-arguments";
+import { ToolHandler } from "../../domain/tool/invocation/tool-handler";
 import { ToolDefinition } from "../../domain/tool/tool-definition";
-import { ToolEffect } from "../../domain/tool/tool-effect";
-import { ToolHandler } from "../../domain/tool/tool-handler";
 import { ToolSchema } from "../../domain/tool/tool-schema";
 import { UnregisteredToolError } from "./errors/unregistered-tool.error";
 import { SharedToolLookup } from "./shared-tool-lookup";

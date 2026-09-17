@@ -7,11 +7,11 @@ import { SessionId } from "../../../common/identity/session-id";
 import { SessionRevision } from "../../../common/revision/session-revision";
 import { Instant } from "../../../common/time/instant";
 import { AgentName } from "../../../domain/agent/agent-name";
-import { SessionCreated } from "../../../domain/event/catalog/session-created";
-import { UserMessageReceived } from "../../../domain/event/catalog/user-message-received";
+import { SessionCreated } from "../../../domain/event/catalog/session/session-created";
+import { UserMessageReceived } from "../../../domain/event/catalog/session/user-message-received";
 import { EventCorrelation } from "../../../domain/event/event-correlation";
 import { EventHeader } from "../../../domain/event/event-header";
-import { JournalCodec } from "../codec/journal-codec";
+import { JournalCodec } from "../codec/journal/journal-codec";
 import { EventRepository } from "./event-repository";
 import { SqliteConnection } from "./sqlite-connection";
 

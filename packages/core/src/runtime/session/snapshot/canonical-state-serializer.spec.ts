@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { SessionRevision } from "../../../common/revision/session-revision";
 import { AgentName } from "../../../domain/agent/agent-name";
-import { SessionState } from "../../../domain/session/session-state";
-import { StateValues } from "../../../domain/session/state-values";
+import { SessionState } from "../../../domain/session/state/session-state";
+import { StateValues } from "../../../domain/session/state/state-values";
 import { CanonicalStateSerializer } from "./canonical-state-serializer";
 
 const serializer = new CanonicalStateSerializer();

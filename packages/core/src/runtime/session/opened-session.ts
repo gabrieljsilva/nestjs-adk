@@ -1,5 +1,5 @@
 import type { Session } from "../../domain/session/session";
-import type { SessionState } from "../../domain/session/session-state";
+import type { SessionState } from "../../domain/session/state/session-state";
 
 /**
  * The session a command is about to run against, however it got there.

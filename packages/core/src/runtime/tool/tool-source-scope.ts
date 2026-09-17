@@ -1,6 +1,6 @@
 import type { AgentRunId } from "../../common/identity/agent-run-id";
 import type { SessionId } from "../../common/identity/session-id";
-import type { ToolSource } from "../../contracts/tool-source";
+import type { ToolSource } from "../../contracts/tool/tool-source";
 import { ToolSourceAuthError } from "../../domain/tool/errors/tool-source-auth.error";
 import { ToolSourceUnavailableError } from "../../domain/tool/errors/tool-source-unavailable.error";
 import type { ToolDefinition } from "../../domain/tool/tool-definition";

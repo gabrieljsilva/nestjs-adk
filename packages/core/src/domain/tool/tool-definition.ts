@@ -1,6 +1,6 @@
-import { ToolDeclaration } from "../model/tool-declaration";
-import type { ToolEffect } from "./tool-effect";
-import type { ToolHandler } from "./tool-handler";
+import { ToolDeclaration } from "../model/messages/tool-declaration";
+import type { ToolEffect } from "./approval/tool-effect";
+import type { ToolHandler } from "./invocation/tool-handler";
 import type { ToolSchema } from "./tool-schema";
 
 /**

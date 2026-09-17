@@ -7,13 +7,13 @@ import {
 	Similarity,
 } from "@nestjs-adk/core";
 import { expect } from "vitest";
-import { JudgeRubric } from "./judge-rubric";
-import type { LlmJudge } from "./llm-judge";
-import { RecordedRun } from "./recorded-run";
-import { RunEvents } from "./run-events";
-import { ScriptedModel } from "./scripted-model";
-import { TestAgent } from "./test-agent";
-import { TestingEmbedder } from "./testing-embedder";
+import { TestAgent } from "./bed/test-agent";
+import { JudgeRubric } from "./judge/judge-rubric";
+import type { LlmJudge } from "./judge/llm-judge";
+import { ScriptedModel } from "./model/scripted-model";
+import { TestingEmbedder } from "./model/testing-embedder";
+import { RecordedRun } from "./recording/recorded-run";
+import { RunEvents } from "./recording/run-events";
 import { ToolFake } from "./tool-fake";
 
 const embedder = new TestingEmbedder();

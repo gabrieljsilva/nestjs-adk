@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RunLimits } from "../../domain/session/run-limits";
+import { RunLimits } from "../../domain/session/run/run-limits";
 import { ToolInvalidArgsError } from "../../domain/tool/errors/tool-invalid-args.error";
 import { ToolRepeatedFailureError } from "../../domain/tool/errors/tool-repeated-failure.error";
 import { ToolBreaker } from "./tool-breaker";

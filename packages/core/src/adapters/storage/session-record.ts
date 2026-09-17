@@ -1,7 +1,7 @@
 import type { ContextCheckpoint } from "../../domain/context/context-checkpoint";
 import type { StoredSessionEvent } from "../../domain/event/stored-session-event";
 import type { Session } from "../../domain/session/session";
-import type { SessionSnapshot } from "../../domain/session/session-snapshot";
+import type { SessionSnapshot } from "../../domain/session/state/session-snapshot";
 
 /** Everything the in memory adapter keeps for one session. */
 export class SessionRecord {

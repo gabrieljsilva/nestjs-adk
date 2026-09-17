@@ -1,5 +1,5 @@
 import { InvalidAgentMetadataError } from "./errors/invalid-agent-metadata.error";
-import { AGENT_METADATA } from "./metadata-keys";
+import { AGENT_METADATA } from "./metadata/metadata-keys";
 
 /**
  * Turns what an edge decorator was handed into the names the catalog is keyed by.

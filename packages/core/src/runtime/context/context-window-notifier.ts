@@ -1,6 +1,6 @@
-import type { ContextNoticeSink } from "../../contracts/context-notice-sink";
+import type { ContextNoticeSink } from "../../contracts/context/context-notice-sink";
 import { ContextWindowUnknown } from "../../domain/context/context-window-unknown";
-import type { ModelDescriptor } from "../../domain/model/model-descriptor";
+import type { ModelDescriptor } from "../../domain/model/descriptor/model-descriptor";
 import type { SessionContext } from "../../domain/run/session-context";
 import { NoOpContextNoticeSink } from "./no-op-context-notice-sink";
 

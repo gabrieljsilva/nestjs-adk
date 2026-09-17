@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AgentName } from "../agent/agent-name";
-import { ModelIdentity } from "../model/model-identity";
+import { ModelIdentity } from "../model/descriptor/model-identity";
 import { ContextSegment } from "./context-segment";
 import { ContextSnapshot } from "./context-snapshot";
 

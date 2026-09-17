@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { SessionEventCodecs } from "../../../domain/event/session-event-codecs";
-import { CheckpointCodec } from "./checkpoint-codec";
-import { JournalCodec } from "./journal-codec";
-import { SessionHeadCodec } from "./session-head-codec";
-import { SnapshotCodec } from "./snapshot-codec";
+import { CheckpointCodec } from "./checkpoint/checkpoint-codec";
+import { JournalCodec } from "./journal/journal-codec";
+import { SessionHeadCodec } from "./session-head/session-head-codec";
+import { SnapshotCodec } from "./snapshot/snapshot-codec";
 import { StorageCodecs } from "./storage-codecs";
 
 /** One import for somebody implementing the port, instead of four. */

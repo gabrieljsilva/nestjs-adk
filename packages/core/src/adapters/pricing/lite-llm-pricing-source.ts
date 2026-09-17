@@ -1,9 +1,9 @@
 import type { Clock } from "../../common/time/clock";
 import type { Instant } from "../../common/time/instant";
 import { SystemClock } from "../../common/time/system-clock";
-import { PricingSource } from "../../contracts/pricing-source";
+import { PricingSource } from "../../contracts/pricing/pricing-source";
 import type { ModelPrice } from "../../domain/cost/model-price";
-import type { ModelIdentity } from "../../domain/model/model-identity";
+import type { ModelIdentity } from "../../domain/model/descriptor/model-identity";
 import type { SessionContext } from "../../domain/run/session-context";
 import { CatalogTransport } from "./catalog-transport";
 import { HttpCatalogTransport } from "./http-catalog-transport";

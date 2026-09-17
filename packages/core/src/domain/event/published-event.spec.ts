@@ -6,7 +6,7 @@ import { EventId } from "../../common/identity/event-id";
 import { SessionId } from "../../common/identity/session-id";
 import { SessionRevision } from "../../common/revision/session-revision";
 import { Instant } from "../../common/time/instant";
-import { UserMessageReceived } from "./catalog/user-message-received";
+import { UserMessageReceived } from "./catalog/session/user-message-received";
 import { EventCorrelation } from "./event-correlation";
 import { EventHeader } from "./event-header";
 import { PublishedEvent } from "./published-event";

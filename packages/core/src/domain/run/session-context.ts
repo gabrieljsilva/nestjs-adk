@@ -1,8 +1,8 @@
 import type { SessionId } from "../../common/identity/session-id";
 import { SessionRevision } from "../../common/revision/session-revision";
+import { SessionMetadata } from "../session/metadata/session-metadata";
 import type { Session } from "../session/session";
-import { SessionMetadata } from "../session/session-metadata";
-import type { SessionState } from "../session/session-state";
+import type { SessionState } from "../session/state/session-state";
 
 /**
  * What a component is told about the conversation it is acting on, with no run around it.

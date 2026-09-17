@@ -1,4 +1,4 @@
-import { INLINE_SKILLS_METADATA } from "../../../adapters/nest/metadata-keys";
+import { INLINE_SKILLS_METADATA } from "../../../adapters/nest/metadata/metadata-keys";
 
 /** What `@Skill` declares. Without a mode it is on demand, so knowledge is not free weight. */
 export interface SkillOptions {

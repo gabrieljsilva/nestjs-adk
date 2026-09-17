@@ -1,4 +1,4 @@
-import { ConsumerNoticeSink } from "../../contracts/consumer-notice-sink";
+import { ConsumerNoticeSink } from "../../contracts/events/consumer-notice-sink";
 import type { ConsumerFailed } from "../../domain/event/consumer-failed";
 import type { SessionContext } from "../../domain/run/session-context";
 

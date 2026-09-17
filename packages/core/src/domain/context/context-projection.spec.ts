@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { ToolCallId } from "../../common/identity/tool-call-id";
 import { SessionRevision } from "../../common/revision/session-revision";
-import { AssistantMessage } from "../model/assistant-message";
-import { ToolCallMessage } from "../model/tool-call-message";
-import { ToolDeclaration } from "../model/tool-declaration";
-import { UserMessage } from "../model/user-message";
+import { AssistantMessage } from "../model/messages/assistant-message";
+import { ToolCallMessage } from "../model/messages/tool-call-message";
+import { ToolDeclaration } from "../model/messages/tool-declaration";
+import { UserMessage } from "../model/messages/user-message";
 import { PromptInstructions } from "../prompt/prompt-instructions";
 import { ContextBlock } from "./context-block";
 import { ContextProjection } from "./context-projection";

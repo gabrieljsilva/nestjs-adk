@@ -1,8 +1,8 @@
-import { AttachmentResolver } from "../../contracts/attachment-resolver";
-import { AttachmentProjection } from "../../domain/model/attachment-projection";
-import type { AttachmentRequest } from "../../domain/model/attachment-request";
-import { MediaLimits } from "../../domain/model/media-limits";
-import { MediaPart } from "../../domain/model/media-part";
+import { AttachmentResolver } from "../../contracts/context/attachment-resolver";
+import { AttachmentProjection } from "../../domain/model/attachment/attachment-projection";
+import type { AttachmentRequest } from "../../domain/model/attachment/attachment-request";
+import { MediaLimits } from "../../domain/model/descriptor/media-limits";
+import { MediaPart } from "../../domain/model/messages/media-part";
 import type { SessionContext } from "../../domain/run/session-context";
 
 /**

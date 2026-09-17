@@ -1,8 +1,8 @@
-import type { Actor } from "../../domain/tool/actor";
-import type { AdkAccessPolicy } from "../../domain/tool/adk-access-policy";
-import { OpenAccessPolicy } from "../../domain/tool/open-access-policy";
+import type { Actor } from "../../domain/tool/access/actor";
+import type { AdkAccessPolicy } from "../../domain/tool/access/adk-access-policy";
+import { OpenAccessPolicy } from "../../domain/tool/access/open-access-policy";
+import type { ToolInvocation } from "../../domain/tool/invocation/tool-invocation";
 import type { ToolDefinition } from "../../domain/tool/tool-definition";
-import type { ToolInvocation } from "../../domain/tool/tool-invocation";
 import { ToolAdmission } from "./tool-admission";
 
 /**

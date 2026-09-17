@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { ModelContextWindow } from "../model/model-context-window";
-import { ModelUsage } from "../model/model-usage";
-import { PromptMeasurement } from "../model/prompt-measurement";
+import { ModelContextWindow } from "../model/descriptor/model-context-window";
+import { ModelUsage } from "../model/usage/model-usage";
+import { PromptMeasurement } from "../model/usage/prompt-measurement";
 import { AdkCompactionPolicy } from "./adk-compaction-policy";
 import { CompactionDecision } from "./compaction-decision";
 import { ContextBudget } from "./context-budget";

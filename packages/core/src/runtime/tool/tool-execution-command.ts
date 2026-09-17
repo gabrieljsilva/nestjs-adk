@@ -2,9 +2,9 @@ import type { AgentRunId } from "../../common/identity/agent-run-id";
 import type { SessionId } from "../../common/identity/session-id";
 import type { AgentName } from "../../domain/agent/agent-name";
 import type { RunContext } from "../../domain/run/run-context";
-import type { Actor } from "../../domain/tool/actor";
-import type { ToolContext } from "../../domain/tool/tool-context";
-import type { ToolInvocation } from "../../domain/tool/tool-invocation";
+import type { Actor } from "../../domain/tool/access/actor";
+import type { ToolContext } from "../../domain/tool/invocation/tool-context";
+import type { ToolInvocation } from "../../domain/tool/invocation/tool-invocation";
 import type { ToolCatalog } from "./tool-catalog";
 
 /**

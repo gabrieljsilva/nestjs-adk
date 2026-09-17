@@ -1,4 +1,4 @@
-import type { ModelIdentity } from "../model/model-identity";
+import type { ModelIdentity } from "../model/descriptor/model-identity";
 import type { ModelCost } from "./model-cost";
 import { UsdAmount } from "./usd-amount";
 

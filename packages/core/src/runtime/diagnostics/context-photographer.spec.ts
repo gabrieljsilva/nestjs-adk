@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { AgentName } from "../../domain/agent/agent-name";
 import { ContextProjection } from "../../domain/context/context-projection";
 import { ContextSegment } from "../../domain/diagnostics/context-segment";
-import { ModelIdentity } from "../../domain/model/model-identity";
-import { ToolDeclaration } from "../../domain/model/tool-declaration";
+import { ModelIdentity } from "../../domain/model/descriptor/model-identity";
+import { ToolDeclaration } from "../../domain/model/messages/tool-declaration";
 import { PromptInstructions } from "../../domain/prompt/prompt-instructions";
 import { ContextPhotographer } from "./context-photographer";
 

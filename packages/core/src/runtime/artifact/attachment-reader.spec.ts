@@ -3,12 +3,12 @@ import { InMemoryArtifactStorage } from "../../adapters/storage/in-memory-artifa
 import { ArtifactId } from "../../common/identity/artifact-id";
 import { SessionId } from "../../common/identity/session-id";
 import { SessionRevision } from "../../common/revision/session-revision";
-import { AttachmentResolver } from "../../contracts/attachment-resolver";
+import { AttachmentResolver } from "../../contracts/context/attachment-resolver";
 import { ArtifactContent } from "../../domain/artifact/artifact-content";
 import type { ArtifactReference } from "../../domain/artifact/artifact-reference";
-import { AttachmentProjection } from "../../domain/model/attachment-projection";
-import { AttachmentReference } from "../../domain/model/attachment-reference";
-import type { AttachmentRequest } from "../../domain/model/attachment-request";
+import { AttachmentProjection } from "../../domain/model/attachment/attachment-projection";
+import { AttachmentReference } from "../../domain/model/attachment/attachment-reference";
+import type { AttachmentRequest } from "../../domain/model/attachment/attachment-request";
 import { SessionContext } from "../../domain/run/session-context";
 import { SequenceIdGenerator } from "../../support/sequence-id-generator";
 import { AttachmentReader } from "./attachment-reader";

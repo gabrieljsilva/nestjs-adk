@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { PromptInstructions } from "../prompt/prompt-instructions";
+import { ToolDeclaration } from "./messages/tool-declaration";
+import { UserMessage } from "./messages/user-message";
 import { ModelRequest } from "./model-request";
-import { ToolDeclaration } from "./tool-declaration";
-import { UserMessage } from "./user-message";
 
 describe("ModelRequest", () => {
 	it("carries the messages of the turn", () => {

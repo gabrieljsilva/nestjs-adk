@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { AgentRunId } from "../../../common/identity/agent-run-id";
 import { ToolCallId } from "../../../common/identity/tool-call-id";
 import { SessionRevision } from "../../../common/revision/session-revision";
-import { PendingCall } from "../../../domain/session/pending-call";
-import { PendingTurn } from "../../../domain/session/pending-turn";
-import { SessionState } from "../../../domain/session/session-state";
+import { PendingCall } from "../../../domain/session/approval/pending-call";
+import { PendingTurn } from "../../../domain/session/approval/pending-turn";
+import { SessionState } from "../../../domain/session/state/session-state";
 import { RevisionBucketSnapshotPolicy } from "./revision-bucket-snapshot-policy";
 import { SnapshotPolicy } from "./snapshot-policy";
 

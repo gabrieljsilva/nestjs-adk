@@ -1,8 +1,8 @@
 import type { SessionRevision } from "../../../common/revision/session-revision";
-import type { AppendEventsCommand } from "../../../contracts/append-events-command";
-import { AppendEventsResult } from "../../../contracts/append-events-result";
-import { SessionStorage } from "../../../contracts/session-storage";
-import { StorageCapabilities } from "../../../contracts/storage-capabilities";
+import type { AppendEventsCommand } from "../../../contracts/storage/append-events-command";
+import { AppendEventsResult } from "../../../contracts/storage/append-events-result";
+import { SessionStorage } from "../../../contracts/storage/session-storage";
+import { StorageCapabilities } from "../../../contracts/storage/storage-capabilities";
 import type { ContextCheckpoint } from "../../../domain/context/context-checkpoint";
 import { SessionEventCodecs } from "../../../domain/event/session-event-codecs";
 import type { SessionEventRegistry } from "../../../domain/event/session-event-registry";
@@ -13,7 +13,7 @@ import { SessionAlreadyExistsError } from "../../../domain/session/errors/sessio
 import { SessionNotFoundError } from "../../../domain/session/errors/session-not-found.error";
 import { SessionRevisionConflictError } from "../../../domain/session/errors/session-revision-conflict.error";
 import type { Session } from "../../../domain/session/session";
-import type { SessionSnapshot } from "../../../domain/session/session-snapshot";
+import type { SessionSnapshot } from "../../../domain/session/state/session-snapshot";
 import { StorageCodecs } from "../codec/storage-codecs";
 import { UnsupportedStorageFeatureError } from "./errors/unsupported-storage-feature.error";
 import { EventRepository } from "./event-repository";

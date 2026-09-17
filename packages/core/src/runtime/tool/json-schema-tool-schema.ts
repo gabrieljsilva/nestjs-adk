@@ -1,4 +1,4 @@
-import { ParsedArguments } from "../../domain/tool/parsed-arguments";
+import { ParsedArguments } from "../../domain/tool/invocation/parsed-arguments";
 import { ToolSchema } from "../../domain/tool/tool-schema";
 
 /** The JSON Schema types this checks, each with what satisfying it means. */

@@ -1,7 +1,7 @@
-import type { ContextWindow } from "../model/context-window";
-import type { ModelIdentity } from "../model/model-identity";
-import type { PromptMeasurement } from "../model/prompt-measurement";
-import { TokenCount } from "../model/token-count";
+import type { ContextWindow } from "../model/descriptor/context-window";
+import type { ModelIdentity } from "../model/descriptor/model-identity";
+import type { PromptMeasurement } from "../model/usage/prompt-measurement";
+import { TokenCount } from "../model/usage/token-count";
 import { ContextBudgetExceededError } from "./errors/context-budget-exceeded.error";
 
 /**

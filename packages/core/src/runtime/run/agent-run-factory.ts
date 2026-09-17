@@ -4,11 +4,11 @@ import type { IdGenerator } from "../../common/identity/id-generator";
 import type { SessionId } from "../../common/identity/session-id";
 import type { Clock } from "../../common/time/clock";
 import type { AgentName } from "../../domain/agent/agent-name";
-import { AgentRun } from "../../domain/session/agent-run";
+import { AgentRun } from "../../domain/session/run/agent-run";
 import type { ActiveRunTracker } from "../lifecycle/active-run-tracker";
 import { RunCancellation } from "../lifecycle/run-cancellation";
 import type { RuntimeLifecycle } from "../lifecycle/runtime-lifecycle";
-import { StartedRun } from "./started-run";
+import { StartedRun } from "./settle/started-run";
 
 /** What the journal records as the reason, which is not the same ending as a shutdown. */
 const CALLER_ABORTED = "the caller aborted the run";
