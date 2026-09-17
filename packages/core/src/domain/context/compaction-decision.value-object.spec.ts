@@ -18,7 +18,7 @@ describe("CompactionDecision", () => {
 	});
 
 	it("translates the share into a size, given what the prompt measures now", () => {
-		expect(CompactionDecision.keepShare(0.6, 2).targetOf(1000)).toBe(600);
+		expect(CompactionDecision.keepShare(0.6, 2).calculateTarget(1000)).toBe(600);
 	});
 
 	it("clamps a share nobody could honour", () => {

@@ -39,19 +39,19 @@ class CountingModel extends LlmModel {
 
 	public constructor(
 		private readonly perCall: number,
-		private readonly window: ContextWindow = ModelContextWindow.of(1000, 200),
+		private readonly window: ContextWindow = new ModelContextWindow(1000, 200),
 	) {
 		super();
 	}
 
 	public descriptor(): ModelDescriptor {
-		return new ModelDescriptor(ModelIdentity.of("acme", "primary"), this.window, ModelCapabilities.none());
+		return new ModelDescriptor(new ModelIdentity("acme", "primary"), this.window, ModelCapabilities.none());
 	}
 
 	public async *generate(_request: ModelRequest): AsyncIterable<ModelChunk> {
 		yield ModelChunk.text("hello there");
 		this.calls += 1;
-		yield ModelChunk.usage(ModelUsage.of(this.perCall * this.calls, 5));
+		yield ModelChunk.usage(ModelUsage.fromReport(this.perCall * this.calls, 5));
 		yield ModelChunk.finish("stop");
 	}
 }

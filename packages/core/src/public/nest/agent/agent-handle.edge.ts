@@ -151,7 +151,7 @@ export class AgentHandle {
 	 * The lib never checks who may use a session id: authorize the caller against it first.
 	 */
 	public async ask(message: string, options?: AskOptions | SessionId | string): Promise<AgentResult> {
-		return this.runtime.runner.ask(this.commandOf(message, options));
+		return this.runtime.runner.ask(this.buildCommand(message, options));
 	}
 
 	/**
@@ -160,7 +160,7 @@ export class AgentHandle {
 	 * The lib never checks who may use a session id: authorize the caller against it first.
 	 */
 	public stream(message: string, options?: AskOptions | SessionId | string): AsyncGenerator<ModelChunk, AgentResult> {
-		return this.runtime.runner.stream(this.commandOf(message, options));
+		return this.runtime.runner.stream(this.buildCommand(message, options));
 	}
 
 	/**
@@ -188,12 +188,12 @@ export class AgentHandle {
 	 * The lib never checks who may use a session id: authorize the caller against it first.
 	 */
 	public async findSessionById(sessionId: SessionId | string): Promise<Session | undefined> {
-		return this.runtime.sessions.find(AgentHandle.sessionOf(sessionId));
+		return this.runtime.sessions.find(AgentHandle.resolveSession(sessionId));
 	}
 
 	/** The same lookup for a caller with nothing to do about absence, which fails instead. */
 	public async findSessionByIdOrFail(sessionId: SessionId | string): Promise<Session> {
-		return this.runtime.sessions.findOrFail(AgentHandle.sessionOf(sessionId));
+		return this.runtime.sessions.findOrFail(AgentHandle.resolveSession(sessionId));
 	}
 
 	/**
@@ -202,7 +202,7 @@ export class AgentHandle {
 	 * The lib never checks who may use a session id: authorize the caller against it first.
 	 */
 	public async inspect(sessionId: SessionId | string): Promise<SessionInspection> {
-		return this.runtime.sessions.inspect(AgentHandle.sessionOf(sessionId));
+		return this.runtime.sessions.inspect(AgentHandle.resolveSession(sessionId));
 	}
 
 	/**
@@ -217,7 +217,7 @@ export class AgentHandle {
 	 * a run, on the prompt about to be sent, by the policy the agent runs under.
 	 */
 	public async contextBudget(sessionId: SessionId | string): Promise<ContextBudget> {
-		return this.runtime.sessions.budget(this.name, AgentHandle.sessionOf(sessionId));
+		return this.runtime.sessions.budget(this.name, AgentHandle.resolveSession(sessionId));
 	}
 
 	/**
@@ -233,10 +233,10 @@ export class AgentHandle {
 		callId: ToolCallId,
 		options: DecisionOptions | string = {},
 	): Promise<AgentResult> {
-		const decided = AgentHandle.decisionOf(options);
+		const decided = AgentHandle.resolveDecision(options);
 		return this.runtime.runner.approve(
-			ApproveInput.of(
-				AgentHandle.sessionOf(sessionId),
+			new ApproveInput(
+				AgentHandle.resolveSession(sessionId),
 				callId,
 				decided.by,
 				decided.sources,
@@ -258,10 +258,10 @@ export class AgentHandle {
 		reason: string,
 		options: DecisionOptions | string = {},
 	): Promise<AgentResult> {
-		const decided = AgentHandle.decisionOf(options);
+		const decided = AgentHandle.resolveDecision(options);
 		return this.runtime.runner.reject(
-			RejectInput.of(
-				AgentHandle.sessionOf(sessionId),
+			new RejectInput(
+				AgentHandle.resolveSession(sessionId),
 				callId,
 				reason,
 				decided.by,
@@ -279,7 +279,7 @@ export class AgentHandle {
 	 * The lib never checks who may use a session id: authorize the caller against it first.
 	 */
 	public async delegate(sessionId: SessionId | string, to: AgentName, task: string): Promise<AgentResult> {
-		return this.runtime.runner.delegate(new DelegateInput(AgentHandle.sessionOf(sessionId), this.name, to, task));
+		return this.runtime.runner.delegate(new DelegateInput(AgentHandle.resolveSession(sessionId), this.name, to, task));
 	}
 
 	/**
@@ -288,12 +288,12 @@ export class AgentHandle {
 	 * The lib never checks who may use a session id: authorize the caller against it first.
 	 */
 	public async explain(message: string, options?: AskOptions | SessionId | string) {
-		return this.runtime.runner.explain(this.commandOf(message, options));
+		return this.runtime.runner.explain(this.buildCommand(message, options));
 	}
 
-	private commandOf(message: string, options?: AskOptions | SessionId | string): AgentRunCommand {
-		const asked = AgentHandle.optionsOf(options);
-		const sessionId = asked.sessionId === undefined ? undefined : AgentHandle.sessionOf(asked.sessionId);
+	private buildCommand(message: string, options?: AskOptions | SessionId | string): AgentRunCommand {
+		const asked = AgentHandle.resolveOptions(options);
+		const sessionId = asked.sessionId === undefined ? undefined : AgentHandle.resolveSession(asked.sessionId);
 		return new AgentRunCommand(
 			this.name,
 			AskInput.with(
@@ -323,18 +323,18 @@ export class AgentHandle {
 	 * branch, where a string has no `sessionId`, and the question quietly opened a second
 	 * conversation instead of continuing the one it named.
 	 */
-	private static optionsOf(options?: AskOptions | SessionId | string): AskOptions {
+	private static resolveOptions(options?: AskOptions | SessionId | string): AskOptions {
 		if (options === undefined) return {};
 		if (typeof options === "string" || options instanceof SessionId) return { sessionId: options };
 		return options;
 	}
 
 	/** The name alone is the common case, so it is still accepted where the options object goes. */
-	private static decisionOf(options: DecisionOptions | string): DecisionOptions {
+	private static resolveDecision(options: DecisionOptions | string): DecisionOptions {
 		return typeof options === "string" ? { by: options } : options;
 	}
 
-	private static sessionOf(sessionId: SessionId | string): SessionId {
+	private static resolveSession(sessionId: SessionId | string): SessionId {
 		return sessionId instanceof SessionId ? sessionId : SessionId.from(sessionId);
 	}
 }

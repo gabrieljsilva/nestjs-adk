@@ -73,7 +73,7 @@ async function scopeOf(tools: readonly ToolDefinition[], skills: readonly SkillD
 		SessionId.from("s-1"),
 		NativeStackFixture.AGENT,
 	);
-	const definition = NativeStackFixture.definitionOf(model, undefined, tools, skills);
+	const definition = NativeStackFixture.buildDefinition(model, undefined, tools, skills);
 	const context = RunContextFixture.run(started.run.sessionId, {
 		agent: started.run.agent,
 		runId: started.run.id.value,

@@ -36,8 +36,8 @@ describe("PendingCall", () => {
 	});
 
 	it("answers only for its own call", () => {
-		expect(heldCall().isFor(CALL)).toBe(true);
-		expect(heldCall().isFor(OTHER)).toBe(false);
+		expect(heldCall().matches(CALL)).toBe(true);
+		expect(heldCall().matches(OTHER)).toBe(false);
 	});
 
 	it("leaves the call it was built from untouched when it is decided", () => {

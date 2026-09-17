@@ -37,7 +37,7 @@ const readArtifact = new ToolDefinition(
 
 describe("ToolCallNotice", () => {
 	it("carries the call as the gate screened it, with the tool beside it", () => {
-		const notice = ToolCallNotice.of(new PendingCall(CALL, "refund_order", { orderId: "42" }, "write"), refund);
+		const notice = ToolCallNotice.fromCall(new PendingCall(CALL, "refund_order", { orderId: "42" }, "write"), refund);
 
 		expect(notice.callId).toBe(CALL);
 		expect(notice.toolName).toBe("refund_order");
@@ -49,13 +49,13 @@ describe("ToolCallNotice", () => {
 	});
 
 	it("reads a call nobody held as not held", () => {
-		const notice = ToolCallNotice.of(new PendingCall(CALL, "refund_order", {}), refund);
+		const notice = ToolCallNotice.fromCall(new PendingCall(CALL, "refund_order", {}), refund);
 
 		expect(notice.isHeld).toBe(false);
 	});
 
 	it("says so for a tool the catalog does not know, instead of inventing an effect", () => {
-		const notice = ToolCallNotice.of(new PendingCall(CALL, "made_up", {}));
+		const notice = ToolCallNotice.fromCall(new PendingCall(CALL, "made_up", {}));
 
 		expect(notice.isKnown).toBe(false);
 		expect(notice.effect).toBeUndefined();
@@ -64,12 +64,12 @@ describe("ToolCallNotice", () => {
 	});
 
 	it("marks a tool the runtime owns", () => {
-		expect(ToolCallNotice.of(new PendingCall(CALL, "read_artifact", {}), readArtifact).isInternal).toBe(true);
+		expect(ToolCallNotice.fromCall(new PendingCall(CALL, "read_artifact", {}), readArtifact).isInternal).toBe(true);
 	});
 
 	it("hands out a copy of the arguments, so an observer cannot change what will run", () => {
 		const args: Record<string, unknown> = { orderId: "42" };
-		const notice = ToolCallNotice.of(new PendingCall(CALL, "refund_order", args), refund);
+		const notice = ToolCallNotice.fromCall(new PendingCall(CALL, "refund_order", args), refund);
 
 		expect(notice.args).not.toBe(args);
 		expect(notice.args).toEqual(args);

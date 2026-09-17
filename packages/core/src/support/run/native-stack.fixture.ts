@@ -24,10 +24,10 @@ import { ArtifactOffloader } from "../../runtime/artifact/artifact-offloader.ser
 import { AttachmentReader } from "../../runtime/artifact/attachment-reader.service";
 import { AttachmentStore } from "../../runtime/artifact/attachment-store.service";
 import { AgentCatalog } from "../../runtime/catalog/agent-catalog.service";
-import { ContextManager } from "../../runtime/context/context-manager.service";
 import { ContextMeasurer } from "../../runtime/context/context-measurer.service";
 import { ContextProjector } from "../../runtime/context/context-projector.service";
 import { ContextWindowNotifier } from "../../runtime/context/context-window-notifier.service";
+import { ContextService } from "../../runtime/context/context.service";
 import { OldestFirstCompactionStrategy } from "../../runtime/context/oldest-first-compaction.strategy";
 import { StablePrefixDigest } from "../../runtime/context/stable-prefix-digest.service";
 import { CostCalculator } from "../../runtime/cost/cost-calculator.service";
@@ -48,15 +48,15 @@ import { RunSettler } from "../../runtime/run/settle/run-settler.service";
 import { ApprovalGate } from "../../runtime/run/turn/approval-gate.service";
 import { TurnExecutor } from "../../runtime/run/turn/turn-executor.service";
 import { TurnLoop } from "../../runtime/run/turn/turn-loop.service";
-import { AskAgent } from "../../runtime/run/use-cases/ask-agent.use-case";
-import { DecideApproval } from "../../runtime/run/use-cases/decide-approval.use-case";
-import { DelegateAgent } from "../../runtime/run/use-cases/delegate-agent.use-case";
-import { ExplainAgent } from "../../runtime/run/use-cases/explain-agent.use-case";
-import { StreamAgent } from "../../runtime/run/use-cases/stream-agent.use-case";
-import { SessionManager } from "../../runtime/session/session-manager.service";
+import { AskAgentUseCase } from "../../runtime/run/use-cases/ask-agent.use-case";
+import { DecideApprovalUseCase } from "../../runtime/run/use-cases/decide-approval.use-case";
+import { DelegateAgentUseCase } from "../../runtime/run/use-cases/delegate-agent.use-case";
+import { ExplainAgentUseCase } from "../../runtime/run/use-cases/explain-agent.use-case";
+import { StreamAgentUseCase } from "../../runtime/run/use-cases/stream-agent.use-case";
+import { SessionRepository } from "../../runtime/session/session-repository.service";
 import { ToolExecutor } from "../../runtime/tool/tool-executor.service";
-import { AgentSwitch } from "../../runtime/transfer/agent-switch.use-case";
 import { TransferGate } from "../../runtime/transfer/transfer-gate.service";
+import { TransferSessionUseCase } from "../../runtime/transfer/transfer-session.use-case";
 import { FakeClock } from "../fake-clock.double";
 import { SequenceIdGenerator } from "../sequence-id-generator.double";
 
@@ -87,22 +87,22 @@ export class NativeStackFixture {
 	public readonly clock = new FakeClock(START);
 	public readonly ids = new SequenceIdGenerator("id");
 	public readonly tracker = new ActiveRunTracker();
-	public readonly sessions: SessionManager;
-	public readonly asking: AskAgent;
-	public readonly deciding: DecideApproval;
+	public readonly sessions: SessionRepository;
+	public readonly asking: AskAgentUseCase;
+	public readonly deciding: DecideApprovalUseCase;
 	public readonly runner: AgentRunner;
 
 	public constructor(
 		public readonly model: LlmModel,
-		definition: AgentDefinition = NativeStackFixture.definitionOf(model),
+		definition: AgentDefinition = NativeStackFixture.buildDefinition(model),
 		approvals: AdkApprovalPolicy = EffectApprovalPolicy.never(),
 		sources: readonly ToolSource[] = [],
 		pricing?: PricingSource,
 		pricingNotices?: PricingNoticeSink,
 	) {
-		this.sessions = new SessionManager(this.storage);
+		this.sessions = new SessionRepository(this.storage);
 		const measurer = new ContextMeasurer();
-		const context = new ContextManager(
+		const context = new ContextService(
 			this.storage,
 			new ContextProjector(new AttachmentReader(this.artifacts)),
 			measurer,
@@ -113,7 +113,7 @@ export class NativeStackFixture {
 		const lifecycle = new RuntimeLifecycle(this.tracker, ShutdownOptions.waitIndefinitely(), this.clock);
 		const runs = new AgentRunFactory(this.ids, this.clock, this.tracker, lifecycle);
 		const journal = new RunJournal(new RunEventFactory(this.ids, this.clock));
-		const catalog = AgentCatalog.of([new DeclaredAgent(definition, "SupportAgent")]);
+		const catalog = new AgentCatalog([new DeclaredAgent(definition, "SupportAgent")]);
 		const resolver = new FixedModelResolver(model);
 		const scopes = new RunScopeFactory();
 		const settler = new RunSettler(this.sessions, journal);
@@ -130,12 +130,12 @@ export class NativeStackFixture {
 			journal,
 			executor,
 			new ApprovalGate(approvals),
-			new AgentSwitch(catalog, resolver, scopes),
+			new TransferSessionUseCase(catalog, resolver, scopes),
 			delegations,
 		);
 		delegations.uses(loop);
 
-		this.asking = new AskAgent(
+		this.asking = new AskAgentUseCase(
 			catalog,
 			resolver,
 			new SessionOpener(this.sessions, this.clock),
@@ -151,7 +151,7 @@ export class NativeStackFixture {
 			results,
 			sources,
 		);
-		this.deciding = new DecideApproval(
+		this.deciding = new DecideApprovalUseCase(
 			catalog,
 			resolver,
 			this.sessions,
@@ -167,30 +167,30 @@ export class NativeStackFixture {
 		this.runner = new AgentRunner(
 			this.asking,
 			this.deciding,
-			new StreamAgent(this.asking),
-			new ExplainAgent(this.asking),
-			new DelegateAgent(catalog, resolver, this.sessions, runs, scopes, delegations, settler, results),
+			new StreamAgentUseCase(this.asking),
+			new ExplainAgentUseCase(this.asking),
+			new DelegateAgentUseCase(catalog, resolver, this.sessions, runs, scopes, delegations, settler, results),
 		);
 	}
 
-	public static definitionOf(
+	public static buildDefinition(
 		model: LlmModel,
 		failover?: AgentFailoverPolicy,
 		tools: readonly ToolDefinition[] = [],
 		skills: readonly SkillDefinition[] = [],
 	): AgentDefinition {
-		return AgentDefinition.of(
+		return new AgentDefinition(
 			NativeStackFixture.AGENT,
 			AgentDescription.from("Support agent", NativeStackFixture.AGENT.value),
 			model,
 			undefined,
-			AgentExecutionPolicies.of(failover),
+			new AgentExecutionPolicies(failover),
 			tools,
 			skills,
 		);
 	}
 
-	public async journalOf(sessionId: SessionId): Promise<SessionEvent[]> {
+	public async readJournal(sessionId: SessionId): Promise<SessionEvent[]> {
 		const events: SessionEvent[] = [];
 		for await (const stored of this.storage.readEvents(
 			SessionContext.fromSessionId(sessionId),

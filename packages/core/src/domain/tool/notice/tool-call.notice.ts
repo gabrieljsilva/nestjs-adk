@@ -23,7 +23,7 @@ export class ToolCallNotice {
 		public readonly tool?: ToolDefinition,
 	) {}
 
-	public static of(call: PendingCall, tool?: ToolDefinition): ToolCallNotice {
+	public static fromCall(call: PendingCall, tool?: ToolDefinition): ToolCallNotice {
 		return new ToolCallNotice(call.callId, call.toolName, { ...call.args }, call.isHeld, tool);
 	}
 

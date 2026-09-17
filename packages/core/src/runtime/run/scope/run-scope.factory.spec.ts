@@ -119,7 +119,7 @@ class FailingPrompt extends PromptBuilder {
 }
 
 function prompted(text: string): AgentDefinition {
-	return AgentDefinition.of(
+	return new AgentDefinition(
 		NativeStackFixture.AGENT,
 		AgentDescription.from("Support agent", NativeStackFixture.AGENT.value),
 		model,
@@ -128,7 +128,7 @@ function prompted(text: string): AgentDefinition {
 }
 
 function building(builder: PromptBuilder): AgentDefinition {
-	return AgentDefinition.of(
+	return new AgentDefinition(
 		NativeStackFixture.AGENT,
 		AgentDescription.from("Support agent", NativeStackFixture.AGENT.value),
 		model,
@@ -141,28 +141,28 @@ function building(builder: PromptBuilder): AgentDefinition {
 }
 
 function compacting(policy: AdkCompactionPolicy | false): AgentDefinition {
-	return AgentDefinition.of(
+	return new AgentDefinition(
 		NativeStackFixture.AGENT,
 		AgentDescription.from("Support agent", NativeStackFixture.AGENT.value),
 		model,
 		undefined,
-		AgentExecutionPolicies.of(undefined, policy),
+		new AgentExecutionPolicies(undefined, policy),
 	);
 }
 
 function bounded(limits: RunLimits): AgentDefinition {
-	return AgentDefinition.of(
+	return new AgentDefinition(
 		NativeStackFixture.AGENT,
 		AgentDescription.from("Support agent", NativeStackFixture.AGENT.value),
 		model,
 		undefined,
-		AgentExecutionPolicies.of(undefined, undefined, limits),
+		new AgentExecutionPolicies(undefined, undefined, limits),
 	);
 }
 
 describe("RunScopeFactory", () => {
 	it("offers the agent tools together with the ones the runtime always brings", async () => {
-		const definition = NativeStackFixture.definitionOf(model, undefined, [toolOf("lookup_order")]);
+		const definition = NativeStackFixture.buildDefinition(model, undefined, [toolOf("lookup_order")]);
 
 		const scope = await scopeOf(new RunScopeFactory([readArtifact]), definition);
 
@@ -173,7 +173,7 @@ describe("RunScopeFactory", () => {
 		const started = startedRun();
 		const scope = await new RunScopeFactory([readArtifact]).create(
 			runOf(started),
-			NativeStackFixture.definitionOf(model),
+			NativeStackFixture.buildDefinition(model),
 			model,
 			started,
 		);
@@ -182,7 +182,7 @@ describe("RunScopeFactory", () => {
 	});
 
 	it("adds what the sources opened, alongside what the agent declared", async () => {
-		const definition = NativeStackFixture.definitionOf(model, undefined, [toolOf("lookup_order")]);
+		const definition = NativeStackFixture.buildDefinition(model, undefined, [toolOf("lookup_order")]);
 
 		const started = startedRun();
 		const scope = await new RunScopeFactory().create(runOf(started), definition, model, started, [
@@ -193,7 +193,7 @@ describe("RunScopeFactory", () => {
 	});
 
 	it("offers the way to load a skill only to an agent that has one to load", async () => {
-		const definition = NativeStackFixture.definitionOf(
+		const definition = NativeStackFixture.buildDefinition(
 			model,
 			undefined,
 			[],
@@ -206,11 +206,11 @@ describe("RunScopeFactory", () => {
 	});
 
 	it("lets each level replace the one above it, and leaves untouched what a level did not declare", async () => {
-		const definition = NativeStackFixture.definitionOf(model);
-		const factory = new RunScopeFactory([], RunLimits.of(10, 5));
+		const definition = NativeStackFixture.buildDefinition(model);
+		const factory = new RunScopeFactory([], new RunLimits(10, 5));
 
 		const started = startedRun();
-		const scope = await factory.create(runOf(started), definition, model, started, [], RunLimits.of(2));
+		const scope = await factory.create(runOf(started), definition, model, started, [], new RunLimits(2));
 
 		expect(scope.limits.maxIterations).toBe(2);
 		expect(scope.limits.maxConsecutiveToolFailures).toBe(5);
@@ -222,25 +222,25 @@ describe("RunScopeFactory", () => {
 	 * raising the module's limit for every agent it has.
 	 */
 	it("lets an agent that declared more round trips than the module have them", async () => {
-		const factory = new RunScopeFactory([], RunLimits.of(8));
+		const factory = new RunScopeFactory([], new RunLimits(8));
 
-		const scope = await scopeOf(factory, bounded(RunLimits.of(16)));
+		const scope = await scopeOf(factory, bounded(new RunLimits(16)));
 
 		expect(scope.limits.maxIterations).toBe(16);
 	});
 
 	it("keeps an agent that declared none on the module's", async () => {
-		const factory = new RunScopeFactory([], RunLimits.of(8));
+		const factory = new RunScopeFactory([], new RunLimits(8));
 
-		const scope = await scopeOf(factory, NativeStackFixture.definitionOf(model));
+		const scope = await scopeOf(factory, NativeStackFixture.buildDefinition(model));
 
 		expect(scope.limits.maxIterations).toBe(8);
 	});
 
 	it("builds the breaker on the limits it resolved, and not on the ones it was given", async () => {
-		const factory = new RunScopeFactory([], RunLimits.of(undefined, 1));
+		const factory = new RunScopeFactory([], new RunLimits(undefined, 1));
 
-		const scope = await scopeOf(factory, NativeStackFixture.definitionOf(model));
+		const scope = await scopeOf(factory, NativeStackFixture.buildDefinition(model));
 
 		expect(() => scope.breaker.recordFailure("lookup_order", "boom")).toThrow();
 	});
@@ -257,7 +257,7 @@ describe("RunScopeFactory", () => {
 		it("hands the module policy to an agent that declared none", async () => {
 			const factory = new RunScopeFactory([], RunLimits.unbounded(), moduleWide);
 
-			const scope = await scopeOf(factory, NativeStackFixture.definitionOf(model));
+			const scope = await scopeOf(factory, NativeStackFixture.buildDefinition(model));
 
 			expect(scope.compaction).toBe(moduleWide);
 		});
@@ -272,7 +272,7 @@ describe("RunScopeFactory", () => {
 
 		/** Nobody deciding is not nobody compacting: a conversation nobody thought about is still protected. */
 		it("falls back to the standard share of the window when neither declared a policy", async () => {
-			const scope = await scopeOf(new RunScopeFactory(), NativeStackFixture.definitionOf(model));
+			const scope = await scopeOf(new RunScopeFactory(), NativeStackFixture.buildDefinition(model));
 
 			expect(scope.compaction).toBeInstanceOf(WindowShareCompactionPolicy);
 		});
@@ -288,7 +288,7 @@ describe("RunScopeFactory", () => {
 		it("compacts nothing under a runtime that turned it off", async () => {
 			const factory = new RunScopeFactory([], RunLimits.unbounded(), false);
 
-			const scope = await scopeOf(factory, NativeStackFixture.definitionOf(model));
+			const scope = await scopeOf(factory, NativeStackFixture.buildDefinition(model));
 
 			expect(scope.compaction).toBeUndefined();
 		});
@@ -307,12 +307,14 @@ describe("RunScopeFactory", () => {
 			const factory = new RunScopeFactory([], RunLimits.unbounded(), moduleWide);
 			const scope = await scopeOf(factory, compacting(declared));
 
-			expect((await factory.switched(scope, NativeStackFixture.definitionOf(model), model)).compaction).toBe(moduleWide);
+			expect((await factory.switched(scope, NativeStackFixture.buildDefinition(model), model)).compaction).toBe(
+				moduleWide,
+			);
 		});
 
 		it("resolves from scratch for a delegated child", async () => {
 			const factory = new RunScopeFactory([], RunLimits.unbounded(), moduleWide);
-			const parent = await scopeOf(factory, NativeStackFixture.definitionOf(model));
+			const parent = await scopeOf(factory, NativeStackFixture.buildDefinition(model));
 
 			expect((await factory.delegated(parent, startedRun(), compacting(declared), model)).compaction).toBe(declared);
 		});
@@ -332,7 +334,7 @@ describe("RunScopeFactory", () => {
 		});
 
 		it("answers nothing for an agent that declared neither", async () => {
-			const scope = await scopeOf(new RunScopeFactory(), NativeStackFixture.definitionOf(model));
+			const scope = await scopeOf(new RunScopeFactory(), NativeStackFixture.buildDefinition(model));
 
 			expect(scope.instructions).toBeUndefined();
 		});
@@ -370,7 +372,7 @@ describe("RunScopeFactory", () => {
 
 		it("hands the agent who is asking, which is what a prompt naming a workspace reads", async () => {
 			const builder = new CountingPrompt("You are support.");
-			const actor = Actor.of("u-1", { workspaceId: "w-1" });
+			const actor = Actor.fromId("u-1", { workspaceId: "w-1" });
 			const started = startedRun();
 
 			await new RunScopeFactory().create(runOf(started, { metadata: METADATA, actor }), building(builder), model, started);

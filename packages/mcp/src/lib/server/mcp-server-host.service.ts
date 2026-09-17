@@ -22,7 +22,7 @@ export class McpServerHost {
 	) {}
 
 	public async serve(request: IncomingMessage, response: ServerResponse, body: unknown, actor: Actor): Promise<void> {
-		const server = this.serverFor(actor);
+		const server = this.buildServer(actor);
 		const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
 		response.on("close", () => {
 			void transport.close();
@@ -32,7 +32,7 @@ export class McpServerHost {
 		await transport.handleRequest(request, response, body);
 	}
 
-	private serverFor(actor: Actor): Server {
+	private buildServer(actor: Actor): Server {
 		const server = new Server({ name: this.info.name, version: this.info.version }, { capabilities: { tools: {} } });
 		server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: this.tools.list() }));
 		server.setRequestHandler(CallToolRequestSchema, async (request, extra) =>
@@ -40,7 +40,7 @@ export class McpServerHost {
 				request.params.name,
 				request.params.arguments,
 				actor,
-				McpCall.of(extra.requestId, extra.sessionId, extra.signal),
+				McpCall.fromRequest(extra.requestId, extra.sessionId, extra.signal),
 			),
 		);
 		return server;

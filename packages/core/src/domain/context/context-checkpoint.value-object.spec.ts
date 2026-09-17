@@ -7,12 +7,12 @@ import { ContextBlock } from "./context-block.value-object";
 import { ContextCheckpoint } from "./context-checkpoint.value-object";
 
 const SESSION = SessionId.from("s-1");
-const DIGEST = ContentDigest.of("sha256", "abc123");
-const OTHER_DIGEST = ContentDigest.of("sha256", "def456");
+const DIGEST = new ContentDigest("sha256", "abc123");
+const OTHER_DIGEST = new ContentDigest("sha256", "def456");
 
 function checkpointOf(strategyVersion: number, digest = DIGEST): ContextCheckpoint {
-	return new ContextCheckpoint(SESSION, SessionRevision.of(40), "oldest-first", strategyVersion, digest, [
-		ContextBlock.summary(new UserMessage("earlier"), SessionRevision.of(40)),
+	return new ContextCheckpoint(SESSION, new SessionRevision(40), "oldest-first", strategyVersion, digest, [
+		ContextBlock.summary(new UserMessage("earlier"), new SessionRevision(40)),
 	]);
 }
 

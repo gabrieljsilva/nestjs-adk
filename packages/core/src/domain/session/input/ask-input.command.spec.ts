@@ -15,16 +15,16 @@ function imageOf(): MediaPart {
 
 describe("AskInput", () => {
 	it("trims the message, because trailing space is not a question", () => {
-		expect(AskInput.of("  hello  ").message).toBe("hello");
+		expect(AskInput.fromMessage("  hello  ").message).toBe("hello");
 	});
 
 	it("refuses a message with nothing in it", () => {
-		expect(() => AskInput.of("   ")).toThrow(EmptyMessageError);
+		expect(() => AskInput.fromMessage("   ")).toThrow(EmptyMessageError);
 	});
 
 	it("knows whether it continues a conversation", () => {
-		expect(AskInput.of("hi").continuesSession).toBe(false);
-		expect(AskInput.of("hi", SessionId.from("s-1")).continuesSession).toBe(true);
+		expect(AskInput.fromMessage("hi").continuesSession).toBe(false);
+		expect(AskInput.fromMessage("hi", SessionId.from("s-1")).continuesSession).toBe(true);
 	});
 
 	it("carries attachments in the order they were attached", () => {
@@ -39,13 +39,13 @@ describe("AskInput", () => {
 	});
 
 	it("refuses a set of attachments that only overflows together", () => {
-		const limits = MediaLimits.of(1024, 1024, 20);
+		const limits = new MediaLimits(1024, 1024, 20);
 
 		expect(() => AskInput.with("look", [imageOf(), imageOf()], undefined, limits)).toThrow(MediaTooLargeError);
 	});
 
 	it("takes the same set when it fits", () => {
-		const limits = MediaLimits.of(1024, 1024, 24);
+		const limits = new MediaLimits(1024, 1024, 24);
 
 		expect(AskInput.with("look", [imageOf(), imageOf()], undefined, limits).attachments).toHaveLength(2);
 	});
@@ -69,7 +69,7 @@ describe("AskInput", () => {
 	});
 
 	it("charges a reference nothing against the media total, because it carries no bytes", () => {
-		const limits = MediaLimits.of(1024, 1024, 12);
+		const limits = new MediaLimits(1024, 1024, 12);
 		const references = [AttachmentReference.external("file-7", "image/png")];
 
 		expect(AskInput.with("look", [imageOf()], undefined, limits, references).references).toHaveLength(1);

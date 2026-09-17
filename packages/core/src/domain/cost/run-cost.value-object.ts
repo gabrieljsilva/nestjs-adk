@@ -14,14 +14,10 @@ import { UsdAmount } from "./usd-amount.value-object";
  * implemented `PricingNoticeSink`. Nothing about pricing ever fails a run.
  */
 export class RunCost {
-	private constructor(
+	public constructor(
 		public readonly byModel: readonly ModelCost[],
-		public readonly unpriced: readonly ModelIdentity[],
+		public readonly unpriced: readonly ModelIdentity[] = [],
 	) {}
-
-	public static of(byModel: readonly ModelCost[], unpriced: readonly ModelIdentity[] = []): RunCost {
-		return new RunCost(byModel, unpriced);
-	}
 
 	/** No source, or nothing to bill: zero, and not an absence a caller has to check for. */
 	public static nothing(unpriced: readonly ModelIdentity[] = []): RunCost {

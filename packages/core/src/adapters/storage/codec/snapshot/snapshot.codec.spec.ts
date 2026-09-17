@@ -15,22 +15,22 @@ import { SessionState } from "../../../../domain/session/state/session-state.val
 import { StateValues } from "../../../../domain/session/state/state-values.value-object";
 import { SnapshotCodec } from "./snapshot.codec";
 
-const DIGEST = ContentDigest.of("sha-256", "abc123");
+const DIGEST = new ContentDigest("sha-256", "abc123");
 
 function stateOf(): SessionState {
 	return SessionState.restored(
-		SessionRevision.of(9),
-		StateValues.of([["plan", "gold"]]),
+		new SessionRevision(9),
+		StateValues.fromEntries([["plan", "gold"]]),
 		AgentName.from("billing"),
-		PromptMeasurement.from(ModelUsage.of(1200, 40), 4800, ModelIdentity.of("acme", "primary")),
-		PendingTurn.of(AgentRunId.from("run-1"), [
+		PromptMeasurement.from(ModelUsage.fromReport(1200, 40), 4800, new ModelIdentity("acme", "primary")),
+		new PendingTurn(AgentRunId.from("run-1"), [
 			new PendingCall(ToolCallId.from("c-1"), "issue_refund", { orderId: "A-1" }, "destructive"),
 		]),
 	);
 }
 
 function snapshotOf(): SessionSnapshot {
-	return new SessionSnapshot(SessionId.from("s-1"), SessionRevision.of(9), 4, stateOf(), DIGEST);
+	return new SessionSnapshot(SessionId.from("s-1"), new SessionRevision(9), 4, stateOf(), DIGEST);
 }
 
 /**
@@ -63,7 +63,7 @@ describe("SnapshotCodec", () => {
 		const decoded = codec.decode(codec.encode(snapshotOf()));
 
 		expect(decoded.state.lastPrompt?.usage.inputTokens).toBe(1200);
-		expect(decoded.state.lastPrompt?.model?.toString()).toBe(ModelIdentity.of("acme", "primary").toString());
+		expect(decoded.state.lastPrompt?.model?.toString()).toBe(new ModelIdentity("acme", "primary").toString());
 	});
 
 	/** A turn that lost its held calls is a session nobody can approve anything on. */

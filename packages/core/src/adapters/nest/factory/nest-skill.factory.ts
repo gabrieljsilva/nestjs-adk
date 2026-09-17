@@ -20,13 +20,13 @@ export class NestSkillFactory {
 			throw new InvalidAgentMetadataError(providerName, `@Skill ${name} needs a description.`);
 		}
 
-		const content = this.contentOf(agent, method, name, providerName);
+		const content = this.readContent(agent, method, name, providerName);
 		return Reflect.get(metadata, "mode") === "always"
 			? SkillDefinition.always(name, description, content)
 			: SkillDefinition.onDemand(name, description, content);
 	}
 
-	private contentOf(agent: object, method: string, name: string, providerName: string): string {
+	private readContent(agent: object, method: string, name: string, providerName: string): string {
 		const entry = Reflect.get(agent, method);
 		if (typeof entry !== "function") {
 			throw new InvalidAgentMetadataError(providerName, `@Skill ${name} has no ${method}() to read.`);

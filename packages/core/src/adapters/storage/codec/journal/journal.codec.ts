@@ -39,14 +39,14 @@ export class JournalCodec {
 			event.correlation.agentId.value,
 			event.correlation.correlationId.value,
 			event.correlation.causationId?.value,
-			this.registry.codecFor(event.type).encode(event),
+			this.registry.findCodecOrFail(event.type).encode(event),
 		);
 	}
 
 	/** Takes the record this codec wrote, or the row a driver handed the adapter back. */
 	public decode(values: unknown): SessionEvent {
 		const record = JournalRecord.from(values);
-		return this.registry.decode(record.type, record.schemaVersion, record.payload, this.headerOf(record));
+		return this.registry.decode(record.type, record.schemaVersion, record.payload, this.buildHeader(record));
 	}
 
 	/**
@@ -58,11 +58,11 @@ export class JournalCodec {
 	 * different instance of the same fact. An adapter fingerprinting its own way would
 	 * disagree with the ones this library ships about which writes are duplicates.
 	 */
-	public fingerprintOf(event: SessionEvent): string {
-		return `${event.type}:${JSON.stringify(this.registry.codecFor(event.type).encode(event))}`;
+	public calculateFingerprint(event: SessionEvent): string {
+		return `${event.type}:${JSON.stringify(this.registry.findCodecOrFail(event.type).encode(event))}`;
 	}
 
-	private headerOf(record: JournalRecord): EventHeader {
+	private buildHeader(record: JournalRecord): EventHeader {
 		return new EventHeader(
 			EventId.from(record.eventId),
 			Instant.fromIso(record.occurredAt),

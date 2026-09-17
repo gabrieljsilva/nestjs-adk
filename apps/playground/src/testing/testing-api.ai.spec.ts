@@ -82,10 +82,10 @@ describe("AI: the testing API, over a model nobody scripted", () => {
 				.overriding(SessionStorage, new SqliteSessionStorage(connection))
 				.withConsumers(new RunTranscript())
 				.withModel(recording)
-				.withModelFor("concierge", recording)
-				.withModelFor("sales", recording)
-				.withModelFor("warranty", recording)
-				.withModelFor("billing", recording)
+				.withAgentModel("concierge", recording)
+				.withAgentModel("sales", recording)
+				.withAgentModel("warranty", recording)
+				.withAgentModel("billing", recording)
 				.boot();
 
 			await bed.agent(SalesAgent).ask("Hi, how are you?");
@@ -131,7 +131,7 @@ describe("AI: a real model deciding, scripts answering", () => {
 			.overriding(SessionStorage, new SqliteSessionStorage(connection))
 			.withConsumers(new RunTranscript())
 			.withModel(openAILuna)
-			.withModelFor("concierge", openAILuna)
+			.withAgentModel("concierge", openAILuna)
 			.withScript(WarrantyAgent, (script) => script.mockText("We will replace your controller within seven days."))
 			.withScript(SalesAgent, (script) => script.mockText("nothing to sell right now"))
 			.withScript(BillingAgent, (script) => script.mockText("nothing to bill right now"))
@@ -151,7 +151,7 @@ describe("AI: a real model deciding, scripts answering", () => {
 			.overriding(SessionStorage, new SqliteSessionStorage(connection))
 			.withConsumers(new RunTranscript())
 			.withModel(openAILuna)
-			.withModelFor("warranty", openAILuna)
+			.withAgentModel("warranty", openAILuna)
 			.withScript(BillingAgent, (script) => script.mockText("The gold plan limit is 1437 reais."))
 			.withScript(SalesAgent, (script) => script.mockText("nothing to sell right now"))
 			.withScript(ConciergeAgent, (script) => script.mockText("nothing to route right now"))
@@ -175,7 +175,7 @@ describe("AI: a real model deciding, scripts answering", () => {
 			.withScript(ConciergeAgent, (script) =>
 				script.mockToolCall("transfer_to_agent", { agentName: "sales" }).mockText("I transferred you to sales."),
 			)
-			.withModelFor("sales", openAILuna)
+			.withAgentModel("sales", openAILuna)
 			.withScript(WarrantyAgent, (script) => script.mockText("no warranty request right now"))
 			.withScript(BillingAgent, (script) => script.mockText("nothing to bill right now"))
 			.boot();
@@ -196,7 +196,7 @@ describe("AI: a real model deciding, scripts answering", () => {
 			.overriding(SessionStorage, new SqliteSessionStorage(connection))
 			.withConsumers(new RunTranscript())
 			.withModel(recording)
-			.withModelFor("concierge", recording)
+			.withAgentModel("concierge", recording)
 			.withScript(WarrantyAgent, (script) => script.mockText("We will take care of it."))
 			.withScript(SalesAgent, (script) => script.mockText("nothing to sell right now"))
 			.withScript(BillingAgent, (script) => script.mockText("nothing to bill right now"))

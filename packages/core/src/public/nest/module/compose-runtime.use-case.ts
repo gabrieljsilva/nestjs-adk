@@ -13,7 +13,7 @@ import type { ArtifactStorage } from "../../../contracts/storage/artifact-storag
 import type { SessionStorage } from "../../../contracts/storage/session-storage.contract";
 import type { LlmModel } from "../../../domain/model/llm-model.contract";
 import { RuntimeOptions, type RuntimeOptionsPatch } from "../../../runtime/composition/runtime.options";
-import type { AdkRuntimeHost } from "../../adk-runtime-host.edge";
+import type { AdkRuntime } from "../../adk-runtime.edge";
 import { AgentBinder } from "../agent/agent-binder.service";
 import type { AgentRegistry } from "../agent/agent-registry.service";
 import { ConflictingPromptOptionsError } from "../errors/conflicting-prompt-options.error";
@@ -33,9 +33,9 @@ import type { AdkModuleOptions } from "./adk-module.options";
  * can be driven without a container: a fake list of providers in, a composed catalog and a
  * bound agent out.
  */
-export class AdkComposer {
+export class ComposeRuntimeUseCase {
 	public constructor(
-		private readonly host: AdkRuntimeHost,
+		private readonly host: AdkRuntime,
 		private readonly registry: AgentRegistry,
 		private readonly options: AdkModuleOptions,
 		private readonly storage: SessionStorage,
@@ -58,7 +58,7 @@ export class AdkComposer {
 	) {}
 
 	/** Answers how many agent classes were bound, which is what a caller can assert on. */
-	public async compose(providers: readonly ContainerProvider[]): Promise<number> {
+	public async execute(providers: readonly ContainerProvider[]): Promise<number> {
 		const scanned = this.scan.read(providers);
 		const shared = this.scanner.sharedTools(scanned);
 		const discovered = this.scanner.scan(scanned, this.defaultModel ?? this.options.defaultModel, shared);

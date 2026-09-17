@@ -18,7 +18,7 @@ export class AgentRunStartedCodec extends SessionEventCodec<AgentRunStarted> {
 		return new AgentRunStarted(
 			header,
 			AgentName.from(this.readText(payload, "agent")),
-			ModelIdentity.of(this.readText(payload, "provider"), this.readText(payload, "model")),
+			new ModelIdentity(this.readText(payload, "provider"), this.readText(payload, "model")),
 		);
 	}
 }

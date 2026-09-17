@@ -47,14 +47,14 @@ export class TurnExecutor {
 		observer?: ToolCallObserver,
 	): Promise<SessionEventBatch> {
 		const events: SessionEvent[] = [];
-		for (const group of this.groupsOf(scope, calls, delegated)) {
+		for (const group of this.buildGroups(scope, calls, delegated)) {
 			const produced =
 				group.length === 1
 					? [await this.runOne(scope, group[0], approved, delegated, observer)]
 					: await Promise.all(group.map((call) => this.runOne(scope, call, approved, delegated, observer)));
 			for (const one of produced) events.push(...one);
 		}
-		return SessionEventBatch.of(events);
+		return new SessionEventBatch(events);
 	}
 
 	/** Everything one call produced, in the order a reader of the journal has to see it. */
@@ -77,7 +77,7 @@ export class TurnExecutor {
 			return [this.journal.delegatedResult(scope.started, call, answer)];
 		}
 
-		const outcome = await this.tools.execute(this.commandOf(scope, call, approved), scope.breaker);
+		const outcome = await this.tools.execute(this.buildCommand(scope, call, approved), scope.breaker);
 		await this.settle(scope, outcome, observer);
 		const events: SessionEvent[] = [this.journal.result(scope.started, outcome)];
 
@@ -91,7 +91,7 @@ export class TurnExecutor {
 
 	private async settle(scope: RunScope, outcome: ToolOutcome, observer?: ToolCallObserver): Promise<void> {
 		if (observer === undefined) return;
-		await observer.settled(scope.context, ToolResultNotice.of(outcome, scope.catalog.find(outcome.toolName)));
+		await observer.settled(scope.context, new ToolResultNotice(outcome, scope.catalog.find(outcome.toolName)));
 	}
 
 	/**
@@ -101,7 +101,7 @@ export class TurnExecutor {
 	 * every read of the turn regardless of position would reorder a read that the model
 	 * asked for *after* a write, and reading before instead of after is a different answer.
 	 */
-	private groupsOf(
+	private buildGroups(
 		scope: RunScope,
 		calls: readonly PendingCall[],
 		delegated: ReadonlyMap<string, string>,
@@ -137,7 +137,7 @@ export class TurnExecutor {
 		return tool?.effect.equals(ToolEffect.READ) === true;
 	}
 
-	private commandOf(scope: RunScope, call: PendingCall, approved: boolean): ToolExecutionCommand {
+	private buildCommand(scope: RunScope, call: PendingCall, approved: boolean): ToolExecutionCommand {
 		return new ToolExecutionCommand(
 			scope.context,
 			scope.catalog,
@@ -166,7 +166,7 @@ export class TurnExecutor {
 	 */
 	private transferredBy(call: PendingCall, outcome: ToolOutcome, scope: RunScope): AgentName | undefined {
 		if (outcome.failed) return undefined;
-		const declared = TransferToAgentTool.targetOf(call.toolName, call.args);
+		const declared = TransferToAgentTool.findTarget(call.toolName, call.args);
 		if (declared === undefined) return undefined;
 		const target = AgentName.from(declared);
 		return scope.definition.transfer.allows(target) ? target : undefined;

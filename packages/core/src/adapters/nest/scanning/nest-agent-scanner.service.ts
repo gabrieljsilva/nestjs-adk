@@ -65,16 +65,16 @@ export class NestAgentScanner {
 		return {
 			providerName: provider.name,
 			metadata,
-			model: this.modelOf(metadata, defaultModel, provider.name),
-			failover: this.failoverOf(metadata, provider.name),
-			compaction: this.compactionOf(metadata, provider.name),
-			limits: this.limitsOf(metadata, provider.name),
-			instructions: this.instructionsOf(metadata, provider.name),
+			model: this.resolveModel(metadata, defaultModel, provider.name),
+			failover: this.readFailover(metadata, provider.name),
+			compaction: this.readCompaction(metadata, provider.name),
+			limits: this.readLimits(metadata, provider.name),
+			instructions: this.readInstructions(metadata, provider.name),
 			transfers: Reflect.getMetadata(TRANSFERS_TO_METADATA, provider.type),
 			delegations: Reflect.getMetadata(DELEGATES_TO_METADATA, provider.type),
 			tools: [...this.declaredTools(metadata, shared, provider.name), ...this.ownTools(provider)],
 			skills: this.ownSkills(provider),
-			outputSchema: this.outputSchemaOf(metadata, provider.name),
+			outputSchema: this.readOutputSchema(metadata, provider.name),
 		};
 	}
 
@@ -90,7 +90,7 @@ export class NestAgentScanner {
 		return typeof metadata === "object" && metadata !== null ? Reflect.get(metadata, key) : undefined;
 	}
 
-	private modelOf(metadata: unknown, defaultModel: LlmModel | undefined, providerName: string): LlmModel {
+	private resolveModel(metadata: unknown, defaultModel: LlmModel | undefined, providerName: string): LlmModel {
 		const declared = this.declaredField(metadata, "model");
 		if (declared === undefined) {
 			if (defaultModel === undefined) {
@@ -114,7 +114,7 @@ export class NestAgentScanner {
 	}
 
 	/** A list of models becomes a sequential walk, and a policy stays itself. */
-	private failoverOf(metadata: unknown, providerName: string): AgentFailoverPolicy | undefined {
+	private readFailover(metadata: unknown, providerName: string): AgentFailoverPolicy | undefined {
 		const declared = this.declaredField(metadata, "failover");
 		if (declared === undefined) return undefined;
 		if (this.isFailoverPolicy(declared)) return declared;
@@ -140,7 +140,7 @@ export class NestAgentScanner {
 	 * `false` is carried through rather than dropped: it is this agent refusing compaction,
 	 * and dropping it would hand the agent whatever the module or the runtime decided.
 	 */
-	private compactionOf(metadata: unknown, providerName: string): AdkCompactionPolicy | false | undefined {
+	private readCompaction(metadata: unknown, providerName: string): AdkCompactionPolicy | false | undefined {
 		const declared = this.declaredField(metadata, "compaction");
 		if (declared === undefined) return undefined;
 		if (declared === false) return false;
@@ -153,7 +153,7 @@ export class NestAgentScanner {
 	}
 
 	/** Absent means the agent runs under the module's ceiling, which may itself be absent. */
-	private limitsOf(metadata: unknown, providerName: string): RunLimits | undefined {
+	private readLimits(metadata: unknown, providerName: string): RunLimits | undefined {
 		const declared = this.declaredField(metadata, "limits");
 		if (declared === undefined) return undefined;
 		if (declared instanceof RunLimits) return declared;
@@ -170,14 +170,14 @@ export class NestAgentScanner {
 	 * to the provider, and the OpenAI adapter already refuses the ones strict mode rejects, naming
 	 * the field. Guessing at that here would fail requests over rules only the provider decides.
 	 */
-	private outputSchemaOf(metadata: unknown, providerName: string): object | undefined {
+	private readOutputSchema(metadata: unknown, providerName: string): object | undefined {
 		const declared = this.declaredField(metadata, "outputSchema");
 		if (declared === undefined) return undefined;
 		if (typeof declared === "object" && declared !== null && !Array.isArray(declared)) return declared;
 		throw new InvalidAgentMetadataError(providerName, "outputSchema is not an object. @Agent takes a JSON schema.");
 	}
 
-	private instructionsOf(metadata: unknown, providerName: string): PromptInstructions | undefined {
+	private readInstructions(metadata: unknown, providerName: string): PromptInstructions | undefined {
 		const prompt = this.declaredField(metadata, "prompt");
 		if (prompt === undefined) return undefined;
 		if (typeof prompt === "string") return PromptInstructions.from(prompt);

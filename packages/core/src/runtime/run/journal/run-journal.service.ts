@@ -69,15 +69,17 @@ export class RunJournal {
 	): SessionEventBatch {
 		const events: SessionEvent[] = [];
 		if (opened.isNew) {
-			events.push(new SessionCreated(this.headerOf(started), transferredFrom ?? agent, command.actor?.id));
+			events.push(new SessionCreated(this.buildHeader(started), transferredFrom ?? agent, command.actor?.id));
 		}
 		// Written before the question so a reader of the journal has the facts the turn ran under
 		// before it has the turn, and so a run that fails loses the write together with the turn.
 		events.push(...this.metadata(started, command.metadata));
 		if (transferredFrom !== undefined) events.push(this.transfer(started, transferredFrom, agent));
-		events.push(new UserMessageReceived(this.headerOf(started), command.input.message, attachments, command.actor?.id));
+		events.push(
+			new UserMessageReceived(this.buildHeader(started), command.input.message, attachments, command.actor?.id),
+		);
 		events.push(this.started(started, agent, model));
-		return SessionEventBatch.of(events);
+		return new SessionEventBatch(events);
 	}
 
 	/**
@@ -88,11 +90,11 @@ export class RunJournal {
 	 * asked, not a decision taken against a state that may have moved.
 	 */
 	public metadata(started: StartedRun, metadata: SessionMetadata): readonly SessionEvent[] {
-		return metadata.entries().map(([key, value]) => new SessionMetadataSet(this.headerOf(started), key, value));
+		return metadata.entries().map(([key, value]) => new SessionMetadataSet(this.buildHeader(started), key, value));
 	}
 
 	public started(started: StartedRun, agent: AgentName, model: ModelIdentity): AgentRunStarted {
-		return new AgentRunStarted(this.headerOf(started), agent, model);
+		return new AgentRunStarted(this.buildHeader(started), agent, model);
 	}
 
 	/**
@@ -103,23 +105,25 @@ export class RunJournal {
 	public turn(started: StartedRun, outcome: ModelRunOutcome, characters: number, isFinal: boolean): SessionEventBatch {
 		const events: SessionEvent[] = outcome.reroutes.map(
 			(reroute) =>
-				new ModelRerouted(this.headerOf(started), reroute.from, reroute.to, reroute.failure.kind, reroute.attempt),
+				new ModelRerouted(this.buildHeader(started), reroute.from, reroute.to, reroute.failure.kind, reroute.attempt),
 		);
 		events.push(
 			new AssistantMessageProduced(
-				this.headerOf(started),
+				this.buildHeader(started),
 				outcome.response.text,
 				outcome.servedBy,
 				PromptMeasurement.from(outcome.response.usage, characters, outcome.servedBy),
 			),
 		);
 		for (const call of outcome.response.toolCalls) {
-			events.push(new ToolCallRequested(this.headerOf(started), call.callId, call.toolName, call.args, call.signature));
+			events.push(new ToolCallRequested(this.buildHeader(started), call.callId, call.toolName, call.args, call.signature));
 		}
 		if (isFinal) {
-			events.push(new AgentRunCompleted(this.headerOf(started), outcome.response.finishReason ?? DEFAULT_FINISH_REASON));
+			events.push(
+				new AgentRunCompleted(this.buildHeader(started), outcome.response.finishReason ?? DEFAULT_FINISH_REASON),
+			);
 		}
-		return SessionEventBatch.of(events);
+		return new SessionEventBatch(events);
 	}
 
 	/**
@@ -130,16 +134,16 @@ export class RunJournal {
 	public suspension(started: StartedRun, calls: readonly PendingCall[]): SessionEventBatch {
 		const held = calls.filter((call) => call.isHeld);
 		const events: SessionEvent[] = held.map(
-			(call) => new ToolApprovalRequested(this.headerOf(started), call.callId, call.toolName, call.effect ?? ""),
+			(call) => new ToolApprovalRequested(this.buildHeader(started), call.callId, call.toolName, call.effect ?? ""),
 		);
-		events.push(new AgentRunSuspended(this.headerOf(started), this.reasonFor(held), calls));
-		return SessionEventBatch.of(events);
+		events.push(new AgentRunSuspended(this.buildHeader(started), this.buildPendingReason(held), calls));
+		return new SessionEventBatch(events);
 	}
 
 	/** Somebody still has to answer, so this run ends the way the one before it did. */
 	public stillWaiting(started: StartedRun, turn: PendingTurn): SessionEventBatch {
-		return SessionEventBatch.of([
-			new AgentRunSuspended(this.headerOf(started), this.reasonFor(turn.awaiting), turn.calls),
+		return new SessionEventBatch([
+			new AgentRunSuspended(this.buildHeader(started), this.buildPendingReason(turn.awaiting), turn.calls),
 		]);
 	}
 
@@ -153,14 +157,14 @@ export class RunJournal {
 		toolName = "",
 		actorId?: string,
 	): SessionEvent {
-		const header = this.headerOf(started);
+		const header = this.buildHeader(started);
 		if (decision === "granted") return new ToolApprovalGranted(header, callId, by, actorId);
 		return new ToolApprovalDenied(header, callId, by, reason ?? "", toolName, actorId);
 	}
 
 	public result(started: StartedRun, outcome: ToolOutcome): ToolResultProduced {
 		return new ToolResultProduced(
-			this.headerOf(started),
+			this.buildHeader(started),
 			outcome.callId,
 			outcome.toolName,
 			outcome.recordedOutput,
@@ -172,7 +176,7 @@ export class RunJournal {
 
 	/** What a child run answered, handed back as the result of the call that asked for it. */
 	public delegatedResult(started: StartedRun, call: PendingCall, answer: string): ToolResultProduced {
-		return new ToolResultProduced(this.headerOf(started), call.callId, call.toolName, { answer }, false);
+		return new ToolResultProduced(this.buildHeader(started), call.callId, call.toolName, { answer }, false);
 	}
 
 	/** A call somebody refused is answered as a refusal, which the model reads apart from an error. */
@@ -193,54 +197,54 @@ export class RunJournal {
 		agent: AgentName,
 		model: ModelIdentity,
 	): SessionEventBatch {
-		return SessionEventBatch.of([
-			new DelegationStarted(this.headerOf(parent), child.run.correlationId, child.run.id, agent),
-			new UserMessageReceived(this.headerOf(child), task),
+		return new SessionEventBatch([
+			new DelegationStarted(this.buildHeader(parent), child.run.correlationId, child.run.id, agent),
+			new UserMessageReceived(this.buildHeader(child), task),
 			this.started(child, agent, model),
 		]);
 	}
 
 	/** The child run ended, so the delegation it opened is closed with what came of it. */
 	public delegationEnd(parent: StartedRun, child: StartedRun, outcome: string): DelegationCompleted {
-		return new DelegationCompleted(this.headerOf(parent), child.run.correlationId, child.run.id, outcome);
+		return new DelegationCompleted(this.buildHeader(parent), child.run.correlationId, child.run.id, outcome);
 	}
 
 	/** The session changed hands, which is the only record of who owns the turn from here on. */
 	public transfer(started: StartedRun, from: AgentName, to: AgentName): AgentTransferred {
-		return new AgentTransferred(this.headerOf(started), from, to);
+		return new AgentTransferred(this.buildHeader(started), from, to);
 	}
 
 	public activation(started: StartedRun, skill: SkillDefinition, callId: ToolCallId): SkillActivated {
-		return new SkillActivated(this.headerOf(started), skill.name, skill.scope, skill.digest(), callId);
+		return new SkillActivated(this.buildHeader(started), skill.name, skill.scope, skill.digest(), callId);
 	}
 
 	public reauth(started: StartedRun, failures: readonly ToolSourceAuthError[]): SessionEventBatch {
-		return SessionEventBatch.of(
-			failures.map((failure) => new ToolSourceReauthRequired(this.headerOf(started), failure.source, failure.reason)),
+		return new SessionEventBatch(
+			failures.map((failure) => new ToolSourceReauthRequired(this.buildHeader(started), failure.source, failure.reason)),
 		);
 	}
 
 	/** How the run ended, taken from the failure that ended it rather than from a guess. */
 	public terminal(started: StartedRun, error: unknown): SessionEvent {
-		const header = this.headerOf(started);
-		if (started.cancellation.isCancelled) return new AgentRunCancelled(header, this.reasonOf(error));
-		return new AgentRunFailed(header, this.codeOf(error), this.reasonOf(error));
+		const header = this.buildHeader(started);
+		if (started.cancellation.isCancelled) return new AgentRunCancelled(header, this.readFailureReason(error));
+		return new AgentRunFailed(header, this.readCode(error), this.readFailureReason(error));
 	}
 
-	private headerOf(started: StartedRun): EventHeader {
-		return this.events.headerFor(started.run);
+	private buildHeader(started: StartedRun): EventHeader {
+		return this.events.buildHeader(started.run);
 	}
 
-	private reasonFor(calls: readonly PendingCall[]): string {
+	private buildPendingReason(calls: readonly PendingCall[]): string {
 		return `waiting for a decision on ${calls.map((call) => call.toolName).join(", ")}.`;
 	}
 
-	private codeOf(error: unknown): string {
+	private readCode(error: unknown): string {
 		const code = error instanceof Error ? Reflect.get(error, "code") : undefined;
 		return typeof code === "string" ? code : UNEXPECTED_ERROR_CODE;
 	}
 
-	private reasonOf(error: unknown): string {
+	private readFailureReason(error: unknown): string {
 		return error instanceof Error ? error.message : String(error);
 	}
 }

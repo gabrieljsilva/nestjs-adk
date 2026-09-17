@@ -29,7 +29,7 @@ function toolOf(name: string): ToolDefinition {
 
 describe("ToolCatalog", () => {
 	it("finds the tool the model named", () => {
-		const catalog = ToolCatalog.of([toolOf("refund"), toolOf("lookup")]);
+		const catalog = new ToolCatalog([toolOf("refund"), toolOf("lookup")]);
 
 		expect(catalog.findOrFail("lookup").name).toBe("lookup");
 		expect(catalog.has("refund")).toBe(true);
@@ -38,7 +38,7 @@ describe("ToolCatalog", () => {
 	it("refuses a name it does not know, and says what it does know", () => {
 		const error = (() => {
 			try {
-				ToolCatalog.of([toolOf("refund")]).findOrFail("refunds");
+				new ToolCatalog([toolOf("refund")]).findOrFail("refunds");
 			} catch (reason) {
 				return reason;
 			}
@@ -48,7 +48,7 @@ describe("ToolCatalog", () => {
 	});
 
 	it("declares to the model in the order the agent wrote", () => {
-		const catalog = ToolCatalog.of([toolOf("refund"), toolOf("lookup")]);
+		const catalog = new ToolCatalog([toolOf("refund"), toolOf("lookup")]);
 
 		expect(catalog.declarations().map((declaration) => declaration.name)).toEqual(["refund", "lookup"]);
 	});
@@ -59,7 +59,7 @@ describe("ToolCatalog", () => {
 	});
 
 	it("cannot be changed after it is built", () => {
-		const catalog = ToolCatalog.of([toolOf("refund")]);
+		const catalog = new ToolCatalog([toolOf("refund")]);
 
 		expect(Object.isFrozen(catalog)).toBe(true);
 		expect(catalog.size).toBe(1);

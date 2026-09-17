@@ -17,17 +17,17 @@ describe("AgentExecutionPolicies", () => {
 
 	it("carries what it was given", () => {
 		const failover = new SequentialFailoverPolicy([]);
-		const limits = RunLimits.of(3);
+		const limits = new RunLimits(3);
 
-		const policies = AgentExecutionPolicies.of(failover, undefined, limits);
+		const policies = new AgentExecutionPolicies(failover, undefined, limits);
 
 		expect(policies.failover).toBe(failover);
 		expect(policies.limits).toBe(limits);
 	});
 
 	it("replaces only the transfer edges when asked to", () => {
-		const limits = RunLimits.of(3);
-		const policies = AgentExecutionPolicies.of(undefined, undefined, limits);
+		const limits = new RunLimits(3);
+		const policies = new AgentExecutionPolicies(undefined, undefined, limits);
 
 		const withTransfer = policies.withTransfer(AgentTransferPolicy.to([AgentName.from("billing")]));
 

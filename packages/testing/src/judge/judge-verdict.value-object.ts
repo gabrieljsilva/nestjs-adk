@@ -6,13 +6,15 @@
  * one that knows.
  */
 export class JudgeVerdict {
-	private constructor(
-		public readonly passed: boolean,
-		public readonly score: number,
-		public readonly reason: string,
-	) {}
+	public readonly score: number;
+	public readonly reason: string;
 
-	public static of(passed: boolean, score: number, reason: string): JudgeVerdict {
-		return new JudgeVerdict(passed, Math.min(1, Math.max(0, score)), reason.trim());
+	public constructor(
+		public readonly passed: boolean,
+		score: number,
+		reason: string,
+	) {
+		this.score = Math.min(1, Math.max(0, score));
+		this.reason = reason.trim();
 	}
 }

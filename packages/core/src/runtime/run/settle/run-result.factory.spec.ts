@@ -20,8 +20,8 @@ import { RunProgress } from "./run-progress.value-object";
 import { RunResultFactory } from "./run-result.factory";
 import type { StartedRun } from "./started-run.value-object";
 
-const LUNA = ModelIdentity.of("openai", "gpt-5.6-luna");
-const PRICE = ModelPrice.of(TokenRate.fromUsdPerToken(1e-7), TokenRate.fromUsdPerToken(4e-7));
+const LUNA = new ModelIdentity("openai", "gpt-5.6-luna");
+const PRICE = new ModelPrice(TokenRate.fromUsdPerToken(1e-7), TokenRate.fromUsdPerToken(4e-7));
 
 class KnowsLuna extends PricingSource {
 	public async findPrice(_context: SessionContext | undefined, model: ModelIdentity): Promise<ModelPrice | undefined> {
@@ -40,7 +40,7 @@ const factoryOn = (source?: PricingSource) => new RunResultFactory(new RunCostRe
 describe("RunResultFactory", () => {
 	it("prices the calls the run collected", async () => {
 		const progress = new RunProgress(SessionState.initial());
-		progress.charged(new BilledCall(LUNA, ModelUsage.of(40, 12)));
+		progress.charged(new BilledCall(LUNA, ModelUsage.fromReport(40, 12)));
 
 		const result = await factoryOn(new KnowsLuna()).after(CONTEXT, started, progress);
 
@@ -52,7 +52,7 @@ describe("RunResultFactory", () => {
 	/** Zero is the answer for a runtime that declared no source, and it is never absent. */
 	it("answers a cost even with no source declared", async () => {
 		const progress = new RunProgress(SessionState.initial());
-		progress.charged(new BilledCall(LUNA, ModelUsage.of(40, 12)));
+		progress.charged(new BilledCall(LUNA, ModelUsage.fromReport(40, 12)));
 
 		const result = await factoryOn().after(CONTEXT, started, progress);
 
@@ -62,7 +62,7 @@ describe("RunResultFactory", () => {
 
 	it("comes back suspended with the calls somebody has to answer for", async () => {
 		const call = new PendingCall(ToolCallId.from("c-1"), "refund", {}, "destructive");
-		const progress = new RunProgress(SessionState.initial().awaiting(PendingTurn.of(started.run.id, [call])));
+		const progress = new RunProgress(SessionState.initial().awaiting(new PendingTurn(started.run.id, [call])));
 		progress.suspend();
 
 		const result = await factoryOn(new KnowsLuna()).after(CONTEXT, started, progress);
@@ -74,7 +74,7 @@ describe("RunResultFactory", () => {
 	/** A delegation answers with what the specialist said, and prices what the child spent. */
 	it("answers a delegation with the given text and nothing awaiting", async () => {
 		const progress = new RunProgress(SessionState.initial());
-		progress.charged(new BilledCall(LUNA, ModelUsage.of(10, 0)));
+		progress.charged(new BilledCall(LUNA, ModelUsage.fromReport(10, 0)));
 
 		const result = await factoryOn(new KnowsLuna()).answering(CONTEXT, started, progress, "the specialist said so");
 

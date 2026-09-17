@@ -6,7 +6,7 @@ import { ModelIdentity } from "../../domain/model/descriptor/model-identity.valu
 import { PrefixComparator } from "./prefix-comparator.service";
 
 const SUPPORT = AgentName.from("support");
-const MODEL = ModelIdentity.of("acme", "primary");
+const MODEL = new ModelIdentity("acme", "primary");
 
 function snapshotOf(instructions: string, tools: string, conversation: string): ContextSnapshot {
 	return new ContextSnapshot(SUPPORT, MODEL, [

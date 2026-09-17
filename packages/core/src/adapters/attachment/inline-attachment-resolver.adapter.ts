@@ -38,7 +38,7 @@ export class InlineAttachmentResolver extends AttachmentResolver {
 			return stored === undefined ? AttachmentProjection.omit() : AttachmentProjection.media(stored);
 		}
 		const part = await this.loader(externalId, request);
-		if (part === undefined) return AttachmentProjection.noteFor(request.reference, "no longer available");
+		if (part === undefined) return AttachmentProjection.fromReference(request.reference, "no longer available");
 		return AttachmentProjection.media(part);
 	}
 }

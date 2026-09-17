@@ -34,7 +34,7 @@ import { ShutdownOptions } from "../runtime/lifecycle/shutdown.options";
 import { AgentRunCommand } from "../runtime/run/agent-run.command";
 import { FakeClock } from "../support/fake-clock.double";
 import { SequenceIdGenerator } from "../support/sequence-id-generator.double";
-import { AdkRuntimeHost } from "./adk-runtime-host.edge";
+import { AdkRuntime } from "./adk-runtime.edge";
 
 const SUPPORT = AgentName.from("support");
 
@@ -51,8 +51,8 @@ class CountingModel extends LlmModel {
 
 	public descriptor(): ModelDescriptor {
 		return new ModelDescriptor(
-			ModelIdentity.of("acme", "primary"),
-			ModelContextWindow.of(10_000, 1_000),
+			new ModelIdentity("acme", "primary"),
+			new ModelContextWindow(10_000, 1_000),
 			ModelCapabilities.none(),
 		);
 	}
@@ -61,7 +61,7 @@ class CountingModel extends LlmModel {
 		this.requests.push(request);
 		yield ModelChunk.text(`answer ${this.requests.length} ${"detail ".repeat(40)}`);
 		// A provider reporting a large prompt is the only thing that makes a budget real.
-		yield ModelChunk.usage(ModelUsage.of(900 * this.requests.length, 5));
+		yield ModelChunk.usage(ModelUsage.fromReport(900 * this.requests.length, 5));
 		yield ModelChunk.finish("stop");
 	}
 }
@@ -89,12 +89,12 @@ class NamingSummarizer implements ContextSummarizer {
 }
 
 function agentOf(model: LlmModel, compaction: AdkCompactionPolicy): DeclaredAgent {
-	const definition = AgentDefinition.of(
+	const definition = new AgentDefinition(
 		SUPPORT,
 		AgentDescription.from("Support agent", SUPPORT.value),
 		model,
 		PromptInstructions.from("Be brief."),
-		AgentExecutionPolicies.of(undefined, compaction),
+		new AgentExecutionPolicies(undefined, compaction),
 	);
 	return new DeclaredAgent(definition, "SupportAgent");
 }
@@ -132,7 +132,7 @@ class RecordingStrategy extends CompactionStrategy {
 }
 
 describe("auto compaction, against a scripted model", () => {
-	const host = new AdkRuntimeHost();
+	const host = new AdkRuntime();
 
 	afterEach(async () => {
 		await host.stop();
@@ -151,9 +151,9 @@ describe("auto compaction, against a scripted model", () => {
 			optionsWith(summarizer),
 		);
 
-		const first = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("one")));
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("two", first.sessionId)));
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("three", first.sessionId)));
+		const first = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("one")));
+		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("two", first.sessionId)));
+		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("three", first.sessionId)));
 
 		const last = model.requests.at(-1);
 		expect(summarizer.calls).toBeGreaterThan(0);
@@ -172,9 +172,9 @@ describe("auto compaction, against a scripted model", () => {
 			optionsWith(new NamingSummarizer()),
 		);
 
-		const first = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("one")));
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("two", first.sessionId)));
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("three", first.sessionId)));
+		const first = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("one")));
+		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("two", first.sessionId)));
+		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("three", first.sessionId)));
 
 		const said: string[] = [];
 		for await (const stored of storage.readEvents(
@@ -197,9 +197,9 @@ describe("auto compaction, against a scripted model", () => {
 			new SequenceIdGenerator(),
 		);
 
-		const first = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("one")));
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("two", first.sessionId)));
-		const third = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("three", first.sessionId)));
+		const first = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("one")));
+		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("two", first.sessionId)));
+		const third = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("three", first.sessionId)));
 
 		expect(third.status.name).toBe("completed");
 		expect(
@@ -223,9 +223,9 @@ describe("auto compaction, against a scripted model", () => {
 			RuntimeOptions.from({ compactionStrategy }),
 		);
 
-		const first = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("one")));
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("two", first.sessionId)));
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("three", first.sessionId)));
+		const first = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("one")));
+		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("two", first.sessionId)));
+		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("three", first.sessionId)));
 
 		expect(compactionStrategy.calls).toBeGreaterThan(0);
 	});

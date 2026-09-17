@@ -30,6 +30,6 @@ export class ModelReroutedCodec extends SessionEventCodec<ModelRerouted> {
 
 	private readModel(payload: Readonly<Record<string, unknown>>, field: string): ModelIdentity {
 		const identity = this.readRecord(payload, field);
-		return ModelIdentity.of(this.readText(identity, "provider"), this.readText(identity, "model"));
+		return new ModelIdentity(this.readText(identity, "provider"), this.readText(identity, "model"));
 	}
 }

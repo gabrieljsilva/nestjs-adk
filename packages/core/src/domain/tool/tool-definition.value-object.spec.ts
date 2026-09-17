@@ -21,13 +21,13 @@ class NoopHandler extends ToolHandler {
 	}
 }
 
-function definitionOf(): ToolDefinition {
+function buildDefinition(): ToolDefinition {
 	return new ToolDefinition("refund", "Refunds an order", new FixedSchema(), ToolEffect.DESTRUCTIVE, new NoopHandler());
 }
 
 describe("ToolDefinition", () => {
 	it("declares to the model only what the model needs", () => {
-		const declaration = definitionOf().toDeclaration();
+		const declaration = buildDefinition().toDeclaration();
 
 		expect(declaration.name).toBe("refund");
 		expect(declaration.description).toBe("Refunds an order");
@@ -35,6 +35,6 @@ describe("ToolDefinition", () => {
 	});
 
 	it("keeps the effect next to the handler, for a decision taken before it runs", () => {
-		expect(definitionOf().effect).toBe(ToolEffect.DESTRUCTIVE);
+		expect(buildDefinition().effect).toBe(ToolEffect.DESTRUCTIVE);
 	});
 });

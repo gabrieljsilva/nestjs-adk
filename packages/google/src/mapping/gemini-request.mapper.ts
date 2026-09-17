@@ -34,8 +34,8 @@ const UNSIGNED = "skip_thought_signature_validator";
  */
 export class GeminiRequestMapper {
 	public toRequest(model: string, request: ModelRequest, options: GeminiOptions = {}): GeminiRequest {
-		const contents = this.signedOf(model, this.contentsOf(request));
-		return new GeminiRequest(model, contents, this.configOf(request, options));
+		const contents = this.signContents(model, this.buildContents(request));
+		return new GeminiRequest(model, contents, this.buildConfig(request, options));
 	}
 
 	/**
@@ -52,7 +52,7 @@ export class GeminiRequestMapper {
 	 * the trade being made. It is worth making for a handover the application never asked
 	 * about, and it is never made for calls Gemini itself signed.
 	 */
-	private signedOf(model: string, contents: Content[]): Content[] {
+	private signContents(model: string, contents: Content[]): Content[] {
 		if (!signsFunctionCalls(model)) return contents;
 		const opened = this.currentTurnAt(contents);
 		return contents.map((content, at) => (at > opened ? this.signedTurn(content) : content));
@@ -103,13 +103,13 @@ export class GeminiRequestMapper {
 	 * since a turn that opens an answer always carries a signature. Its result joins the
 	 * results already grouped, which is the shape the provider documents for parallel calls.
 	 */
-	private contentsOf(request: ModelRequest): Content[] {
+	private buildContents(request: ModelRequest): Content[] {
 		const contents: Content[] = [];
 		let lastAnswer: number | undefined;
 		for (const message of request.messages) {
 			const at = this.foldInto(contents, message, lastAnswer);
 			if (at === undefined) {
-				contents.push(this.contentOf(message));
+				contents.push(this.buildContent(message));
 				lastAnswer = message instanceof ToolCallMessage ? contents.length - 1 : lastAnswer;
 			}
 		}
@@ -126,7 +126,7 @@ export class GeminiRequestMapper {
 	private foldCall(contents: Content[], message: ToolCallMessage, lastAnswer?: number): number | undefined {
 		const answer = lastAnswer === undefined ? undefined : contents[lastAnswer];
 		if (message.signature !== undefined || answer === undefined || !this.isSignedAnswer(answer)) return undefined;
-		contents[lastAnswer ?? 0] = { role: "model", parts: [...(answer.parts ?? []), this.callPartOf(message)] };
+		contents[lastAnswer ?? 0] = { role: "model", parts: [...(answer.parts ?? []), this.buildCallPart(message)] };
 		return lastAnswer;
 	}
 
@@ -134,7 +134,7 @@ export class GeminiRequestMapper {
 		const at = contents.length - 1;
 		const previous = contents[at];
 		if (previous === undefined || !this.carries(previous, "functionResponse")) return undefined;
-		contents[at] = { role: "user", parts: [...(previous.parts ?? []), this.resultPartOf(message)] };
+		contents[at] = { role: "user", parts: [...(previous.parts ?? []), this.buildResultPart(message)] };
 		return at;
 	}
 
@@ -150,21 +150,21 @@ export class GeminiRequestMapper {
 		return parts.length > 0 && parts.every((part) => Reflect.get(part, field) !== undefined);
 	}
 
-	private contentOf(message: ModelMessage): Content {
+	private buildContent(message: ModelMessage): Content {
 		if (message instanceof AssistantMessage) return { role: "model", parts: [{ text: message.text }] };
-		if (message instanceof ToolCallMessage) return { role: "model", parts: [this.callPartOf(message)] };
-		if (message instanceof ToolResultMessage) return { role: "user", parts: [this.resultPartOf(message)] };
-		if (message instanceof UserMessage) return { role: "user", parts: this.userPartsOf(message) };
-		return { role: "user", parts: this.textPartsOf(message.text) };
+		if (message instanceof ToolCallMessage) return { role: "model", parts: [this.buildCallPart(message)] };
+		if (message instanceof ToolResultMessage) return { role: "user", parts: [this.buildResultPart(message)] };
+		if (message instanceof UserMessage) return { role: "user", parts: this.buildUserParts(message) };
+		return { role: "user", parts: this.buildTextParts(message.text) };
 	}
 
-	private callPartOf(message: ToolCallMessage): Part {
+	private buildCallPart(message: ToolCallMessage): Part {
 		// The signature rides next to the call, not inside it, which is where Gemini put it.
 		const call = { functionCall: { id: message.callId.value, name: message.toolName, args: message.args } };
 		return message.signature === undefined ? call : { ...call, thoughtSignature: message.signature };
 	}
 
-	private resultPartOf(message: ToolResultMessage): Part {
+	private buildResultPart(message: ToolResultMessage): Part {
 		return { functionResponse: { id: message.callId.value, name: message.toolName, response: message.output } };
 	}
 
@@ -173,9 +173,9 @@ export class GeminiRequestMapper {
 	 * That is the order Google recommends for a prompt about a single image, and it is the
 	 * order that reads as a question about the picture rather than a caption under it.
 	 */
-	private userPartsOf(message: UserMessage): Part[] {
-		if (!message.hasMedia) return this.textPartsOf(message.text);
-		return [...message.media.map((part) => this.mediaPartOf(part)), { text: message.text }];
+	private buildUserParts(message: UserMessage): Part[] {
+		if (!message.hasMedia) return this.buildTextParts(message.text);
+		return [...message.media.map((part) => this.buildMediaPart(part)), { text: message.text }];
 	}
 
 	/**
@@ -183,17 +183,17 @@ export class GeminiRequestMapper {
 	 * Bytes go inline, and an address goes as file data, which is the same field the Files
 	 * API and a Cloud Storage URI use: what varies is who fetches, not what is sent.
 	 */
-	private mediaPartOf(part: MediaPart): Part {
+	private buildMediaPart(part: MediaPart): Part {
 		const url = part.url;
 		if (url !== undefined) return { fileData: { fileUri: url, mimeType: part.mediaType } };
 		return { inlineData: { mimeType: part.mediaType, data: part.base64 } };
 	}
 
-	private textPartsOf(text: string): Part[] {
+	private buildTextParts(text: string): Part[] {
 		return [{ text }];
 	}
 
-	private configOf(request: ModelRequest, options: GeminiOptions): GenerateContentConfig {
+	private buildConfig(request: ModelRequest, options: GeminiOptions): GenerateContentConfig {
 		const config: GenerateContentConfig = { ...options.config };
 		const instructions = request.instructions;
 		if (instructions !== undefined && !instructions.isEmpty) config.systemInstruction = instructions.text;
@@ -201,7 +201,7 @@ export class GeminiRequestMapper {
 			config.tools = [
 				{
 					functionDeclarations: request.tools.map((tool) =>
-						this.declarationOf(tool.name, tool.description, tool.parameters),
+						this.buildDeclaration(tool.name, tool.description, tool.parameters),
 					),
 				},
 			];
@@ -223,16 +223,16 @@ export class GeminiRequestMapper {
 	}
 
 	/** A tool schema arrives as `unknown` and is checked here, never sent on trust. */
-	private declarationOf(name: string, description: string, parameters: unknown): FunctionDeclaration {
+	private buildDeclaration(name: string, description: string, parameters: unknown): FunctionDeclaration {
 		if (typeof parameters !== "object" || parameters === null || Array.isArray(parameters)) {
-			throw new InvalidJsonSchemaError(name, this.typeNameOf(parameters));
+			throw new InvalidJsonSchemaError(name, this.readTypeName(parameters));
 		}
 		const schema: Record<string, unknown> = {};
 		for (const key of Object.keys(parameters)) schema[key] = Reflect.get(parameters, key);
 		return { name, description, parametersJsonSchema: schema };
 	}
 
-	private typeNameOf(value: unknown): string {
+	private readTypeName(value: unknown): string {
 		if (value === null) return "null";
 		return Array.isArray(value) ? "array" : typeof value;
 	}

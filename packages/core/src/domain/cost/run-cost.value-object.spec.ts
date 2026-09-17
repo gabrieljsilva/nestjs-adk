@@ -7,11 +7,11 @@ import { ModelUnpriced } from "./model-unpriced.value-object";
 import { RunCost } from "./run-cost.value-object";
 import { UsdAmount } from "./usd-amount.value-object";
 
-const LUNA = ModelIdentity.of("openai", "gpt-5.6-luna");
-const FLASH = ModelIdentity.of("google", "gemini-3.5-flash-lite");
+const LUNA = new ModelIdentity("openai", "gpt-5.6-luna");
+const FLASH = new ModelIdentity("google", "gemini-3.5-flash-lite");
 
 function breakdown(input: bigint, output: bigint, cached = 0n): CostBreakdown {
-	return CostBreakdown.of(UsdAmount.ofPico(input), UsdAmount.ofPico(output), UsdAmount.ofPico(cached));
+	return new CostBreakdown(UsdAmount.ofPico(input), UsdAmount.ofPico(output), UsdAmount.ofPico(cached));
 }
 
 describe("CostBreakdown", () => {
@@ -35,8 +35,8 @@ describe("CostBreakdown", () => {
 describe("ModelCost", () => {
 	it("counts the calls it served and sums what they cost", () => {
 		const cost = ModelCost.none(LUNA)
-			.including(ModelUsage.of(40, 12), breakdown(100n, 20n))
-			.including(ModelUsage.of(10, 2), breakdown(50n, 10n));
+			.including(ModelUsage.fromReport(40, 12), breakdown(100n, 20n))
+			.including(ModelUsage.fromReport(10, 2), breakdown(50n, 10n));
 
 		expect(cost.calls).toBe(2);
 		expect(cost.amount.pico).toBe(180n);
@@ -45,8 +45,8 @@ describe("ModelCost", () => {
 	/** A ledger row cannot be checked against an invoice without the tokens behind the amount. */
 	it("sums the tokens next to the money", () => {
 		const cost = ModelCost.none(LUNA)
-			.including(ModelUsage.of(40, 12), breakdown(100n, 20n))
-			.including(ModelUsage.of(10, 2), breakdown(50n, 10n));
+			.including(ModelUsage.fromReport(40, 12), breakdown(100n, 20n))
+			.including(ModelUsage.fromReport(10, 2), breakdown(50n, 10n));
 
 		expect(cost.usage.inputTokens).toBe(50);
 		expect(cost.usage.outputTokens).toBe(14);
@@ -63,9 +63,9 @@ describe("ModelCost", () => {
 
 describe("RunCost", () => {
 	it("totals every model that was priced", () => {
-		const cost = RunCost.of([
-			ModelCost.of(LUNA, 2, ModelUsage.of(40, 12), breakdown(100n, 20n)),
-			ModelCost.of(FLASH, 1, ModelUsage.of(10, 2), breakdown(7n, 1n)),
+		const cost = new RunCost([
+			new ModelCost(LUNA, 2, ModelUsage.fromReport(40, 12), breakdown(100n, 20n)),
+			new ModelCost(FLASH, 1, ModelUsage.fromReport(10, 2), breakdown(7n, 1n)),
 		]);
 
 		expect(cost.total.pico).toBe(128n);
@@ -74,7 +74,7 @@ describe("RunCost", () => {
 
 	/** The rule that makes the number safe to read: what could not be priced is named, not zeroed into the total. */
 	it("leaves an unpriced model out of the total and says so", () => {
-		const cost = RunCost.of([ModelCost.of(LUNA, 1, ModelUsage.of(40, 12), breakdown(100n, 20n))], [FLASH]);
+		const cost = new RunCost([new ModelCost(LUNA, 1, ModelUsage.fromReport(40, 12), breakdown(100n, 20n))], [FLASH]);
 
 		expect(cost.total.pico).toBe(120n);
 		expect(cost.unpriced).toEqual([FLASH]);
@@ -91,7 +91,10 @@ describe("RunCost", () => {
 
 	/** A controller that answers with an `AgentResult` serializes this, and a bigint would throw. */
 	it("serializes to a total a client can read, without a bigint in sight", () => {
-		const cost = RunCost.of([ModelCost.of(LUNA, 2, ModelUsage.of(40, 12), breakdown(4_000_000n, 4_800_000n))], [FLASH]);
+		const cost = new RunCost(
+			[new ModelCost(LUNA, 2, ModelUsage.fromReport(40, 12), breakdown(4_000_000n, 4_800_000n))],
+			[FLASH],
+		);
 
 		const serialized = JSON.parse(JSON.stringify(cost));
 
@@ -103,7 +106,7 @@ describe("RunCost", () => {
 	});
 
 	it("is complete when every call was priced", () => {
-		expect(RunCost.of([ModelCost.of(LUNA, 1, ModelUsage.of(1, 1), breakdown(1n, 1n))]).isComplete).toBe(true);
+		expect(new RunCost([new ModelCost(LUNA, 1, ModelUsage.fromReport(1, 1), breakdown(1n, 1n))]).isComplete).toBe(true);
 		expect(RunCost.nothing().isComplete).toBe(true);
 	});
 });

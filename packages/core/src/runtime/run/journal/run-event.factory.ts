@@ -19,7 +19,7 @@ export class RunEventFactory {
 		private readonly clock: Clock,
 	) {}
 
-	public headerFor(run: AgentRun, causedBy?: EventId): EventHeader {
+	public buildHeader(run: AgentRun, causedBy?: EventId): EventHeader {
 		return new EventHeader(
 			EventId.from(this.ids.next()),
 			this.clock.now(),

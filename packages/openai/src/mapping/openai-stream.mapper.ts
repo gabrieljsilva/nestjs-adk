@@ -64,7 +64,7 @@ export class OpenAiStreamMapper {
 		if (usage !== null && usage !== undefined) {
 			chunks.push(
 				ModelChunk.usage(
-					ModelUsage.of(
+					ModelUsage.fromReport(
 						usage.prompt_tokens ?? 0,
 						usage.completion_tokens ?? 0,
 						usage.prompt_tokens_details?.cached_tokens ?? 0,

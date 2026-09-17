@@ -11,7 +11,7 @@ const CTX = SessionContext.fromSessionId(SessionId.from("s-1"));
 describe("NoOpContextNoticeSink", () => {
 	it("accepts a notice and does nothing with it", () => {
 		expect(() =>
-			new NoOpContextNoticeSink().report(CTX, new ContextWindowUnknown(ModelIdentity.of("acme", "m-1"))),
+			new NoOpContextNoticeSink().report(CTX, new ContextWindowUnknown(new ModelIdentity("acme", "m-1"))),
 		).not.toThrow();
 	});
 

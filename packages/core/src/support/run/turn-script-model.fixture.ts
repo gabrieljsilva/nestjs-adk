@@ -22,9 +22,9 @@ export class TurnScriptModel extends LlmModel {
 
 	public descriptor(): ModelDescriptor {
 		return new ModelDescriptor(
-			ModelIdentity.of("acme", "primary"),
-			ModelContextWindow.of(100_000, 4000),
-			ModelCapabilities.of([[ModelCapability.TOOLS, true]]),
+			new ModelIdentity("acme", "primary"),
+			new ModelContextWindow(100_000, 4000),
+			ModelCapabilities.fromEntries([[ModelCapability.TOOLS, true]]),
 		);
 	}
 

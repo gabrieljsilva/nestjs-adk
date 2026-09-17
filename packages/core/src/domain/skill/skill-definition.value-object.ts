@@ -40,6 +40,6 @@ export class SkillDefinition {
 
 	/** Pins the exact content an activation carried, so a later replay can tell it changed. */
 	public digest(): ContentDigest {
-		return TextDigest.of(this.content);
+		return TextDigest.fromText(this.content);
 	}
 }

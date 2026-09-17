@@ -31,7 +31,7 @@ export class StrictSchemaValidator {
 			if (next === undefined) break;
 			const [path, node] = next;
 			if (this.describesObject(node)) this.verifyClosed(node, path);
-			pending.push(...this.childrenOf(node, path));
+			pending.push(...this.readChildren(node, path));
 		}
 	}
 
@@ -51,7 +51,7 @@ export class StrictSchemaValidator {
 		}
 	}
 
-	private childrenOf(node: object, path: string): [string, object][] {
+	private readChildren(node: object, path: string): [string, object][] {
 		const children: [string, object][] = [];
 		for (const group of NAMED_GROUPS) {
 			const map = this.recordAt(node, group);

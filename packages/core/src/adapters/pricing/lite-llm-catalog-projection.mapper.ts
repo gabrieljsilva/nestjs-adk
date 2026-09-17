@@ -43,26 +43,26 @@ export class LiteLlmCatalogProjection {
 
 		const prices = new Map<string, ModelPrice>();
 		for (const [key, entry] of Object.entries(payload as Record<string, unknown>)) {
-			const price = this.priceOf(entry);
+			const price = this.readPrice(entry);
 			if (price !== undefined) prices.set(key, price);
 		}
 		return prices;
 	}
 
 	/** One entry, or `undefined` when it says nothing usable about what a token costs. */
-	private priceOf(entry: unknown): ModelPrice | undefined {
+	private readPrice(entry: unknown): ModelPrice | undefined {
 		if (entry === null || typeof entry !== "object" || Array.isArray(entry)) return undefined;
 		const fields = entry as Record<string, unknown>;
 
-		const input = this.rateOf(fields.input_cost_per_token);
+		const input = this.readRate(fields.input_cost_per_token);
 		if (input === undefined) return undefined;
 
-		const output = this.rateOf(fields.output_cost_per_token) ?? this.outputlessRate(fields);
+		const output = this.readRate(fields.output_cost_per_token) ?? this.outputlessRate(fields);
 		if (output === undefined) return undefined;
 
-		return ModelPrice.of(input, output, {
-			cacheRead: this.rateOf(fields.cache_read_input_token_cost),
-			bands: this.bandsOf(fields),
+		return new ModelPrice(input, output, {
+			cacheRead: this.readRate(fields.cache_read_input_token_cost),
+			bands: this.readBands(fields),
 		});
 	}
 
@@ -78,19 +78,19 @@ export class LiteLlmCatalogProjection {
 		return fields.mode === "embedding" ? TokenRate.zero() : undefined;
 	}
 
-	private rateOf(value: unknown): TokenRate | undefined {
+	private readRate(value: unknown): TokenRate | undefined {
 		if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return undefined;
 		return TokenRate.fromUsdPerToken(value);
 	}
 
-	private bandsOf(fields: Record<string, unknown>): readonly PriceBand[] {
+	private readBands(fields: Record<string, unknown>): readonly PriceBand[] {
 		const byThreshold = new Map<number, BandRates>();
 
 		for (const [field, value] of Object.entries(fields)) {
 			for (const [role, pattern] of Object.entries(BAND_FIELDS)) {
 				const matched = pattern.exec(field);
 				if (matched === null) continue;
-				const rate = this.rateOf(value);
+				const rate = this.readRate(value);
 				if (rate === undefined) continue;
 				const threshold = Number(matched[1]) * TOKENS_PER_K;
 				const rates = byThreshold.get(threshold) ?? {};

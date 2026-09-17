@@ -9,7 +9,7 @@ export class ToolCallId {
 	}
 
 	public static from(value: string): ToolCallId {
-		return new ToolCallId(IdentityText.of(value, "ToolCallId"));
+		return new ToolCallId(IdentityText.fromText(value, "ToolCallId"));
 	}
 
 	public get value(): string {

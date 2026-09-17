@@ -8,11 +8,11 @@ import { PromptInstructions } from "../../domain/prompt/prompt-instructions.valu
 import { StablePrefixDigest } from "./stable-prefix-digest.service";
 
 const digest = new StablePrefixDigest();
-const R1 = SessionRevision.of(1);
+const R1 = new SessionRevision(1);
 const search = new ToolDeclaration("search", "finds things", { type: "object" });
 
 function projectionOf(messages: string[], tools = [search]): ContextProjection {
-	return ContextProjection.of(
+	return new ContextProjection(
 		messages.map((text) => ContextBlock.conversation(new UserMessage(text), R1)),
 		tools,
 		PromptInstructions.from("runtime"),
@@ -33,7 +33,7 @@ describe("StablePrefixDigest", () => {
 	});
 
 	it("changes when the agent prompt changes", () => {
-		const other = ContextProjection.of([], [search], PromptInstructions.from("runtime"), PromptInstructions.from("new"));
+		const other = new ContextProjection([], [search], PromptInstructions.from("runtime"), PromptInstructions.from("new"));
 
 		expect(digest.of(projectionOf([])).equals(digest.of(other))).toBe(false);
 	});

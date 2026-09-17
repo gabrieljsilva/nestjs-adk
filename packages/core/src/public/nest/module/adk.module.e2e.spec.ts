@@ -567,7 +567,7 @@ describe("AdkModule over the native runtime", () => {
 		class KnowsThePrimary extends PricingSource {
 			public async findPrice(_context: SessionContext | undefined, model: ModelIdentity): Promise<ModelPrice | undefined> {
 				return model.model === "primary"
-					? ModelPrice.of(TokenRate.fromUsdPerToken(1e-7), TokenRate.fromUsdPerToken(4e-7))
+					? new ModelPrice(TokenRate.fromUsdPerToken(1e-7), TokenRate.fromUsdPerToken(4e-7))
 					: undefined;
 			}
 		}

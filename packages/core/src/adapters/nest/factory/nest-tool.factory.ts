@@ -19,15 +19,15 @@ import { ToolMetadata } from "../metadata/tool-metadata.value-object";
 export class NestToolFactory {
 	/** A shared tool: its own provider, with `execute` as the entry point. */
 	public fromProvider(instance: object, metadata: unknown, providerName: string): ToolDefinition {
-		return this.definitionOf(ToolMetadata.from(metadata, providerName), instance, "execute", providerName);
+		return this.buildDefinition(ToolMetadata.from(metadata, providerName), instance, "execute", providerName);
 	}
 
 	/** A tool declared on the agent itself, exclusive to it, with the method as the entry point. */
 	public fromMethod(agent: object, method: string, metadata: unknown, providerName: string): ToolDefinition {
-		return this.definitionOf(ToolMetadata.from(metadata, providerName, method), agent, method, providerName);
+		return this.buildDefinition(ToolMetadata.from(metadata, providerName, method), agent, method, providerName);
 	}
 
-	private definitionOf(metadata: ToolMetadata, target: object, method: string, providerName: string): ToolDefinition {
+	private buildDefinition(metadata: ToolMetadata, target: object, method: string, providerName: string): ToolDefinition {
 		const entry = Reflect.get(target, method);
 		if (typeof entry !== "function") {
 			throw new InvalidAgentMetadataError(providerName, `@Tool ${metadata.name} has no ${method}() to call.`);
@@ -35,7 +35,7 @@ export class NestToolFactory {
 		return new ToolDefinition(
 			metadata.name,
 			metadata.description,
-			ZodToolSchema.of(metadata.schema),
+			ZodToolSchema.fromSchema(metadata.schema),
 			metadata.effect,
 			new BoundMethodHandler(target, method),
 		);

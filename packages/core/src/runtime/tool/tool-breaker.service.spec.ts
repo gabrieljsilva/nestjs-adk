@@ -17,7 +17,7 @@ describe("ToolBreaker", () => {
 	});
 
 	it("takes the limit an application chose instead", () => {
-		const breaker = new ToolBreaker(RunLimits.of(undefined, undefined, 1));
+		const breaker = new ToolBreaker(new RunLimits(undefined, undefined, 1));
 
 		expect(() => breaker.recordInvalidArgs("refund", "bad")).toThrow(ToolInvalidArgsError);
 	});
@@ -27,11 +27,11 @@ describe("ToolBreaker", () => {
 
 		for (let attempt = 0; attempt < 50; attempt += 1) breaker.recordFailure("lookup", "connection refused");
 
-		expect(breaker.failuresOf("lookup")).toBe(50);
+		expect(breaker.countFailures("lookup")).toBe(50);
 	});
 
 	it("stops the run once the same tool failed as many times as it was allowed", () => {
-		const breaker = new ToolBreaker(RunLimits.of(undefined, 2));
+		const breaker = new ToolBreaker(new RunLimits(undefined, 2));
 
 		breaker.recordFailure("lookup", "connection refused");
 
@@ -39,23 +39,23 @@ describe("ToolBreaker", () => {
 	});
 
 	it("forgets a streak the moment the tool works", () => {
-		const breaker = new ToolBreaker(RunLimits.of(undefined, 2));
+		const breaker = new ToolBreaker(new RunLimits(undefined, 2));
 		breaker.recordFailure("lookup", "connection refused");
 
 		breaker.recordSuccess("lookup");
 
-		expect(breaker.failuresOf("lookup")).toBe(0);
+		expect(breaker.countFailures("lookup")).toBe(0);
 		expect(() => breaker.recordFailure("lookup", "connection refused")).not.toThrow();
 	});
 
 	it("counts one tool apart from another", () => {
-		const breaker = new ToolBreaker(RunLimits.of(undefined, 2));
+		const breaker = new ToolBreaker(new RunLimits(undefined, 2));
 
 		breaker.recordFailure("lookup", "boom");
 		breaker.recordFailure("refund", "boom");
 
-		expect(breaker.failuresOf("lookup")).toBe(1);
-		expect(breaker.failuresOf("refund")).toBe(1);
+		expect(breaker.countFailures("lookup")).toBe(1);
+		expect(breaker.countFailures("refund")).toBe(1);
 	});
 
 	it("clears the invalid streak on a valid call without touching the failure streak", () => {
@@ -65,7 +65,7 @@ describe("ToolBreaker", () => {
 
 		breaker.recordValidArgs("refund");
 
-		expect(breaker.invalidArgsOf("refund")).toBe(0);
-		expect(breaker.failuresOf("refund")).toBe(1);
+		expect(breaker.countInvalidArgs("refund")).toBe(0);
+		expect(breaker.countFailures("refund")).toBe(1);
 	});
 });

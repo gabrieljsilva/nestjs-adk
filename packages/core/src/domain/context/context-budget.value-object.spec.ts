@@ -7,12 +7,12 @@ import { PromptMeasurement } from "../model/usage/prompt-measurement.value-objec
 import { ContextBudget } from "./context-budget.value-object";
 import { ContextBudgetExceededError } from "./errors/context-budget-exceeded.error";
 
-const MODEL = ModelIdentity.of("google", "gemini-flash");
-const WINDOW = ModelContextWindow.of(1000, 200);
+const MODEL = new ModelIdentity("google", "gemini-flash");
+const WINDOW = new ModelContextWindow(1000, 200);
 
 /** A call the provider counted: so many input tokens, over so much text. */
 function measured(inputTokens: number, characters = 1000, outputTokens = 50): PromptMeasurement {
-	const measurement = PromptMeasurement.from(ModelUsage.of(inputTokens, outputTokens), characters, MODEL);
+	const measurement = PromptMeasurement.from(ModelUsage.fromReport(inputTokens, outputTokens), characters, MODEL);
 	if (measurement === undefined) throw new Error("the fixture asked for a measurement of nothing");
 	return measurement;
 }

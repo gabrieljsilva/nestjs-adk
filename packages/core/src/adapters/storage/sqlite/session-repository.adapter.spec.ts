@@ -36,7 +36,7 @@ describe("SessionRepository", () => {
 		const session = Session.start(ID, AgentName.from("support"), NOW);
 		sessions.insert(session);
 
-		sessions.advance(session.at(SessionRevision.of(4)));
+		sessions.advance(session.at(new SessionRevision(4)));
 
 		expect(sessions.find(ID)?.revision.value).toBe(4);
 		expect(sessions.find(ID)?.rootAgent.value).toBe("support");

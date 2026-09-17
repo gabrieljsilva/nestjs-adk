@@ -6,11 +6,11 @@ import { ArtifactReference } from "./artifact-reference.value-object";
 
 const ID = ArtifactId.from("a-1");
 const SESSION = SessionId.from("s-1");
-const content = ArtifactContent.of("a very long report", "text/markdown");
+const content = new ArtifactContent("a very long report", "text/markdown");
 
 describe("ArtifactReference", () => {
 	it("describes the content it stands for without carrying it", () => {
-		const reference = ArtifactReference.of(ID, SESSION, content);
+		const reference = ArtifactReference.fromContent(ID, SESSION, content);
 
 		expect(reference.characters).toBe(content.characters);
 		expect(reference.mediaType).toBe("text/markdown");
@@ -18,22 +18,28 @@ describe("ArtifactReference", () => {
 	});
 
 	it("belongs to the session that produced it, and to no other", () => {
-		const reference = ArtifactReference.of(ID, SESSION, content);
+		const reference = ArtifactReference.fromContent(ID, SESSION, content);
 
 		expect(reference.belongsTo(SESSION)).toBe(true);
 		expect(reference.belongsTo(SessionId.from("s-2"))).toBe(false);
 	});
 
 	it("recognizes the content it was built from", () => {
-		expect(ArtifactReference.of(ID, SESSION, content).matches(ArtifactContent.of("a very long report"))).toBe(true);
+		expect(ArtifactReference.fromContent(ID, SESSION, content).matches(new ArtifactContent("a very long report"))).toBe(
+			true,
+		);
 	});
 
 	it("refuses content that is not what it fingerprinted", () => {
-		expect(ArtifactReference.of(ID, SESSION, content).matches(ArtifactContent.of("a tampered report"))).toBe(false);
+		expect(ArtifactReference.fromContent(ID, SESSION, content).matches(new ArtifactContent("a tampered report"))).toBe(
+			false,
+		);
 	});
 
 	it("reads as a placeholder the model can act on", () => {
-		expect(ArtifactReference.of(ID, SESSION, content).toString()).toBe("[artifact a-1, text/markdown, 18 characters]");
+		expect(ArtifactReference.fromContent(ID, SESSION, content).toString()).toBe(
+			"[artifact a-1, text/markdown, 18 characters]",
+		);
 	});
 
 	it("comes back from storage with the fingerprint it was stored with", () => {

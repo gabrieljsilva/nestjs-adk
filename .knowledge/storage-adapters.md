@@ -45,7 +45,7 @@ Three details are load bearing:
 
 - **`decode` takes the row, not the record.** A driver hands JSON back parsed or as text depending on which driver it is, and both are accepted, because which one it is belongs to the adapter and not to the codec.
 - **The journal record carries no session and no revision.** Which revision an event lands on is the storage's decision, inside its own transaction. An event that carried one would let two writers disagree about the order of the journal they share.
-- **`JournalCodec.fingerprintOf` is the definition of "the same event".** Idempotent append has to tell a retry from an id that came back carrying different content, and object identity cannot: a retry that crossed a process boundary is a different instance of the same fact. An adapter fingerprinting its own way would disagree with the ones here about which writes are duplicates.
+- **`JournalCodec.calculateFingerprint` is the definition of "the same event".** Idempotent append has to tell a retry from an id that came back carrying different content, and object identity cannot: a retry that crossed a process boundary is a different instance of the same fact. An adapter fingerprinting its own way would disagree with the ones here about which writes are duplicates.
 
 `SqliteSessionStorage` uses the same four codecs. That is not tidiness: it is what keeps a row written here and a row written downstream from drifting into meaning two different things, and it means every test of the SQLite adapter is also a test of the published codecs.
 

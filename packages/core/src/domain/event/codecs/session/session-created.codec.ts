@@ -10,7 +10,7 @@ const SCHEMA_VERSION = 2;
 /** Reference codec, and the shape every other one in this catalog follows. */
 export class SessionCreatedCodec extends SessionEventCodec<SessionCreated> {
 	public readonly type = SessionCreated.TYPE;
-	public readonly schemaVersion = EventSchemaVersion.of(SCHEMA_VERSION);
+	public readonly schemaVersion = new EventSchemaVersion(SCHEMA_VERSION);
 
 	public encode(event: SessionCreated): Record<string, unknown> {
 		return { rootAgent: event.rootAgent.value, actorId: event.actorId ?? null };

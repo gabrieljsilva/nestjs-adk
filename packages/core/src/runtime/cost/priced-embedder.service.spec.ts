@@ -15,8 +15,8 @@ import { CostCalculator } from "./cost-calculator.service";
 import { PricedEmbedder } from "./priced-embedder.service";
 import { RunCostReporter } from "./run-cost-reporter.service";
 
-const EMBEDDING_MODEL = ModelIdentity.of("openai", "text-embedding-3-small");
-const PRICE = ModelPrice.of(TokenRate.fromUsdPerToken(2e-8), TokenRate.zero());
+const EMBEDDING_MODEL = new ModelIdentity("openai", "text-embedding-3-small");
+const PRICE = new ModelPrice(TokenRate.fromUsdPerToken(2e-8), TokenRate.zero());
 
 class KnowsEmbeddings extends PricingSource {
 	public async findPrice(_context: SessionContext | undefined, model: ModelIdentity): Promise<ModelPrice | undefined> {
@@ -34,7 +34,7 @@ class CollectedNotices extends PricingNoticeSink {
 
 class SilentEmbedder extends Embedder {
 	public async embed(text: string): Promise<EmbeddingVector> {
-		return EmbeddingVector.of([text.length, 1, 0]);
+		return new EmbeddingVector([text.length, 1, 0]);
 	}
 }
 
@@ -44,7 +44,7 @@ class ReportingEmbedder extends Embedder {
 	}
 
 	public async embedMetered(text: string): Promise<MeteredEmbedding> {
-		return new MeteredEmbedding(EmbeddingVector.of([1, 0, 0]), EMBEDDING_MODEL, ModelUsage.of(text.length, 0));
+		return new MeteredEmbedding(new EmbeddingVector([1, 0, 0]), EMBEDDING_MODEL, ModelUsage.fromReport(text.length, 0));
 	}
 }
 

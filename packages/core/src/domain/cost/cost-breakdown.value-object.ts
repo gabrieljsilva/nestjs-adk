@@ -13,16 +13,12 @@ import { UsdAmount } from "./usd-amount.value-object";
  * would bill the same tokens twice.
  */
 export class CostBreakdown {
-	private constructor(
+	/** `cached` defaults to nothing, which is what a call whose cache never engaged cost. */
+	public constructor(
 		public readonly input: UsdAmount,
 		public readonly output: UsdAmount,
-		public readonly cached: UsdAmount,
+		public readonly cached: UsdAmount = UsdAmount.zero(),
 	) {}
-
-	/** `cached` defaults to nothing, which is what a call whose cache never engaged cost. */
-	public static of(input: UsdAmount, output: UsdAmount, cached: UsdAmount = UsdAmount.zero()): CostBreakdown {
-		return new CostBreakdown(input, output, cached);
-	}
 
 	public static zero(): CostBreakdown {
 		return new CostBreakdown(UsdAmount.zero(), UsdAmount.zero(), UsdAmount.zero());

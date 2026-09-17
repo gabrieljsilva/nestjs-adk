@@ -31,7 +31,7 @@ import { SessionState } from "../../domain/session/state/session-state.value-obj
 import { StateProjector } from "./state-projector.service";
 
 const NOW = Instant.fromIso("2026-01-01T00:00:00.000Z");
-const MODEL = ModelIdentity.of("acme", "primary");
+const MODEL = new ModelIdentity("acme", "primary");
 const SUPPORT = AgentName.from("support");
 const BILLING = AgentName.from("billing");
 const projector = new StateProjector();
@@ -63,7 +63,7 @@ function header(id: string): EventHeader {
 }
 
 function stored(revision: number, event: SessionEvent): StoredSessionEvent {
-	return new StoredSessionEvent(SessionId.from("s-1"), SessionRevision.of(revision), event);
+	return new StoredSessionEvent(SessionId.from("s-1"), new SessionRevision(revision), event);
 }
 
 describe("StateProjector", () => {
@@ -72,7 +72,7 @@ describe("StateProjector", () => {
 	});
 
 	it("carries forward the size a provider reported for the last prompt", () => {
-		const measurement = PromptMeasurement.from(ModelUsage.of(120, 10), 480);
+		const measurement = PromptMeasurement.from(ModelUsage.fromReport(120, 10), 480);
 		const answer = new AssistantMessageProduced(header("e-1"), "hello", MODEL, measurement);
 
 		const state = projector.apply(SessionState.initial(), stored(1, answer));
@@ -82,7 +82,7 @@ describe("StateProjector", () => {
 	});
 
 	it("keeps the previous size when a turn came back without one", () => {
-		const measured = PromptMeasurement.from(ModelUsage.of(120, 10), 480);
+		const measured = PromptMeasurement.from(ModelUsage.fromReport(120, 10), 480);
 		const first = projector.apply(
 			SessionState.initial(),
 			stored(1, new AssistantMessageProduced(header("e-1"), "hello", MODEL, measured)),

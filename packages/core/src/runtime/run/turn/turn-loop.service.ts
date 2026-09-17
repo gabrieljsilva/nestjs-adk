@@ -9,7 +9,7 @@ import { AgentMaxIterationsError } from "../../../domain/session/errors/agent-ma
 import { AgentMaxTransfersError } from "../../../domain/session/errors/agent-max-transfers.error";
 import type { SessionState } from "../../../domain/session/state/session-state.value-object";
 import { ToolCallNotice } from "../../../domain/tool/notice/tool-call.notice";
-import type { ContextManager } from "../../context/context-manager.service";
+import type { ContextService } from "../../context/context.service";
 import { PrepareContextCommand } from "../../context/prepare-context.command";
 import { DelegatedTurnLoop } from "../../delegation/delegated-turn-loop.contract";
 import type { DelegationRunner } from "../../delegation/delegation-runner.service";
@@ -18,9 +18,9 @@ import type { ModelRunOutcome } from "../../model/model-run-outcome.value-object
 import { ModelRunCommand } from "../../model/model-run.command";
 import type { ModelRunner } from "../../model/model-runner.service";
 import type { OpenedSession } from "../../session/opened-session.value-object";
-import type { SessionManager } from "../../session/session-manager.service";
+import type { SessionRepository } from "../../session/session-repository.service";
 import type { ChunkSink } from "../../stream/chunk-sink.contract";
-import type { AgentSwitch } from "../../transfer/agent-switch.use-case";
+import type { TransferSessionUseCase } from "../../transfer/transfer-session.use-case";
 import type { RunJournal } from "../journal/run-journal.service";
 import { RunObservers } from "../journal/run-observers.value-object";
 import type { RunScope } from "../scope/run-scope.value-object";
@@ -45,13 +45,13 @@ const MAX_TRANSFERS = 8;
  */
 export class TurnLoop extends DelegatedTurnLoop {
 	public constructor(
-		private readonly context: ContextManager,
+		private readonly context: ContextService,
 		private readonly turns: ModelRunner,
-		private readonly sessions: SessionManager,
+		private readonly sessions: SessionRepository,
 		private readonly journal: RunJournal,
 		private readonly executor: TurnExecutor,
 		private readonly gate: ApprovalGate,
-		private readonly agents: AgentSwitch,
+		private readonly agents: TransferSessionUseCase,
 		private readonly delegations: DelegationRunner,
 		private readonly photographer: ContextPhotographer = new ContextPhotographer(),
 	) {
@@ -73,7 +73,7 @@ export class TurnLoop extends DelegatedTurnLoop {
 			observers.context?.capture(
 				this.photographer.of(current.agent, current.model.descriptor().identity, prepared.projection),
 			);
-			const outcome = await this.consume(this.turns.stream(this.commandOf(current, prepared)), observers.chunks);
+			const outcome = await this.consume(this.turns.stream(this.buildCommand(current, prepared)), observers.chunks);
 			const calls = outcome.response.toolCalls;
 			const empty = outcome.response.isEmpty;
 			if (outcome.response.hasText) progress.said(outcome.response.text);
@@ -113,7 +113,7 @@ export class TurnLoop extends DelegatedTurnLoop {
 			if (target !== undefined) {
 				transfers += 1;
 				if (transfers > MAX_TRANSFERS) throw new AgentMaxTransfersError(current.agent.value, MAX_TRANSFERS);
-				current = await this.agents.to(current, target);
+				current = await this.agents.execute(current, target);
 			}
 		}
 	}
@@ -144,7 +144,7 @@ export class TurnLoop extends DelegatedTurnLoop {
 	private async announce(scope: RunScope, turn: readonly PendingCall[], observer?: ToolCallObserver): Promise<void> {
 		if (observer === undefined) return;
 		for (const call of turn) {
-			await observer.requested(scope.context, ToolCallNotice.of(call, scope.catalog.find(call.toolName)));
+			await observer.requested(scope.context, ToolCallNotice.fromCall(call, scope.catalog.find(call.toolName)));
 		}
 	}
 
@@ -178,7 +178,7 @@ export class TurnLoop extends DelegatedTurnLoop {
 		);
 	}
 
-	private commandOf(scope: RunScope, prepared: PreparedModelContext): ModelRunCommand {
+	private buildCommand(scope: RunScope, prepared: PreparedModelContext): ModelRunCommand {
 		return new ModelRunCommand(
 			scope.context,
 			scope.run.id,

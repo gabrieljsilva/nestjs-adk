@@ -3,18 +3,18 @@ import { TextDigest } from "./text-digest.service";
 
 describe("TextDigest", () => {
 	it("fingerprints the same text the same way, every time", () => {
-		expect(TextDigest.of("hello").equals(TextDigest.of("hello"))).toBe(true);
+		expect(TextDigest.fromText("hello").equals(TextDigest.fromText("hello"))).toBe(true);
 	});
 
 	it("fingerprints a single changed character differently", () => {
-		expect(TextDigest.of("hello").equals(TextDigest.of("hellO"))).toBe(false);
+		expect(TextDigest.fromText("hello").equals(TextDigest.fromText("hellO"))).toBe(false);
 	});
 
 	it("names the algorithm in the digest, so nothing compares across algorithms by accident", () => {
-		expect(TextDigest.of("hello").algorithm).toBe("sha256");
+		expect(TextDigest.fromText("hello").algorithm).toBe("sha256");
 	});
 
 	it("fingerprints empty text rather than refusing it", () => {
-		expect(TextDigest.of("").value.length).toBeGreaterThan(0);
+		expect(TextDigest.fromText("").value.length).toBeGreaterThan(0);
 	});
 });

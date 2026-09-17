@@ -22,17 +22,17 @@ const FNV_PRIME = 16777619;
 export class TestingEmbedder extends Embedder {
 	public async embed(text: string): Promise<EmbeddingVector> {
 		const buckets = new Array<number>(DIMENSIONS).fill(0);
-		for (const word of this.wordsOf(text)) {
-			const hash = this.hashOf(word);
+		for (const word of this.splitWords(text)) {
+			const hash = this.calculateHash(word);
 			const bucket = hash % DIMENSIONS;
 			// The sign comes from the hash too, so two different words in one bucket do not
 			// simply add up into a stronger signal for a word that was never there.
 			buckets[bucket] = (buckets[bucket] ?? 0) + (hash % 2 === 0 ? 1 : -1);
 		}
-		return EmbeddingVector.of(buckets.every((value) => value === 0) ? this.hashOnly(text) : buckets);
+		return new EmbeddingVector(buckets.every((value) => value === 0) ? this.hashOnly(text) : buckets);
 	}
 
-	private wordsOf(text: string): readonly string[] {
+	private splitWords(text: string): readonly string[] {
 		return text
 			.toLowerCase()
 			.split(/[^\p{L}\p{N}]+/u)
@@ -42,12 +42,12 @@ export class TestingEmbedder extends Embedder {
 	/** A text with no words still gets a direction of its own, rather than pointing nowhere. */
 	private hashOnly(text: string): readonly number[] {
 		const buckets = new Array<number>(DIMENSIONS).fill(0);
-		const hash = this.hashOf(text);
+		const hash = this.calculateHash(text);
 		buckets[hash % DIMENSIONS] = 1;
 		return buckets;
 	}
 
-	private hashOf(value: string): number {
+	private calculateHash(value: string): number {
 		let hash = FNV_OFFSET;
 		for (let index = 0; index < value.length; index += 1) {
 			hash ^= value.charCodeAt(index);

@@ -17,7 +17,7 @@ describe("ContextCapture", () => {
 		const capture = new Collecting();
 
 		capture.capture(
-			new ContextSnapshot(AgentName.from("support"), ModelIdentity.of("acme", "primary"), [
+			new ContextSnapshot(AgentName.from("support"), new ModelIdentity("acme", "primary"), [
 				new ContextSegment(ContextSegment.INSTRUCTIONS, "Be brief."),
 			]),
 		);

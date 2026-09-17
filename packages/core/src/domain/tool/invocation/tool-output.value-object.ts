@@ -19,7 +19,7 @@ export class ToolOutput {
 		public readonly media: readonly MediaPart[],
 	) {}
 
-	public static of(data: unknown): ToolOutput {
+	public static fromData(data: unknown): ToolOutput {
 		return new ToolOutput(data, []);
 	}
 

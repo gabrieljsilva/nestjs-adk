@@ -12,13 +12,9 @@ import type { ToolDefinition } from "../../domain/tool/tool-definition.value-obj
 export class ToolCatalog {
 	private readonly byName: ReadonlyMap<string, ToolDefinition>;
 
-	private constructor(tools: readonly ToolDefinition[]) {
+	public constructor(tools: readonly ToolDefinition[]) {
 		this.byName = new Map(tools.map((tool) => [tool.name, tool]));
 		Object.freeze(this);
-	}
-
-	public static of(tools: readonly ToolDefinition[]): ToolCatalog {
-		return new ToolCatalog(tools);
 	}
 
 	public static empty(): ToolCatalog {

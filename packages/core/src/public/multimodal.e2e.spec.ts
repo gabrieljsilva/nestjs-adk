@@ -43,7 +43,7 @@ import { AttachmentNotStoredError } from "../runtime/artifact/errors/attachment-
 import { AgentRunCommand } from "../runtime/run/agent-run.command";
 import { FakeClock } from "../support/fake-clock.double";
 import { SequenceIdGenerator } from "../support/sequence-id-generator.double";
-import { AdkRuntimeHost } from "./adk-runtime-host.edge";
+import { AdkRuntime } from "./adk-runtime.edge";
 
 const SUPPORT = AgentName.from("support");
 const PIXEL = "iVBORw0KGgo=";
@@ -61,9 +61,9 @@ class SeeingModel extends LlmModel {
 
 	public descriptor(): ModelDescriptor {
 		return new ModelDescriptor(
-			ModelIdentity.of("acme", this.name),
-			ModelContextWindow.of(100_000, 4000),
-			ModelCapabilities.of([[ModelCapability.MEDIA_INPUT, this.seesImages]]),
+			new ModelIdentity("acme", this.name),
+			new ModelContextWindow(100_000, 4000),
+			ModelCapabilities.fromEntries([[ModelCapability.MEDIA_INPUT, this.seesImages]]),
 		);
 	}
 
@@ -84,9 +84,9 @@ class SeeingModel extends LlmModel {
 class FailingModel extends LlmModel {
 	public descriptor(): ModelDescriptor {
 		return new ModelDescriptor(
-			ModelIdentity.of("acme", "failing"),
-			ModelContextWindow.of(100_000, 4000),
-			ModelCapabilities.of([[ModelCapability.MEDIA_INPUT, true]]),
+			new ModelIdentity("acme", "failing"),
+			new ModelContextWindow(100_000, 4000),
+			ModelCapabilities.fromEntries([[ModelCapability.MEDIA_INPUT, true]]),
 		);
 	}
 
@@ -103,9 +103,9 @@ class ChartingModel extends LlmModel {
 
 	public descriptor(): ModelDescriptor {
 		return new ModelDescriptor(
-			ModelIdentity.of("acme", "charting"),
-			ModelContextWindow.of(100_000, 4000),
-			ModelCapabilities.of([
+			new ModelIdentity("acme", "charting"),
+			new ModelContextWindow(100_000, 4000),
+			ModelCapabilities.fromEntries([
 				[ModelCapability.TOOLS, true],
 				[ModelCapability.MEDIA_INPUT, true],
 			]),
@@ -135,7 +135,7 @@ function chartTool(): ToolDefinition {
 	return new ToolDefinition(
 		"render_chart",
 		"Draws a chart of a metric",
-		ZodToolSchema.of(z.object({ metric: z.string() })),
+		ZodToolSchema.fromSchema(z.object({ metric: z.string() })),
 		ToolEffect.READ,
 		new ChartHandler(),
 	);
@@ -143,10 +143,10 @@ function chartTool(): ToolDefinition {
 
 function agentOf(
 	model: LlmModel,
-	policies: AgentExecutionPolicies = AgentExecutionPolicies.of(),
+	policies: AgentExecutionPolicies = new AgentExecutionPolicies(),
 	tools: readonly ToolDefinition[] = [],
 ): DeclaredAgent {
-	const definition = AgentDefinition.of(
+	const definition = new AgentDefinition(
 		SUPPORT,
 		AgentDescription.from("support agent", SUPPORT.value),
 		model,
@@ -215,7 +215,7 @@ async function base64Of(
 	return (await artifacts.read(SessionContext.fromSessionId(sessionId), reference)).text;
 }
 
-const host = new AdkRuntimeHost();
+const host = new AdkRuntime();
 
 afterEach(async () => {
 	await host.stop();
@@ -268,8 +268,8 @@ describe("a question with an image in it", () => {
 		);
 
 		const first = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.with("what is this?", [imageOf()])));
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("and its colour?", first.sessionId)));
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("are you sure?", first.sessionId)));
+		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("and its colour?", first.sessionId)));
+		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("are you sure?", first.sessionId)));
 
 		const shown = model.requests[2]?.messages.filter((message): message is UserMessage => message instanceof UserMessage);
 		expect(shown?.[0]?.media[0]?.base64).toBe(PIXEL);
@@ -298,7 +298,7 @@ describe("a question with an image in it", () => {
 
 	it("degrades to a note when a reroute lands on a model that cannot see", async () => {
 		const blind = new SeeingModel("blind", false);
-		const policies = AgentExecutionPolicies.of(new SequentialFailoverPolicy([blind]));
+		const policies = new AgentExecutionPolicies(new SequentialFailoverPolicy([blind]));
 		const storage = new InMemorySessionStorage();
 		const artifacts = new InMemoryArtifactStorage(new SequenceIdGenerator("a"));
 		const runtime = await host.start(
@@ -345,14 +345,14 @@ describe("a tool that answers with an image", () => {
 	it("shows the model the data and the picture, in that order", async () => {
 		const model = new ChartingModel();
 		const runtime = await host.start(
-			[agentOf(model, AgentExecutionPolicies.of(), [chartTool()])],
+			[agentOf(model, new AgentExecutionPolicies(), [chartTool()])],
 			new InMemorySessionStorage(),
 			new InMemoryArtifactStorage(new SequenceIdGenerator("a")),
 			new FakeClock(),
 			new SequenceIdGenerator(),
 		);
 
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("chart my sales")));
+		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("chart my sales")));
 
 		const messages = model.requests[1]?.messages ?? [];
 		const at = messages.findIndex((message) => message instanceof ToolResultMessage);
@@ -370,14 +370,14 @@ describe("a tool that answers with an image", () => {
 		const storage = new InMemorySessionStorage();
 		const artifacts = new InMemoryArtifactStorage(new SequenceIdGenerator("a"));
 		const runtime = await host.start(
-			[agentOf(new ChartingModel(), AgentExecutionPolicies.of(), [chartTool()])],
+			[agentOf(new ChartingModel(), new AgentExecutionPolicies(), [chartTool()])],
 			storage,
 			artifacts,
 			new FakeClock(),
 			new SequenceIdGenerator(),
 		);
 
-		const answer = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("chart my sales")));
+		const answer = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("chart my sales")));
 		const [produced] = await resultsOf(storage, answer.sessionId);
 		const id = produced?.attachments[0];
 		if (id === undefined) throw new Error("expected the tool result to name an attachment");

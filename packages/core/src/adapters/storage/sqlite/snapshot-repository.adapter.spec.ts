@@ -18,11 +18,11 @@ function repository(): SnapshotRepository {
 
 function snapshotOf(revision: number, agent: string): SessionSnapshot {
 	const state = SessionState.restored(
-		SessionRevision.of(revision),
-		StateValues.of([["tier", "gold"]]),
+		new SessionRevision(revision),
+		StateValues.fromEntries([["tier", "gold"]]),
 		AgentName.from(agent),
 	);
-	return new SessionSnapshot(ID, SessionRevision.of(revision), 4, state, ContentDigest.of("sha256", "abc"));
+	return new SessionSnapshot(ID, new SessionRevision(revision), 4, state, new ContentDigest("sha256", "abc"));
 }
 
 describe("SnapshotRepository", () => {
@@ -35,7 +35,7 @@ describe("SnapshotRepository", () => {
 		expect(found?.revision.value).toBe(3);
 		expect(found?.projectorVersion).toBe(4);
 		expect(found?.state.activeAgent?.value).toBe("billing");
-		expect(found?.state.values.get("tier")).toBe("gold");
+		expect(found?.state.values.find("tier")).toBe("gold");
 		expect(found?.checksum.value).toBe("abc");
 	});
 

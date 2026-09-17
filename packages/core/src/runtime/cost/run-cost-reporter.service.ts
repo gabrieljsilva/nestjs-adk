@@ -42,7 +42,7 @@ export class RunCostReporter {
 		const billable = calls.filter((call) => this.hasUsage(context, call, unpriced));
 		if (billable.length === 0) return RunCost.nothing([...unpriced.values()]);
 
-		const prices = await this.pricesFor(context, billable);
+		const prices = await this.findPrices(context, billable);
 		const byModel = new Map<string, ModelCost>();
 
 		for (const call of billable) {
@@ -53,11 +53,11 @@ export class RunCostReporter {
 				unpriced.set(key, call.model);
 				continue;
 			}
-			const cost = this.calculator.costOf(call.model, price, call.usage);
+			const cost = this.calculator.calculateCost(call.model, price, call.usage);
 			byModel.set(key, (byModel.get(key) ?? ModelCost.none(call.model)).including(call.usage, cost.breakdown));
 		}
 
-		return RunCost.of([...byModel.values()], [...unpriced.values()]);
+		return new RunCost([...byModel.values()], [...unpriced.values()]);
 	}
 
 	private hasUsage(
@@ -72,7 +72,7 @@ export class RunCostReporter {
 	}
 
 	/** One question per model, because a loop of eight turns on one model is still one price. */
-	private async pricesFor(
+	private async findPrices(
 		context: SessionContext | undefined,
 		calls: readonly BilledCall[],
 	): Promise<Map<string, ModelPrice | undefined>> {

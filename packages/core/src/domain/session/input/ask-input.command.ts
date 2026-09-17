@@ -23,7 +23,7 @@ export class AskInput {
 		public readonly metadata: SessionMetadata = SessionMetadata.empty(),
 	) {}
 
-	public static of(message: string, sessionId?: SessionId): AskInput {
+	public static fromMessage(message: string, sessionId?: SessionId): AskInput {
 		return AskInput.with(message, [], sessionId);
 	}
 

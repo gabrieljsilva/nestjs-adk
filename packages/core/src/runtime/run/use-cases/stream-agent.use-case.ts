@@ -3,7 +3,7 @@ import type { AgentResult } from "../../../domain/session/run/agent-result.value
 import { ChunkStream } from "../../stream/chunk-stream.service";
 import type { AgentRunCommand } from "../agent-run.command";
 import { RunObservers } from "../journal/run-observers.value-object";
-import type { AskAgent } from "./ask-agent.use-case";
+import type { AskAgentUseCase } from "./ask-agent.use-case";
 
 /**
  * The same command as `ask`, watched while it happens.
@@ -17,12 +17,12 @@ import type { AskAgent } from "./ask-agent.use-case";
  * text reads the chunks; a caller that also needs the session id, the status and what is
  * awaiting a decision takes what comes back at the end.
  */
-export class StreamAgent {
-	public constructor(private readonly asking: AskAgent) {}
+export class StreamAgentUseCase {
+	public constructor(private readonly asking: AskAgentUseCase) {}
 
-	public async *handle(command: AgentRunCommand): AsyncGenerator<ModelChunk, AgentResult> {
+	public async *execute(command: AgentRunCommand): AsyncGenerator<ModelChunk, AgentResult> {
 		const stream = new ChunkStream();
-		const running = this.asking.handle(command, RunObservers.streaming(stream));
+		const running = this.asking.execute(command, RunObservers.streaming(stream));
 		const settled = running.then(
 			(result) => {
 				stream.close();

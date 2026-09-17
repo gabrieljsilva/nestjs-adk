@@ -8,8 +8,8 @@ import { ContextBlock } from "./context-block.value-object";
 import { ContextCategory } from "./context-category.value-object";
 
 const CALL = ToolCallId.from("call-1");
-const R1 = SessionRevision.of(1);
-const R2 = SessionRevision.of(2);
+const R1 = new SessionRevision(1);
+const R2 = new SessionRevision(2);
 const call = new ToolCallMessage(CALL, "search", { q: "x" });
 const result = new ToolResultMessage(CALL, "search", { hits: 1 }, false);
 

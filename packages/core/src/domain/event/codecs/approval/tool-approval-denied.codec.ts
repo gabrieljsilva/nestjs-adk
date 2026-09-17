@@ -10,7 +10,7 @@ const SCHEMA_VERSION = 3;
 /** Codec for the refusal that keeps one held tool call from running. */
 export class ToolApprovalDeniedCodec extends SessionEventCodec<ToolApprovalDenied> {
 	public readonly type = ToolApprovalDenied.TYPE;
-	public readonly schemaVersion = EventSchemaVersion.of(SCHEMA_VERSION);
+	public readonly schemaVersion = new EventSchemaVersion(SCHEMA_VERSION);
 
 	public encode(event: ToolApprovalDenied): Record<string, unknown> {
 		return {

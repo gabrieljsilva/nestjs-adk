@@ -10,7 +10,7 @@ const SCHEMA_VERSION = 2;
 /** Codec for the request that starts one tool call. */
 export class ToolCallRequestedCodec extends SessionEventCodec<ToolCallRequested> {
 	public readonly type = ToolCallRequested.TYPE;
-	public readonly schemaVersion = EventSchemaVersion.of(SCHEMA_VERSION);
+	public readonly schemaVersion = new EventSchemaVersion(SCHEMA_VERSION);
 
 	public encode(event: ToolCallRequested): Record<string, unknown> {
 		const encoded: Record<string, unknown> = {

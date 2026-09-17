@@ -11,7 +11,7 @@ import type { AgentResult } from "../../../domain/session/run/agent-result.value
 import type { AttachmentStore } from "../../artifact/attachment-store.service";
 import type { AgentCatalog } from "../../catalog/agent-catalog.service";
 import type { OpenedSession } from "../../session/opened-session.value-object";
-import type { SessionManager } from "../../session/session-manager.service";
+import type { SessionRepository } from "../../session/session-repository.service";
 import { ToolSourceScope } from "../../tool/tool-source-scope.service";
 
 import type { TransferGate } from "../../transfer/transfer-gate.service";
@@ -38,12 +38,12 @@ import type { TurnLoop } from "../turn/turn-loop.service";
  * the active set however it settles, so a shutdown draining on it is not waiting on
  * something already over.
  */
-export class AskAgent {
+export class AskAgentUseCase {
 	public constructor(
 		private readonly catalog: AgentCatalog,
 		private readonly models: ModelResolver,
 		private readonly opener: SessionOpener,
-		private readonly sessions: SessionManager,
+		private readonly sessions: SessionRepository,
 		private readonly runs: AgentRunFactory,
 		private readonly scopes: RunScopeFactory,
 		private readonly journal: RunJournal,
@@ -56,7 +56,7 @@ export class AskAgent {
 		private readonly sources: readonly ToolSource[] = [],
 	) {}
 
-	public async handle(command: AgentRunCommand, observers: RunObservers = RunObservers.none()): Promise<AgentResult> {
+	public async execute(command: AgentRunCommand, observers: RunObservers = RunObservers.none()): Promise<AgentResult> {
 		const called = this.catalog.findOrFail(command.agent);
 		const sessionId = command.input.sessionId ?? SessionId.from(this.ids.next());
 
@@ -91,7 +91,7 @@ export class AskAgent {
 					opened.state,
 				),
 			);
-			return await this.execute(
+			return await this.executeRecorded(
 				context.withMetadata(progress.state.metadata),
 				definition,
 				model,
@@ -141,7 +141,7 @@ export class AskAgent {
 	}
 
 	/** From here on the run has a journal entry, so every ending it can reach gets recorded. */
-	private async execute(
+	private async executeRecorded(
 		context: RunContext,
 		definition: AgentDefinition,
 		model: LlmModel,

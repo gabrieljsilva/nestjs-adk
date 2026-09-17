@@ -7,7 +7,7 @@ const keyOf = (client: object): unknown => Reflect.get(client, "apiKey");
 
 describe("GenAiClientFactory", () => {
 	it("reveals a secret key once, at the call that builds the client", () => {
-		const client = new GenAiClientFactory().create({ apiKey: Secret.of("sk-live-1") });
+		const client = new GenAiClientFactory().create({ apiKey: new Secret("sk-live-1") });
 
 		expect(keyOf(client)).toBe("sk-live-1");
 	});

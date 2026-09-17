@@ -14,13 +14,13 @@ import type { ApprovalDecision, PendingCall } from "./pending-call.value-object"
  * can point back at it rather than pretend to be it.
  */
 export class PendingTurn {
-	private constructor(
-		public readonly runId: AgentRunId,
-		public readonly calls: readonly PendingCall[],
-	) {}
+	public readonly calls: readonly PendingCall[];
 
-	public static of(runId: AgentRunId, calls: readonly PendingCall[]): PendingTurn {
-		return new PendingTurn(runId, [...calls]);
+	public constructor(
+		public readonly runId: AgentRunId,
+		calls: readonly PendingCall[],
+	) {
+		this.calls = [...calls];
 	}
 
 	public get held(): readonly PendingCall[] {
@@ -37,7 +37,7 @@ export class PendingTurn {
 	}
 
 	public find(callId: ToolCallId): PendingCall | undefined {
-		return this.calls.find((call) => call.isFor(callId));
+		return this.calls.find((call) => call.matches(callId));
 	}
 
 	/** Whether this call is one somebody may still answer, which a repeated decision is not. */
@@ -48,7 +48,7 @@ export class PendingTurn {
 	public decided(callId: ToolCallId, decision: ApprovalDecision, reason?: string): PendingTurn {
 		return new PendingTurn(
 			this.runId,
-			this.calls.map((call) => (call.isFor(callId) ? call.decidedAs(decision, reason) : call)),
+			this.calls.map((call) => (call.matches(callId) ? call.decidedAs(decision, reason) : call)),
 		);
 	}
 }

@@ -10,7 +10,7 @@ const legal = SkillDefinition.onDemand("legal", "The full terms", "the very long
 
 describe("SkillCatalog", () => {
 	it("puts every always skill into the instruction, after the agent prompt", () => {
-		const catalog = SkillCatalog.of([refunds, shipping]);
+		const catalog = new SkillCatalog([refunds, shipping]);
 
 		const instructions = catalog.instructions(PromptInstructions.from("Be brief."));
 
@@ -18,8 +18,8 @@ describe("SkillCatalog", () => {
 	});
 
 	it("produces the same bytes for the same declaration, every time", () => {
-		const first = SkillCatalog.of([refunds, shipping]).instructions(PromptInstructions.from("Be brief."));
-		const second = SkillCatalog.of([refunds, shipping]).instructions(PromptInstructions.from("Be brief."));
+		const first = new SkillCatalog([refunds, shipping]).instructions(PromptInstructions.from("Be brief."));
+		const second = new SkillCatalog([refunds, shipping]).instructions(PromptInstructions.from("Be brief."));
 
 		expect(first?.text).toBe(second?.text);
 	});
@@ -29,29 +29,29 @@ describe("SkillCatalog", () => {
 	});
 
 	it("leaves the content of an on-demand skill out of the prompt", () => {
-		const instructions = SkillCatalog.of([legal]).instructions(PromptInstructions.from("Be brief."));
+		const instructions = new SkillCatalog([legal]).instructions(PromptInstructions.from("Be brief."));
 
 		expect(instructions?.text).toBe("Be brief.");
 	});
 
 	it("shows an on-demand skill only by name and description", () => {
-		expect(SkillCatalog.of([refunds, legal]).describe()).toBe("legal: The full terms");
+		expect(new SkillCatalog([refunds, legal]).describe()).toBe("legal: The full terms");
 	});
 
 	it("finds a skill that can be loaded, and never one that is already in the prompt", () => {
-		const catalog = SkillCatalog.of([refunds, legal]);
+		const catalog = new SkillCatalog([refunds, legal]);
 
 		expect(catalog.find("legal")?.content).toBe("the very long terms");
 		expect(catalog.find("refunds")).toBeUndefined();
 	});
 
 	it("says whether anything can be loaded at all", () => {
-		expect(SkillCatalog.of([refunds]).hasOnDemand).toBe(false);
-		expect(SkillCatalog.of([legal]).hasOnDemand).toBe(true);
+		expect(new SkillCatalog([refunds]).hasOnDemand).toBe(false);
+		expect(new SkillCatalog([legal]).hasOnDemand).toBe(true);
 	});
 
 	it("refuses two skills under one name, instead of answering two ways about the same one", () => {
-		expect(() => SkillCatalog.of([refunds, SkillDefinition.always("refunds", "again", "another body")])).toThrow(
+		expect(() => new SkillCatalog([refunds, SkillDefinition.always("refunds", "again", "another body")])).toThrow(
 			DuplicateSkillNameError,
 		);
 	});

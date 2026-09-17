@@ -11,34 +11,34 @@ describe("StateValues", () => {
 		const second = first.with("plan", "premium");
 
 		expect(first.size).toBe(0);
-		expect(second.get("plan")).toBe("premium");
+		expect(second.find("plan")).toBe("premium");
 		expect(second).not.toBe(first);
 	});
 
 	it("replaces the value of an existing key", () => {
-		const values = StateValues.of([["plan", "free"]]).with("plan", "premium");
+		const values = StateValues.fromEntries([["plan", "free"]]).with("plan", "premium");
 
-		expect(values.get("plan")).toBe("premium");
+		expect(values.find("plan")).toBe("premium");
 		expect(values.size).toBe(1);
 	});
 
 	it("removes a key without touching the previous instance", () => {
-		const before = StateValues.of([
+		const before = StateValues.fromEntries([
 			["a", "1"],
 			["b", "2"],
 		]);
 		const after = before.without("a");
 
-		expect(after.get("a")).toBeUndefined();
-		expect(before.get("a")).toBe("1");
+		expect(after.find("a")).toBeUndefined();
+		expect(before.find("a")).toBe("1");
 	});
 
 	it("answers undefined for a key it does not hold", () => {
-		expect(StateValues.empty().get("missing")).toBeUndefined();
+		expect(StateValues.empty().find("missing")).toBeUndefined();
 	});
 
 	it("orders entries by key so serialization is stable", () => {
-		const values = StateValues.of([
+		const values = StateValues.fromEntries([
 			["zeta", "3"],
 			["alpha", "1"],
 			["mid", "2"],

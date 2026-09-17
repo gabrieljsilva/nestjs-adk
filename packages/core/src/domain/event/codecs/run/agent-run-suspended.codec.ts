@@ -14,7 +14,7 @@ const CALLS_FIELD = "calls";
 /** Codec for a run that stopped to wait for something outside it, with the turn it stopped on. */
 export class AgentRunSuspendedCodec extends SessionEventCodec<AgentRunSuspended> {
 	public readonly type = AgentRunSuspended.TYPE;
-	public readonly schemaVersion = EventSchemaVersion.of(SCHEMA_VERSION);
+	public readonly schemaVersion = new EventSchemaVersion(SCHEMA_VERSION);
 
 	public encode(event: AgentRunSuspended): Record<string, unknown> {
 		return { reason: event.reason, calls: event.calls.map((call) => this.encodeCall(call)) };

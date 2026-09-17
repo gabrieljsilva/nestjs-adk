@@ -9,7 +9,7 @@ export class AgentRunId {
 	}
 
 	public static from(value: string): AgentRunId {
-		return new AgentRunId(IdentityText.of(value, "AgentRunId"));
+		return new AgentRunId(IdentityText.fromText(value, "AgentRunId"));
 	}
 
 	public get value(): string {

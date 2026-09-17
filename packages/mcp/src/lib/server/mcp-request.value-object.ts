@@ -8,16 +8,15 @@ const BEARER = /^Bearer\s+(\S+)$/i;
  * benefit, and never the response, which the endpoint owns.
  */
 export class McpRequest {
-	private constructor(
-		private readonly headers: IncomingHttpHeaders,
-		public readonly method: string,
-		public readonly url: string,
-	) {
-		Object.freeze(this);
-	}
+	private readonly headers: IncomingHttpHeaders;
 
-	public static of(headers: IncomingHttpHeaders, method = "POST", url = "/"): McpRequest {
-		return new McpRequest({ ...headers }, method, url);
+	public constructor(
+		headers: IncomingHttpHeaders,
+		public readonly method = "POST",
+		public readonly url = "/",
+	) {
+		this.headers = { ...headers };
+		Object.freeze(this);
 	}
 
 	public header(name: string): string | undefined {

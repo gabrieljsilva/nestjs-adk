@@ -11,7 +11,7 @@ Declaring both fails at boot with `AmbiguousAgentPromptError`. There is no prece
 
 ## Once per agent per run
 
-The prompt is resolved in `RunScopeFactory`, which is why `create`, `switched` and `delegated` all answer a promise, and why `AgentSwitch.to` does too. A scope is born exactly three times in a run's life, and each one is a different agent taking over, so resolving it there means once per agent per run. `TurnLoop.prepare` reads `scope.instructions` and never `definition.instructions`.
+The prompt is resolved in `RunScopeFactory`, which is why `create`, `switched` and `delegated` all answer a promise, and why `TransferSessionUseCase.execute` does too. A scope is born exactly three times in a run's life, and each one is a different agent taking over, so resolving it there means once per agent per run. `TurnLoop.prepare` reads `scope.instructions` and never `definition.instructions`.
 
 This is a cost decision before it is a design one. The system prompt is the head of the prefix a provider caches, so anything that changes there invalidates every cached token after it. Measured on this repository's own paid suite: 3031 of 3751 prompt tokens came back cached, worth 68% of that run's input bill. A prompt rebuilt between turns would also be a database call per turn.
 

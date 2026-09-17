@@ -16,7 +16,7 @@ export class StateValues {
 		return new StateValues(new Map());
 	}
 
-	public static of(entries: ReadonlyArray<readonly [string, string]>): StateValues {
+	public static fromEntries(entries: ReadonlyArray<readonly [string, string]>): StateValues {
 		return new StateValues(new Map(entries));
 	}
 
@@ -32,7 +32,7 @@ export class StateValues {
 		return new StateValues(next);
 	}
 
-	public get(key: string): string | undefined {
+	public find(key: string): string | undefined {
 		return this.values.get(key);
 	}
 

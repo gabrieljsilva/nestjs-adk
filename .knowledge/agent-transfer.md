@@ -52,7 +52,7 @@ The tool itself moves nothing. It confirms to the model and stops there, because
 
 ## A handover changes who answers, not which run
 
-`AgentSwitch` reads the transfer from the batch that was just committed and rebuilds the `RunScope` around the agent that received the session. Tools, skills and instructions come from the receiver. The run id, the session id, the cancellation, the resolved limits and the tool breaker all stay.
+`TransferSessionUseCase` reads the transfer from the batch that was just committed and rebuilds the `RunScope` around the agent that received the session. Tools, skills and instructions come from the receiver. The run id, the session id, the cancellation, the resolved limits and the tool breaker all stay.
 
 Two of those are deliberate rather than incidental:
 

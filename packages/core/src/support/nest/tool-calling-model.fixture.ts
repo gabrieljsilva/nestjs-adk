@@ -30,9 +30,9 @@ export class ToolCallingModel extends LlmModel {
 
 	public descriptor(): ModelDescriptor {
 		return new ModelDescriptor(
-			ModelIdentity.of("acme", "primary"),
-			ModelContextWindow.of(100_000, 4000),
-			ModelCapabilities.of([[ModelCapability.TOOLS, true]]),
+			new ModelIdentity("acme", "primary"),
+			new ModelContextWindow(100_000, 4000),
+			ModelCapabilities.fromEntries([[ModelCapability.TOOLS, true]]),
 		);
 	}
 
@@ -41,12 +41,12 @@ export class ToolCallingModel extends LlmModel {
 		this.turns += 1;
 		if (this.turns === 1) {
 			yield ModelChunk.toolCall(new ToolCallDelta(0, JSON.stringify(this.args), "call-1", this.tool));
-			yield ModelChunk.usage(ModelUsage.of(50, 5));
+			yield ModelChunk.usage(ModelUsage.fromReport(50, 5));
 			yield ModelChunk.finish("tool_calls");
 			return;
 		}
 		yield ModelChunk.text(this.answer);
-		yield ModelChunk.usage(ModelUsage.of(50, 5));
+		yield ModelChunk.usage(ModelUsage.fromReport(50, 5));
 		yield ModelChunk.finish("stop");
 	}
 }

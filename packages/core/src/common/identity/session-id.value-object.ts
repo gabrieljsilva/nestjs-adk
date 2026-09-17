@@ -9,7 +9,7 @@ export class SessionId {
 	}
 
 	public static from(value: string): SessionId {
-		return new SessionId(IdentityText.of(value, "SessionId"));
+		return new SessionId(IdentityText.fromText(value, "SessionId"));
 	}
 
 	public get value(): string {

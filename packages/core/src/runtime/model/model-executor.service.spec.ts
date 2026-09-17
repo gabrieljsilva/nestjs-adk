@@ -15,8 +15,8 @@ import { ToolCallDelta } from "../../domain/model/streaming/tool-call-delta.valu
 import { ModelUsage } from "../../domain/model/usage/model-usage.value-object";
 import { ModelExecutor } from "./model-executor.service";
 
-const IDENTITY = ModelIdentity.of("acme", "m-1");
-const ALL = ModelCapabilities.of([
+const IDENTITY = new ModelIdentity("acme", "m-1");
+const ALL = ModelCapabilities.fromEntries([
 	[ModelCapability.TOOLS, true],
 	[ModelCapability.STRUCTURED_OUTPUT, true],
 ]);
@@ -33,7 +33,7 @@ class ScriptedModel extends LlmModel {
 	}
 
 	public descriptor(): ModelDescriptor {
-		return new ModelDescriptor(IDENTITY, ModelContextWindow.of(1000, 100), this.capabilities);
+		return new ModelDescriptor(IDENTITY, new ModelContextWindow(1000, 100), this.capabilities);
 	}
 
 	public async *generate(_request: ModelRequest, signal?: AbortSignal): AsyncIterable<ModelChunk> {
@@ -55,7 +55,7 @@ describe("ModelExecutor", () => {
 			ModelChunk.text("Reem"),
 			ModelChunk.text("bolso"),
 			ModelChunk.toolCall(new ToolCallDelta(0, '{"orderId":"42"}', "call-1", "refund")),
-			ModelChunk.usage(ModelUsage.of(100, 40)),
+			ModelChunk.usage(ModelUsage.fromReport(100, 40)),
 			ModelChunk.finish("stop"),
 		]);
 

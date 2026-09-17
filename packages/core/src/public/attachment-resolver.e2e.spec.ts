@@ -33,7 +33,7 @@ import { RuntimeOptions } from "../runtime/composition/runtime.options";
 import { AgentRunCommand } from "../runtime/run/agent-run.command";
 import { FakeClock } from "../support/fake-clock.double";
 import { SequenceIdGenerator } from "../support/sequence-id-generator.double";
-import { AdkRuntimeHost } from "./adk-runtime-host.edge";
+import { AdkRuntime } from "./adk-runtime.edge";
 
 const SUPPORT = AgentName.from("support");
 const PIXEL = "iVBORw0KGgo=";
@@ -49,9 +49,9 @@ class SeeingModel extends LlmModel {
 
 	public descriptor(): ModelDescriptor {
 		return new ModelDescriptor(
-			ModelIdentity.of("acme", this.fetchesUrls ? "fetching" : "seeing"),
-			ModelContextWindow.of(100_000, 4000),
-			ModelCapabilities.of([
+			new ModelIdentity("acme", this.fetchesUrls ? "fetching" : "seeing"),
+			new ModelContextWindow(100_000, 4000),
+			ModelCapabilities.fromEntries([
 				[ModelCapability.MEDIA_INPUT, true],
 				[ModelCapability.MEDIA_URL, this.fetchesUrls],
 			]),
@@ -72,12 +72,12 @@ class SeeingModel extends LlmModel {
 }
 
 function agentOf(model: LlmModel): DeclaredAgent {
-	const definition = AgentDefinition.of(
+	const definition = new AgentDefinition(
 		SUPPORT,
 		AgentDescription.from("support agent", SUPPORT.value),
 		model,
 		PromptInstructions.from("Be brief."),
-		AgentExecutionPolicies.of(),
+		new AgentExecutionPolicies(),
 	);
 	return new DeclaredAgent(definition, "SupportAgent");
 }
@@ -94,7 +94,7 @@ function askWith(references: readonly AttachmentReference[], sessionId?: Session
 	return new AgentRunCommand(SUPPORT, AskInput.with("what is this?", [], sessionId, undefined, references));
 }
 
-const host = new AdkRuntimeHost();
+const host = new AdkRuntime();
 
 afterEach(async () => {
 	await host.stop();
@@ -154,7 +154,7 @@ describe("a question naming a file the application owns", () => {
 		);
 
 		const first = await runtime.runner.ask(askWith([RECEIPT]));
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("and now?", first.sessionId)));
+		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("and now?", first.sessionId)));
 
 		const shown = model.requests[1]?.messages.filter((message): message is UserMessage => message instanceof UserMessage);
 		expect(shown?.[0]?.media[0]?.url).toBe("https://files.example/upload-42?sig=2");
@@ -214,14 +214,14 @@ describe("a question naming a file the application owns", () => {
 		const model = new SeeingModel();
 		const recencyOnly = new (class extends AttachmentResolver {
 			public async resolve(_context: SessionContext, request: AttachmentRequest): Promise<AttachmentProjection> {
-				if (!request.isCurrentRun) return AttachmentProjection.noteFor(request.reference, "dropped by policy");
+				if (!request.isCurrentRun) return AttachmentProjection.fromReference(request.reference, "dropped by policy");
 				return AttachmentProjection.media(MediaPart.image("image/png", PIXEL));
 			}
 		})();
 		const { runtime } = await startedWith(model, recencyOnly);
 
 		const first = await runtime.runner.ask(askWith([RECEIPT]));
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("and now?", first.sessionId)));
+		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("and now?", first.sessionId)));
 
 		const shown = model.requests[1]?.messages.filter((message): message is UserMessage => message instanceof UserMessage);
 		expect(shown?.[0]?.media ?? []).toHaveLength(0);
@@ -232,9 +232,9 @@ describe("a question naming a file the application owns", () => {
 		const blind = new (class extends LlmModel {
 			public descriptor(): ModelDescriptor {
 				return new ModelDescriptor(
-					ModelIdentity.of("acme", "blind"),
-					ModelContextWindow.of(100_000, 4000),
-					ModelCapabilities.of([[ModelCapability.MEDIA_INPUT, false]]),
+					new ModelIdentity("acme", "blind"),
+					new ModelContextWindow(100_000, 4000),
+					ModelCapabilities.fromEntries([[ModelCapability.MEDIA_INPUT, false]]),
 				);
 			}
 

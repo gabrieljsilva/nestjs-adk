@@ -23,11 +23,15 @@ export class RunLimits {
 	/** High enough that no honest agent reaches it, low enough that a loop is paid for once. */
 	public static readonly DEFAULT_MAX_ITERATIONS = 50;
 
-	private constructor(
-		public readonly maxIterations: number | undefined,
-		public readonly maxConsecutiveToolFailures: number | undefined,
-		public readonly maxInvalidArgs: number | undefined,
-	) {}
+	public readonly maxIterations: number | undefined;
+	public readonly maxConsecutiveToolFailures: number | undefined;
+	public readonly maxInvalidArgs: number | undefined;
+
+	public constructor(maxIterations?: number, maxConsecutiveToolFailures?: number, maxInvalidArgs?: number) {
+		this.maxIterations = RunLimits.checked("maxIterations", maxIterations);
+		this.maxConsecutiveToolFailures = RunLimits.checked("maxConsecutiveToolFailures", maxConsecutiveToolFailures);
+		this.maxInvalidArgs = RunLimits.checked("maxInvalidArgs", maxInvalidArgs);
+	}
 
 	/** What the runtime runs under when nobody declared anything. */
 	public static byDefault(): RunLimits {
@@ -37,14 +41,6 @@ export class RunLimits {
 	/** No ceiling at all, which is a declaration and never an oversight. */
 	public static unbounded(): RunLimits {
 		return new RunLimits(undefined, undefined, undefined);
-	}
-
-	public static of(maxIterations?: number, maxConsecutiveToolFailures?: number, maxInvalidArgs?: number): RunLimits {
-		return new RunLimits(
-			RunLimits.checked("maxIterations", maxIterations),
-			RunLimits.checked("maxConsecutiveToolFailures", maxConsecutiveToolFailures),
-			RunLimits.checked("maxInvalidArgs", maxInvalidArgs),
-		);
 	}
 
 	/** The level that declared a field wins it, and declares nothing by leaving it out. */

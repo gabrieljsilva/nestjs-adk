@@ -38,7 +38,7 @@ async function longConversation(turns: number): Promise<ContextProjection> {
 		journal.user(`question ${turn} `.repeat(4));
 		journal.assistant(`answer ${turn} `.repeat(4));
 	}
-	return ContextProjection.of(await new ContextProjector().project(RUN, journal.stream()));
+	return new ContextProjection(await new ContextProjector().project(RUN, journal.stream()));
 }
 
 function charactersOf(projection: ContextProjection): number {
@@ -88,7 +88,7 @@ describe("OldestFirstCompactionStrategy", () => {
 			.toolCall("c-1", "search", { q: "x".repeat(40) })
 			.toolResult("c-1", "search", { hits: "y".repeat(40) })
 			.assistant("recent");
-		const projection = ContextProjection.of(await new ContextProjector().project(RUN, journal.stream()));
+		const projection = new ContextProjection(await new ContextProjector().project(RUN, journal.stream()));
 
 		const compacted = await new OldestFirstCompactionStrategy(measurer).compact(
 			RUN,
@@ -103,7 +103,7 @@ describe("OldestFirstCompactionStrategy", () => {
 
 	it("keeps an open obligation even when the target demands more room", async () => {
 		const journal = new JournalFixture().user("older ".repeat(20)).toolCall("c-1", "search", { q: "x".repeat(40) });
-		const projection = ContextProjection.of(await new ContextProjector().project(RUN, journal.stream()));
+		const projection = new ContextProjection(await new ContextProjector().project(RUN, journal.stream()));
 
 		const compacted = await new OldestFirstCompactionStrategy(measurer).compact(
 			RUN,

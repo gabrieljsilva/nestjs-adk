@@ -44,11 +44,11 @@ export class AttachmentStore {
 		references: readonly AttachmentReference[] = [],
 	): Promise<readonly AttachmentReference[]> {
 		const stored: AttachmentReference[] = [];
-		for (const part of attachments) stored.push(await this.referenceOf(context, part));
+		for (const part of attachments) stored.push(await this.storeReference(context, part));
 		return [...stored, ...references];
 	}
 
-	private async referenceOf(context: SessionContext, part: MediaPart): Promise<AttachmentReference> {
+	private async storeReference(context: SessionContext, part: MediaPart): Promise<AttachmentReference> {
 		const url = part.url;
 		if (url !== undefined) return AttachmentReference.link(url, part.mediaType);
 		return AttachmentReference.artifact(await this.putOne(context, part));
@@ -56,7 +56,7 @@ export class AttachmentStore {
 
 	private async putOne(context: SessionContext, part: MediaPart) {
 		try {
-			const reference = await this.storage.put(context, ArtifactContent.of(part.base64, part.mediaType));
+			const reference = await this.storage.put(context, new ArtifactContent(part.base64, part.mediaType));
 			return reference.id;
 		} catch (error) {
 			throw new AttachmentNotStoredError(part.mediaType, error);

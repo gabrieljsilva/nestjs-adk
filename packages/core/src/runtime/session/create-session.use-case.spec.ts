@@ -16,19 +16,19 @@ import { ShutdownOptions } from "../lifecycle/shutdown.options";
 import { AgentRunFactory } from "../run/agent-run.factory";
 import { RunEventFactory } from "../run/journal/run-event.factory";
 import { RunJournal } from "../run/journal/run-journal.service";
-import { CreateSession } from "./create-session.use-case";
-import { SessionManager } from "./session-manager.service";
+import { CreateSessionUseCase } from "./create-session.use-case";
+import { SessionRepository } from "./session-repository.service";
 
 const NOW = Instant.fromIso("2026-01-01T00:00:00.000Z");
 const SUPPORT = AgentName.from("support");
 
-function creatorOf(storage: InMemorySessionStorage): CreateSession {
+function creatorOf(storage: InMemorySessionStorage): CreateSessionUseCase {
 	const clock = new FakeClock(NOW);
 	const ids = new SequenceIdGenerator("s");
 	const tracker = new ActiveRunTracker();
 	const lifecycle = new RuntimeLifecycle(tracker, ShutdownOptions.waitIndefinitely(), clock);
-	return new CreateSession(
-		new SessionManager(storage),
+	return new CreateSessionUseCase(
+		new SessionRepository(storage),
 		clock,
 		ids,
 		new AgentRunFactory(new SequenceIdGenerator("run"), clock, tracker, lifecycle),
@@ -36,11 +36,11 @@ function creatorOf(storage: InMemorySessionStorage): CreateSession {
 	);
 }
 
-describe("CreateSession", () => {
+describe("CreateSessionUseCase", () => {
 	it("opens the conversation under the identifier the application chose", async () => {
 		const storage = new InMemorySessionStorage();
 
-		const session = await creatorOf(storage).handle(SUPPORT, CreateSessionInput.fromOptions("chat-42"));
+		const session = await creatorOf(storage).execute(SUPPORT, CreateSessionInput.fromOptions("chat-42"));
 
 		expect(session.id.value).toBe("chat-42");
 		expect(await storage.find(SessionContext.fromSessionId(SessionId.from("chat-42")))).toBeDefined();
@@ -49,14 +49,14 @@ describe("CreateSession", () => {
 	it("names the conversation itself when the caller chose nothing", async () => {
 		const storage = new InMemorySessionStorage();
 
-		const session = await creatorOf(storage).handle(SUPPORT, CreateSessionInput.fromOptions());
+		const session = await creatorOf(storage).execute(SUPPORT, CreateSessionInput.fromOptions());
 
 		expect(session.id.value).toBe("s-1");
 		expect(await storage.find(SessionContext.fromSessionId(session.id))).toBeDefined();
 	});
 
 	it("roots the conversation at the agent that opened it", async () => {
-		const session = await creatorOf(new InMemorySessionStorage()).handle(
+		const session = await creatorOf(new InMemorySessionStorage()).execute(
 			SUPPORT,
 			CreateSessionInput.fromOptions("chat-42"),
 		);
@@ -68,7 +68,7 @@ describe("CreateSession", () => {
 	it("writes the metadata it was opened with as events of the run that opened it", async () => {
 		const storage = new InMemorySessionStorage();
 
-		const session = await creatorOf(storage).handle(
+		const session = await creatorOf(storage).execute(
 			SUPPORT,
 			CreateSessionInput.fromOptions("chat-42", { memberId: "gabriel" }),
 		);
@@ -82,7 +82,7 @@ describe("CreateSession", () => {
 	});
 
 	it("writes nothing at all when the caller declared no metadata", async () => {
-		const session = await creatorOf(new InMemorySessionStorage()).handle(
+		const session = await creatorOf(new InMemorySessionStorage()).execute(
 			SUPPORT,
 			CreateSessionInput.fromOptions("chat-42"),
 		);
@@ -94,9 +94,9 @@ describe("CreateSession", () => {
 	it("refuses an identifier that already names a conversation, rather than joining it", async () => {
 		const storage = new InMemorySessionStorage();
 		const creating = creatorOf(storage);
-		await creating.handle(SUPPORT, CreateSessionInput.fromOptions("chat-42"));
+		await creating.execute(SUPPORT, CreateSessionInput.fromOptions("chat-42"));
 
-		const error = await creating.handle(SUPPORT, CreateSessionInput.fromOptions("chat-42")).catch((reason) => reason);
+		const error = await creating.execute(SUPPORT, CreateSessionInput.fromOptions("chat-42")).catch((reason) => reason);
 
 		expect(error).toBeInstanceOf(SessionAlreadyExistsError);
 	});

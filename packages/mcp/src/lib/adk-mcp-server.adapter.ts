@@ -19,7 +19,7 @@ import { McpBlockedTargetError } from "./errors/mcp-blocked-target.error";
 import { McpReauthRequiredError } from "./errors/mcp-reauth-required.error";
 import { McpTokenGrantError } from "./errors/mcp-token-grant.error";
 import type { AdkMcpAuth } from "./mcp-auth.service";
-import { effectOf } from "./mcp-effect.mapper";
+import { readEffectName } from "./mcp-effect.mapper";
 import { type TargetTrust, assertSafeTarget, guardedFetch } from "./mcp-target-guard.service";
 import { McpToolFilter } from "./mcp-tool-filter.service";
 import { McpToolName } from "./mcp-tool-name.value-object";
@@ -201,7 +201,7 @@ export class AdkMcpServer extends ToolSource {
 						// The server's schema, as published: the server owns this contract and validates on
 						// its side, and the runtime prunes what the provider's declaration cannot carry.
 						new JsonSchemaToolSchema(tool.inputSchema ?? { type: "object" }),
-						this.effectOf(tool.annotations),
+						this.readEffect(tool.annotations),
 						new McpToolHandler(this, tool.name),
 					),
 			);
@@ -211,9 +211,9 @@ export class AdkMcpServer extends ToolSource {
 	 * What a server annotated, unless the application said not to believe it.
 	 * A server that will not classify its own tool gets no benefit of the doubt.
 	 */
-	private effectOf(annotations: Parameters<typeof effectOf>[0]): ToolEffect {
+	private readEffect(annotations: Parameters<typeof readEffectName>[0]): ToolEffect {
 		if (this.options.trustAnnotations === false) return ToolEffect.DESTRUCTIVE;
-		return ToolEffect.of(effectOf(annotations)) ?? ToolEffect.DESTRUCTIVE;
+		return ToolEffect.fromName(readEffectName(annotations)) ?? ToolEffect.DESTRUCTIVE;
 	}
 
 	/** A runtime failure goes back TO THE MODEL, which can explain it or try something else. */

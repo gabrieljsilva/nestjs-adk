@@ -9,7 +9,7 @@ import { ToolContext } from "../../domain/tool/invocation/tool-context.value-obj
 import { ActivateSkillTool } from "./activate-skill.tool";
 import { SkillCatalog } from "./skill-catalog.service";
 
-const catalog = SkillCatalog.of([
+const catalog = new SkillCatalog([
 	SkillDefinition.always("refunds", "How refunds work", "refund policy"),
 	SkillDefinition.onDemand("legal", "The full terms", "the very long terms"),
 ]);

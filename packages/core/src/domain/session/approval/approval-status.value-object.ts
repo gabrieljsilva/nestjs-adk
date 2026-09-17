@@ -25,7 +25,7 @@ export class ApprovalStatus {
 		return new ApprovalStatus([], []);
 	}
 
-	public static of(turn: PendingTurn): ApprovalStatus {
+	public static fromTurn(turn: PendingTurn): ApprovalStatus {
 		return new ApprovalStatus(
 			turn.awaiting,
 			turn.held.filter((call) => call.isDecided),

@@ -25,7 +25,7 @@ const TOTALS: Readonly<Record<string, number>> = { "A-1042": 349, "A-77": 120 };
 export class OrderService {
 	public readonly refunded: { orderId: string; amountBrl: number }[] = [];
 
-	public totalOf(orderId: string): number | undefined {
+	public findTotal(orderId: string): number | undefined {
 		return TOTALS[orderId];
 	}
 
@@ -41,7 +41,7 @@ export class FindOrderTool extends AdkTool<typeof orderSchema> {
 	}
 
 	public execute(input: z.infer<typeof orderSchema>): unknown {
-		const total = this.orders.totalOf(input.orderId);
+		const total = this.orders.findTotal(input.orderId);
 		return total === undefined ? { error: `no order ${input.orderId}` } : { orderId: input.orderId, totalBrl: total };
 	}
 }

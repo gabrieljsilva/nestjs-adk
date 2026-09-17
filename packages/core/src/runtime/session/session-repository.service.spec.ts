@@ -25,7 +25,7 @@ import { SessionSnapshot } from "../../domain/session/state/session-snapshot.val
 import { SessionState } from "../../domain/session/state/session-state.value-object";
 import { SessionEventPublisher } from "../event/session-event-publisher.contract";
 import { NoOpSessionEventPublisher } from "./no-op-session-event-publisher.adapter";
-import { SessionManager } from "./session-manager.service";
+import { SessionRepository } from "./session-repository.service";
 import { RevisionBucketSnapshotPolicy } from "./snapshot/revision-bucket-snapshot.policy";
 import { StateChecksum } from "./snapshot/state-checksum.service";
 import { StateProjector } from "./state-projector.service";
@@ -88,8 +88,8 @@ async function storageWithSession(): Promise<InMemorySessionStorage> {
 	return storage;
 }
 
-function managerEvery(storage: SessionStorage, events: number): SessionManager {
-	return new SessionManager(
+function managerEvery(storage: SessionStorage, events: number): SessionRepository {
+	return new SessionRepository(
 		storage,
 		new StateProjector(),
 		new NoOpSessionEventPublisher(),
@@ -98,9 +98,9 @@ function managerEvery(storage: SessionStorage, events: number): SessionManager {
 	);
 }
 
-describe("SessionManager lookup", () => {
+describe("SessionRepository lookup", () => {
 	it("answers the head of a conversation that exists", async () => {
-		const manager = new SessionManager(await storageWithSession());
+		const manager = new SessionRepository(await storageWithSession());
 
 		const session = await manager.find(CTX);
 
@@ -109,13 +109,13 @@ describe("SessionManager lookup", () => {
 	});
 
 	it("answers nothing for an identifier no conversation uses", async () => {
-		const manager = new SessionManager(new InMemorySessionStorage());
+		const manager = new SessionRepository(new InMemorySessionStorage());
 
 		expect(await manager.find(CTX)).toBeUndefined();
 	});
 
 	it("refuses the same absence when the caller has nothing to do about it", async () => {
-		const manager = new SessionManager(new InMemorySessionStorage());
+		const manager = new SessionRepository(new InMemorySessionStorage());
 
 		const error = await manager.findOrFail(CTX).catch((reason) => reason);
 
@@ -124,8 +124,8 @@ describe("SessionManager lookup", () => {
 
 	it("reads the head without replaying the journal behind it", async () => {
 		const storage = await storageWithSession();
-		const manager = new SessionManager(storage);
-		await manager.commit(CTX, SessionRevision.initial(), SessionEventBatch.of([created("e-1")]), SessionState.initial());
+		const manager = new SessionRepository(storage);
+		await manager.commit(CTX, SessionRevision.initial(), new SessionEventBatch([created("e-1")]), SessionState.initial());
 		let replayed = 0;
 		const counting = Object.create(storage, {
 			readEvents: {
@@ -136,21 +136,21 @@ describe("SessionManager lookup", () => {
 			},
 		}) as SessionStorage;
 
-		await new SessionManager(counting).find(CTX);
+		await new SessionRepository(counting).find(CTX);
 
 		expect(replayed).toBe(0);
 	});
 });
 
-describe("SessionManager commit", () => {
+describe("SessionRepository commit", () => {
 	it("projects only what the storage confirmed", async () => {
 		const storage = await storageWithSession();
-		const manager = new SessionManager(storage);
+		const manager = new SessionRepository(storage);
 
 		const state = await manager.commit(
 			CTX,
 			SessionRevision.initial(),
-			SessionEventBatch.of([created("e-1")]),
+			new SessionEventBatch([created("e-1")]),
 			SessionState.initial(),
 		);
 
@@ -161,19 +161,19 @@ describe("SessionManager commit", () => {
 	it("tells observers about the committed events", async () => {
 		const storage = await storageWithSession();
 		const publisher = new RecordingPublisher();
-		const manager = new SessionManager(storage, new StateProjector(), publisher);
+		const manager = new SessionRepository(storage, new StateProjector(), publisher);
 
-		await manager.commit(CTX, SessionRevision.initial(), SessionEventBatch.of([created("e-1")]), SessionState.initial());
+		await manager.commit(CTX, SessionRevision.initial(), new SessionEventBatch([created("e-1")]), SessionState.initial());
 
 		expect(publisher.seen.map((stored) => stored.revision.value)).toEqual([1]);
 	});
 
 	it("keeps the journal when publication fails", async () => {
 		const storage = await storageWithSession();
-		const manager = new SessionManager(storage, new StateProjector(), new FailingPublisher());
+		const manager = new SessionRepository(storage, new StateProjector(), new FailingPublisher());
 
 		await expect(
-			manager.commit(CTX, SessionRevision.initial(), SessionEventBatch.of([created("e-1")]), SessionState.initial()),
+			manager.commit(CTX, SessionRevision.initial(), new SessionEventBatch([created("e-1")]), SessionState.initial()),
 		).rejects.toThrow("observability is down");
 
 		expect((await storage.findOrFail(CTX)).revision.value).toBe(1);
@@ -181,7 +181,7 @@ describe("SessionManager commit", () => {
 
 	it("does not bother the publisher with an empty batch", async () => {
 		const storage = await storageWithSession();
-		const manager = new SessionManager(storage, new StateProjector(), new FailingPublisher());
+		const manager = new SessionRepository(storage, new StateProjector(), new FailingPublisher());
 
 		await expect(
 			manager.commit(CTX, SessionRevision.initial(), SessionEventBatch.empty(), SessionState.initial()),
@@ -189,19 +189,19 @@ describe("SessionManager commit", () => {
 	});
 });
 
-describe("SessionManager snapshot", () => {
+describe("SessionRepository snapshot", () => {
 	it("writes one when the commit crosses the threshold", async () => {
 		const storage = await storageWithSession();
 		const manager = managerEvery(storage, 2);
 
-		await manager.commit(CTX, SessionRevision.initial(), SessionEventBatch.of([created("e-1")]), SessionState.initial());
+		await manager.commit(CTX, SessionRevision.initial(), new SessionEventBatch([created("e-1")]), SessionState.initial());
 		expect(await storage.findSnapshot(CTX)).toBeUndefined();
 
 		await manager.commit(
 			CTX,
-			SessionRevision.of(1),
-			SessionEventBatch.of([new AgentTransferred(header("e-2"), SUPPORT, BILLING)]),
-			SessionState.initial().at(SessionRevision.of(1)),
+			new SessionRevision(1),
+			new SessionEventBatch([new AgentTransferred(header("e-2"), SUPPORT, BILLING)]),
+			SessionState.initial().at(new SessionRevision(1)),
 		);
 
 		const snapshot = await storage.findSnapshot(CTX);
@@ -216,7 +216,7 @@ describe("SessionManager snapshot", () => {
 		await manager.commit(
 			CTX,
 			SessionRevision.initial(),
-			SessionEventBatch.of([suspended("e-1")]),
+			new SessionEventBatch([suspended("e-1")]),
 			SessionState.initial(),
 		);
 
@@ -231,7 +231,7 @@ describe("SessionManager snapshot", () => {
 		await manager.commit(
 			CTX,
 			SessionRevision.initial(),
-			SessionEventBatch.of([created("e-1"), new AgentTransferred(header("e-2"), SUPPORT, BILLING)]),
+			new SessionEventBatch([created("e-1"), new AgentTransferred(header("e-2"), SUPPORT, BILLING)]),
 			SessionState.initial(),
 		);
 
@@ -250,7 +250,7 @@ describe("SessionManager snapshot", () => {
 		const state = await manager.commit(
 			CTX,
 			SessionRevision.initial(),
-			SessionEventBatch.of([created("e-1")]),
+			new SessionEventBatch([created("e-1")]),
 			SessionState.initial(),
 		);
 
@@ -268,14 +268,14 @@ describe("SessionManager snapshot", () => {
 	});
 });
 
-describe("SessionManager rehydrate", () => {
+describe("SessionRepository rehydrate", () => {
 	it("replays the whole journal when there is no snapshot", async () => {
 		const storage = await storageWithSession();
-		const manager = new SessionManager(storage);
+		const manager = new SessionRepository(storage);
 		await manager.commit(
 			CTX,
 			SessionRevision.initial(),
-			SessionEventBatch.of([created("e-1"), new AgentTransferred(header("e-2"), SUPPORT, BILLING)]),
+			new SessionEventBatch([created("e-1"), new AgentTransferred(header("e-2"), SUPPORT, BILLING)]),
 			SessionState.initial(),
 		);
 
@@ -288,8 +288,8 @@ describe("SessionManager rehydrate", () => {
 
 	it("lands on the same state twice for the same journal", async () => {
 		const storage = await storageWithSession();
-		const manager = new SessionManager(storage);
-		await manager.commit(CTX, SessionRevision.initial(), SessionEventBatch.of([created("e-1")]), SessionState.initial());
+		const manager = new SessionRepository(storage);
+		await manager.commit(CTX, SessionRevision.initial(), new SessionEventBatch([created("e-1")]), SessionState.initial());
 
 		const checksum = new StateChecksum();
 		const first = await manager.rehydrate(CTX);
@@ -302,20 +302,20 @@ describe("SessionManager rehydrate", () => {
 
 	it("starts from a valid snapshot and replays only the tail", async () => {
 		const storage = await storageWithSession();
-		const manager = new SessionManager(storage);
+		const manager = new SessionRepository(storage);
 		await manager.commit(
 			CTX,
 			SessionRevision.initial(),
-			SessionEventBatch.of([created("e-1"), new AgentTransferred(header("e-2"), SUPPORT, BILLING)]),
+			new SessionEventBatch([created("e-1"), new AgentTransferred(header("e-2"), SUPPORT, BILLING)]),
 			SessionState.initial(),
 		);
 
-		const snapshotState = SessionState.initial().withActiveAgent(SUPPORT).at(SessionRevision.of(1));
+		const snapshotState = SessionState.initial().withActiveAgent(SUPPORT).at(new SessionRevision(1));
 		await storage.saveSnapshot(
 			CTX,
 			new SessionSnapshot(
 				ID,
-				SessionRevision.of(1),
+				new SessionRevision(1),
 				StateProjector.VERSION,
 				snapshotState,
 				new StateChecksum().of(ID, StateProjector.VERSION, snapshotState),
@@ -331,13 +331,13 @@ describe("SessionManager rehydrate", () => {
 
 	it("falls back to a full replay when the snapshot came from another projector", async () => {
 		const storage = await storageWithSession();
-		const manager = new SessionManager(storage);
-		await manager.commit(CTX, SessionRevision.initial(), SessionEventBatch.of([created("e-1")]), SessionState.initial());
+		const manager = new SessionRepository(storage);
+		await manager.commit(CTX, SessionRevision.initial(), new SessionEventBatch([created("e-1")]), SessionState.initial());
 
-		const state = SessionState.initial().at(SessionRevision.of(1));
+		const state = SessionState.initial().at(new SessionRevision(1));
 		await storage.saveSnapshot(
 			CTX,
-			new SessionSnapshot(ID, SessionRevision.of(1), 99, state, new StateChecksum().of(ID, 99, state)),
+			new SessionSnapshot(ID, new SessionRevision(1), 99, state, new StateChecksum().of(ID, 99, state)),
 		);
 
 		const rehydrated = await manager.rehydrate(CTX);
@@ -349,14 +349,14 @@ describe("SessionManager rehydrate", () => {
 
 	it("falls back to a full replay when the checksum does not match the state", async () => {
 		const storage = await storageWithSession();
-		const manager = new SessionManager(storage);
-		await manager.commit(CTX, SessionRevision.initial(), SessionEventBatch.of([created("e-1")]), SessionState.initial());
+		const manager = new SessionRepository(storage);
+		await manager.commit(CTX, SessionRevision.initial(), new SessionEventBatch([created("e-1")]), SessionState.initial());
 
-		const tampered = SessionState.initial().withActiveAgent(BILLING).at(SessionRevision.of(1));
+		const tampered = SessionState.initial().withActiveAgent(BILLING).at(new SessionRevision(1));
 		const wrongDigest = new StateChecksum().of(ID, StateProjector.VERSION, SessionState.initial());
 		await storage.saveSnapshot(
 			CTX,
-			new SessionSnapshot(ID, SessionRevision.of(1), StateProjector.VERSION, tampered, wrongDigest),
+			new SessionSnapshot(ID, new SessionRevision(1), StateProjector.VERSION, tampered, wrongDigest),
 		);
 
 		const rehydrated = await manager.rehydrate(CTX);

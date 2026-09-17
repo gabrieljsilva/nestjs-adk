@@ -13,13 +13,13 @@ The suffix is `.ai` and not `.agent` because `.agent` already names a production
 
 ## They belong to the application, not to the library
 
-The library has no provider suites. Everything it does against a real model is proved through the example store in `apps/playground`, booted by `aiStore()` with a provider behind every agent, because that is where the public API is the thing under test: an application declares `@Agent` and `@Tool`, injects a use case and asks a question. A suite that builds `DeclaredAgent` by hand and drives `AdkRuntimeHost` proves the runtime works and says nothing about whether anybody can use it.
+The library has no provider suites. Everything it does against a real model is proved through the example store in `apps/playground`, booted by `aiStore()` with a provider behind every agent, because that is where the public API is the thing under test: an application declares `@Agent` and `@Tool`, injects a use case and asks a question. A suite that builds `DeclaredAgent` by hand and drives `AdkRuntime` proves the runtime works and says nothing about whether anybody can use it.
 
 The one exception is the API these suites are written with. `testing-api.ai.spec.ts` exercises the test bed itself against a provider: that a run a real model decided records the tools it reached for, that a double stands in for a tool the model chose to call, and that scripting one agent while another decides for itself works in a single run. Everything a fake can prove about that API is proved for free in `packages/testing`; this file is only for what a fake cannot.
 
 ## Paying for the decision and scripting the answer
 
-A run reaches several agents, and usually only one of them is the thing under test. `withModelFor` puts a provider behind that one and `withScript` answers for the rest, so a transfer or a delegation costs one call instead of three. See [[test-bed]].
+A run reaches several agents, and usually only one of them is the thing under test. `withAgentModel` puts a provider behind that one and `withScript` answers for the rest, so a transfer or a delegation costs one call instead of three. See [[test-bed]].
 
 One file per agent, not per feature. A real conversation does several things at once, so the scenarios follow the sector they happen in: sales calls tools and gets judged, warranty looks at photos and delegates, billing waits for a human, the concierge routes and remembers.
 

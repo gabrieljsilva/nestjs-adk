@@ -33,9 +33,9 @@ export class NestProviderScan {
 	public read(providers: readonly ContainerProvider[]): ScannedProvider[] {
 		const scanned: ScannedProvider[] = [];
 		for (const provider of providers) {
-			const carrier = NestProviderScan.carrierOf(provider);
+			const carrier = NestProviderScan.readCarrier(provider);
 			if (carrier === undefined) continue;
-			scanned.push(new ScannedProvider(String(provider.name), carrier, NestProviderScan.instanceOf(provider)));
+			scanned.push(new ScannedProvider(String(provider.name), carrier, NestProviderScan.readInstance(provider)));
 		}
 		return scanned;
 	}
@@ -52,14 +52,14 @@ export class NestProviderScan {
 	 * The metatype answers second, for the component registered under a token of its own:
 	 * `{ provide: SHIP_ORDER, useClass: ShipOrderTool }` puts a symbol where the decorators are not.
 	 */
-	private static carrierOf(provider: ContainerProvider): object | undefined {
+	private static readCarrier(provider: ContainerProvider): object | undefined {
 		for (const candidate of [provider.token, provider.metatype]) {
 			if (typeof candidate === "function" && NestProviderScan.declaresComponent(candidate)) return candidate;
 		}
 		return undefined;
 	}
 
-	private static instanceOf(provider: ContainerProvider): object {
+	private static readInstance(provider: ContainerProvider): object {
 		const name = String(provider.name);
 		if (!provider.isDependencyTreeStatic()) {
 			throw new UnusableComponentError(

@@ -8,8 +8,8 @@ describe("SkillMode", () => {
 	});
 
 	it("resolves the word a declaration carried", () => {
-		expect(SkillMode.of("on-demand")).toBe(SkillMode.ON_DEMAND);
-		expect(SkillMode.of("sometimes")).toBeUndefined();
+		expect(SkillMode.fromName("on-demand")).toBe(SkillMode.ON_DEMAND);
+		expect(SkillMode.fromName("sometimes")).toBeUndefined();
 	});
 
 	it("reads as the word the author wrote", () => {

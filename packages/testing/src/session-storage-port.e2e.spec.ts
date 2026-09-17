@@ -65,7 +65,7 @@ class RowStorage extends SessionStorage {
 		const head = this.headOrFail(command.sessionId);
 		const rows = this.journals.get(command.sessionId.value) ?? [];
 
-		const replayed = this.replayOf(command, rows);
+		const replayed = this.findReplay(command, rows);
 		if (replayed !== undefined) return replayed;
 
 		if (head.revision !== command.expectedRevision.value) {
@@ -76,12 +76,12 @@ class RowStorage extends SessionStorage {
 		for (const event of command.batch.events) {
 			const revision = head.revision + committed.length + 1;
 			rows.push(new Row(revision, this.codecs.journal.encode(event)));
-			committed.push(new StoredSessionEvent(command.sessionId, SessionRevision.of(revision), event));
+			committed.push(new StoredSessionEvent(command.sessionId, new SessionRevision(revision), event));
 		}
 		this.journals.set(command.sessionId.value, rows);
 		const revision = head.revision + committed.length;
 		this.heads.set(command.sessionId.value, { ...head, revision });
-		return new AppendEventsResult(committed, SessionRevision.of(revision));
+		return new AppendEventsResult(committed, new SessionRevision(revision));
 	}
 
 	public async *readEvents(context: SessionContext, afterRevision: SessionRevision): AsyncIterable<StoredSessionEvent> {
@@ -129,7 +129,7 @@ class RowStorage extends SessionStorage {
 	}
 
 	private storedOf(sessionId: SessionId, row: Row): StoredSessionEvent {
-		return new StoredSessionEvent(sessionId, SessionRevision.of(row.revision), this.codecs.journal.decode(row.record));
+		return new StoredSessionEvent(sessionId, new SessionRevision(row.revision), this.codecs.journal.decode(row.record));
 	}
 
 	private headOrFail(sessionId: SessionId): SessionHeadRecord {
@@ -142,15 +142,15 @@ class RowStorage extends SessionStorage {
 	 * A retry answers with what was written before, and the same id carrying something
 	 * else is a journal disagreeing with itself rather than a caller retrying.
 	 */
-	private replayOf(command: AppendEventsCommand, rows: readonly Row[]): AppendEventsResult | undefined {
+	private findReplay(command: AppendEventsCommand, rows: readonly Row[]): AppendEventsResult | undefined {
 		const written = new Map(rows.map((row) => [row.record.eventId, row]));
 		const matches: StoredSessionEvent[] = [];
 		for (const event of command.batch.events) {
 			const row = written.get(event.id.value);
 			if (row === undefined) return undefined;
 			if (
-				this.codecs.journal.fingerprintOf(event) !==
-				this.codecs.journal.fingerprintOf(this.codecs.journal.decode(row.record))
+				this.codecs.journal.calculateFingerprint(event) !==
+				this.codecs.journal.calculateFingerprint(this.codecs.journal.decode(row.record))
 			) {
 				throw new JournalCorruptedError(
 					command.sessionId.value,
@@ -160,7 +160,7 @@ class RowStorage extends SessionStorage {
 			matches.push(this.storedOf(command.sessionId, row));
 		}
 		if (matches.length === 0) return undefined;
-		return new AppendEventsResult(matches, SessionRevision.of(this.headOrFail(command.sessionId).revision));
+		return new AppendEventsResult(matches, new SessionRevision(this.headOrFail(command.sessionId).revision));
 	}
 }
 

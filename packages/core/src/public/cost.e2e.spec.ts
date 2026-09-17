@@ -33,19 +33,19 @@ import { RuntimeOptions } from "../runtime/composition/runtime.options";
 import { AgentRunCommand } from "../runtime/run/agent-run.command";
 import { FakeClock } from "../support/fake-clock.double";
 import { SequenceIdGenerator } from "../support/sequence-id-generator.double";
-import { AdkRuntimeHost } from "./adk-runtime-host.edge";
+import { AdkRuntime } from "./adk-runtime.edge";
 
 const SUPPORT = AgentName.from("support");
 const RESEARCHER = AgentName.from("researcher");
 
-const PRIMARY = ModelIdentity.of("acme", "primary");
-const FALLBACK = ModelIdentity.of("acme", "fallback");
-const CHILD = ModelIdentity.of("acme", "child");
+const PRIMARY = new ModelIdentity("acme", "primary");
+const FALLBACK = new ModelIdentity("acme", "fallback");
+const CHILD = new ModelIdentity("acme", "child");
 
 const RATES = new Map([
-	[PRIMARY.toString(), ModelPrice.of(TokenRate.fromUsdPerToken(1e-7), TokenRate.fromUsdPerToken(4e-7))],
-	[FALLBACK.toString(), ModelPrice.of(TokenRate.fromUsdPerToken(1e-8), TokenRate.fromUsdPerToken(4e-8))],
-	[CHILD.toString(), ModelPrice.of(TokenRate.fromUsdPerToken(2e-7), TokenRate.fromUsdPerToken(8e-7))],
+	[PRIMARY.toString(), new ModelPrice(TokenRate.fromUsdPerToken(1e-7), TokenRate.fromUsdPerToken(4e-7))],
+	[FALLBACK.toString(), new ModelPrice(TokenRate.fromUsdPerToken(1e-8), TokenRate.fromUsdPerToken(4e-8))],
+	[CHILD.toString(), new ModelPrice(TokenRate.fromUsdPerToken(2e-7), TokenRate.fromUsdPerToken(8e-7))],
 ]);
 
 /** Prices only what it was told about, so a test can leave one model out on purpose. */
@@ -72,7 +72,7 @@ class CollectedNotices extends PricingNoticeSink {
 
 function identityOf(key: string): ModelIdentity {
 	const [provider, ...rest] = key.split("/");
-	return ModelIdentity.of(provider ?? "", rest.join("/"));
+	return new ModelIdentity(provider ?? "", rest.join("/"));
 }
 
 class AnsweringModel extends LlmModel {
@@ -80,13 +80,13 @@ class AnsweringModel extends LlmModel {
 
 	public constructor(
 		private readonly identity: ModelIdentity,
-		private readonly usage: ModelUsage = ModelUsage.of(40, 12),
+		private readonly usage: ModelUsage = ModelUsage.fromReport(40, 12),
 	) {
 		super();
 	}
 
 	public descriptor(): ModelDescriptor {
-		return new ModelDescriptor(this.identity, ModelContextWindow.of(100_000, 4000), ModelCapabilities.none());
+		return new ModelDescriptor(this.identity, new ModelContextWindow(100_000, 4000), ModelCapabilities.none());
 	}
 
 	public async *generate(): AsyncIterable<ModelChunk> {
@@ -100,7 +100,7 @@ class AnsweringModel extends LlmModel {
 /** Always down, so the failover policy is what answers and the bill belongs to the fallback. */
 class DownModel extends LlmModel {
 	public descriptor(): ModelDescriptor {
-		return new ModelDescriptor(PRIMARY, ModelContextWindow.of(100_000, 4000), ModelCapabilities.none());
+		return new ModelDescriptor(PRIMARY, new ModelContextWindow(100_000, 4000), ModelCapabilities.none());
 	}
 
 	public async *generate(): AsyncIterable<ModelChunk> {
@@ -112,7 +112,7 @@ class DownModel extends LlmModel {
 /** Answers nothing about usage at all, the way a provider that reports no tokens does. */
 class SilentAboutUsageModel extends LlmModel {
 	public descriptor(): ModelDescriptor {
-		return new ModelDescriptor(PRIMARY, ModelContextWindow.of(100_000, 4000), ModelCapabilities.none());
+		return new ModelDescriptor(PRIMARY, new ModelContextWindow(100_000, 4000), ModelCapabilities.none());
 	}
 
 	public async *generate(): AsyncIterable<ModelChunk> {
@@ -126,15 +126,15 @@ class DelegatingModel extends LlmModel {
 	public descriptor(): ModelDescriptor {
 		return new ModelDescriptor(
 			PRIMARY,
-			ModelContextWindow.of(100_000, 4000),
-			ModelCapabilities.of([[ModelCapability.TOOLS, true]]),
+			new ModelContextWindow(100_000, 4000),
+			ModelCapabilities.fromEntries([[ModelCapability.TOOLS, true]]),
 		);
 	}
 
 	public async *generate(request: ModelRequest): AsyncIterable<ModelChunk> {
 		if (request.messages.some((message) => message instanceof ToolResultMessage)) {
 			yield ModelChunk.text("the specialist answered");
-			yield ModelChunk.usage(ModelUsage.of(40, 12));
+			yield ModelChunk.usage(ModelUsage.fromReport(40, 12));
 			yield ModelChunk.finish("stop");
 			return;
 		}
@@ -146,20 +146,20 @@ class DelegatingModel extends LlmModel {
 				"delegate_to_agent",
 			),
 		);
-		yield ModelChunk.usage(ModelUsage.of(40, 12));
+		yield ModelChunk.usage(ModelUsage.fromReport(40, 12));
 		yield ModelChunk.finish("tool_calls");
 	}
 }
 
-const delegatesToResearcher = () => AgentExecutionPolicies.of().withDelegation(AgentDelegationPolicy.to([RESEARCHER]));
+const delegatesToResearcher = () => new AgentExecutionPolicies().withDelegation(AgentDelegationPolicy.to([RESEARCHER]));
 
 function declaredAgent(
 	name: AgentName,
 	model: LlmModel,
-	policies: AgentExecutionPolicies = AgentExecutionPolicies.of(),
+	policies: AgentExecutionPolicies = new AgentExecutionPolicies(),
 ): DeclaredAgent {
 	return new DeclaredAgent(
-		AgentDefinition.of(
+		new AgentDefinition(
 			name,
 			AgentDescription.from(`${name.value} agent`, name.value),
 			model,
@@ -170,7 +170,7 @@ function declaredAgent(
 	);
 }
 
-const host = new AdkRuntimeHost();
+const host = new AdkRuntime();
 
 afterEach(async () => {
 	await host.stop();
@@ -193,7 +193,7 @@ describe("what a run costs", () => {
 			RuntimeOptions.from({ pricing: new KnownRates() }),
 		);
 
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 
 		expect(result.cost.total.toString()).toBe("0.0000088");
 		expect(result.cost.byModel).toHaveLength(1);
@@ -206,11 +206,11 @@ describe("what a run costs", () => {
 	it("bills a rerouted turn to the model that actually answered", async () => {
 		const fallback = new AnsweringModel(FALLBACK);
 		const runtime = await start(
-			[declaredAgent(SUPPORT, new DownModel(), AgentExecutionPolicies.of(new SequentialFailoverPolicy([fallback])))],
+			[declaredAgent(SUPPORT, new DownModel(), new AgentExecutionPolicies(new SequentialFailoverPolicy([fallback])))],
 			RuntimeOptions.from({ pricing: new KnownRates() }),
 		);
 
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 
 		expect(result.cost.byModel.map((cost) => cost.model.toString())).toEqual([FALLBACK.toString()]);
 		expect(result.cost.total.toString()).toBe("0.00000088");
@@ -222,12 +222,12 @@ describe("what a run costs", () => {
 		const runtime = await start(
 			[
 				declaredAgent(SUPPORT, new DelegatingModel(), delegatesToResearcher()),
-				declaredAgent(RESEARCHER, new AnsweringModel(CHILD, ModelUsage.of(30, 3))),
+				declaredAgent(RESEARCHER, new AnsweringModel(CHILD, ModelUsage.fromReport(30, 3))),
 			],
 			RuntimeOptions.from({ pricing: new KnownRates() }),
 		);
 
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("look it up")));
+		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("look it up")));
 
 		const byModel = new Map(result.cost.byModel.map((cost) => [cost.model.toString(), cost]));
 		expect([...byModel.keys()].sort()).toEqual([CHILD.toString(), PRIMARY.toString()].sort());
@@ -246,7 +246,7 @@ describe("what a run costs", () => {
 			RuntimeOptions.from({ pricingNotices: notices }),
 		);
 
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 
 		expect(result.text).toBe("done");
 		expect(result.cost.total.isZero).toBe(true);
@@ -262,7 +262,7 @@ describe("what a run costs", () => {
 			RuntimeOptions.from({ pricing: new KnownRates([CHILD]), pricingNotices: notices }),
 		);
 
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 
 		expect(result.cost.total.isZero).toBe(true);
 		expect(result.cost.unpriced.map((model) => model.toString())).toEqual([PRIMARY.toString()]);
@@ -277,7 +277,7 @@ describe("what a run costs", () => {
 			RuntimeOptions.from({ pricing: new KnownRates(), pricingNotices: notices }),
 		);
 
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 
 		expect(result.cost.isComplete).toBe(false);
 		expect(notices.reported[0]?.reason).toBe("no-usage");
@@ -288,21 +288,21 @@ describe("what a run costs", () => {
 		const runtime = await start(
 			[
 				declaredAgent(SUPPORT, new DelegatingModel(), delegatesToResearcher()),
-				declaredAgent(RESEARCHER, new AnsweringModel(CHILD, ModelUsage.of(30, 3))),
+				declaredAgent(RESEARCHER, new AnsweringModel(CHILD, ModelUsage.fromReport(30, 3))),
 			],
 			RuntimeOptions.from({ pricing: source }),
 		);
 
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("look it up")));
+		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("look it up")));
 
 		expect(source.asked.sort()).toEqual([CHILD.toString(), PRIMARY.toString()].sort());
 	});
 
 	/** Two runtimes, two sources: one application's rates are never the other's. */
 	it("keeps two runtimes with different sources apart", async () => {
-		const cheap = new AdkRuntimeHost();
-		const expensive = new AdkRuntimeHost();
-		const startOn = (source: PricingSource, host: AdkRuntimeHost) =>
+		const cheap = new AdkRuntime();
+		const expensive = new AdkRuntime();
+		const startOn = (source: PricingSource, host: AdkRuntime) =>
 			host.start(
 				[declaredAgent(SUPPORT, new AnsweringModel(PRIMARY))],
 				new InMemorySessionStorage(),
@@ -316,8 +316,8 @@ describe("what a run costs", () => {
 			const first = await startOn(new KnownRates([PRIMARY]), cheap);
 			const second = await startOn(new KnownRates([CHILD]), expensive);
 
-			const priced = await first.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
-			const unpriced = await second.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+			const priced = await first.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
+			const unpriced = await second.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 
 			expect(priced.cost.isComplete).toBe(true);
 			expect(unpriced.cost.isComplete).toBe(false);
@@ -334,8 +334,8 @@ describe("what a run costs", () => {
 			RuntimeOptions.from({ pricing: new KnownRates() }),
 		);
 
-		const waited = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
-		const streaming = runtime.runner.stream(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+		const waited = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
+		const streaming = runtime.runner.stream(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 		let streamed = await streaming.next();
 		while (streamed.done !== true) streamed = await streaming.next();
 
@@ -350,7 +350,7 @@ describe("what a run costs", () => {
 			RuntimeOptions.from({ pricing: new KnownRates() }),
 		);
 
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 
 		expect(JSON.parse(JSON.stringify(result)).cost.total).toBe("0.0000088");
 	});
@@ -358,11 +358,11 @@ describe("what a run costs", () => {
 	/** AC-11: a total past the float's safe integer stays exact, which is why the unit is a bigint. */
 	it("stays exact past the largest total a float could hold", async () => {
 		const runtime = await start(
-			[declaredAgent(SUPPORT, new AnsweringModel(PRIMARY, ModelUsage.of(100_000_000_000, 0)))],
+			[declaredAgent(SUPPORT, new AnsweringModel(PRIMARY, ModelUsage.fromReport(100_000_000_000, 0)))],
 			RuntimeOptions.from({ pricing: new KnownRates() }),
 		);
 
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 
 		expect(result.cost.total.toString()).toBe("10000");
 		expect(result.cost.total.pico).toBe(10_000_000_000_000_000n);

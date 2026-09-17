@@ -36,7 +36,7 @@ describe("AttachmentProjection", () => {
 	it("writes a note in the one vocabulary every stand-in uses", () => {
 		const reference = AttachmentReference.external("file-7", "image/png");
 
-		expect(AttachmentProjection.noteFor(reference, "no longer available").text).toBe(
+		expect(AttachmentProjection.fromReference(reference, "no longer available").text).toBe(
 			"[attachment image/png: no longer available]",
 		);
 	});
@@ -44,7 +44,7 @@ describe("AttachmentProjection", () => {
 	it("writes the note without a type when the reference carries none", () => {
 		const reference = AttachmentReference.artifact(ArtifactId.from("a-1"));
 
-		expect(AttachmentProjection.noteFor(reference, "could not be resolved").text).toBe(
+		expect(AttachmentProjection.fromReference(reference, "could not be resolved").text).toBe(
 			"[attachment: could not be resolved]",
 		);
 	});

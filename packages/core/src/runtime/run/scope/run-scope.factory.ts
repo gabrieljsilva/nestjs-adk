@@ -59,20 +59,20 @@ export class RunScopeFactory {
 		remote: readonly ToolDefinition[] = [],
 		callLimits?: RunLimits,
 	): Promise<RunScope> {
-		const skills = SkillCatalog.of(definition.skills);
+		const skills = new SkillCatalog(definition.skills);
 		const limits = this.limits.overriddenBy(definition.limits).overriddenBy(callLimits);
 		return new RunScope(
 			context,
 			definition,
 			model,
 			started,
-			this.catalogOf(definition, remote, skills),
+			this.buildCatalog(definition, remote, skills),
 			skills,
 			limits,
 			new ToolBreaker(limits),
 			remote,
-			this.compactionFor(definition),
-			await this.promptFor(context, definition),
+			this.resolveCompaction(definition),
+			await this.buildPrompt(context, definition),
 		);
 	}
 
@@ -86,20 +86,20 @@ export class RunScopeFactory {
 	 * travels across untouched.
 	 */
 	public async switched(scope: RunScope, definition: AgentDefinition, model: LlmModel): Promise<RunScope> {
-		const skills = SkillCatalog.of(definition.skills);
+		const skills = new SkillCatalog(definition.skills);
 		const context = scope.context.withActiveAgent(definition.name);
 		return new RunScope(
 			context,
 			definition,
 			model,
 			scope.started,
-			this.catalogOf(definition, scope.remote, skills),
+			this.buildCatalog(definition, scope.remote, skills),
 			skills,
 			scope.limits,
 			scope.breaker,
 			scope.remote,
-			this.compactionFor(definition),
-			await this.promptFor(context, definition),
+			this.resolveCompaction(definition),
+			await this.buildPrompt(context, definition),
 		);
 	}
 
@@ -117,7 +117,7 @@ export class RunScopeFactory {
 		definition: AgentDefinition,
 		model: LlmModel,
 	): Promise<RunScope> {
-		const skills = SkillCatalog.of(definition.skills);
+		const skills = new SkillCatalog(definition.skills);
 		const limits = this.limits.overriddenBy(definition.limits);
 		const context = parent.context.delegatedTo(child.run, child.cancellation.signal);
 		return new RunScope(
@@ -125,13 +125,13 @@ export class RunScopeFactory {
 			definition,
 			model,
 			child,
-			this.catalogOf(definition, parent.remote, skills),
+			this.buildCatalog(definition, parent.remote, skills),
 			skills,
 			limits,
 			new ToolBreaker(limits),
 			parent.remote,
-			this.compactionFor(definition),
-			await this.promptFor(context, definition),
+			this.resolveCompaction(definition),
+			await this.buildPrompt(context, definition),
 		);
 	}
 
@@ -143,7 +143,7 @@ export class RunScopeFactory {
 	 * an absence: an agent that turned compaction off keeps it off rather than falling through
 	 * to the module, and only a level nobody declared falls through at all.
 	 */
-	private compactionFor(definition: AgentDefinition): AdkCompactionPolicy | undefined {
+	private resolveCompaction(definition: AgentDefinition): AdkCompactionPolicy | undefined {
 		const declared = definition.compaction ?? this.compaction;
 		if (declared === false) return undefined;
 		return declared ?? this.standardCompaction;
@@ -157,7 +157,7 @@ export class RunScopeFactory {
 	 * ends the run before the model is asked anything, because an agent whose instruction
 	 * could not be assembled is not an agent that should answer.
 	 */
-	private async promptFor(context: RunContext, definition: AgentDefinition): Promise<PromptInstructions | undefined> {
+	private async buildPrompt(context: RunContext, definition: AgentDefinition): Promise<PromptInstructions | undefined> {
 		const builder = definition.promptBuilder;
 		if (builder === undefined) return undefined;
 		return await builder.build(
@@ -179,7 +179,11 @@ export class RunScopeFactory {
 	 * There is no artifact to read back where no tool ever produced a result, and declaring
 	 * one would ask a model without the tools capability to answer for a tool.
 	 */
-	private catalogOf(definition: AgentDefinition, remote: readonly ToolDefinition[], skills: SkillCatalog): ToolCatalog {
+	private buildCatalog(
+		definition: AgentDefinition,
+		remote: readonly ToolDefinition[],
+		skills: SkillCatalog,
+	): ToolCatalog {
 		const declared = [
 			...definition.tools,
 			...remote,
@@ -187,6 +191,6 @@ export class RunScopeFactory {
 			...(definition.transfersToAnyone ? [TransferToAgentTool.forPolicy(definition.transfer)] : []),
 			...(definition.delegatesToAnyone ? [DelegateToAgentTool.forPolicy(definition.delegation)] : []),
 		];
-		return ToolCatalog.of(declared.length === 0 ? [] : [...declared, ...this.runtimeTools]);
+		return new ToolCatalog(declared.length === 0 ? [] : [...declared, ...this.runtimeTools]);
 	}
 }

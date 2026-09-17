@@ -17,7 +17,7 @@ export class ModelCapabilities {
 		return new ModelCapabilities(new Map());
 	}
 
-	public static of(entries: ReadonlyArray<readonly [ModelCapability, boolean]>): ModelCapabilities {
+	public static fromEntries(entries: ReadonlyArray<readonly [ModelCapability, boolean]>): ModelCapabilities {
 		return new ModelCapabilities(new Map(entries.map(([capability, supported]) => [capability.name, supported])));
 	}
 

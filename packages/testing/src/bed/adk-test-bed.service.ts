@@ -42,7 +42,7 @@ export class AdkTestBed {
 	 * rather than opening a new one.
 	 */
 	public agent(agent: unknown): TestAgent {
-		const name = AdkTestBed.nameOf(agent);
+		const name = AdkTestBed.readName(agent);
 		const existing = this.agents.get(name);
 		if (existing !== undefined) return existing;
 		const handle = new TestAgent(this.module.get(AgentRegistry).get(name), this.recorder, this.scripts.get(name));
@@ -52,7 +52,7 @@ export class AdkTestBed {
 
 	/** The script behind one agent, for a test that queues turns as the conversation goes. */
 	public script(agent: unknown): ScriptedModel | undefined {
-		return this.scripts.get(AdkTestBed.nameOf(agent));
+		return this.scripts.get(AdkTestBed.readName(agent));
 	}
 
 	/** The double that replaced a tool class, with what it was called with. */
@@ -82,7 +82,7 @@ export class AdkTestBed {
 	private readonly agents = new Map<string, TestAgent>();
 
 	/** A class carries its declared name in metadata; a string is already the name. */
-	private static nameOf(agent: unknown): string {
+	private static readName(agent: unknown): string {
 		return typeof agent === "string" ? agent : AgentMetadata.findOrFail(agent).name;
 	}
 }

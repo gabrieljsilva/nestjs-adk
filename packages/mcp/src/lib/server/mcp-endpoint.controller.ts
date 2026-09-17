@@ -28,12 +28,12 @@ export class McpEndpointController {
 	@Post()
 	@Get()
 	@Delete()
-	public async handle(
+	public async receive(
 		@Req() request: IncomingMessage,
 		@Res() response: ServerResponse,
 		@Body() body: unknown,
 	): Promise<void> {
-		const resolved = await this.actorOf(request);
+		const resolved = await this.resolveActor(request);
 		if (resolved instanceof McpUnauthorizedError) {
 			McpEndpointController.refuse(response, resolved);
 			return;
@@ -41,9 +41,9 @@ export class McpEndpointController {
 		await this.host.serve(request, response, body, resolved);
 	}
 
-	private async actorOf(request: IncomingMessage) {
+	private async resolveActor(request: IncomingMessage) {
 		try {
-			return await this.actors.resolve(McpRequest.of(request.headers, request.method, request.url));
+			return await this.actors.resolve(new McpRequest(request.headers, request.method, request.url));
 		} catch (error) {
 			if (error instanceof McpUnauthorizedError) return error;
 			throw error;

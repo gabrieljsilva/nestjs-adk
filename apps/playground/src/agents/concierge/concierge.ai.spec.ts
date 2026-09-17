@@ -163,10 +163,10 @@ describe("AI: two models behind the same store", () => {
 			.overriding(SessionStorage, new SqliteSessionStorage(connection))
 			.withConsumers(new RunTranscript())
 			.withModel(geminiFlashLite)
-			.withModelFor("concierge", geminiFlashLite)
-			.withModelFor("sales", geminiFlashLite)
-			.withModelFor("warranty", geminiFlashLite)
-			.withModelFor("billing", geminiFlashLite)
+			.withAgentModel("concierge", geminiFlashLite)
+			.withAgentModel("sales", geminiFlashLite)
+			.withAgentModel("warranty", geminiFlashLite)
+			.withAgentModel("billing", geminiFlashLite)
 			.boot();
 		const fromGemini = (await geminiBed.get(SendMessageUseCase).execute(question)).text;
 
@@ -191,10 +191,10 @@ describe("AI: two models behind the same store", () => {
 			.overriding(SessionStorage, new SqliteSessionStorage(connection))
 			.withConsumers(new RunTranscript())
 			.withModel(openAILuna)
-			.withModelFor("concierge", openAILuna)
-			.withModelFor("sales", openAILuna)
-			.withModelFor("billing", openAILuna)
-			.withModelFor("warranty", geminiFlashLite)
+			.withAgentModel("concierge", openAILuna)
+			.withAgentModel("sales", openAILuna)
+			.withAgentModel("billing", openAILuna)
+			.withAgentModel("warranty", geminiFlashLite)
 			.boot();
 
 		const run = await bed.agent(ConciergeAgent).ask("My controller arrived broken and the analog stick is loose.");
@@ -235,10 +235,10 @@ describe("AI: two models behind the same store", () => {
 			.overriding(SessionStorage, new SqliteSessionStorage(connection))
 			.withConsumers(new RunTranscript())
 			.withModel(openAILuna)
-			.withModelFor("concierge", openAILuna)
-			.withModelFor("sales", openAILuna)
-			.withModelFor("warranty", openAILuna)
-			.withModelFor("billing", openAILuna)
+			.withAgentModel("concierge", openAILuna)
+			.withAgentModel("sales", openAILuna)
+			.withAgentModel("warranty", openAILuna)
+			.withAgentModel("billing", openAILuna)
 			.boot();
 		const run = await bed.agent(BillingAgent).ask("Refund the 349 reais from order A-1042.");
 		expect(run).toAwaitApproval("issue_refund");
@@ -266,10 +266,10 @@ describe("AI: two models behind the same store", () => {
 			.overriding(SessionStorage, new SqliteSessionStorage(connection))
 			.withConsumers(new RunTranscript())
 			.withModel(openAILuna)
-			.withModelFor("concierge", openAILuna)
-			.withModelFor("sales", openAILuna)
-			.withModelFor("warranty", openAILuna)
-			.withModelFor("billing", geminiFlashLite)
+			.withAgentModel("concierge", openAILuna)
+			.withAgentModel("sales", openAILuna)
+			.withAgentModel("warranty", openAILuna)
+			.withAgentModel("billing", geminiFlashLite)
 			.boot();
 
 		const run = await bed.agent(WarrantyAgent).ask("How much can the gold plan receive back?");

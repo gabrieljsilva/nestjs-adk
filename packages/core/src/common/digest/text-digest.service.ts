@@ -11,7 +11,7 @@ const ALGORITHM = "sha256";
  * process boundary rather than only inside one.
  */
 export class TextDigest {
-	public static of(text: string): ContentDigest {
-		return ContentDigest.of(ALGORITHM, createHash(ALGORITHM).update(text, "utf8").digest("hex"));
+	public static fromText(text: string): ContentDigest {
+		return new ContentDigest(ALGORITHM, createHash(ALGORITHM).update(text, "utf8").digest("hex"));
 	}
 }

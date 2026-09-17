@@ -22,7 +22,7 @@ const projector = new ContextProjector();
 /** Stands every attachment down to a note, which is the observable half of resolving. */
 class NotingResolver extends AttachmentResolver {
 	public async resolve(_context: SessionContext, request: AttachmentRequest): Promise<AttachmentProjection> {
-		return AttachmentProjection.noteFor(request.reference, "kept away");
+		return AttachmentProjection.fromReference(request.reference, "kept away");
 	}
 }
 
@@ -183,7 +183,7 @@ describe("ContextProjector", () => {
 	it("projects only the tail when the stream starts after a revision", async () => {
 		const journal = new JournalFixture().user("hi").assistant("hello").user("more");
 
-		const blocks = await projector.project(CTX, journal.stream(SessionRevision.of(1)));
+		const blocks = await projector.project(CTX, journal.stream(new SessionRevision(1)));
 
 		expect(blocks.flatMap((block) => block.messages).map((message) => message.text)).toEqual(["hello", "more"]);
 	});

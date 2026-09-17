@@ -38,15 +38,15 @@ describe("LiteLLMPricingSource", () => {
 	});
 
 	it("prices a bare model name the way the table keys it", async () => {
-		const price = await source.findPrice(undefined, ModelIdentity.of("openai", "gpt-5.6-luna"));
+		const price = await source.findPrice(undefined, new ModelIdentity("openai", "gpt-5.6-luna"));
 
 		expect(price?.input.toUsdPerToken()).toBe(1e-7);
 	});
 
 	/** Two entries share the bare name at different rates, so the qualified key has to win. */
 	it("prefers the provider qualified key over the bare model name", async () => {
-		const vertex = await source.findPrice(undefined, ModelIdentity.of("vertex_ai", "gemini-3.5-flash-lite"));
-		const studio = await source.findPrice(undefined, ModelIdentity.of("gemini", "gemini-3.5-flash-lite"));
+		const vertex = await source.findPrice(undefined, new ModelIdentity("vertex_ai", "gemini-3.5-flash-lite"));
+		const studio = await source.findPrice(undefined, new ModelIdentity("gemini", "gemini-3.5-flash-lite"));
 
 		expect(vertex?.input.toUsdPerToken()).toBe(9e-8);
 		expect(studio?.input.toUsdPerToken()).toBe(1e-8);
@@ -57,33 +57,33 @@ describe("LiteLLMPricingSource", () => {
 		["vertex_ai/gemini-3.5-flash-lite", 9e-8],
 		["openrouter/anthropic/claude-4.5-sonnet", 3e-6],
 	])("resolves the prefixed descriptor %s", async (model, expected) => {
-		const price = await source.findPrice(undefined, ModelIdentity.of("whatever", model));
+		const price = await source.findPrice(undefined, new ModelIdentity("whatever", model));
 
 		expect(price?.input.toUsdPerToken()).toBe(expected);
 	});
 
 	it("does not know a model the table does not list", async () => {
-		expect(await source.findPrice(undefined, ModelIdentity.of("openai", "gpt-9-imaginary"))).toBeUndefined();
+		expect(await source.findPrice(undefined, new ModelIdentity("openai", "gpt-9-imaginary"))).toBeUndefined();
 	});
 
 	it("reads the table once and serves the rest from memory inside the TTL", async () => {
-		await source.findPrice(undefined, ModelIdentity.of("openai", "gpt-5.6-luna"));
+		await source.findPrice(undefined, new ModelIdentity("openai", "gpt-5.6-luna"));
 		clock.advance(A_DAY - 1);
-		await source.findPrice(undefined, ModelIdentity.of("openai", "gpt-5.6-luna"));
+		await source.findPrice(undefined, new ModelIdentity("openai", "gpt-5.6-luna"));
 
 		expect(transport.reads).toBe(1);
 	});
 
 	it("reads it again once the TTL has passed", async () => {
-		await source.findPrice(undefined, ModelIdentity.of("openai", "gpt-5.6-luna"));
+		await source.findPrice(undefined, new ModelIdentity("openai", "gpt-5.6-luna"));
 		clock.advance(A_DAY);
-		await source.findPrice(undefined, ModelIdentity.of("openai", "gpt-5.6-luna"));
+		await source.findPrice(undefined, new ModelIdentity("openai", "gpt-5.6-luna"));
 
 		expect(transport.reads).toBe(2);
 	});
 
 	it("reads it once when two runs ask at the same time", async () => {
-		const luna = ModelIdentity.of("openai", "gpt-5.6-luna");
+		const luna = new ModelIdentity("openai", "gpt-5.6-luna");
 
 		await Promise.all([
 			source.findPrice(undefined, luna),
@@ -95,11 +95,11 @@ describe("LiteLLMPricingSource", () => {
 	});
 
 	it("keeps the table it already loaded when a later read fails", async () => {
-		await source.findPrice(undefined, ModelIdentity.of("openai", "gpt-5.6-luna"));
+		await source.findPrice(undefined, new ModelIdentity("openai", "gpt-5.6-luna"));
 		transport.failure = new CatalogUnreachableError("https://example.test/catalog.json", 503);
 		clock.advance(A_DAY);
 
-		const price = await source.findPrice(undefined, ModelIdentity.of("openai", "gpt-5.6-luna"));
+		const price = await source.findPrice(undefined, new ModelIdentity("openai", "gpt-5.6-luna"));
 
 		expect(transport.reads).toBe(2);
 		expect(price?.input.toUsdPerToken()).toBe(1e-7);
@@ -107,11 +107,11 @@ describe("LiteLLMPricingSource", () => {
 
 	/** A payload that is not a catalog is refused whole, so the working table survives it. */
 	it("keeps the table it already loaded when a later read answers something else", async () => {
-		await source.findPrice(undefined, ModelIdentity.of("openai", "gpt-5.6-luna"));
+		await source.findPrice(undefined, new ModelIdentity("openai", "gpt-5.6-luna"));
 		transport.answer = "<html>404</html>";
 		clock.advance(A_DAY);
 
-		expect((await source.findPrice(undefined, ModelIdentity.of("openai", "gpt-5.6-luna")))?.input.toUsdPerToken()).toBe(
+		expect((await source.findPrice(undefined, new ModelIdentity("openai", "gpt-5.6-luna")))?.input.toUsdPerToken()).toBe(
 			1e-7,
 		);
 	});
@@ -119,13 +119,13 @@ describe("LiteLLMPricingSource", () => {
 	it("answers no price at all when the first read fails, without throwing", async () => {
 		transport.failure = new CatalogUnreachableError("https://example.test/catalog.json");
 
-		expect(await source.findPrice(undefined, ModelIdentity.of("openai", "gpt-5.6-luna"))).toBeUndefined();
+		expect(await source.findPrice(undefined, new ModelIdentity("openai", "gpt-5.6-luna"))).toBeUndefined();
 	});
 
 	/** A catalog that is down must not be requested once per run: that turns a bad report into load. */
 	it("does not retry a failed read on the next question", async () => {
 		transport.failure = new CatalogUnreachableError("https://example.test/catalog.json");
-		const luna = ModelIdentity.of("openai", "gpt-5.6-luna");
+		const luna = new ModelIdentity("openai", "gpt-5.6-luna");
 
 		await source.findPrice(undefined, luna);
 		await source.findPrice(undefined, luna);
@@ -137,7 +137,7 @@ describe("LiteLLMPricingSource", () => {
 	it("tries again once the retry window has passed", async () => {
 		source = new LiteLLMPricingSource({ transport, clock, ttlMillis: A_DAY, retryMillis: 60_000 });
 		transport.failure = new CatalogUnreachableError("https://example.test/catalog.json");
-		const luna = ModelIdentity.of("openai", "gpt-5.6-luna");
+		const luna = new ModelIdentity("openai", "gpt-5.6-luna");
 
 		await source.findPrice(undefined, luna);
 		clock.advance(60_000);

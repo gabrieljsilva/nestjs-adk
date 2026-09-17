@@ -117,7 +117,7 @@ export class SqliteSessionStorage extends SessionStorage {
 		const session = this.sessions.find(command.sessionId);
 		if (session === undefined) throw new SessionNotFoundError(command.sessionId.value);
 
-		const replayed = this.replayOf(command);
+		const replayed = this.findReplay(command);
 		if (replayed !== undefined) return new AppendEventsResult(replayed, session.revision);
 
 		if (!session.revision.equals(command.expectedRevision)) {
@@ -144,7 +144,7 @@ export class SqliteSessionStorage extends SessionStorage {
 	 * Idempotency is keyed by event id; the same id carrying different content is not a
 	 * retry, it is corruption, and it stops the write.
 	 */
-	private replayOf(command: AppendEventsCommand): readonly StoredSessionEvent[] | undefined {
+	private findReplay(command: AppendEventsCommand): readonly StoredSessionEvent[] | undefined {
 		const ids = command.batch.events.map((event) => event.id.value);
 		const written = this.events.writtenPayloads(command.sessionId, ids);
 		if (written.size === 0) return undefined;
@@ -154,7 +154,7 @@ export class SqliteSessionStorage extends SessionStorage {
 			if (before === undefined) {
 				throw new JournalCorruptedError(command.sessionId.value, "a batch was partially written before.");
 			}
-			if (before !== this.events.fingerprintOf(event)) {
+			if (before !== this.events.calculateFingerprint(event)) {
 				throw new JournalCorruptedError(
 					command.sessionId.value,
 					`event ${event.id.value} was already written with different content.`,

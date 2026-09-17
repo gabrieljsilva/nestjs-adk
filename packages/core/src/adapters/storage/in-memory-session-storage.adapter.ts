@@ -96,7 +96,7 @@ export class InMemorySessionStorage extends SessionStorage {
 		if (record === undefined) throw new SessionNotFoundError(command.sessionId.value);
 
 		const head = record.session.revision;
-		const replayed = this.replayOf(record, command);
+		const replayed = this.findReplay(record, command);
 		if (replayed !== undefined) return replayed;
 
 		if (!head.equals(command.expectedRevision)) {
@@ -119,13 +119,13 @@ export class InMemorySessionStorage extends SessionStorage {
 	 * Idempotency is keyed by event id; the same id carrying different content is not a
 	 * retry, it is corruption, and it stops the write.
 	 */
-	private replayOf(record: SessionRecord, command: AppendEventsCommand): AppendEventsResult | undefined {
+	private findReplay(record: SessionRecord, command: AppendEventsCommand): AppendEventsResult | undefined {
 		const known = new Map(record.events.map((stored) => [stored.event.id.value, stored]));
 		const matches: StoredSessionEvent[] = [];
 		for (const event of command.batch.events) {
 			const stored = known.get(event.id.value);
 			if (stored === undefined) return undefined;
-			if (this.fingerprintOf(stored.event) !== this.fingerprintOf(event)) {
+			if (this.calculateFingerprint(stored.event) !== this.calculateFingerprint(event)) {
 				throw new JournalCorruptedError(
 					command.sessionId.value,
 					`event ${event.id.value} was already written with different content.`,
@@ -141,8 +141,8 @@ export class InMemorySessionStorage extends SessionStorage {
 	 * a durable adapter could ever check. Object identity would make every retry that
 	 * crossed a process boundary look like corruption.
 	 */
-	private fingerprintOf(event: SessionEvent): string {
-		return `${event.type}:${JSON.stringify(this.registry.codecFor(event.type).encode(event))}`;
+	private calculateFingerprint(event: SessionEvent): string {
+		return `${event.type}:${JSON.stringify(this.registry.findCodecOrFail(event.type).encode(event))}`;
 	}
 
 	/** Serializes work on one session while leaving every other session free. */

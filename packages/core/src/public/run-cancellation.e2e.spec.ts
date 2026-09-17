@@ -25,7 +25,7 @@ import { AskInput } from "../domain/session/input/ask-input.command";
 import { AgentRunCommand } from "../runtime/run/agent-run.command";
 import { FakeClock } from "../support/fake-clock.double";
 import { SequenceIdGenerator } from "../support/sequence-id-generator.double";
-import { AdkRuntimeHost } from "./adk-runtime-host.edge";
+import { AdkRuntime } from "./adk-runtime.edge";
 
 const SUPPORT = AgentName.from("support");
 const WORDS = 50;
@@ -46,9 +46,9 @@ class SlowModel extends LlmModel {
 
 	public descriptor(): ModelDescriptor {
 		return new ModelDescriptor(
-			ModelIdentity.of("acme", "primary"),
-			ModelContextWindow.of(100_000, 4000),
-			ModelCapabilities.of([]),
+			new ModelIdentity("acme", "primary"),
+			new ModelContextWindow(100_000, 4000),
+			ModelCapabilities.fromEntries([]),
 		);
 	}
 
@@ -60,25 +60,25 @@ class SlowModel extends LlmModel {
 			if (word === 0) this.onFirstWord();
 			await Promise.resolve();
 		}
-		yield ModelChunk.usage(ModelUsage.of(10, WORDS));
+		yield ModelChunk.usage(ModelUsage.fromReport(10, WORDS));
 		yield ModelChunk.finish("stop");
 	}
 }
 
 function agentOf(model: LlmModel): DeclaredAgent {
 	return new DeclaredAgent(
-		AgentDefinition.of(
+		new AgentDefinition(
 			SUPPORT,
 			AgentDescription.from("support agent", "support"),
 			model,
 			PromptInstructions.from("Be brief."),
-			AgentExecutionPolicies.of(),
+			new AgentExecutionPolicies(),
 		),
 		"SupportAgent",
 	);
 }
 
-const host = new AdkRuntimeHost();
+const host = new AdkRuntime();
 
 afterEach(async () => {
 	await host.stop();
@@ -97,7 +97,7 @@ async function start(model: LlmModel) {
 	return { runtime, storage };
 }
 
-async function journalOf(storage: InMemorySessionStorage, sessionId: SessionId): Promise<SessionEvent[]> {
+async function readJournal(storage: InMemorySessionStorage, sessionId: SessionId): Promise<SessionEvent[]> {
 	const events: SessionEvent[] = [];
 	for await (const stored of storage.readEvents(SessionContext.fromSessionId(sessionId), SessionRevision.initial()))
 		events.push(stored.event);
@@ -141,11 +141,11 @@ describe("a run the caller aborts", () => {
 			}),
 		);
 
-		const answered = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+		const answered = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 		stopping.pressed = true;
 		await runtime.runner.ask(askUnder(controller.signal, answered.sessionId)).catch(() => undefined);
 
-		const journal = await journalOf(storage, answered.sessionId);
+		const journal = await readJournal(storage, answered.sessionId);
 		expect(journal.some((event) => event instanceof AgentRunCancelled)).toBe(true);
 		expect(journal.some((event) => event instanceof AgentRunFailed)).toBe(false);
 		expect(journal.filter((event) => event instanceof AgentRunCompleted)).toHaveLength(1);
@@ -169,7 +169,7 @@ describe("a run the caller aborts", () => {
 	it("answers normally when nobody aborts anything", async () => {
 		const { runtime } = await start(new SlowModel());
 
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 
 		expect(result.text).toContain(`word-${WORDS - 1}`);
 	});

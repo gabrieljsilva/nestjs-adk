@@ -24,7 +24,7 @@ export class CompactionDecision {
 	}
 
 	/** The size this decision is aiming at, given what the prompt measures now. */
-	public targetOf(characters: number): number {
+	public calculateTarget(characters: number): number {
 		return Math.floor(Math.max(0, characters) * this.targetShare);
 	}
 }

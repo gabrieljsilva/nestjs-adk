@@ -45,7 +45,7 @@ import { RunJournal } from "./run-journal.service";
 
 const NOW = Instant.fromIso("2026-01-01T00:00:00.000Z");
 const SESSION = SessionId.from("s-1");
-const MODEL = ModelIdentity.of("acme", "primary");
+const MODEL = new ModelIdentity("acme", "primary");
 const CALL = ToolCallId.from("c-1");
 const clock = new FakeClock(NOW);
 const journal = new RunJournal(new RunEventFactory(new SequenceIdGenerator("e"), clock));
@@ -74,7 +74,7 @@ describe("RunJournal", () => {
 			startedRun(),
 			NativeStackFixture.AGENT,
 			MODEL,
-			new AgentRunCommand(NativeStackFixture.AGENT, AskInput.of("hi")),
+			new AgentRunCommand(NativeStackFixture.AGENT, AskInput.fromMessage("hi")),
 			openedSession(true),
 		);
 
@@ -93,13 +93,13 @@ describe("RunJournal", () => {
 			MODEL,
 			new AgentRunCommand(
 				NativeStackFixture.AGENT,
-				AskInput.of("first", SESSION),
+				AskInput.fromMessage("first", SESSION),
 				undefined,
 				undefined,
 				undefined,
 				[],
 				undefined,
-				Actor.of("u-1", { role: "admin" }),
+				Actor.fromId("u-1", { role: "admin" }),
 			),
 			openedSession(true),
 		);
@@ -137,7 +137,7 @@ describe("RunJournal", () => {
 			startedRun(),
 			NativeStackFixture.AGENT,
 			MODEL,
-			new AgentRunCommand(NativeStackFixture.AGENT, AskInput.of("again", SESSION)),
+			new AgentRunCommand(NativeStackFixture.AGENT, AskInput.fromMessage("again", SESSION)),
 			openedSession(false),
 		);
 
@@ -157,7 +157,7 @@ describe("RunJournal", () => {
 	});
 
 	it("keeps the measurement the provider reported, next to the size of what it measured", () => {
-		const response = new ModelResponse(MODEL, "done", [], ModelUsage.of(120, 10));
+		const response = new ModelResponse(MODEL, "done", [], ModelUsage.fromReport(120, 10));
 
 		const batch = journal.turn(startedRun(), outcomeOf(response), 480, true);
 
@@ -183,7 +183,7 @@ describe("RunJournal", () => {
 	});
 
 	it("says what it is still waiting on when one answer did not release the turn", () => {
-		const turn = PendingTurn.of(startedRun().run.id, [
+		const turn = new PendingTurn(startedRun().run.id, [
 			new PendingCall(CALL, "refund_order", {}, "write", "granted"),
 			new PendingCall(ToolCallId.from("c-2"), "close_order", {}, "write"),
 		]);
@@ -203,8 +203,8 @@ describe("RunJournal", () => {
 	});
 
 	it("records the placeholder and the artifact when a result was too large for the context", () => {
-		const content = ArtifactContent.of("a very long report");
-		const reference = ArtifactReference.of(ArtifactId.from("a-1"), SESSION, content);
+		const content = new ArtifactContent("a very long report");
+		const reference = ArtifactReference.fromContent(ArtifactId.from("a-1"), SESSION, content);
 		const outcome = ToolOutcome.succeeded(CALL, "report", { rows: 1 }, reference.toString(), reference);
 
 		const event = journal.result(startedRun(), outcome);

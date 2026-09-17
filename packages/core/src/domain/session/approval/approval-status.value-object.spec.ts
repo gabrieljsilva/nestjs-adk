@@ -11,7 +11,7 @@ const REFUND = ToolCallId.from("c-2");
 const CLOSE = ToolCallId.from("c-3");
 
 function turnOf(): PendingTurn {
-	return PendingTurn.of(RUN, [
+	return new PendingTurn(RUN, [
 		new PendingCall(LOOKUP, "lookup_order", {}),
 		new PendingCall(REFUND, "refund_order", { orderId: "42" }, "write"),
 		new PendingCall(CLOSE, "close_order", {}, "write"),
@@ -28,21 +28,21 @@ describe("ApprovalStatus", () => {
 	});
 
 	it("lists only the calls somebody still has to answer for", () => {
-		const status = ApprovalStatus.of(turnOf());
+		const status = ApprovalStatus.fromTurn(turnOf());
 
 		expect(status.awaiting.map((call) => call.toolName)).toEqual(["refund_order", "close_order"]);
 		expect(status.isAwaiting).toBe(true);
 	});
 
 	it("carries the arguments and the effect, which is what an approval screen shows", () => {
-		const held = ApprovalStatus.of(turnOf()).awaiting[0];
+		const held = ApprovalStatus.fromTurn(turnOf()).awaiting[0];
 
 		expect(held?.args).toEqual({ orderId: "42" });
 		expect(held?.effect).toBe("write");
 	});
 
 	it("keeps what was already decided, so a half answered turn can be shown whole", () => {
-		const status = ApprovalStatus.of(turnOf().decided(REFUND, "granted"));
+		const status = ApprovalStatus.fromTurn(turnOf().decided(REFUND, "granted"));
 
 		expect(status.awaiting.map((call) => call.toolName)).toEqual(["close_order"]);
 		expect(status.decided.map((call) => call.toolName)).toEqual(["refund_order"]);
@@ -50,13 +50,13 @@ describe("ApprovalStatus", () => {
 	});
 
 	it("stops awaiting once every held call has an answer", () => {
-		const status = ApprovalStatus.of(turnOf().decided(REFUND, "granted").decided(CLOSE, "denied", "too late"));
+		const status = ApprovalStatus.fromTurn(turnOf().decided(REFUND, "granted").decided(CLOSE, "denied", "too late"));
 
 		expect(status.isAwaiting).toBe(false);
 		expect(status.decided).toHaveLength(2);
 	});
 
 	it("points back at the run that was suspended", () => {
-		expect(ApprovalStatus.of(turnOf()).runId?.value).toBe(RUN.value);
+		expect(ApprovalStatus.fromTurn(turnOf()).runId?.value).toBe(RUN.value);
 	});
 });

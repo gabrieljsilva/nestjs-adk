@@ -57,11 +57,11 @@ export class JsonSchemaToolSchema extends ToolSchema {
 	}
 
 	private propertySchemas(): Readonly<Record<string, unknown>> | undefined {
-		return this.recordOf(this.schema.properties);
+		return this.readRecord(this.schema.properties);
 	}
 
 	/** A plain object or nothing: a schema that declared something else declared nothing usable. */
-	private recordOf(value: unknown): Record<string, unknown> | undefined {
+	private readRecord(value: unknown): Record<string, unknown> | undefined {
 		if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
 		return { ...value };
 	}
@@ -76,7 +76,7 @@ export class JsonSchemaToolSchema extends ToolSchema {
 		const properties = this.propertySchemas();
 		if (properties === undefined) return undefined;
 		for (const [name, value] of Object.entries(args)) {
-			const declared = this.recordOf(properties[name]);
+			const declared = this.readRecord(properties[name]);
 			if (declared === undefined) continue;
 			const reason = this.reasonAgainst(name, value, declared);
 			if (reason !== undefined) return reason;

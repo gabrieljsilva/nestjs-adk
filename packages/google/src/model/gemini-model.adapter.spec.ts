@@ -142,6 +142,6 @@ describe("GeminiModel", () => {
 
 	it("is recognised as a spec across a package boundary", () => {
 		expect(ModelSpec.is(new GeminiModel("gemini-2.5-flash", {}, new RecordingTransport()))).toBe(true);
-		expect(ModelSpec.idOf(new GeminiModel("gemini-2.5-flash", {}, new RecordingTransport()))).toBe("gemini-2.5-flash");
+		expect(ModelSpec.readId(new GeminiModel("gemini-2.5-flash", {}, new RecordingTransport()))).toBe("gemini-2.5-flash");
 	});
 });

@@ -50,7 +50,7 @@ export class ModelRunner {
 				}
 				return new ModelRunOutcome(step.value, reroutes);
 			} catch (error) {
-				const failure = this.failureOf(error);
+				const failure = this.readFailure(error);
 				if (failure === undefined || emitted) throw error;
 				failures.push(failure);
 				const next = await this.next(command, model, attempted, failures);
@@ -82,7 +82,7 @@ export class ModelRunner {
 		);
 	}
 
-	private failureOf(error: unknown): ModelFailure | undefined {
+	private readFailure(error: unknown): ModelFailure | undefined {
 		return error instanceof ModelCallFailedError ? error.failure : undefined;
 	}
 }

@@ -44,10 +44,10 @@ export class CheckpointCodec {
 		const record = CheckpointRecord.from(values);
 		return new ContextCheckpoint(
 			SessionId.from(record.sessionId),
-			SessionRevision.of(record.coveredRevision),
+			new SessionRevision(record.coveredRevision),
 			record.strategy,
 			record.strategyVersion,
-			ContentDigest.of(record.prefixDigestAlgorithm, record.prefixDigestValue),
+			new ContentDigest(record.prefixDigestAlgorithm, record.prefixDigestValue),
 			record.blocks.map((block) => this.decodeBlock(block)),
 		);
 	}
@@ -68,18 +68,18 @@ export class CheckpointCodec {
 		const row = new StoredRow(values);
 		const callId = row.optionalText("callId");
 		return ContextBlock.restore(
-			this.categoryOf(row.text("category")),
+			this.readCategory(row.text("category")),
 			row.array("messages").map((message) => this.messages.decode(message)),
-			SessionRevision.of(row.integer("firstRevision")),
-			SessionRevision.of(row.integer("lastRevision")),
+			new SessionRevision(row.integer("firstRevision")),
+			new SessionRevision(row.integer("lastRevision")),
 			row.boolean("closed"),
 			callId === undefined ? undefined : ToolCallId.from(callId),
 			row.boolean("pinned"),
 		);
 	}
 
-	private categoryOf(key: string): ContextCategory {
-		const category = ContextCategory.of(key);
+	private readCategory(key: string): ContextCategory {
+		const category = ContextCategory.fromKey(key);
 		if (category === undefined) throw new UnreadableStoredValueError("category", key);
 		return category;
 	}

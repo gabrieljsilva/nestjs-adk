@@ -8,7 +8,7 @@ import { Embedder } from "./embedder.contract";
 /** One dimension per letter position, which is enough to prove the port is usable. */
 class LengthEmbedder extends Embedder {
 	public async embed(text: string): Promise<EmbeddingVector> {
-		return EmbeddingVector.of([text.length, text.split(" ").length]);
+		return new EmbeddingVector([text.length, text.split(" ").length]);
 	}
 }
 
@@ -28,7 +28,7 @@ describe("Embedder", () => {
 		const metered = await new LengthEmbedder().embedMetered("two words");
 
 		expect(metered.vector.values).toEqual([9, 2]);
-		expect(metered.model.equals(ModelIdentity.of("embedder", "LengthEmbedder"))).toBe(true);
+		expect(metered.model.equals(new ModelIdentity("embedder", "LengthEmbedder"))).toBe(true);
 		expect(metered.usage.totalTokens).toBe(0);
 	});
 
@@ -41,9 +41,9 @@ describe("Embedder", () => {
 
 			public async embedMetered(text: string): Promise<MeteredEmbedding> {
 				return new MeteredEmbedding(
-					EmbeddingVector.of([text.length]),
-					ModelIdentity.of("acme", "embed-1"),
-					ModelUsage.of(text.length, 0),
+					new EmbeddingVector([text.length]),
+					new ModelIdentity("acme", "embed-1"),
+					ModelUsage.fromReport(text.length, 0),
 				);
 			}
 		}

@@ -156,7 +156,7 @@ export class McpOAuthClient {
 			body: JSON.stringify({
 				client_name: options.clientName,
 				redirect_uris: [options.redirectUri],
-				grant_types: McpOAuthClient.grantTypesFor(discovery),
+				grant_types: McpOAuthClient.readGrantTypes(discovery),
 				response_types: ["code"],
 				token_endpoint_auth_method: authMethod,
 				...this.options.clientMetadata,
@@ -305,7 +305,7 @@ export class McpOAuthClient {
 	}
 
 	/** Asking for a grant the server does not support is how a registration gets refused wholesale. */
-	private static grantTypesFor(discovery: McpDiscovery): string[] {
+	private static readGrantTypes(discovery: McpDiscovery): string[] {
 		const supported = discovery.grantTypesSupported;
 		if (!supported?.length) return ["authorization_code", "refresh_token"];
 		return ["authorization_code", "refresh_token"].filter((grant) => supported.includes(grant));

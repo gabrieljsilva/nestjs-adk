@@ -13,8 +13,8 @@ describe("ToolEffect", () => {
 	});
 
 	it("resolves the name a declaration carried", () => {
-		expect(ToolEffect.of("destructive")).toBe(ToolEffect.DESTRUCTIVE);
-		expect(ToolEffect.of("catastrophic")).toBeUndefined();
+		expect(ToolEffect.fromName("destructive")).toBe(ToolEffect.DESTRUCTIVE);
+		expect(ToolEffect.fromName("catastrophic")).toBeUndefined();
 	});
 
 	it("reads as the word the author wrote", () => {

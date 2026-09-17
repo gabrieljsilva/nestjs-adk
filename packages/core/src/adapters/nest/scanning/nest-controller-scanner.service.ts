@@ -24,7 +24,7 @@ export class NestControllerScanner {
 		for (const provider of providers) {
 			const metadata: unknown = Reflect.getMetadata(MCP_CONTROLLER_METADATA, provider.type);
 			if (metadata === undefined) continue;
-			for (const tool of this.toolsOf(provider, metadata, shared)) {
+			for (const tool of this.buildTools(provider, metadata, shared)) {
 				const clash = published.get(tool.name);
 				if (clash !== undefined) throw new DuplicateExposedToolError(tool.name, clash.providerName, provider.name);
 				published.set(tool.name, { tool, providerName: provider.name });
@@ -33,7 +33,7 @@ export class NestControllerScanner {
 		return [...published.values()].map((entry) => entry.tool);
 	}
 
-	private toolsOf(
+	private buildTools(
 		provider: ScannedProvider,
 		metadata: unknown,
 		shared: ReadonlyMap<unknown, ToolDefinition>,

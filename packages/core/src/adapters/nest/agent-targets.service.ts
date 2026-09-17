@@ -10,11 +10,11 @@ import { AGENT_METADATA } from "./metadata/metadata-keys.token";
  * module has finished loading and both classes exist.
  */
 export class AgentTargets {
-	public static namesOf(value: readonly unknown[], providerName: string, decorator: string): readonly string[] {
-		return value.map((target) => AgentTargets.nameOf(target, providerName, decorator));
+	public static readNames(value: readonly unknown[], providerName: string, decorator: string): readonly string[] {
+		return value.map((target) => AgentTargets.readName(target, providerName, decorator));
 	}
 
-	private static nameOf(target: unknown, providerName: string, decorator: string): string {
+	private static readName(target: unknown, providerName: string, decorator: string): string {
 		if (typeof target === "string") return target;
 		if (typeof target !== "function") {
 			throw new InvalidAgentMetadataError(
@@ -23,7 +23,7 @@ export class AgentTargets {
 			);
 		}
 		return (
-			AgentTargets.declaredNameOf(target, providerName, decorator) ??
+			AgentTargets.readDeclaredName(target, providerName, decorator) ??
 			AgentTargets.nameOfReferenced(target, providerName, decorator)
 		);
 	}
@@ -35,7 +35,7 @@ export class AgentTargets {
 	 * as a reference. It is plainly meant to be the target, so reporting a decorator it does
 	 * have as missing would send the reader to the wrong line.
 	 */
-	private static declaredNameOf(target: object, providerName: string, decorator: string): string | undefined {
+	private static readDeclaredName(target: object, providerName: string, decorator: string): string | undefined {
 		const metadata: unknown = Reflect.getMetadata(AGENT_METADATA, target);
 		if (typeof metadata !== "object" || metadata === null) return undefined;
 		const name = Reflect.get(metadata, "name");
@@ -63,7 +63,7 @@ export class AgentTargets {
 		}
 		const resolved = AgentTargets.called(target, providerName, decorator);
 		const name =
-			typeof resolved === "function" ? AgentTargets.declaredNameOf(resolved, providerName, decorator) : undefined;
+			typeof resolved === "function" ? AgentTargets.readDeclaredName(resolved, providerName, decorator) : undefined;
 		if (name !== undefined) return name;
 		throw new InvalidAgentMetadataError(
 			providerName,
@@ -83,14 +83,14 @@ export class AgentTargets {
 		} catch (cause) {
 			throw new InvalidAgentMetadataError(
 				providerName,
-				`${decorator} was given a function that threw when it was read: ${AgentTargets.messageOf(cause)}`,
+				`${decorator} was given a function that threw when it was read: ${AgentTargets.buildMessage(cause)}`,
 				cause,
 			);
 		}
 	}
 
 	/** An error with an empty message still has a name, and something thrown that is not an error has neither. */
-	private static messageOf(cause: unknown): string {
+	private static buildMessage(cause: unknown): string {
 		const message = cause instanceof Error ? cause.message || cause.name : String(cause);
 		return message.length > 0 ? message : "it threw nothing that describes itself";
 	}

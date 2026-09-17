@@ -44,7 +44,7 @@ if (GEMINI_API_KEY === undefined) throw new Error("GEMINI_API_KEY is required");
  * says so, which is also what lets `contextBudget` answer how full a chat is.
  */
 export const geminiFlashLite = new GeminiModel(MODEL, {
-	apiKey: Secret.of(GEMINI_API_KEY),
+	apiKey: new Secret(GEMINI_API_KEY),
 	contextWindowTokens: 1_048_576,
 });
 
@@ -72,7 +72,7 @@ const COMPACTION = new WindowShareCompactionPolicy({ maxShare: 0.02, targetShare
  * replaces this one rather than being capped by it: sales does, because comparing titles
  * is one quote per title.
  */
-const STORE_LIMITS = RunLimits.of(8);
+const STORE_LIMITS = new RunLimits(8);
 
 export const storeOptions = AdkModuleOptions.from({
 	defaultModel: geminiFlashLite,

@@ -25,8 +25,8 @@ class AcmeModel extends ModelSpec {
 
 	public descriptor(): ModelDescriptor {
 		return new ModelDescriptor(
-			ModelIdentity.of(this.provider, this.model),
-			ModelContextWindow.of(1000, 100),
+			new ModelIdentity(this.provider, this.model),
+			new ModelContextWindow(1000, 100),
 			ModelCapabilities.none(),
 		);
 	}
@@ -74,12 +74,12 @@ describe("ModelSpec", () => {
 	});
 
 	it("answers the model name behind a name or a spec", () => {
-		expect(ModelSpec.idOf("gemini-2.5-flash")).toBe("gemini-2.5-flash");
-		expect(ModelSpec.idOf(new AcmeModel("m-1"))).toBe("m-1");
+		expect(ModelSpec.readId("gemini-2.5-flash")).toBe("gemini-2.5-flash");
+		expect(ModelSpec.readId(new AcmeModel("m-1"))).toBe("m-1");
 	});
 
 	it("answers nothing for a value that names no model", () => {
-		expect(ModelSpec.idOf({ nothing: true })).toBeUndefined();
-		expect(ModelSpec.idOf(undefined)).toBeUndefined();
+		expect(ModelSpec.readId({ nothing: true })).toBeUndefined();
+		expect(ModelSpec.readId(undefined)).toBeUndefined();
 	});
 });

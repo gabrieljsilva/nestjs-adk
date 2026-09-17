@@ -65,7 +65,7 @@ function twoCallModel(first: string, second: string): TurnScriptModel {
 function stackOf(model: TurnScriptModel, tools: readonly ToolDefinition[]): NativeStackFixture {
 	return new NativeStackFixture(
 		model,
-		NativeStackFixture.definitionOf(model, undefined, tools),
+		NativeStackFixture.buildDefinition(model, undefined, tools),
 		EffectApprovalPolicy.from(ToolEffect.WRITE),
 	);
 }
@@ -83,7 +83,7 @@ class LoggingObserver extends ToolCallObserver {
 	}
 }
 
-describe("DecideApproval", () => {
+describe("DecideApprovalUseCase", () => {
 	it("tells the observer of the decision how each call of the released turn settled, without asking again", async () => {
 		const refund = new CountingHandler();
 		const close = new CountingHandler();
@@ -91,11 +91,11 @@ describe("DecideApproval", () => {
 			toolOf("refund_order", refund, ToolEffect.WRITE),
 			toolOf("close_order", close, ToolEffect.WRITE),
 		]);
-		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("refund and close 42")));
-		await stack.deciding.handle(suspended.sessionId, REFUND, "granted");
+		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund and close 42")));
+		await stack.deciding.execute(suspended.sessionId, REFUND, "granted");
 		const observer = new LoggingObserver();
 
-		await stack.deciding.handle(suspended.sessionId, CLOSE, "denied", {
+		await stack.deciding.execute(suspended.sessionId, CLOSE, "denied", {
 			by: "gabriel",
 			reason: "the order stays open",
 			toolCalls: observer,
@@ -115,9 +115,9 @@ describe("DecideApproval", () => {
 			toolOf("lookup_order", lookup, ToolEffect.READ),
 			toolOf("refund_order", refund, ToolEffect.WRITE),
 		]);
-		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("refund order 42")));
+		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund order 42")));
 
-		const resumed = await stack.deciding.handle(suspended.sessionId, CLOSE, "granted", { by: "gabriel" });
+		const resumed = await stack.deciding.execute(suspended.sessionId, CLOSE, "granted", { by: "gabriel" });
 
 		expect(lookup.calls).toBe(1);
 		expect(refund.calls).toBe(1);
@@ -131,9 +131,9 @@ describe("DecideApproval", () => {
 			toolOf("refund_order", refund, ToolEffect.WRITE),
 			toolOf("close_order", close, ToolEffect.WRITE),
 		]);
-		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("refund and close 42")));
+		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund and close 42")));
 
-		const half = await stack.deciding.handle(suspended.sessionId, REFUND, "granted");
+		const half = await stack.deciding.execute(suspended.sessionId, REFUND, "granted");
 
 		expect(half.status.equals(AgentRunStatus.SUSPENDED)).toBe(true);
 		expect(refund.calls).toBe(0);
@@ -145,11 +145,11 @@ describe("DecideApproval", () => {
 			toolOf("refund_order", new CountingHandler(), ToolEffect.WRITE),
 			toolOf("close_order", new CountingHandler(), ToolEffect.WRITE),
 		]);
-		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("refund and close 42")));
+		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund and close 42")));
 
-		await stack.deciding.handle(suspended.sessionId, REFUND, "granted");
+		await stack.deciding.execute(suspended.sessionId, REFUND, "granted");
 
-		const types = (await stack.journalOf(suspended.sessionId)).map((event) => event.type);
+		const types = (await stack.readJournal(suspended.sessionId)).map((event) => event.type);
 		expect(types).toContain(ToolApprovalGranted.TYPE);
 		expect(types.at(-1)).toBe(AgentRunSuspended.TYPE);
 	});
@@ -161,14 +161,14 @@ describe("DecideApproval", () => {
 			toolOf("refund_order", refund, ToolEffect.WRITE),
 			toolOf("close_order", close, ToolEffect.WRITE),
 		]);
-		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("refund and close 42")));
-		await stack.deciding.handle(suspended.sessionId, REFUND, "granted");
+		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund and close 42")));
+		await stack.deciding.execute(suspended.sessionId, REFUND, "granted");
 
-		await stack.deciding.handle(suspended.sessionId, CLOSE, "denied", { by: "gabriel", reason: "the order stays open" });
+		await stack.deciding.execute(suspended.sessionId, CLOSE, "denied", { by: "gabriel", reason: "the order stays open" });
 
 		expect(refund.calls).toBe(1);
 		expect(close.calls).toBe(0);
-		const journal = await stack.journalOf(suspended.sessionId);
+		const journal = await stack.readJournal(suspended.sessionId);
 		expect(journal.map((event) => event.type)).toContain(ToolApprovalDenied.TYPE);
 		const refusal = journal.find(
 			(event): event is ToolResultProduced => event instanceof ToolResultProduced && event.failed,
@@ -182,10 +182,10 @@ describe("DecideApproval", () => {
 			toolOf("lookup_order", new CountingHandler(), ToolEffect.READ),
 			toolOf("refund_order", refund, ToolEffect.WRITE),
 		]);
-		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("refund order 42")));
-		await stack.deciding.handle(suspended.sessionId, CLOSE, "granted");
+		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund order 42")));
+		await stack.deciding.execute(suspended.sessionId, CLOSE, "granted");
 
-		const error = await stack.deciding.handle(suspended.sessionId, CLOSE, "granted").catch((reason) => reason);
+		const error = await stack.deciding.execute(suspended.sessionId, CLOSE, "granted").catch((reason) => reason);
 
 		expect(error).toBeInstanceOf(ApprovalNotPendingError);
 		expect(refund.calls).toBe(1);
@@ -196,9 +196,9 @@ describe("DecideApproval", () => {
 			toolOf("lookup_order", new CountingHandler(), ToolEffect.READ),
 			toolOf("refund_order", new CountingHandler(), ToolEffect.WRITE),
 		]);
-		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("refund order 42")));
+		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund order 42")));
 
-		const error = await stack.deciding.handle(suspended.sessionId, REFUND, "granted").catch((reason) => reason);
+		const error = await stack.deciding.execute(suspended.sessionId, REFUND, "granted").catch((reason) => reason);
 
 		expect(error).toBeInstanceOf(ApprovalNotPendingError);
 	});

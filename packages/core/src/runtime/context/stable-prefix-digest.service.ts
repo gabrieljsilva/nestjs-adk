@@ -25,6 +25,6 @@ export class StablePrefixDigest {
 				parameters: tool.parameters,
 			})),
 		});
-		return ContentDigest.of(ALGORITHM, createHash(ALGORITHM).update(canonical).digest("hex"));
+		return new ContentDigest(ALGORITHM, createHash(ALGORITHM).update(canonical).digest("hex"));
 	}
 }

@@ -30,10 +30,10 @@ export class CreateSessionInput {
 		sessionId?: SessionId | string,
 		metadata: Readonly<Record<string, MetadataValue>> = {},
 	): CreateSessionInput {
-		return new CreateSessionInput(CreateSessionInput.idOf(sessionId), SessionMetadata.fromRecord(metadata));
+		return new CreateSessionInput(CreateSessionInput.readId(sessionId), SessionMetadata.fromRecord(metadata));
 	}
 
-	private static idOf(sessionId?: SessionId | string): SessionId | undefined {
+	private static readId(sessionId?: SessionId | string): SessionId | undefined {
 		if (sessionId === undefined) return undefined;
 		return sessionId instanceof SessionId ? sessionId : SessionId.from(sessionId);
 	}

@@ -37,7 +37,7 @@ export class AttachmentProjection {
 	 * A note in the one vocabulary every stand-in line uses, so a model reads the same
 	 * shape whether the image was dropped by a resolver, a failure or a capability gap.
 	 */
-	public static noteFor(reference: AttachmentReference, reason: string): AttachmentProjection {
+	public static fromReference(reference: AttachmentReference, reason: string): AttachmentProjection {
 		const type = reference.mediaType;
 		const name = type === undefined ? "attachment" : `attachment ${type}`;
 		return AttachmentProjection.note(`[${name}: ${reason}]`);

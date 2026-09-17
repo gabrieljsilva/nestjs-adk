@@ -11,28 +11,19 @@ import type { Actor } from "../../tool/access/actor.value-object";
  * turn, and the other calls of that turn may have come from a source that has to be open.
  */
 export class RejectInput {
-	private constructor(
+	public readonly reason: string;
+
+	public constructor(
 		public readonly sessionId: SessionId,
 		public readonly callId: ToolCallId,
-		public readonly reason: string,
+		reason: string,
 		public readonly deniedBy?: string,
 		public readonly sources: readonly ToolSource[] = [],
 		/** The stop button of the turn this decision releases, which is a run of its own. */
 		public readonly signal?: AbortSignal,
 		public readonly actor?: Actor,
 		public readonly toolCalls?: ToolCallObserver,
-	) {}
-
-	public static of(
-		sessionId: SessionId,
-		callId: ToolCallId,
-		reason: string,
-		deniedBy?: string,
-		sources: readonly ToolSource[] = [],
-		signal?: AbortSignal,
-		actor?: Actor,
-		toolCalls?: ToolCallObserver,
-	): RejectInput {
-		return new RejectInput(sessionId, callId, reason.trim(), deniedBy, sources, signal, actor, toolCalls);
+	) {
+		this.reason = reason.trim();
 	}
 }

@@ -33,17 +33,17 @@ describe("TokenRate", () => {
 	});
 
 	it("charges a token count without drifting", () => {
-		expect(TokenRate.fromUsdPerToken(1e-7).costOf(40).pico).toBe(4_000_000n);
-		expect(TokenRate.fromUsdPerToken(1.3e-10).costOf(1_000_000).toString()).toBe("0.00013");
+		expect(TokenRate.fromUsdPerToken(1e-7).calculateCost(40).pico).toBe(4_000_000n);
+		expect(TokenRate.fromUsdPerToken(1.3e-10).calculateCost(1_000_000).toString()).toBe("0.00013");
 	});
 
 	it("charges nothing for no tokens", () => {
-		expect(TokenRate.fromUsdPerToken(1e-7).costOf(0).isZero).toBe(true);
+		expect(TokenRate.fromUsdPerToken(1e-7).calculateCost(0).isZero).toBe(true);
 	});
 
 	it("is free when the catalog says the rate is zero", () => {
 		expect(TokenRate.fromUsdPerToken(0).isZero).toBe(true);
-		expect(TokenRate.zero().costOf(1_000).isZero).toBe(true);
+		expect(TokenRate.zero().calculateCost(1_000).isZero).toBe(true);
 	});
 
 	it("refuses a rate that is negative or not a number", () => {

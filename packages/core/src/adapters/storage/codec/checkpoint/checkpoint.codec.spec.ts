@@ -11,26 +11,26 @@ import { ToolResultMessage } from "../../../../domain/model/messages/tool-result
 import { UserMessage } from "../../../../domain/model/messages/user-message.value-object";
 import { CheckpointCodec } from "./checkpoint.codec";
 
-const DIGEST = ContentDigest.of("sha-256", "prefix-1");
+const DIGEST = new ContentDigest("sha-256", "prefix-1");
 
 function blocks(): readonly ContextBlock[] {
 	const call = new ToolCallMessage(ToolCallId.from("c-1"), "lookup", { orderId: "A-1" });
 	return [
-		ContextBlock.summary(new AssistantMessage("Earlier the user asked about order A-1."), SessionRevision.of(1)),
-		ContextBlock.conversation(new UserMessage("and the refund?"), SessionRevision.of(2)),
+		ContextBlock.summary(new AssistantMessage("Earlier the user asked about order A-1."), new SessionRevision(1)),
+		ContextBlock.conversation(new UserMessage("and the refund?"), new SessionRevision(2)),
 		ContextBlock.exchange(
 			call,
 			new ToolResultMessage(ToolCallId.from("c-1"), "lookup", { total: 10 }, false),
-			SessionRevision.of(3),
-			SessionRevision.of(4),
+			new SessionRevision(3),
+			new SessionRevision(4),
 		),
-		ContextBlock.pendingCall(new ToolCallMessage(ToolCallId.from("c-2"), "refund", {}), SessionRevision.of(5)),
-		ContextBlock.conversation(new AssistantMessage("Loaded the tone skill."), SessionRevision.of(6)).asSkill(),
+		ContextBlock.pendingCall(new ToolCallMessage(ToolCallId.from("c-2"), "refund", {}), new SessionRevision(5)),
+		ContextBlock.conversation(new AssistantMessage("Loaded the tone skill."), new SessionRevision(6)).asSkill(),
 	];
 }
 
 function checkpointOf(): ContextCheckpoint {
-	return new ContextCheckpoint(SessionId.from("s-1"), SessionRevision.of(6), "token-threshold", 2, DIGEST, blocks());
+	return new ContextCheckpoint(SessionId.from("s-1"), new SessionRevision(6), "token-threshold", 2, DIGEST, blocks());
 }
 
 /**
@@ -93,7 +93,7 @@ describe("CheckpointCodec", () => {
 
 		expect(decoded.isUsableAt("token-threshold", 2, DIGEST)).toBe(true);
 		expect(decoded.isUsableAt("token-threshold", 3, DIGEST)).toBe(false);
-		expect(decoded.isUsableAt("token-threshold", 2, ContentDigest.of("sha-256", "other"))).toBe(false);
+		expect(decoded.isUsableAt("token-threshold", 2, new ContentDigest("sha-256", "other"))).toBe(false);
 	});
 
 	it("decodes a plain row an adapter read out of its own table", () => {

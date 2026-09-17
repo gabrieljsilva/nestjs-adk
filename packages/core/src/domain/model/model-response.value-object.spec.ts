@@ -5,7 +5,7 @@ import { ToolCall } from "./messages/tool-call.value-object";
 import { ModelResponse } from "./model-response.value-object";
 import { ModelUsage } from "./usage/model-usage.value-object";
 
-const MODEL = ModelIdentity.of("acme", "m-1");
+const MODEL = new ModelIdentity("acme", "m-1");
 const call = new ToolCall(ToolCallId.from("call-1"), "refund", {});
 
 describe("ModelResponse", () => {
@@ -36,7 +36,7 @@ describe("ModelResponse", () => {
 	});
 
 	it("keeps the usage the provider reported", () => {
-		const response = new ModelResponse(MODEL, "hi", [], ModelUsage.of(100, 40));
+		const response = new ModelResponse(MODEL, "hi", [], ModelUsage.fromReport(100, 40));
 
 		expect(response.usage.totalTokens).toBe(140);
 	});

@@ -29,7 +29,7 @@ import type { StablePrefixDigest } from "./stable-prefix-digest.service";
  * Nothing here is remembered between calls: the journal is the truth, the checkpoint is
  * an optimization, and the prepared context is a value the caller owns.
  */
-export class ContextManager {
+export class ContextService {
 	public constructor(
 		private readonly storage: SessionStorage,
 		private readonly projector: ContextProjector,
@@ -48,7 +48,7 @@ export class ContextManager {
 		const descriptor = command.model.descriptor();
 		this.notifier.reportIfUnknown(command.context, descriptor);
 
-		const prefix = ContextProjection.of(
+		const prefix = new ContextProjection(
 			[],
 			command.tools,
 			command.runtimeInstructions,
@@ -58,10 +58,10 @@ export class ContextManager {
 		const prefixDigest = this.digest.of(prefix);
 		const acceptsRemoteUrl = descriptor.capabilities.supports(ModelCapability.MEDIA_URL);
 		const projection = prefix.withBlocks(
-			await this.blocksOf(command.context, prefixDigest, command.runId, acceptsRemoteUrl),
+			await this.buildBlocks(command.context, prefixDigest, command.runId, acceptsRemoteUrl),
 		);
 
-		const budget = this.budgetOf(projection, command);
+		const budget = this.buildBudget(projection, command);
 		const decision = command.compaction?.decide(budget) ?? CompactionDecision.skip();
 		if (!decision.shouldCompact) {
 			budget.verify(descriptor.identity);
@@ -70,14 +70,14 @@ export class ContextManager {
 
 		// The measurement describes the prompt as it was before compaction, so that is what the smaller one is scaled from.
 		const compacted = await this.strategy.compact(command.context, projection, decision);
-		const compactedBudget = this.budgetOf(compacted, command);
+		const compactedBudget = this.buildBudget(compacted, command);
 		await this.checkpoint(command.context, compacted, prefixDigest);
 		compactedBudget.verify(descriptor.identity);
 		return new PreparedModelContext(compacted, compactedBudget, prefixDigest, true);
 	}
 
 	/** A usable checkpoint replaces the journal it covers; anything else means projecting it all. */
-	private async blocksOf(
+	private async buildBlocks(
 		context: RunContext,
 		prefixDigest: ContentDigest,
 		runId?: AgentRunId,
@@ -99,7 +99,7 @@ export class ContextManager {
 		return checkpoint.isUsableAt(this.strategy.name, this.strategy.version, prefixDigest) ? checkpoint : undefined;
 	}
 
-	private budgetOf(projection: ContextProjection, command: PrepareContextCommand): ContextBudget {
+	private buildBudget(projection: ContextProjection, command: PrepareContextCommand): ContextBudget {
 		return new ContextBudget(
 			command.model.descriptor().contextWindow,
 			command.lastPrompt,

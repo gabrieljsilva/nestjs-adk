@@ -26,7 +26,7 @@ export class ArtifactOffloader {
 	public async offload(context: SessionContext, text: string, mediaType?: string): Promise<OffloadedContent> {
 		if (!this.policy.shouldOffload(text.length)) return OffloadedContent.inline(text);
 		try {
-			return OffloadedContent.offloaded(await this.storage.put(context, ArtifactContent.of(text, mediaType)));
+			return OffloadedContent.offloaded(await this.storage.put(context, new ArtifactContent(text, mediaType)));
 		} catch {
 			return OffloadedContent.inline(text);
 		}

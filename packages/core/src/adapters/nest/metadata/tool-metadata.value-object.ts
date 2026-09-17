@@ -31,16 +31,16 @@ export class ToolMetadata {
 		if (typeof schema !== "object" || schema === null) {
 			throw new InvalidAgentMetadataError(providerName, `@Tool ${name} needs a zod schema.`);
 		}
-		return new ToolMetadata(name, description, schema, ToolMetadata.effectOf(value, name, providerName));
+		return new ToolMetadata(name, description, schema, ToolMetadata.readEffect(value, name, providerName));
 	}
 
-	private static effectOf(value: object, name: string, providerName: string): ToolEffect {
+	private static readEffect(value: object, name: string, providerName: string): ToolEffect {
 		const declared = Reflect.get(value, "effect");
 		if (declared === undefined) return ToolEffect.WRITE;
 		if (typeof declared !== "string") {
 			throw new InvalidAgentMetadataError(providerName, `@Tool ${name} declared an effect that is not a name.`);
 		}
-		const effect = ToolEffect.of(declared);
+		const effect = ToolEffect.fromName(declared);
 		if (effect === undefined) {
 			throw new InvalidAgentMetadataError(providerName, `@Tool ${name} declared an unknown effect "${declared}".`);
 		}

@@ -21,25 +21,20 @@ const SUPPORTED_TYPES: readonly string[] = ["image/png", "image/jpeg", "image/gi
  * network.
  */
 export class MediaLimits {
-	private constructor(
+	public readonly supportedTypes: readonly string[];
+
+	public constructor(
 		public readonly maxEncodedBytes: number,
 		public readonly maxDecodedBytes: number,
 		public readonly maxTotalEncodedBytes: number,
-		public readonly supportedTypes: readonly string[],
-		public readonly allowsPrivateHost: boolean,
-	) {}
+		supportedTypes: readonly string[] = SUPPORTED_TYPES,
+		public readonly allowsPrivateHost: boolean = false,
+	) {
+		this.supportedTypes = [...supportedTypes];
+	}
 
 	public static byDefault(): MediaLimits {
 		return new MediaLimits(MAX_ENCODED_BYTES, MAX_DECODED_BYTES, MAX_TOTAL_ENCODED_BYTES, SUPPORTED_TYPES, false);
-	}
-
-	public static of(
-		maxEncodedBytes: number,
-		maxDecodedBytes: number,
-		maxTotalEncodedBytes: number,
-		supportedTypes: readonly string[] = SUPPORTED_TYPES,
-	): MediaLimits {
-		return new MediaLimits(maxEncodedBytes, maxDecodedBytes, maxTotalEncodedBytes, [...supportedTypes], false);
 	}
 
 	/** The same ceilings, accepting a link the serving model can actually reach. */

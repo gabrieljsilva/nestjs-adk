@@ -20,25 +20,25 @@ beforeEach(() => {
 
 describe("AgentRunner", () => {
 	it("answers a question, which is the whole of what asking does from outside", async () => {
-		const result = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+		const result = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 
 		expect(result.text).toBe("hello");
 		expect(result.sessionId.value).toBeTruthy();
 	});
 
 	it("takes an approval to the session it names, which answers that nothing is pending", async () => {
-		const first = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+		const first = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 
-		const error = await stack.runner.approve(ApproveInput.of(first.sessionId, CALL)).catch((reason) => reason);
+		const error = await stack.runner.approve(new ApproveInput(first.sessionId, CALL)).catch((reason) => reason);
 
 		expect(error).toBeInstanceOf(ApprovalNotPendingError);
 	});
 
 	it("takes a rejection the same way, so both decisions travel one road", async () => {
-		const first = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+		const first = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 
 		const error = await stack.runner
-			.reject(RejectInput.of(first.sessionId, CALL, "not authorized"))
+			.reject(new RejectInput(first.sessionId, CALL, "not authorized"))
 			.catch((reason) => reason);
 
 		expect(error).toBeInstanceOf(ApprovalNotPendingError);
@@ -46,7 +46,7 @@ describe("AgentRunner", () => {
 
 	it("refuses a decision on a session that does not exist, rather than inventing one", async () => {
 		const error = await stack.runner
-			.approve(ApproveInput.of(SessionId.from("never-created"), CALL))
+			.approve(new ApproveInput(SessionId.from("never-created"), CALL))
 			.catch((reason) => reason);
 
 		expect(error).toBeInstanceOf(Error);

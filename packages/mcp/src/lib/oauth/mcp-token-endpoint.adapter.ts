@@ -171,7 +171,7 @@ export class McpTokenEndpoint {
 		const oauthError = body.error;
 		return new McpTokenGrantError(
 			endpoint,
-			McpTokenEndpoint.rejectionOf(status, oauthError),
+			McpTokenEndpoint.buildRejection(status, oauthError),
 			body.explanation ?? `the provider answered ${status}`,
 			status,
 			oauthError,
@@ -182,7 +182,7 @@ export class McpTokenEndpoint {
 	 * The OAuth error code decides first, because it describes the grant; the status only describes
 	 * the HTTP call, and a provider that rate limits answers 429 about neither.
 	 */
-	private static rejectionOf(status: number, oauthError?: string): McpGrantRejection {
+	private static buildRejection(status: number, oauthError?: string): McpGrantRejection {
 		if (oauthError && TERMINAL_ERRORS.has(oauthError)) return "reauth-required";
 		if (status === 429 || status >= 500) return "transient";
 		// RFC 6749 §5.2: a token endpoint refusing a grant answers 400, and at a refresh that means the

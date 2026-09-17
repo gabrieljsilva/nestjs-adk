@@ -11,7 +11,7 @@ export class UnscriptedAgentError extends AdkError {
 
 	public constructor(public readonly agents: readonly string[]) {
 		super(
-			`These agents would answer on a model the test did not choose: ${agents.join(", ")}. Script them with withScript, name a model with withModelFor, or say it out loud with allowingUnscriptedModels().`,
+			`These agents would answer on a model the test did not choose: ${agents.join(", ")}. Script them with withScript, name a model with withAgentModel, or say it out loud with allowingUnscriptedModels().`,
 		);
 	}
 }

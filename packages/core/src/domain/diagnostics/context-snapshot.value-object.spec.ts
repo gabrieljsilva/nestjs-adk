@@ -5,7 +5,7 @@ import { ContextSegment } from "./context-segment.value-object";
 import { ContextSnapshot } from "./context-snapshot.value-object";
 
 const SUPPORT = AgentName.from("support");
-const MODEL = ModelIdentity.of("acme", "primary");
+const MODEL = new ModelIdentity("acme", "primary");
 
 function snapshot(): ContextSnapshot {
 	return new ContextSnapshot(SUPPORT, MODEL, [

@@ -17,20 +17,18 @@ import type { SkillDefinition } from "../../domain/skill/skill-definition.value-
  * model chooses from. Their content stays out of the prompt until it is asked for.
  */
 export class SkillCatalog {
+	private readonly skills: readonly SkillDefinition[];
 	private readonly byName: ReadonlyMap<string, SkillDefinition>;
 
-	private constructor(private readonly skills: readonly SkillDefinition[]) {
-		this.byName = new Map(skills.map((skill) => [skill.name, skill]));
-		Object.freeze(this);
-	}
-
-	public static of(skills: readonly SkillDefinition[]): SkillCatalog {
+	public constructor(declared: readonly SkillDefinition[]) {
 		const seen = new Set<string>();
-		for (const skill of skills) {
+		for (const skill of declared) {
 			if (seen.has(skill.name)) throw new DuplicateSkillNameError(skill.name);
 			seen.add(skill.name);
 		}
-		return new SkillCatalog([...skills]);
+		this.skills = [...declared];
+		this.byName = new Map(this.skills.map((skill) => [skill.name, skill]));
+		Object.freeze(this);
 	}
 
 	public static empty(): SkillCatalog {

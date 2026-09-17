@@ -18,8 +18,8 @@ export class StubModel extends LlmModel {
 	private readonly chunks: readonly ModelChunk[];
 
 	public constructor(
-		private readonly window: ContextWindow = ModelContextWindow.of(1000, 100),
-		private readonly identity: ModelIdentity = ModelIdentity.of("test", "stub"),
+		private readonly window: ContextWindow = new ModelContextWindow(1000, 100),
+		private readonly identity: ModelIdentity = new ModelIdentity("test", "stub"),
 		chunks: readonly ModelChunk[] = [ModelChunk.finish("stop")],
 	) {
 		super();

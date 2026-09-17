@@ -29,9 +29,9 @@ export class SlowAnswer extends LlmModel {
 
 	public descriptor(): ModelDescriptor {
 		return new ModelDescriptor(
-			ModelIdentity.of("fixture", "slow"),
-			ModelContextWindow.of(100_000, 4000),
-			ModelCapabilities.of([[ModelCapability.TOOLS, true]]),
+			new ModelIdentity("fixture", "slow"),
+			new ModelContextWindow(100_000, 4000),
+			ModelCapabilities.fromEntries([[ModelCapability.TOOLS, true]]),
 		);
 	}
 
@@ -43,7 +43,7 @@ export class SlowAnswer extends LlmModel {
 			if (word === 0) this.onFirstWord();
 			await Promise.resolve();
 		}
-		yield ModelChunk.usage(ModelUsage.of(10, WORDS));
+		yield ModelChunk.usage(ModelUsage.fromReport(10, WORDS));
 		yield ModelChunk.finish("stop");
 	}
 

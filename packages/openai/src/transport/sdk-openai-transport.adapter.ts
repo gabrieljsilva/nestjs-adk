@@ -52,13 +52,13 @@ export class SdkOpenAiTransport extends OpenAiTransport {
 	/** Opening and reading fail differently for a caller, and identically for a policy. */
 	private async open(request: OpenAiChatRequest, signal?: AbortSignal): Promise<AsyncIterable<ChatCompletionChunk>> {
 		try {
-			return await this.client.chat.completions.create(this.bodyOf(request), { signal });
+			return await this.client.chat.completions.create(this.buildBody(request), { signal });
 		} catch (error) {
 			throw new ModelCallFailedError(this.failures.toFailure(error), request.model);
 		}
 	}
 
-	private bodyOf(request: OpenAiChatRequest): ChatCompletionCreateParamsStreaming {
+	private buildBody(request: OpenAiChatRequest): ChatCompletionCreateParamsStreaming {
 		const body: ChatCompletionCreateParamsStreaming = {
 			...request.parameters,
 			model: request.model,

@@ -37,15 +37,15 @@ export class SessionHeadCodec {
 		return Session.restore(
 			SessionId.from(record.id),
 			AgentName.from(record.rootAgent),
-			this.statusOf(record.status),
-			SessionRevision.of(record.revision),
+			this.readStatus(record.status),
+			new SessionRevision(record.revision),
 			Instant.fromIso(record.createdAt),
 			Instant.fromIso(record.updatedAt),
 		);
 	}
 
-	private statusOf(value: string): SessionStatus {
-		const status = SessionStatus.of(value);
+	private readStatus(value: string): SessionStatus {
+		const status = SessionStatus.fromName(value);
 		if (status === undefined) throw new UnreadableStoredValueError("status", value);
 		return status;
 	}

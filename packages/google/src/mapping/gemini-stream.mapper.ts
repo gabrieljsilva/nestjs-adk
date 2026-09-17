@@ -62,7 +62,11 @@ export class GeminiStreamMapper {
 		if (usage !== undefined) {
 			chunks.push(
 				ModelChunk.usage(
-					ModelUsage.of(usage.promptTokenCount ?? 0, usage.candidatesTokenCount ?? 0, usage.cachedContentTokenCount ?? 0),
+					ModelUsage.fromReport(
+						usage.promptTokenCount ?? 0,
+						usage.candidatesTokenCount ?? 0,
+						usage.cachedContentTokenCount ?? 0,
+					),
 				),
 			);
 		}

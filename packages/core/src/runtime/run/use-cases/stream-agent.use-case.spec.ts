@@ -11,16 +11,16 @@ function stackOf(): NativeStackFixture {
 		new ScriptedModel("primary", [
 			ModelChunk.text("hel"),
 			ModelChunk.text("lo"),
-			ModelChunk.usage(ModelUsage.of(10, 2)),
+			ModelChunk.usage(ModelUsage.fromReport(10, 2)),
 			ModelChunk.finish("stop"),
 		]),
 	);
 }
 
-describe("StreamAgent", () => {
+describe("StreamAgentUseCase", () => {
 	it("yields the pieces and returns the same answer ask would have returned", async () => {
 		const stack = stackOf();
-		const turn = stack.runner.stream(new AgentRunCommand(NativeStackFixture.AGENT, AskInput.of("hi")));
+		const turn = stack.runner.stream(new AgentRunCommand(NativeStackFixture.AGENT, AskInput.fromMessage("hi")));
 
 		const chunks: ModelChunk[] = [];
 		let step = await turn.next();
@@ -35,7 +35,7 @@ describe("StreamAgent", () => {
 
 	it("hands the run's own failure to whoever was watching", async () => {
 		const stack = new NativeStackFixture(new ScriptedModel("primary", [], true));
-		const turn = stack.runner.stream(new AgentRunCommand(NativeStackFixture.AGENT, AskInput.of("hi")));
+		const turn = stack.runner.stream(new AgentRunCommand(NativeStackFixture.AGENT, AskInput.fromMessage("hi")));
 
 		await expect(
 			(async () => {
@@ -50,13 +50,13 @@ describe("StreamAgent", () => {
 		const streamed = stackOf();
 		const asked = stackOf();
 
-		const turn = streamed.runner.stream(new AgentRunCommand(NativeStackFixture.AGENT, AskInput.of("hi")));
+		const turn = streamed.runner.stream(new AgentRunCommand(NativeStackFixture.AGENT, AskInput.fromMessage("hi")));
 		let step = await turn.next();
 		while (step.done !== true) step = await turn.next();
-		const result = await asked.runner.ask(new AgentRunCommand(NativeStackFixture.AGENT, AskInput.of("hi")));
+		const result = await asked.runner.ask(new AgentRunCommand(NativeStackFixture.AGENT, AskInput.fromMessage("hi")));
 
-		const streamedTypes = (await streamed.journalOf(step.value.sessionId)).map((event) => event.type);
-		const askedTypes = (await asked.journalOf(result.sessionId)).map((event) => event.type);
+		const streamedTypes = (await streamed.readJournal(step.value.sessionId)).map((event) => event.type);
+		const askedTypes = (await asked.readJournal(result.sessionId)).map((event) => event.type);
 		expect(streamedTypes).toEqual(askedTypes);
 	});
 });

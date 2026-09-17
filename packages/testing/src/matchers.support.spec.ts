@@ -24,7 +24,7 @@ const RUN = AgentRunId.from("r-1");
 const CALL = ToolCallId.from("c-1");
 
 function contextOf(instructions: string, conversation: string): ContextSnapshot {
-	return new ContextSnapshot(AgentName.from("support"), ModelIdentity.of("test", "model"), [
+	return new ContextSnapshot(AgentName.from("support"), new ModelIdentity("test", "model"), [
 		new ContextSegment(ContextSegment.INSTRUCTIONS, instructions),
 		new ContextSegment(ContextSegment.CONVERSATION, conversation),
 	]);
@@ -135,18 +135,18 @@ describe("toBeSemanticallyCloseTo", () => {
 
 describe("toBeSimilarTo", () => {
 	it("compares embeddings by cosine similarity", () => {
-		expect(adkMatchers.toBeSimilarTo(EmbeddingVector.of([1, 0]), EmbeddingVector.of([0.9, 0.1])).pass).toBe(true);
-		expect(adkMatchers.toBeSimilarTo(EmbeddingVector.of([1, 0]), EmbeddingVector.of([0, 1])).pass).toBe(false);
+		expect(adkMatchers.toBeSimilarTo(new EmbeddingVector([1, 0]), new EmbeddingVector([0.9, 0.1])).pass).toBe(true);
+		expect(adkMatchers.toBeSimilarTo(new EmbeddingVector([1, 0]), new EmbeddingVector([0, 1])).pass).toBe(false);
 	});
 
 	it("accepts the threshold at the assertion site", () => {
-		const result = adkMatchers.toBeSimilarTo(EmbeddingVector.of([1, 0]), EmbeddingVector.of([0.5, 0.5]), 0.7);
+		const result = adkMatchers.toBeSimilarTo(new EmbeddingVector([1, 0]), new EmbeddingVector([0.5, 0.5]), 0.7);
 
 		expect(result.pass).toBe(true);
 	});
 
 	it("is registered on expect", () => {
-		expect(EmbeddingVector.of([1, 0])).toBeSimilarTo(EmbeddingVector.of([1, 0]));
+		expect(new EmbeddingVector([1, 0])).toBeSimilarTo(new EmbeddingVector([1, 0]));
 	});
 });
 
@@ -200,7 +200,7 @@ describe("toSatisfyRubric", () => {
 		const result = await adkMatchers.toSatisfyRubric(
 			"I looked into it",
 			judgeAnswering('{"score":0.1,"reason":"it says nothing about the order"}'),
-			JudgeRubric.of("names the order id"),
+			new JudgeRubric("names the order id"),
 		);
 
 		expect(result.pass).toBe(false);

@@ -16,7 +16,7 @@ function suspended(): Session {
 		SessionId.from("s-1"),
 		AgentName.from("support"),
 		SessionStatus.SUSPENDED,
-		SessionRevision.of(7),
+		new SessionRevision(7),
 		Instant.fromIso(CREATED_AT),
 		Instant.fromIso(UPDATED_AT),
 	);

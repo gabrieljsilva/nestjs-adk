@@ -132,7 +132,7 @@ describe("RunEvents, over the runs the runtime published", () => {
 
 		const run = await bed.agent(BillingAgent).ask("hi");
 
-		expect(run.events.countOf("run.assistant-message-produced")).toBe(1);
+		expect(run.events.countByType("run.assistant-message-produced")).toBe(1);
 		expect(run.events.types).toContain("session.user-message-received");
 		expect(run.events.all.length).toBeGreaterThan(0);
 	});

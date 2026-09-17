@@ -22,9 +22,9 @@ class KeepLastStrategy extends CompactionStrategy {
 	}
 }
 
-const projection = ContextProjection.of([
-	ContextBlock.conversation(new UserMessage("older"), SessionRevision.of(1)),
-	ContextBlock.conversation(new UserMessage("newer"), SessionRevision.of(2)),
+const projection = new ContextProjection([
+	ContextBlock.conversation(new UserMessage("older"), new SessionRevision(1)),
+	ContextBlock.conversation(new UserMessage("newer"), new SessionRevision(2)),
 ]);
 
 const RUN = RunContextFixture.run();

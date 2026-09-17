@@ -35,7 +35,7 @@ import { RuntimeOptions } from "../runtime/composition/runtime.options";
 import { AgentRunCommand } from "../runtime/run/agent-run.command";
 import { FakeClock } from "../support/fake-clock.double";
 import { SequenceIdGenerator } from "../support/sequence-id-generator.double";
-import { AdkRuntimeHost } from "./adk-runtime-host.edge";
+import { AdkRuntime } from "./adk-runtime.edge";
 
 const SUPPORT = AgentName.from("support");
 const REMOTE_TOOL = "remote_lookup";
@@ -70,7 +70,7 @@ class CredentialSource extends ToolSource {
 			new ToolDefinition(
 				REMOTE_TOOL,
 				"Looks something up remotely",
-				ZodToolSchema.of(z.object({})),
+				ZodToolSchema.fromSchema(z.object({})),
 				this.effect,
 				new CredentialHandler(this.credential),
 			),
@@ -102,9 +102,9 @@ class RemoteCallingModel extends LlmModel {
 
 	public descriptor(): ModelDescriptor {
 		return new ModelDescriptor(
-			ModelIdentity.of("acme", "primary"),
-			ModelContextWindow.of(100_000, 4000),
-			ModelCapabilities.of([[ModelCapability.TOOLS, true]]),
+			new ModelIdentity("acme", "primary"),
+			new ModelContextWindow(100_000, 4000),
+			ModelCapabilities.fromEntries([[ModelCapability.TOOLS, true]]),
 		);
 	}
 
@@ -116,12 +116,12 @@ class RemoteCallingModel extends LlmModel {
 		const answered = results[0]?.output;
 		if (answered !== undefined) {
 			yield ModelChunk.text(String(Reflect.get(Object(answered), "seenBy")));
-			yield ModelChunk.usage(ModelUsage.of(10, 2));
+			yield ModelChunk.usage(ModelUsage.fromReport(10, 2));
 			yield ModelChunk.finish("stop");
 			return;
 		}
 		yield ModelChunk.toolCall(new ToolCallDelta(0, "{}", "c-1", REMOTE_TOOL));
-		yield ModelChunk.usage(ModelUsage.of(10, 2));
+		yield ModelChunk.usage(ModelUsage.fromReport(10, 2));
 		yield ModelChunk.finish("tool_calls");
 	}
 }
@@ -130,9 +130,9 @@ class RemoteCallingModel extends LlmModel {
 class ThrowingModel extends LlmModel {
 	public descriptor(): ModelDescriptor {
 		return new ModelDescriptor(
-			ModelIdentity.of("acme", "primary"),
-			ModelContextWindow.of(100_000, 4000),
-			ModelCapabilities.of([[ModelCapability.TOOLS, true]]),
+			new ModelIdentity("acme", "primary"),
+			new ModelContextWindow(100_000, 4000),
+			ModelCapabilities.fromEntries([[ModelCapability.TOOLS, true]]),
 		);
 	}
 
@@ -141,9 +141,9 @@ class ThrowingModel extends LlmModel {
 	}
 }
 
-function agentOf(model: LlmModel, policies: AgentExecutionPolicies = AgentExecutionPolicies.of()): DeclaredAgent {
+function agentOf(model: LlmModel, policies: AgentExecutionPolicies = new AgentExecutionPolicies()): DeclaredAgent {
 	return new DeclaredAgent(
-		AgentDefinition.of(
+		new AgentDefinition(
 			SUPPORT,
 			AgentDescription.from("support agent", "support"),
 			model,
@@ -154,7 +154,7 @@ function agentOf(model: LlmModel, policies: AgentExecutionPolicies = AgentExecut
 	);
 }
 
-const host = new AdkRuntimeHost();
+const host = new AdkRuntime();
 
 afterEach(async () => {
 	await host.stop();
@@ -171,7 +171,7 @@ const start = (model: LlmModel, options: RuntimeOptions = new RuntimeOptions()) 
 	);
 
 const askWith = (sources: readonly ToolSource[], message = "look it up") =>
-	new AgentRunCommand(SUPPORT, AskInput.of(message), undefined, undefined, undefined, sources);
+	new AgentRunCommand(SUPPORT, AskInput.fromMessage(message), undefined, undefined, undefined, sources);
 
 describe("tool sources declared per run", () => {
 	/** AC-18: the run's sources are added to the module's rather than replacing them. */
@@ -183,7 +183,7 @@ describe("tool sources declared per run", () => {
 					new ToolDefinition(
 						"per_run_tool",
 						"Only this run has it",
-						ZodToolSchema.of(z.object({})),
+						ZodToolSchema.fromSchema(z.object({})),
 						ToolEffect.READ,
 						new CredentialHandler("run"),
 					),
@@ -258,7 +258,7 @@ describe("tool sources declared per run", () => {
 		expect(suspended.isAwaitingApproval).toBe(true);
 
 		const resumed = await runtime.runner.approve(
-			ApproveInput.of(suspended.sessionId, ToolCallId.from("c-1"), "gabriel", [
+			new ApproveInput(suspended.sessionId, ToolCallId.from("c-1"), "gabriel", [
 				new CredentialSource("alice", ToolEffect.WRITE),
 			]),
 		);
@@ -274,7 +274,7 @@ describe("tool sources declared per run", () => {
 		const suspended = await runtime.runner.ask(askWith([new CredentialSource("alice", ToolEffect.WRITE)]));
 		const onApproval = new CredentialSource("alice", ToolEffect.WRITE);
 
-		await runtime.runner.approve(ApproveInput.of(suspended.sessionId, ToolCallId.from("c-1"), "gabriel", [onApproval]));
+		await runtime.runner.approve(new ApproveInput(suspended.sessionId, ToolCallId.from("c-1"), "gabriel", [onApproval]));
 
 		expect(onApproval.closes).toBe(1);
 	});

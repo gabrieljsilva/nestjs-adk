@@ -2,7 +2,7 @@
 
 A NestJS application that uses `nestjs-adk` the way an application would, so the library has somewhere to be wrong.
 
-The provider suites in `packages/google` and `packages/openai` compose the runtime by hand, with `AdkRuntimeHost` and `AgentRunCommand`. None of them passes through a decorator, the Nest container or an injected agent, which is exactly the path you write. This app is that path: a wiring mistake between a decorator and the catalog fails here and nowhere else.
+The provider suites in `packages/google` and `packages/openai` compose the runtime by hand, with `AdkRuntime` and `AgentRunCommand`. None of them passes through a decorator, the Nest container or an injected agent, which is exactly the path you write. This app is that path: a wiring mistake between a decorator and the catalog fails here and nowhere else.
 
 ## What the store is
 

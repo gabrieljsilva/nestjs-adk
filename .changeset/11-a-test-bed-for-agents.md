@@ -25,7 +25,7 @@ It wraps `Test.createTestingModule` rather than hiding it: `overriding` passes a
 
 `withScript` binds a script to one agent, so a transfer or a delegation can no longer consume turns queued for somebody else. Scripts are strict: a run that asks for a turn nobody queued fails naming the agent, and `bed.verify()` fails when the test described a conversation the run never had.
 
-`withModelFor` decides the model agent by agent through the runtime's own `ModelResolver`, which every entrypoint consults. A real provider can decide while scripts answer, transfers and delegations included, so a paid suite pays for the decision and nothing else. A bed whose agents do not all run on a model the test chose refuses to boot, naming them, which is what keeps a suite meant to be free from reaching a provider by accident; a suite that means it says `allowingUnscriptedModels()`.
+`withAgentModel` decides the model agent by agent through the runtime's own `ModelResolver`, which every entrypoint consults. A real provider can decide while scripts answer, transfers and delegations included, so a paid suite pays for the decision and nothing else. A bed whose agents do not all run on a model the test chose refuses to boot, naming them, which is what keeps a suite meant to be free from reaching a provider by accident; a suite that means it says `allowingUnscriptedModels()`.
 
 ## The run is the evidence
 

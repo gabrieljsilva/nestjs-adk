@@ -15,14 +15,14 @@ const DEFAULT_MEDIA_TYPE = "text/plain";
  * reference it was handed is detectable rather than merely wrong.
  */
 export class ArtifactContent {
-	private constructor(
-		public readonly text: string,
-		public readonly mediaType: string,
-	) {}
+	public readonly mediaType: string;
 
-	public static of(text: string, mediaType: string = DEFAULT_MEDIA_TYPE): ArtifactContent {
+	public constructor(
+		public readonly text: string,
+		mediaType: string = DEFAULT_MEDIA_TYPE,
+	) {
 		const normalized = mediaType.trim().toLowerCase();
-		return new ArtifactContent(text, normalized.length === 0 ? DEFAULT_MEDIA_TYPE : normalized);
+		this.mediaType = normalized.length === 0 ? DEFAULT_MEDIA_TYPE : normalized;
 	}
 
 	public get characters(): number {
@@ -30,6 +30,6 @@ export class ArtifactContent {
 	}
 
 	public digest(): ContentDigest {
-		return TextDigest.of(this.text);
+		return TextDigest.fromText(this.text);
 	}
 }

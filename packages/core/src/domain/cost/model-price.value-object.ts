@@ -14,21 +14,17 @@ import type { TokenRate } from "./token-rate.value-object";
  * tokens are charged at the input rate.
  */
 export class ModelPrice {
-	private constructor(
-		public readonly input: TokenRate,
-		public readonly output: TokenRate,
-		public readonly cacheRead: TokenRate | undefined,
-		public readonly bands: readonly PriceBand[],
-	) {}
+	public readonly cacheRead: TokenRate | undefined;
+	public readonly bands: readonly PriceBand[];
 
 	/** Bands are sorted here so that the caller does not have to, and the highest one wins. */
-	public static of(
-		input: TokenRate,
-		output: TokenRate,
+	public constructor(
+		public readonly input: TokenRate,
+		public readonly output: TokenRate,
 		options: { cacheRead?: TokenRate; bands?: readonly PriceBand[] } = {},
-	): ModelPrice {
-		const bands = [...(options.bands ?? [])].sort((one, other) => one.aboveTokens - other.aboveTokens);
-		return new ModelPrice(input, output, options.cacheRead, bands);
+	) {
+		this.cacheRead = options.cacheRead;
+		this.bands = [...(options.bands ?? [])].sort((one, other) => one.aboveTokens - other.aboveTokens);
 	}
 
 	/**
@@ -38,7 +34,7 @@ export class ModelPrice {
 	 * replaces the base. A band is not additive: a prompt over 200k is charged the 200k rate,
 	 * not the base plus something.
 	 */
-	public ratesFor(promptTokens: number): AppliedRates {
+	public resolveRates(promptTokens: number): AppliedRates {
 		let input = this.input;
 		let output = this.output;
 		let cacheRead = this.cacheRead;

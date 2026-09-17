@@ -20,7 +20,7 @@ export class NonContiguousSessionStorage extends InMemorySessionStorage {
 		const base = command.expectedRevision.value;
 		const stretched = result.committed.map(
 			(stored, index) =>
-				new StoredSessionEvent(stored.sessionId, SessionRevision.of(base + (index + 1) * REVISION_STEP), stored.event),
+				new StoredSessionEvent(stored.sessionId, new SessionRevision(base + (index + 1) * REVISION_STEP), stored.event),
 		);
 		const last = stretched.at(-1);
 		return new AppendEventsResult(stretched, last === undefined ? result.revision : last.revision);

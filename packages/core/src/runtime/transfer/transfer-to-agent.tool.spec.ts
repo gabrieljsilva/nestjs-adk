@@ -58,8 +58,8 @@ describe("TransferToAgentTool", () => {
 	});
 
 	it("reads the target back only from a call that was actually a transfer", () => {
-		expect(TransferToAgentTool.targetOf("transfer_to_agent", { agentName: "billing" })).toBe("billing");
-		expect(TransferToAgentTool.targetOf("lookup_order", { agentName: "billing" })).toBeUndefined();
-		expect(TransferToAgentTool.targetOf("transfer_to_agent", {})).toBeUndefined();
+		expect(TransferToAgentTool.findTarget("transfer_to_agent", { agentName: "billing" })).toBe("billing");
+		expect(TransferToAgentTool.findTarget("lookup_order", { agentName: "billing" })).toBeUndefined();
+		expect(TransferToAgentTool.findTarget("transfer_to_agent", {})).toBeUndefined();
 	});
 });

@@ -59,7 +59,7 @@ import { ShutdownOptions } from "../runtime/lifecycle/shutdown.options";
 import { AgentRunCommand } from "../runtime/run/agent-run.command";
 import { FakeClock } from "../support/fake-clock.double";
 import { SequenceIdGenerator } from "../support/sequence-id-generator.double";
-import { AdkRuntimeHost } from "./adk-runtime-host.edge";
+import { AdkRuntime } from "./adk-runtime.edge";
 
 const SUPPORT = AgentName.from("support");
 const BILLING = AgentName.from("billing");
@@ -75,8 +75,8 @@ class RecordingModel extends LlmModel {
 
 	public descriptor(): ModelDescriptor {
 		return new ModelDescriptor(
-			ModelIdentity.of("acme", "primary"),
-			ModelContextWindow.of(100_000, 4000),
+			new ModelIdentity("acme", "primary"),
+			new ModelContextWindow(100_000, 4000),
 			this.capabilities,
 		);
 	}
@@ -84,7 +84,7 @@ class RecordingModel extends LlmModel {
 	public async *generate(request: ModelRequest): AsyncIterable<ModelChunk> {
 		this.requests.push(request);
 		yield ModelChunk.text(`answer ${this.requests.length}`);
-		yield ModelChunk.usage(ModelUsage.of(50 * this.requests.length, 5));
+		yield ModelChunk.usage(ModelUsage.fromReport(50 * this.requests.length, 5));
 		yield ModelChunk.finish("stop");
 	}
 }
@@ -95,9 +95,9 @@ class ToolCallingModel extends LlmModel {
 
 	public descriptor(): ModelDescriptor {
 		return new ModelDescriptor(
-			ModelIdentity.of("acme", "primary"),
-			ModelContextWindow.of(100_000, 4000),
-			ModelCapabilities.of([[ModelCapability.TOOLS, true]]),
+			new ModelIdentity("acme", "primary"),
+			new ModelContextWindow(100_000, 4000),
+			ModelCapabilities.fromEntries([[ModelCapability.TOOLS, true]]),
 		);
 	}
 
@@ -120,9 +120,9 @@ class ToolCallingModel extends LlmModel {
 class PairCallingModel extends LlmModel {
 	public descriptor(): ModelDescriptor {
 		return new ModelDescriptor(
-			ModelIdentity.of("acme", "primary"),
-			ModelContextWindow.of(100_000, 4000),
-			ModelCapabilities.of([[ModelCapability.TOOLS, true]]),
+			new ModelIdentity("acme", "primary"),
+			new ModelContextWindow(100_000, 4000),
+			ModelCapabilities.fromEntries([[ModelCapability.TOOLS, true]]),
 		);
 	}
 
@@ -151,9 +151,9 @@ class TransferringModel extends LlmModel {
 
 	public descriptor(): ModelDescriptor {
 		return new ModelDescriptor(
-			ModelIdentity.of("acme", "primary"),
-			ModelContextWindow.of(100_000, 4000),
-			ModelCapabilities.of([[ModelCapability.TOOLS, true]]),
+			new ModelIdentity("acme", "primary"),
+			new ModelContextWindow(100_000, 4000),
+			ModelCapabilities.fromEntries([[ModelCapability.TOOLS, true]]),
 		);
 	}
 
@@ -182,9 +182,9 @@ class DelegatingModel extends LlmModel {
 
 	public descriptor(): ModelDescriptor {
 		return new ModelDescriptor(
-			ModelIdentity.of("acme", "primary"),
-			ModelContextWindow.of(100_000, 4000),
-			ModelCapabilities.of([[ModelCapability.TOOLS, true]]),
+			new ModelIdentity("acme", "primary"),
+			new ModelContextWindow(100_000, 4000),
+			ModelCapabilities.fromEntries([[ModelCapability.TOOLS, true]]),
 		);
 	}
 
@@ -211,8 +211,8 @@ class RecordingChildModel extends LlmModel {
 
 	public descriptor(): ModelDescriptor {
 		return new ModelDescriptor(
-			ModelIdentity.of("acme", "child"),
-			ModelContextWindow.of(100_000, 4000),
+			new ModelIdentity("acme", "child"),
+			new ModelContextWindow(100_000, 4000),
 			ModelCapabilities.none(),
 		);
 	}
@@ -220,7 +220,7 @@ class RecordingChildModel extends LlmModel {
 	public async *generate(request: ModelRequest): AsyncIterable<ModelChunk> {
 		this.requests.push(request);
 		yield ModelChunk.text("42");
-		yield ModelChunk.usage(ModelUsage.of(30, 3));
+		yield ModelChunk.usage(ModelUsage.fromReport(30, 3));
 		yield ModelChunk.finish("stop");
 	}
 }
@@ -235,9 +235,9 @@ class AlwaysTransferringModel extends LlmModel {
 
 	public descriptor(): ModelDescriptor {
 		return new ModelDescriptor(
-			ModelIdentity.of("acme", "primary"),
-			ModelContextWindow.of(100_000, 4000),
-			ModelCapabilities.of([[ModelCapability.TOOLS, true]]),
+			new ModelIdentity("acme", "primary"),
+			new ModelContextWindow(100_000, 4000),
+			ModelCapabilities.fromEntries([[ModelCapability.TOOLS, true]]),
 		);
 	}
 
@@ -254,9 +254,9 @@ class AlwaysTransferringModel extends LlmModel {
 class TwoHeldCallsModel extends LlmModel {
 	public descriptor(): ModelDescriptor {
 		return new ModelDescriptor(
-			ModelIdentity.of("acme", "primary"),
-			ModelContextWindow.of(100_000, 4000),
-			ModelCapabilities.of([[ModelCapability.TOOLS, true]]),
+			new ModelIdentity("acme", "primary"),
+			new ModelContextWindow(100_000, 4000),
+			ModelCapabilities.fromEntries([[ModelCapability.TOOLS, true]]),
 		);
 	}
 
@@ -291,14 +291,14 @@ class RecordingConsumer extends SessionEventConsumer {
 class SilentModel extends LlmModel {
 	public descriptor(): ModelDescriptor {
 		return new ModelDescriptor(
-			ModelIdentity.of("acme", "primary"),
-			ModelContextWindow.of(100_000, 4000),
+			new ModelIdentity("acme", "primary"),
+			new ModelContextWindow(100_000, 4000),
 			ModelCapabilities.none(),
 		);
 	}
 
 	public async *generate(): AsyncIterable<ModelChunk> {
-		yield ModelChunk.usage(ModelUsage.of(40, 0));
+		yield ModelChunk.usage(ModelUsage.fromReport(40, 0));
 		yield ModelChunk.finish("stop");
 	}
 }
@@ -394,12 +394,12 @@ function declaredAgent(
 	transfer: AgentTransferPolicy = AgentTransferPolicy.none(),
 	delegation: AgentDelegationPolicy = AgentDelegationPolicy.none(),
 ): DeclaredAgent {
-	const definition = AgentDefinition.of(
+	const definition = new AgentDefinition(
 		name,
 		AgentDescription.from(`${name.value} agent`, name.value),
 		model,
 		PromptInstructions.from("Be brief."),
-		AgentExecutionPolicies.of(undefined, undefined, undefined, transfer, delegation),
+		new AgentExecutionPolicies(undefined, undefined, undefined, transfer, delegation),
 		tools,
 	);
 	return new DeclaredAgent(definition, providerName);
@@ -415,7 +415,7 @@ class LookupHandler extends ToolHandler {
 }
 
 function orderSchema(): ZodToolSchema {
-	return ZodToolSchema.of(z.object({ orderId: z.string() }));
+	return ZodToolSchema.fromSchema(z.object({ orderId: z.string() }));
 }
 
 function lookupOf(handler: ToolHandler): ToolDefinition {
@@ -430,13 +430,13 @@ function closeOf(handler: ToolHandler): ToolDefinition {
 	return new ToolDefinition("close_order", "Closes an order", orderSchema(), ToolEffect.WRITE, handler);
 }
 
-const host = new AdkRuntimeHost();
+const host = new AdkRuntime();
 
 afterEach(async () => {
 	await host.stop();
 });
 
-describe("AdkRuntimeHost over the native runtime", () => {
+describe("AdkRuntime over the native runtime", () => {
 	it("answers a first question and keeps the session it created", async () => {
 		const model = new RecordingModel();
 		const runtime = await host.start(
@@ -447,7 +447,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new SequenceIdGenerator(),
 		);
 
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 
 		expect(result.text).toBe("answer 1");
 		expect(result.sessionId.value).toBeTruthy();
@@ -463,8 +463,8 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new SequenceIdGenerator(),
 		);
 
-		const first = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("and then?", first.sessionId)));
+		const first = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
+		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("and then?", first.sessionId)));
 
 		const second = model.requests[1];
 		expect(second?.messages.map((message) => message.text)).toEqual(["hi", "answer 1", "and then?"]);
@@ -480,7 +480,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new SequenceIdGenerator(),
 		);
 
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 
 		expect(model.requests[0]?.instructions?.text).toBe("Be brief.");
 	});
@@ -494,10 +494,10 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new FakeClock(),
 			new SequenceIdGenerator(),
 		);
-		const started = await first.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+		const started = await first.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 		await host.stop();
 
-		const restarted = new AdkRuntimeHost();
+		const restarted = new AdkRuntime();
 		const model = new RecordingModel();
 		const runtime = await restarted.start(
 			[agentOf(model)],
@@ -506,7 +506,9 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new FakeClock(),
 			new SequenceIdGenerator("again"),
 		);
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("still there?", started.sessionId)));
+		const result = await runtime.runner.ask(
+			new AgentRunCommand(SUPPORT, AskInput.fromMessage("still there?", started.sessionId)),
+		);
 		await restarted.stop();
 
 		expect(result.sessionId.value).toBe(started.sessionId.value);
@@ -524,7 +526,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new RuntimeOptions(ShutdownOptions.waitIndefinitely(), RunLimits.unbounded(), [consumer]),
 		);
 
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 
 		expect(consumer.seen.map((event) => event.type)).toEqual([
 			"session.created",
@@ -547,7 +549,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new RuntimeOptions(ShutdownOptions.waitIndefinitely(), RunLimits.unbounded(), [consumer]),
 		);
 
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hi"))).catch(() => undefined);
+		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi"))).catch(() => undefined);
 
 		expect(consumer.seen).toHaveLength(0);
 	});
@@ -579,7 +581,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new SequenceIdGenerator(),
 		);
 
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("where is order 42?")));
+		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("where is order 42?")));
 
 		expect(handler.calls).toBe(1);
 		expect(model.turns).toBe(2);
@@ -597,7 +599,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new RuntimeOptions(ShutdownOptions.waitIndefinitely(), RunLimits.unbounded(), [consumer]),
 		);
 
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("where is order 42?")));
+		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("where is order 42?")));
 
 		const types = consumer.seen.map((event) => event.type);
 		expect(types.indexOf("tool.call-requested")).toBeLessThan(types.indexOf("tool.result-produced"));
@@ -620,11 +622,11 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			artifactsOf(),
 			new FakeClock(),
 			new SequenceIdGenerator(),
-			new RuntimeOptions(ShutdownOptions.waitIndefinitely(), RunLimits.of(2)),
+			new RuntimeOptions(ShutdownOptions.waitIndefinitely(), new RunLimits(2)),
 		);
 
 		const error = await runtime.runner
-			.ask(new AgentRunCommand(SUPPORT, AskInput.of("loop please")))
+			.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("loop please")))
 			.catch((reason) => reason);
 
 		expect(error).toBeInstanceOf(AgentMaxIterationsError);
@@ -641,7 +643,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			approvingOptions(),
 		);
 
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("where is order 42?")));
+		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("where is order 42?")));
 
 		expect(result.status.equals(AgentRunStatus.SUSPENDED)).toBe(true);
 		expect(handler.calls).toBe(0);
@@ -659,10 +661,10 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new SequenceIdGenerator(),
 			approvingOptions(),
 		);
-		const suspended = await first.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("where is order 42?")));
+		const suspended = await first.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("where is order 42?")));
 		await host.stop();
 
-		const restarted = new AdkRuntimeHost();
+		const restarted = new AdkRuntime();
 		const runtime = await restarted.start(
 			[agentOf(new ToolCallingModel(), [lookupOf(handler)])],
 			storage,
@@ -671,7 +673,9 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new SequenceIdGenerator("again"),
 			approvingOptions(),
 		);
-		const resumed = await runtime.runner.approve(ApproveInput.of(suspended.sessionId, ToolCallId.from("c-1"), "gabriel"));
+		const resumed = await runtime.runner.approve(
+			new ApproveInput(suspended.sessionId, ToolCallId.from("c-1"), "gabriel"),
+		);
 		await restarted.stop();
 
 		expect(handler.calls).toBe(1);
@@ -689,11 +693,11 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new SequenceIdGenerator(),
 			approvingOptions(),
 		);
-		const suspended = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("where is order 42?")));
-		await runtime.runner.approve(ApproveInput.of(suspended.sessionId, ToolCallId.from("c-1")));
+		const suspended = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("where is order 42?")));
+		await runtime.runner.approve(new ApproveInput(suspended.sessionId, ToolCallId.from("c-1")));
 
 		const error = await runtime.runner
-			.approve(ApproveInput.of(suspended.sessionId, ToolCallId.from("c-1")))
+			.approve(new ApproveInput(suspended.sessionId, ToolCallId.from("c-1")))
 			.catch((reason) => reason);
 
 		expect(error).toBeInstanceOf(ApprovalNotPendingError);
@@ -710,10 +714,10 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new SequenceIdGenerator(),
 			approvingOptions(),
 		);
-		const suspended = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("where is order 42?")));
+		const suspended = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("where is order 42?")));
 
 		const rejected = await runtime.runner.reject(
-			RejectInput.of(suspended.sessionId, ToolCallId.from("c-1"), "not authorized"),
+			new RejectInput(suspended.sessionId, ToolCallId.from("c-1"), "not authorized"),
 		);
 
 		expect(handler.calls).toBe(0);
@@ -733,7 +737,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			writeApprovingOptions(),
 		);
 
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("refund order 42")));
+		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund order 42")));
 
 		expect(result.status.equals(AgentRunStatus.SUSPENDED)).toBe(true);
 		expect(lookup.calls).toBe(0);
@@ -752,9 +756,9 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new SequenceIdGenerator(),
 			writeApprovingOptions(),
 		);
-		const suspended = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("refund order 42")));
+		const suspended = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund order 42")));
 
-		const resumed = await runtime.runner.approve(ApproveInput.of(suspended.sessionId, ToolCallId.from("c-2")));
+		const resumed = await runtime.runner.approve(new ApproveInput(suspended.sessionId, ToolCallId.from("c-2")));
 
 		expect(lookup.calls).toBe(1);
 		expect(refund.calls).toBe(1);
@@ -773,9 +777,9 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new SequenceIdGenerator(),
 			writeApprovingOptions(),
 		);
-		const suspended = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("refund and close 42")));
+		const suspended = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund and close 42")));
 
-		const half = await runtime.runner.approve(ApproveInput.of(suspended.sessionId, ToolCallId.from("c-1")));
+		const half = await runtime.runner.approve(new ApproveInput(suspended.sessionId, ToolCallId.from("c-1")));
 
 		expect(half.status.equals(AgentRunStatus.SUSPENDED)).toBe(true);
 		expect(refund.calls).toBe(0);
@@ -793,11 +797,11 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new SequenceIdGenerator(),
 			writeApprovingOptions(),
 		);
-		const suspended = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("refund and close 42")));
-		await runtime.runner.approve(ApproveInput.of(suspended.sessionId, ToolCallId.from("c-1")));
+		const suspended = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund and close 42")));
+		await runtime.runner.approve(new ApproveInput(suspended.sessionId, ToolCallId.from("c-1")));
 
 		const done = await runtime.runner.reject(
-			RejectInput.of(suspended.sessionId, ToolCallId.from("c-2"), "the order stays open"),
+			new RejectInput(suspended.sessionId, ToolCallId.from("c-2"), "the order stays open"),
 		);
 
 		expect(refund.calls).toBe(1);
@@ -814,7 +818,9 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new SequenceIdGenerator(),
 		);
 
-		const error = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hi"))).catch((reason) => reason);
+		const error = await runtime.runner
+			.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")))
+			.catch((reason) => reason);
 
 		expect(error).toBeInstanceOf(EmptyModelResponseError);
 	});
@@ -829,7 +835,9 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new SequenceIdGenerator(),
 		);
 
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hi"))).catch(() => undefined);
+		const result = await runtime.runner
+			.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")))
+			.catch(() => undefined);
 		const events = await eventTypesOf(storage, SessionId.from("id-1"));
 
 		expect(result).toBeUndefined();
@@ -847,7 +855,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new SequenceIdGenerator(),
 		);
 
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hi"))).catch(() => undefined);
+		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi"))).catch(() => undefined);
 
 		expect(await eventTypesOf(storage, SessionId.from("id-1"))).toContain("run.failed");
 	});
@@ -862,7 +870,9 @@ describe("AdkRuntimeHost over the native runtime", () => {
 		);
 		await host.stop();
 
-		const error = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hi"))).catch((reason) => reason);
+		const error = await runtime.runner
+			.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")))
+			.catch((reason) => reason);
 
 		expect(error).toBeInstanceOf(Error);
 	});
@@ -879,7 +889,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			writeApprovingOptions(),
 		);
 
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("refund order 42")));
+		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund order 42")));
 
 		expect(result.isAwaitingApproval).toBe(true);
 		expect(result.awaiting.map((call) => call.toolName)).toEqual(["refund_order"]);
@@ -898,10 +908,10 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new SequenceIdGenerator(),
 			writeApprovingOptions(),
 		);
-		const suspended = await first.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("refund order 42")));
+		const suspended = await first.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund order 42")));
 		await host.stop();
 
-		const restarted = new AdkRuntimeHost();
+		const restarted = new AdkRuntime();
 		const runtime = await restarted.start(
 			[agentOf(new PairCallingModel(), [lookupOf(new LookupHandler()), refundOf(new LookupHandler())])],
 			storage,
@@ -931,7 +941,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			writeApprovingOptions(),
 		);
 
-		const suspended = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("refund order 42")));
+		const suspended = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund order 42")));
 
 		const snapshot = await storage.findSnapshot(SessionContext.fromSessionId(suspended.sessionId));
 		expect(snapshot?.state.isAwaitingApproval).toBe(true);
@@ -950,7 +960,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new SequenceIdGenerator(),
 			writeApprovingOptions(),
 		);
-		const suspended = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("refund order 42")));
+		const suspended = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund order 42")));
 		const journalLength = (await eventTypesOf(storage, suspended.sessionId)).length;
 		storage.replayed = 0;
 
@@ -976,7 +986,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new SequenceIdGenerator(),
 		);
 
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("I was charged twice")));
+		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("I was charged twice")));
 
 		expect(result.text).toBe("answer 1");
 		expect(billing.requests).toHaveLength(1);
@@ -986,7 +996,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 
 	it("keeps one run across the handover, and offers the receiver its own tools", async () => {
 		const storage = new InMemorySessionStorage();
-		const billing = new RecordingModel(ModelCapabilities.of([[ModelCapability.TOOLS, true]]));
+		const billing = new RecordingModel(ModelCapabilities.fromEntries([[ModelCapability.TOOLS, true]]));
 		const runtime = await host.start(
 			[
 				declaredAgent(
@@ -1004,7 +1014,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new SequenceIdGenerator(),
 		);
 
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("I was charged twice")));
+		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("I was charged twice")));
 
 		const offered = billing.requests[0]?.tools.map((tool) => tool.name) ?? [];
 		expect(offered).toContain("refund_order");
@@ -1027,7 +1037,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 				declaredAgent(
 					SUPPORT,
 					"SupportAgent",
-					new RecordingModel(ModelCapabilities.of([[ModelCapability.TOOLS, true]])),
+					new RecordingModel(ModelCapabilities.fromEntries([[ModelCapability.TOOLS, true]])),
 					[],
 					AgentTransferPolicy.to([BILLING]),
 				),
@@ -1038,12 +1048,12 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new FakeClock(),
 			new SequenceIdGenerator(),
 		);
-		const first = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hello")));
+		const first = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hello")));
 
 		const second = await runtime.runner.ask(
 			new AgentRunCommand(
 				SUPPORT,
-				AskInput.of("I was charged twice", first.sessionId),
+				AskInput.fromMessage("I was charged twice", first.sessionId),
 				RunLimits.unbounded(),
 				undefined,
 				BILLING,
@@ -1067,12 +1077,18 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new FakeClock(),
 			new SequenceIdGenerator(),
 		);
-		const first = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hello")));
+		const first = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hello")));
 		const before = await eventTypesOf(storage, first.sessionId);
 
 		await expect(
 			runtime.runner.ask(
-				new AgentRunCommand(SUPPORT, AskInput.of("route me", first.sessionId), RunLimits.unbounded(), undefined, BILLING),
+				new AgentRunCommand(
+					SUPPORT,
+					AskInput.fromMessage("route me", first.sessionId),
+					RunLimits.unbounded(),
+					undefined,
+					BILLING,
+				),
 			),
 		).rejects.toBeInstanceOf(TransferNotDeclaredError);
 
@@ -1103,9 +1119,9 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new SequenceIdGenerator(),
 		);
 
-		await expect(runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("who owns this?")))).rejects.toBeInstanceOf(
-			AgentMaxTransfersError,
-		);
+		await expect(
+			runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("who owns this?"))),
+		).rejects.toBeInstanceOf(AgentMaxTransfersError);
 	});
 
 	it("refuses at boot an agent that declares a handover to nobody registered", async () => {
@@ -1141,7 +1157,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new SequenceIdGenerator(),
 		);
 
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("how long do I have?")));
+		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("how long do I have?")));
 
 		expect(result.text).toBe("the specialist said: 42");
 		expect((await runtime.sessions.inspect(result.sessionId)).activeAgent.value).toBe("support");
@@ -1169,7 +1185,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new FakeClock(),
 			new SequenceIdGenerator(),
 		);
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("how long do I have?")));
+		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("how long do I have?")));
 
 		const stored = [];
 		for await (const event of storage.readEvents(
@@ -1210,7 +1226,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new SequenceIdGenerator(),
 		);
 
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("how long do I have?")));
+		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("how long do I have?")));
 
 		const readByChild = child.requests[0]?.messages.map((message) => JSON.stringify(message)).join(" ") ?? "";
 		expect(readByChild).toContain("what is the refund window?");
@@ -1236,7 +1252,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new FakeClock(),
 			new SequenceIdGenerator(),
 		);
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("how long do I have?")));
+		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("how long do I have?")));
 
 		const measured = [];
 		for await (const event of storage.readEvents(
@@ -1264,7 +1280,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new SequenceIdGenerator(),
 		);
 
-		await expect(runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("go")))).rejects.toBeInstanceOf(
+		await expect(runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("go")))).rejects.toBeInstanceOf(
 			DelegationNotDeclaredError,
 		);
 	});
@@ -1287,7 +1303,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new SequenceIdGenerator(),
 		);
 
-		await expect(runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("go")))).rejects.toBeInstanceOf(
+		await expect(runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("go")))).rejects.toBeInstanceOf(
 			AgentMaxDelegationDepthError,
 		);
 	});
@@ -1302,7 +1318,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new SequenceIdGenerator(),
 		);
 
-		const turn = runtime.runner.stream(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+		const turn = runtime.runner.stream(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 		const chunks: string[] = [];
 		let step = await turn.next();
 		while (step.done !== true) {
@@ -1324,7 +1340,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new SequenceIdGenerator(),
 		);
 
-		const turn = runtime.runner.stream(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+		const turn = runtime.runner.stream(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 		let chunks = 0;
 		let step = await turn.next();
 		while (step.done !== true) {
@@ -1354,7 +1370,9 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new SequenceIdGenerator(),
 		);
 
-		const snapshots = await runtime.runner.explain(new AgentRunCommand(SUPPORT, AskInput.of("where is order 42?")));
+		const snapshots = await runtime.runner.explain(
+			new AgentRunCommand(SUPPORT, AskInput.fromMessage("where is order 42?")),
+		);
 
 		expect(snapshots).toHaveLength(2);
 		expect(snapshots[0]?.agent.value).toBe("support");
@@ -1373,8 +1391,8 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new SequenceIdGenerator(),
 		);
 
-		const first = await runtime.runner.explain(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
-		const second = await runtime.runner.explain(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+		const first = await runtime.runner.explain(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
+		const second = await runtime.runner.explain(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 
 		const prefixes = [first[0], second[0]].filter((snapshot) => snapshot !== undefined);
 		const report = new PrefixComparator().compare(prefixes);
@@ -1389,7 +1407,7 @@ describe("AdkRuntimeHost over the native runtime", () => {
 			new FakeClock(),
 			new SequenceIdGenerator(),
 		);
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 
 		const inspection = await runtime.sessions.inspect(result.sessionId);
 

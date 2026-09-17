@@ -87,7 +87,7 @@ beforeEach(() => {
 function stackOf(model: TurnScriptModel, effect = ToolEffect.READ, approvals = EffectApprovalPolicy.never()) {
 	return new NativeStackFixture(
 		model,
-		NativeStackFixture.definitionOf(model, undefined, [toolOf(handler, effect)]),
+		NativeStackFixture.buildDefinition(model, undefined, [toolOf(handler, effect)]),
 		approvals,
 	);
 }
@@ -96,7 +96,7 @@ describe("TurnLoop", () => {
 	it("calls the tool the model asked for and goes back with the result", async () => {
 		const stack = stackOf(callsThenAnswers());
 
-		const result = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("where is order 42?")));
+		const result = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("where is order 42?")));
 
 		expect(handler.calls).toBe(1);
 		expect(result.text).toBe("the order is shipped");
@@ -105,9 +105,9 @@ describe("TurnLoop", () => {
 	it("journals what the model asked for before the tool runs, and the result after it", async () => {
 		const stack = stackOf(callsThenAnswers());
 
-		const result = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("where is order 42?")));
+		const result = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("where is order 42?")));
 
-		const types = (await stack.journalOf(result.sessionId)).map((event) => event.type);
+		const types = (await stack.readJournal(result.sessionId)).map((event) => event.type);
 		expect(types.indexOf(ToolCallRequested.TYPE)).toBeLessThan(types.indexOf(ToolResultProduced.TYPE));
 		expect(types.at(-1)).toBe(AgentRunCompleted.TYPE);
 	});
@@ -119,7 +119,7 @@ describe("TurnLoop", () => {
 		const stack = stackOf(forever);
 
 		const error = await stack.runner
-			.ask(new AgentRunCommand(SUPPORT, AskInput.of("loop please"), RunLimits.of(2)))
+			.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("loop please"), new RunLimits(2)))
 			.catch((reason) => reason);
 
 		expect(error).toBeInstanceOf(AgentMaxIterationsError);
@@ -129,7 +129,9 @@ describe("TurnLoop", () => {
 		const silent = new TurnScriptModel([[ModelChunk.finish("stop")]]);
 		const stack = stackOf(silent);
 
-		const error = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hi"))).catch((reason) => reason);
+		const error = await stack.runner
+			.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")))
+			.catch((reason) => reason);
 
 		expect(error).toBeInstanceOf(EmptyModelResponseError);
 	});
@@ -137,11 +139,11 @@ describe("TurnLoop", () => {
 	it("suspends the turn before anything runs when a call has to be answered for", async () => {
 		const stack = stackOf(callsThenAnswers(), ToolEffect.WRITE, EffectApprovalPolicy.from(ToolEffect.WRITE));
 
-		const result = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("refund order 42")));
+		const result = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund order 42")));
 
 		expect(result.status.equals(AgentRunStatus.SUSPENDED)).toBe(true);
 		expect(handler.calls).toBe(0);
-		const types = (await stack.journalOf(result.sessionId)).map((event) => event.type);
+		const types = (await stack.readJournal(result.sessionId)).map((event) => event.type);
 		expect(types).toContain(ToolApprovalRequested.TYPE);
 		expect(types.at(-1)).toBe(AgentRunSuspended.TYPE);
 	});
@@ -154,7 +156,7 @@ describe("TurnLoop", () => {
 			await stack.runner.ask(
 				new AgentRunCommand(
 					SUPPORT,
-					AskInput.of("where is order 42?"),
+					AskInput.fromMessage("where is order 42?"),
 					undefined,
 					undefined,
 					undefined,
@@ -189,7 +191,7 @@ describe("TurnLoop", () => {
 			await stack.runner.ask(
 				new AgentRunCommand(
 					SUPPORT,
-					AskInput.of("where is order 42?"),
+					AskInput.fromMessage("where is order 42?"),
 					undefined,
 					undefined,
 					undefined,
@@ -210,7 +212,7 @@ describe("TurnLoop", () => {
 			const result = await stack.runner.ask(
 				new AgentRunCommand(
 					SUPPORT,
-					AskInput.of("refund order 42"),
+					AskInput.fromMessage("refund order 42"),
 					undefined,
 					undefined,
 					undefined,
@@ -238,7 +240,7 @@ describe("TurnLoop", () => {
 			await stack.runner.ask(
 				new AgentRunCommand(
 					SUPPORT,
-					AskInput.of("do the thing"),
+					AskInput.fromMessage("do the thing"),
 					undefined,
 					undefined,
 					undefined,
@@ -265,7 +267,7 @@ describe("TurnLoop", () => {
 				stack.runner.ask(
 					new AgentRunCommand(
 						SUPPORT,
-						AskInput.of("where is order 42?"),
+						AskInput.fromMessage("where is order 42?"),
 						undefined,
 						undefined,
 						undefined,
@@ -283,9 +285,9 @@ describe("TurnLoop", () => {
 	it("carries the call the human has to answer for into the suspension", async () => {
 		const stack = stackOf(callsThenAnswers(), ToolEffect.WRITE, EffectApprovalPolicy.from(ToolEffect.WRITE));
 
-		const result = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("refund order 42")));
+		const result = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund order 42")));
 
-		const suspended = (await stack.journalOf(result.sessionId)).find(
+		const suspended = (await stack.readJournal(result.sessionId)).find(
 			(event): event is AgentRunSuspended => event instanceof AgentRunSuspended,
 		);
 		expect(suspended?.calls).toHaveLength(1);

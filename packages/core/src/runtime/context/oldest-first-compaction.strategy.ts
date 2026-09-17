@@ -43,7 +43,7 @@ export class OldestFirstCompactionStrategy extends CompactionStrategy {
 		projection: ContextProjection,
 		decision: CompactionDecision,
 	): Promise<ContextProjection> {
-		const target = decision.targetOf(this.measurer.measure(projection));
+		const target = decision.calculateTarget(this.measurer.measure(projection));
 		const kept = [...projection.blocks];
 		const dropped: ContextBlock[] = [];
 		let summary: ContextBlock | undefined;
@@ -51,7 +51,7 @@ export class OldestFirstCompactionStrategy extends CompactionStrategy {
 		for (let round = 0; round < MAX_ROUNDS; round += 1) {
 			this.dropUntilItFits(projection, kept, dropped, summary, decision, target);
 			if (this.summarizer === undefined || dropped.length === 0) break;
-			summary = await this.summaryOf(context, dropped);
+			summary = await this.buildSummary(context, dropped);
 			if (summary === undefined) break;
 			if (this.fits(this.assemble(projection, kept, summary), target)) break;
 		}
@@ -88,7 +88,7 @@ export class OldestFirstCompactionStrategy extends CompactionStrategy {
 	}
 
 	/** A summarizer that fails costs the summary, never the compaction. */
-	private async summaryOf(context: RunContext, dropped: readonly ContextBlock[]): Promise<ContextBlock | undefined> {
+	private async buildSummary(context: RunContext, dropped: readonly ContextBlock[]): Promise<ContextBlock | undefined> {
 		if (this.summarizer === undefined) return undefined;
 		const first = dropped[0];
 		if (first === undefined) return undefined;

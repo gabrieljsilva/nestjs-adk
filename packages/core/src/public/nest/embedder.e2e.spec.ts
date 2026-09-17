@@ -22,7 +22,7 @@ import { EmbedderNotDeclaredError } from "./errors/embedder-not-declared.error";
 import { AdkModuleOptions } from "./module/adk-module.options";
 import { AdkModule } from "./module/adk.module";
 
-const EMBEDDING_MODEL = ModelIdentity.of("acme", "embed-1");
+const EMBEDDING_MODEL = new ModelIdentity("acme", "embed-1");
 
 /** Deterministic and dimensionless on purpose: what matters is which one answered. */
 class FixedEmbedder extends Embedder {
@@ -31,7 +31,7 @@ class FixedEmbedder extends Embedder {
 	}
 
 	public async embed(text: string): Promise<EmbeddingVector> {
-		return EmbeddingVector.of([this.signature, text.length]);
+		return new EmbeddingVector([this.signature, text.length]);
 	}
 }
 
@@ -41,13 +41,13 @@ class ReportingEmbedder extends Embedder {
 	}
 
 	public async embedMetered(text: string): Promise<MeteredEmbedding> {
-		return new MeteredEmbedding(EmbeddingVector.of([1, 0]), EMBEDDING_MODEL, ModelUsage.of(text.length, 0));
+		return new MeteredEmbedding(new EmbeddingVector([1, 0]), EMBEDDING_MODEL, ModelUsage.fromReport(text.length, 0));
 	}
 }
 
 class KnowsEmbeddings extends PricingSource {
 	public async findPrice(_context: SessionContext | undefined, model: ModelIdentity): Promise<ModelPrice | undefined> {
-		return model.equals(EMBEDDING_MODEL) ? ModelPrice.of(TokenRate.fromUsdPerToken(1e-8), TokenRate.zero()) : undefined;
+		return model.equals(EMBEDDING_MODEL) ? new ModelPrice(TokenRate.fromUsdPerToken(1e-8), TokenRate.zero()) : undefined;
 	}
 }
 

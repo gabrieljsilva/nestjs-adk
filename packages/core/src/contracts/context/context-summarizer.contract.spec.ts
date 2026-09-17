@@ -18,8 +18,8 @@ const RUN = RunContextFixture.run();
 describe("ContextSummarizer", () => {
 	it("turns the blocks being dropped into one text", async () => {
 		const dropped = [
-			ContextBlock.conversation(new UserMessage("one"), SessionRevision.of(1)),
-			ContextBlock.conversation(new UserMessage("two"), SessionRevision.of(2)),
+			ContextBlock.conversation(new UserMessage("one"), new SessionRevision(1)),
+			ContextBlock.conversation(new UserMessage("two"), new SessionRevision(2)),
 		];
 
 		expect(await new CountingSummarizer().summarize(RUN, dropped)).toBe("2 earlier exchanges");

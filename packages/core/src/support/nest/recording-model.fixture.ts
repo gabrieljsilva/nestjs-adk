@@ -22,9 +22,9 @@ export class RecordingModel extends LlmModel {
 
 	public descriptor(): ModelDescriptor {
 		return new ModelDescriptor(
-			ModelIdentity.of("acme", "primary"),
-			ModelContextWindow.of(100_000, 4000),
-			ModelCapabilities.of([
+			new ModelIdentity("acme", "primary"),
+			new ModelContextWindow(100_000, 4000),
+			ModelCapabilities.fromEntries([
 				[ModelCapability.TOOLS, true],
 				[ModelCapability.STRUCTURED_OUTPUT, true],
 			]),
@@ -34,7 +34,7 @@ export class RecordingModel extends LlmModel {
 	public async *generate(request: ModelRequest): AsyncIterable<ModelChunk> {
 		this.requests.push(request);
 		yield ModelChunk.text(this.answer);
-		yield ModelChunk.usage(ModelUsage.of(50, 5));
+		yield ModelChunk.usage(ModelUsage.fromReport(50, 5));
 		yield ModelChunk.finish("stop");
 	}
 }

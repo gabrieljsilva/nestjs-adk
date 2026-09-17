@@ -22,8 +22,8 @@ const CONTEXT_HINTS = ["exceeds the maximum number of tokens", "input token coun
  */
 export class GeminiFailureMapper {
 	public toFailure(error: unknown): ModelFailure {
-		const message = this.messageOf(error);
-		const status = this.statusOf(error);
+		const message = this.readMessage(error);
+		const status = this.readStatus(error);
 
 		if (this.isSafety(error, message)) return new SafetyBlockedFailure(message, error);
 		if (status === 429 || this.mentions(message, "RESOURCE_EXHAUSTED")) return new RateLimitedFailure(message, error);
@@ -58,13 +58,13 @@ export class GeminiFailureMapper {
 	}
 
 	private isTimeout(error: unknown, message: string): boolean {
-		if (this.codeOf(error) === "ETIMEDOUT") return true;
+		if (this.readCode(error) === "ETIMEDOUT") return true;
 		return this.mentions(message, "DEADLINE_EXCEEDED") || this.mentions(message, "timeout");
 	}
 
 	/** No status at all means the request never reached the provider. */
 	private isConnection(error: unknown, message: string): boolean {
-		const code = this.codeOf(error);
+		const code = this.readCode(error);
 		if (code === "ECONNREFUSED" || code === "ENOTFOUND" || code === "ECONNRESET") return true;
 		return this.mentions(message, "fetch failed") || this.mentions(message, "socket hang up");
 	}
@@ -73,7 +73,7 @@ export class GeminiFailureMapper {
 		return message.toLowerCase().includes(text.toLowerCase());
 	}
 
-	private statusOf(error: unknown): number | undefined {
+	private readStatus(error: unknown): number | undefined {
 		const direct = this.numberAt(error, "status");
 		if (direct !== undefined) return direct;
 		const code = this.numberAt(error, "code");
@@ -82,14 +82,14 @@ export class GeminiFailureMapper {
 		return this.numberAt(Reflect.get(error, "error"), "code");
 	}
 
-	private messageOf(error: unknown): string {
+	private readMessage(error: unknown): string {
 		if (error instanceof Error) return error.message;
 		if (typeof error === "string") return error;
 		const nested = this.textAt(error, "message");
 		return nested ?? "Gemini failed without a message";
 	}
 
-	private codeOf(error: unknown): string | undefined {
+	private readCode(error: unknown): string | undefined {
 		return this.textAt(error, "code");
 	}
 

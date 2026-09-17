@@ -45,8 +45,8 @@ export class ZodToolSchema extends ToolSchema {
 	}
 
 	/** The declaration comes from the schema, which is what keeps one shape describing itself. */
-	public static of(schema: ZodType): ZodToolSchema {
-		return new ZodToolSchema(schema, ZodToolSchema.declarationOf(schema));
+	public static fromSchema(schema: ZodType): ZodToolSchema {
+		return new ZodToolSchema(schema, ZodToolSchema.buildDeclaration(schema));
 	}
 
 	/**
@@ -64,7 +64,7 @@ export class ZodToolSchema extends ToolSchema {
 
 	public parse(args: unknown): ParsedArguments {
 		const result = this.schema.safeParse(args);
-		if (!result.success) return ParsedArguments.invalid(this.reasonOf(result.error));
+		if (!result.success) return ParsedArguments.invalid(this.readReason(result.error));
 		const values: unknown = result.data;
 		if (typeof values !== "object" || values === null || Array.isArray(values)) {
 			return ParsedArguments.invalid("expected an object of arguments.");
@@ -72,13 +72,13 @@ export class ZodToolSchema extends ToolSchema {
 		return ParsedArguments.valid({ ...values });
 	}
 
-	private static declarationOf(schema: ZodType): Record<string, unknown> {
+	private static buildDeclaration(schema: ZodType): Record<string, unknown> {
 		const { [DIALECT_FIELD]: _dialect, ...declaration } = toJSONSchema(schema, CONVERSION);
 		return declaration;
 	}
 
 	/** Whatever zod reported, as one line the model can act on. */
-	private reasonOf(error: unknown): string {
+	private readReason(error: unknown): string {
 		if (error instanceof Error) return error.message;
 		return typeof error === "string" ? error : "the arguments do not match the schema.";
 	}

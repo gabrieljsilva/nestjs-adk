@@ -16,7 +16,7 @@ const SCHEMA_VERSION = 5;
  */
 export class UserMessageReceived extends SessionEvent {
 	public readonly type = UserMessageReceived.TYPE;
-	public readonly schemaVersion = EventSchemaVersion.of(SCHEMA_VERSION);
+	public readonly schemaVersion = new EventSchemaVersion(SCHEMA_VERSION);
 
 	public static readonly TYPE = "session.user-message-received";
 

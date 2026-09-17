@@ -45,9 +45,9 @@ export class ScriptedModel extends LlmModel {
 
 	public descriptor(): ModelDescriptor {
 		return new ModelDescriptor(
-			ModelIdentity.of("test", this.name),
-			ModelContextWindow.of(100_000, 4_000),
-			ModelCapabilities.of([
+			new ModelIdentity("test", this.name),
+			new ModelContextWindow(100_000, 4_000),
+			ModelCapabilities.fromEntries([
 				[ModelCapability.TOOLS, true],
 				[ModelCapability.STRUCTURED_OUTPUT, true],
 			]),
@@ -149,7 +149,7 @@ export class ScriptedModel extends LlmModel {
 			throw new ScriptDeviationError(this.name, this.requests.length, turn.expectationText, this.describe(request));
 		}
 		if (turn.failure !== undefined) throw new ModelCallFailedError(turn.failure, this.name);
-		for (const chunk of this.chunksOf(turn)) yield chunk;
+		for (const chunk of this.buildChunks(turn)) yield chunk;
 	}
 
 	private nextTurn(): ScriptedTurn {
@@ -159,7 +159,7 @@ export class ScriptedModel extends LlmModel {
 		return ScriptedTurn.text("done");
 	}
 
-	private chunksOf(turn: ScriptedTurn): readonly ModelChunk[] {
+	private buildChunks(turn: ScriptedTurn): readonly ModelChunk[] {
 		if (turn.calls.length > 0) {
 			return [
 				...turn.calls.map((call, index) =>
@@ -167,13 +167,13 @@ export class ScriptedModel extends LlmModel {
 						new ToolCallDelta(index, JSON.stringify(call.args), `call-${this.requests.length}-${index}`, call.tool),
 					),
 				),
-				ModelChunk.usage(ModelUsage.of(this.promptTokens, 2)),
+				ModelChunk.usage(ModelUsage.fromReport(this.promptTokens, 2)),
 				ModelChunk.finish("tool_calls"),
 			];
 		}
 		return [
 			...turn.deltas.map((delta) => ModelChunk.text(delta)),
-			ModelChunk.usage(ModelUsage.of(this.promptTokens, 2)),
+			ModelChunk.usage(ModelUsage.fromReport(this.promptTokens, 2)),
 			ModelChunk.finish("stop"),
 		];
 	}

@@ -17,7 +17,7 @@ A row marked `target` describes a decision the code has not reached yet. It is s
 | `entity` `target` | [[llm-model]] | Definition, minimum contract and first-class features of an LLM model |
 | `convention` | [[writing-guidelines]] | Format, frontmatter schema and linking rules every file in `.knowledge/` must follow |
 | `convention` `target` | [[comments-and-jsdoc]] | When code comments are allowed and what public API documentation must explain |
-| `convention` `target` | [[api-naming]] | Verb-first method names, factories that name their source, and the failure semantics a name has to carry |
+| `convention` | [[api-naming]] | Verb-first method names, factories that name their source, and the failure semantics a name has to carry |
 | `convention` `target` | [[type-safety]] | TypeScript restrictions and class-based data contracts across architectural layers |
 | `convention` `target` | [[layer-boundaries]] | Which folder a symbol lives in, and the dependency direction between the six folders |
 | `convention` `target` | [[layered-responsibilities]] | What an edge, a use case, a service and a repository may each contain, and why dirty code moves inward |

@@ -27,12 +27,12 @@ export class AssistantMessageProducedCodec extends SessionEventCodec<AssistantMe
 	}
 
 	public decode(payload: Readonly<Record<string, unknown>>, header: EventHeader): AssistantMessageProduced {
-		const model = ModelIdentity.of(this.readText(payload, "provider"), this.readText(payload, "model"));
+		const model = new ModelIdentity(this.readText(payload, "provider"), this.readText(payload, "model"));
 		return new AssistantMessageProduced(
 			header,
 			this.readText(payload, "text"),
 			model,
-			this.measurementOf(payload, model),
+			this.readMeasurement(payload, model),
 		);
 	}
 
@@ -41,12 +41,12 @@ export class AssistantMessageProducedCodec extends SessionEventCodec<AssistantMe
 	 * The measurement belongs to the model that served the turn, which is already recorded
 	 * here: writing it twice would only create two places for it to disagree.
 	 */
-	private measurementOf(
+	private readMeasurement(
 		payload: Readonly<Record<string, unknown>>,
 		model: ModelIdentity,
 	): PromptMeasurement | undefined {
 		if (payload.inputTokens === undefined) return undefined;
-		const usage = ModelUsage.of(
+		const usage = ModelUsage.fromReport(
 			this.readNumber(payload, "inputTokens"),
 			this.readNumber(payload, "outputTokens"),
 			this.readNumber(payload, "cachedInputTokens"),

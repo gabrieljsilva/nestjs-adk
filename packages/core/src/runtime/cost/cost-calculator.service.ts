@@ -15,15 +15,15 @@ import type { ModelUsage } from "../../domain/model/usage/model-usage.value-obje
  * cached tokens inside the prompt count, so charging both would bill the same tokens twice.
  */
 export class CostCalculator {
-	public costOf(model: ModelIdentity, price: ModelPrice, usage: ModelUsage): CallCost {
-		const rates = price.ratesFor(usage.inputTokens);
+	public calculateCost(model: ModelIdentity, price: ModelPrice, usage: ModelUsage): CallCost {
+		const rates = price.resolveRates(usage.inputTokens);
 		const cached = Math.min(usage.cachedInputTokens, usage.inputTokens);
 		const fresh = usage.inputTokens - cached;
 
-		const breakdown = CostBreakdown.of(
-			rates.input.costOf(fresh),
-			rates.output.costOf(usage.outputTokens),
-			rates.cached.costOf(cached),
+		const breakdown = new CostBreakdown(
+			rates.input.calculateCost(fresh),
+			rates.output.calculateCost(usage.outputTokens),
+			rates.cached.calculateCost(cached),
 		);
 		return new CallCost(model, usage, breakdown, rates);
 	}

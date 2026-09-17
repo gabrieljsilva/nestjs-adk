@@ -55,7 +55,7 @@ All of it fails before the call, because every one of these reaches the provider
 
 ## A model that cannot see is two different situations
 
-An attachment handed to an agent whose model does not declare `MEDIA_INPUT` fails in `AskAgent` before the session is even opened. That is configuration: the application pointed an agent at a model that cannot see and then handed it an image.
+An attachment handed to an agent whose model does not declare `MEDIA_INPUT` fails in `AskAgentUseCase` before the session is even opened. That is configuration: the application pointed an agent at a model that cannot see and then handed it an image.
 
 An image already in the journal, reread by a model that cannot see it, is a routing decision: a failover, a transfer, a delegation to a specialist. `MediaFit` replaces the part with a line saying an image was there and the run continues. Nothing about the session is rewritten, so a later turn on a model that can see gets the image back.
 
@@ -67,4 +67,4 @@ An image already in the journal, reread by a model that cannot see it, is a rout
 
 `MediaSplitter` runs in `ContextProjection.toRequest`: the result keeps its data, and the image follows immediately as a `UserMessage` naming the tool that produced it. Every provider maps that to its own multimodal shape without help.
 
-It lives in the domain rather than in the executor so that diagnostics, `ExplainAgent` and the provider all see the same list of messages. The projection itself is untouched: what a block holds is a fact of the session, and what a request holds is a fact about one wire format.
+It lives in the domain rather than in the executor so that diagnostics, `ExplainAgentUseCase` and the provider all see the same list of messages. The projection itself is untouched: what a block holds is a fact of the session, and what a request holds is a fact about one wire format.

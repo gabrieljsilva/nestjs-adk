@@ -12,7 +12,7 @@ Two groups that look internal stayed, because they are contracts with the outsid
 
 Removed, grouped by what they were:
 
-- run and turn internals: `AgentRunner`, `AgentSwitch`, `ChunkStream`, `DelegateAgent`, `DelegatedTurnLoop`, `DelegationRequest`, `DelegationRunner`, `ExplainAgent`, `InspectSession`, `ModelRunCommand`, `ModelRunOutcome`, `ModelRunner`, `StreamAgent`, `TransferGate`
+- run and turn internals: `AgentRunner`, `TransferSessionUseCase`, `ChunkStream`, `DelegateAgentUseCase`, `DelegatedTurnLoop`, `DelegationRequest`, `DelegationRunner`, `ExplainAgentUseCase`, `InspectSessionUseCase`, `ModelRunCommand`, `ModelRunOutcome`, `ModelRunner`, `StreamAgentUseCase`, `TransferGate`
 - tool internals: `ActivateSkillTool`, `DelegateToAgentTool`, `ParsedArguments`, `ReadArtifactTool`, `SkillCatalog`, `SkillDefinition`, `ToolBreaker`, `ToolCatalog`, `ToolExecutionCommand`, `ToolExecutor`, `ToolInvocation`, `ToolOutcome`, `ToolSourceScope`, `TransferToAgentTool`
 - session and event internals: `AppendEventsCommand`, `AppendEventsResult`, `ApprovalDecision`, `ApprovalStatus`, `ApproveInput`, `AskInput`, `ConsumerFailed`, `DelegateInput`, `EventPublisher`, `EventRedactor`, `PendingTurn`, `RejectInput`, `Session`, `SessionEventCodecs`, `SessionSnapshot`, `SessionStateCodec`, `StoredSessionEvent`
 - agent composition internals: `AgentDelegationPolicy`, `AgentExecutionPolicies`, `AgentTransferPolicy`, `DeclaredAgent`

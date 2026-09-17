@@ -10,7 +10,7 @@ import type { AgentCatalog } from "../../catalog/agent-catalog.service";
 import { DelegateToAgentTool } from "../../delegation/delegate-to-agent.tool";
 import type { DelegationRunner } from "../../delegation/delegation-runner.service";
 import { OpenedSession } from "../../session/opened-session.value-object";
-import type { SessionManager } from "../../session/session-manager.service";
+import type { SessionRepository } from "../../session/session-repository.service";
 import type { AgentRunFactory } from "../agent-run.factory";
 import type { RunScopeFactory } from "../scope/run-scope.factory";
 import { RunProgress } from "../settle/run-progress.value-object";
@@ -28,11 +28,11 @@ import type { RunSettler } from "../settle/run-settler.service";
  * that exists only to own the delegation, which is what keeps the journal readable: a child
  * with no parent would be a run nobody asked for.
  */
-export class DelegateAgent {
+export class DelegateAgentUseCase {
 	public constructor(
 		private readonly catalog: AgentCatalog,
 		private readonly models: ModelResolver,
-		private readonly sessions: SessionManager,
+		private readonly sessions: SessionRepository,
 		private readonly runs: AgentRunFactory,
 		private readonly scopes: RunScopeFactory,
 		private readonly delegations: DelegationRunner,
@@ -40,7 +40,7 @@ export class DelegateAgent {
 		private readonly results: RunResultFactory,
 	) {}
 
-	public async handle(input: DelegateInput): Promise<AgentResult> {
+	public async execute(input: DelegateInput): Promise<AgentResult> {
 		const parent = this.catalog.findOrFail(input.from);
 		// Checked before a run exists, so a delegation nobody declared leaves the journal alone.
 		if (!parent.delegation.allows(input.to)) {
@@ -54,7 +54,7 @@ export class DelegateAgent {
 
 		try {
 			const scope = await this.scopes.create(context, parent, this.models.resolve(parent), started);
-			const answers = await this.delegations.runAll(scope, opened, progress, [this.callOf(input)]);
+			const answers = await this.delegations.runAll(scope, opened, progress, [this.buildCall(input)]);
 			return await this.results.answering(context, started, progress, answers.values().next().value ?? "");
 		} catch (error) {
 			await this.settler.settle(context, progress.state, started, error);
@@ -65,7 +65,7 @@ export class DelegateAgent {
 	}
 
 	/** The same call the model would have made, built from what the code asked for. */
-	private callOf(input: DelegateInput): PendingCall {
+	private buildCall(input: DelegateInput): PendingCall {
 		return new PendingCall(ToolCallId.from(`delegate-${input.to.value}`), DelegateToAgentTool.NAME, {
 			agentName: input.to.value,
 			task: input.task,

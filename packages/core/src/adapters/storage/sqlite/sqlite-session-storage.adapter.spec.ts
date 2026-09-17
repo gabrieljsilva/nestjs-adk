@@ -39,11 +39,11 @@ function sessionOf(): Session {
 }
 
 function checkpointOf(): ContextCheckpoint {
-	return new ContextCheckpoint(ID, SessionRevision.of(1), "oldest-first", 1, ContentDigest.of("sha256", "abc"), []);
+	return new ContextCheckpoint(ID, new SessionRevision(1), "oldest-first", 1, new ContentDigest("sha256", "abc"), []);
 }
 
 function batchOf(...ids: readonly string[]): SessionEventBatch {
-	return SessionEventBatch.of(ids.map((id) => new SessionCreated(header(id), AGENT, undefined)));
+	return new SessionEventBatch(ids.map((id) => new SessionCreated(header(id), AGENT, undefined)));
 }
 
 /**
@@ -82,7 +82,7 @@ describe("SqliteSessionStorage", () => {
 			new AppendEventsCommand(
 				ID,
 				SessionRevision.initial(),
-				SessionEventBatch.of([new UserMessageReceived(header("e-1"), "how long do I have?")]),
+				new SessionEventBatch([new UserMessageReceived(header("e-1"), "how long do I have?")]),
 			),
 		);
 
@@ -109,7 +109,7 @@ describe("SqliteSessionStorage", () => {
 		await storage.append(ctx(), new AppendEventsCommand(ID, SessionRevision.initial(), batchOf("e-1")));
 
 		await expect(
-			storage.append(ctx(), new AppendEventsCommand(ID, SessionRevision.of(1), batchOf("e-2", "e-1"))),
+			storage.append(ctx(), new AppendEventsCommand(ID, new SessionRevision(1), batchOf("e-2", "e-1"))),
 		).rejects.toThrow();
 
 		expect((await storage.findOrFail(ctx())).revision.value).toBe(1);

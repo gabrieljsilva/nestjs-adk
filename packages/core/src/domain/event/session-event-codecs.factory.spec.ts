@@ -30,7 +30,7 @@ describe("SessionEventCodecs", () => {
 
 	it("round trips an event through the registry it built", () => {
 		const registry = SessionEventCodecs.registry();
-		const codec = registry.codecFor(UserMessageReceived.TYPE);
+		const codec = registry.findCodecOrFail(UserMessageReceived.TYPE);
 
 		const decoded = registry.decode(
 			UserMessageReceived.TYPE,

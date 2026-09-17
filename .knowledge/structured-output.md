@@ -25,7 +25,7 @@ export class TitlerAgent extends AdkAgent {}
 
 ## The schema is the agent's, never the call's
 
-`AskOptions` deliberately has no schema, and the reason is where a scope comes from rather than taste. Three paths build a `RunScope` without the command that started the run: `AgentSwitch` after a transfer, `DelegateAgent` for a subtask, and `DecideApproval` for the turn that follows a human answering a tool call. A schema passed to `ask` would be absent in exactly those three, so a run that suspended for an approval would come back answering prose, intermittently, depending on whether a tool asked for one.
+`AskOptions` deliberately has no schema, and the reason is where a scope comes from rather than taste. Three paths build a `RunScope` without the command that started the run: `TransferSessionUseCase` after a transfer, `DelegateAgentUseCase` for a subtask, and `DecideApprovalUseCase` for the turn that follows a human answering a tool call. A schema passed to `ask` would be absent in exactly those three, so a run that suspended for an approval would come back answering prose, intermittently, depending on whether a tool asked for one.
 
 Declared on the agent, it lives on the `AgentDefinition`, and every one of those paths resolves the definition of whoever is about to answer. A transfer to an agent that answers prose answers prose, which is correct: the shape belongs to the agent doing the answering, not to the one that was asked first.
 
@@ -37,7 +37,7 @@ The path is the same one the prompt and the tool declarations take, and it exist
 AgentDefinition.outputSchema
   → TurnLoop.prepare              scope.definition.outputSchema
   → PrepareContextCommand
-  → ContextManager.prepare
+  → ContextService.prepare
   → ContextProjection             (kept by withBlocks, so compaction preserves it)
   → ModelRequest.outputSchema
   → the adapter                   response_format (OpenAI) / responseJsonSchema (Gemini)

@@ -1,4 +1,4 @@
-import { AdkRuntimeHost } from "@nestjs-adk/core";
+import { AdkRuntime } from "@nestjs-adk/core";
 import { type DynamicModule, Module } from "@nestjs/common";
 import { PATH_METADATA } from "@nestjs/common/constants";
 import { McpActorResolver } from "./mcp-actor-resolver.contract";
@@ -33,12 +33,12 @@ export class McpServerModule {
 				{ provide: McpActorResolver, useExisting: options.actors },
 				{
 					provide: McpServerHost,
-					useFactory: (host: AdkRuntimeHost) =>
+					useFactory: (host: AdkRuntime) =>
 						new McpServerHost(
 							new McpToolService(new RuntimeMcpExposure(host)),
-							McpServerInfo.of(options.name, options.version),
+							new McpServerInfo(options.name, options.version),
 						),
-					inject: [AdkRuntimeHost],
+					inject: [AdkRuntime],
 				},
 			],
 		};

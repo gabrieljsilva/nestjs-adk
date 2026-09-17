@@ -44,7 +44,7 @@ describe("NestComponentDiscovery", () => {
 	 * kept the module's.
 	 */
 	it("carries the run limits onto the definition", () => {
-		const limits = RunLimits.of(4, 2);
+		const limits = new RunLimits(4, 2);
 
 		const [declared] = new NestComponentDiscovery().discover([
 			{ providerName: "SupportAgent", metadata: { name: "support", description: "d" }, model: MODEL, limits },

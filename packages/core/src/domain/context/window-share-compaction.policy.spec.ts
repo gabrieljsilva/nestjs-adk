@@ -9,20 +9,20 @@ import { InvalidCompactionThresholdError } from "./errors/invalid-compaction-thr
 import { WindowShareCompactionPolicy } from "./window-share-compaction.policy";
 
 /** A thousand tokens of input room, so a share reads as tenths of it. */
-const WINDOW = ModelContextWindow.of(1200, 200);
+const WINDOW = new ModelContextWindow(1200, 200);
 
-function budgetOf(inputTokens?: number, window: ContextWindow = WINDOW): ContextBudget {
+function buildBudget(inputTokens?: number, window: ContextWindow = WINDOW): ContextBudget {
 	if (inputTokens === undefined) return new ContextBudget(window, undefined, 4000);
-	return new ContextBudget(window, PromptMeasurement.from(ModelUsage.of(inputTokens, 20), 1000), 1000);
+	return new ContextBudget(window, PromptMeasurement.from(ModelUsage.fromReport(inputTokens, 20), 1000), 1000);
 }
 
 describe("WindowShareCompactionPolicy", () => {
 	it("leaves a conversation alone while it is below the ceiling", () => {
-		expect(new WindowShareCompactionPolicy().decide(budgetOf(800)).shouldCompact).toBe(false);
+		expect(new WindowShareCompactionPolicy().decide(buildBudget(800)).shouldCompact).toBe(false);
 	});
 
 	it("compacts once the projection passes the ceiling", () => {
-		const decision = new WindowShareCompactionPolicy().decide(budgetOf(950));
+		const decision = new WindowShareCompactionPolicy().decide(buildBudget(950));
 
 		expect(decision.shouldCompact).toBe(true);
 		expect(decision.keepRecentBlocks).toBe(4);
@@ -30,14 +30,14 @@ describe("WindowShareCompactionPolicy", () => {
 
 	/** Seven tenths of the window out of the nine and a half tenths in use is what has to survive. */
 	it("keeps the share that lands the prompt on the target", () => {
-		const decision = new WindowShareCompactionPolicy().decide(budgetOf(950));
+		const decision = new WindowShareCompactionPolicy().decide(buildBudget(950));
 
 		expect(decision.targetShare).toBeCloseTo(0.7 / 0.95, 5);
-		expect(decision.targetOf(1000)).toBe(736);
+		expect(decision.calculateTarget(1000)).toBe(736);
 	});
 
 	it("compacts nothing in a session no provider has measured", () => {
-		expect(new WindowShareCompactionPolicy().decide(budgetOf()).shouldCompact).toBe(false);
+		expect(new WindowShareCompactionPolicy().decide(buildBudget()).shouldCompact).toBe(false);
 	});
 
 	/**
@@ -45,13 +45,13 @@ describe("WindowShareCompactionPolicy", () => {
 	 * runtime choosing a size for somebody's conversation, which is the one thing it will not do.
 	 */
 	it("compacts nothing against a window the model never declared", () => {
-		const budget = budgetOf(10_000_000, new UnknownContextWindow());
+		const budget = buildBudget(10_000_000, new UnknownContextWindow());
 
 		expect(new WindowShareCompactionPolicy().decide(budget).shouldCompact).toBe(false);
 	});
 
 	it("decides on the projection, so a prompt that grew since the call counts as it stands now", () => {
-		const grown = new ContextBudget(WINDOW, PromptMeasurement.from(ModelUsage.of(500, 20), 1000), 2000);
+		const grown = new ContextBudget(WINDOW, PromptMeasurement.from(ModelUsage.fromReport(500, 20), 1000), 2000);
 
 		expect(new WindowShareCompactionPolicy().decide(grown).shouldCompact).toBe(true);
 	});
@@ -59,7 +59,7 @@ describe("WindowShareCompactionPolicy", () => {
 	it("takes the shares it was given over the standard ones", () => {
 		const eager = new WindowShareCompactionPolicy({ maxShare: 0.5, targetShare: 0.2, keepRecentBlocks: 1 });
 
-		const decision = eager.decide(budgetOf(600));
+		const decision = eager.decide(buildBudget(600));
 
 		expect(decision.shouldCompact).toBe(true);
 		expect(decision.keepRecentBlocks).toBe(1);

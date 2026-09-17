@@ -10,7 +10,7 @@ const SCHEMA_VERSION = 2;
 /** Codec for the approval that releases one held tool call. */
 export class ToolApprovalGrantedCodec extends SessionEventCodec<ToolApprovalGranted> {
 	public readonly type = ToolApprovalGranted.TYPE;
-	public readonly schemaVersion = EventSchemaVersion.of(SCHEMA_VERSION);
+	public readonly schemaVersion = new EventSchemaVersion(SCHEMA_VERSION);
 
 	public encode(event: ToolApprovalGranted): Record<string, unknown> {
 		return {

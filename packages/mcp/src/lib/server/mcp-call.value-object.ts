@@ -20,7 +20,7 @@ export class McpCall {
 		Object.freeze(this);
 	}
 
-	public static of(requestId: string | number, sessionId?: string, signal?: AbortSignal): McpCall {
+	public static fromRequest(requestId: string | number, sessionId?: string, signal?: AbortSignal): McpCall {
 		const request = String(requestId);
 		return new McpCall(
 			SessionId.from(`mcp:${sessionId ?? "stateless"}`),

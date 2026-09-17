@@ -1,7 +1,7 @@
 import type { SessionId } from "../../common/identity/session-id.value-object";
 import { SessionContext } from "../../domain/run/session-context.value-object";
 import { SessionInspection } from "../../domain/session/session-inspection.value-object";
-import type { SessionManager } from "./session-manager.service";
+import type { SessionRepository } from "./session-repository.service";
 
 /**
  * Answers where a session stands, without running anything.
@@ -15,11 +15,11 @@ import type { SessionManager } from "./session-manager.service";
  * refused rather than answered as empty, because an empty answer reads like a session
  * that has nothing pending.
  */
-export class InspectSession {
-	public constructor(private readonly sessions: SessionManager) {}
+export class InspectSessionUseCase {
+	public constructor(private readonly sessions: SessionRepository) {}
 
-	public async handle(sessionId: SessionId): Promise<SessionInspection> {
+	public async execute(sessionId: SessionId): Promise<SessionInspection> {
 		const rehydrated = await this.sessions.rehydrate(SessionContext.fromSessionId(sessionId));
-		return SessionInspection.of(rehydrated.session, rehydrated.state);
+		return SessionInspection.fromSession(rehydrated.session, rehydrated.state);
 	}
 }

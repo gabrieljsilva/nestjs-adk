@@ -32,7 +32,7 @@ function header(id: string): EventHeader {
 }
 
 function stored(revision: number, event: SessionEvent): StoredSessionEvent {
-	return new StoredSessionEvent(SESSION, SessionRevision.of(revision), event);
+	return new StoredSessionEvent(SESSION, new SessionRevision(revision), event);
 }
 
 class RecordingConsumer extends SessionEventConsumer {

@@ -11,14 +11,14 @@ const VERSION = 1;
 
 describe("StateChecksum", () => {
 	it("gives the same digest for the same session, version and state", () => {
-		const state = SessionState.initial().withValues(StateValues.of([["k", "v"]]));
+		const state = SessionState.initial().withValues(StateValues.fromEntries([["k", "v"]]));
 
 		expect(checksum.of(session, VERSION, state).equals(checksum.of(session, VERSION, state))).toBe(true);
 	});
 
 	it("changes when the state changes", () => {
 		const first = checksum.of(session, VERSION, SessionState.initial());
-		const second = checksum.of(session, VERSION, SessionState.initial().at(SessionRevision.of(1)));
+		const second = checksum.of(session, VERSION, SessionState.initial().at(new SessionRevision(1)));
 
 		expect(first.equals(second)).toBe(false);
 	});

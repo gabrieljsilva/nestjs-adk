@@ -9,7 +9,7 @@ export class ArtifactId {
 	}
 
 	public static from(value: string): ArtifactId {
-		return new ArtifactId(IdentityText.of(value, "ArtifactId"));
+		return new ArtifactId(IdentityText.fromText(value, "ArtifactId"));
 	}
 
 	public get value(): string {

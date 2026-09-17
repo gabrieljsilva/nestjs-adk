@@ -2,7 +2,6 @@
 title: API naming
 description: Verb-first method names, factories that name their source, and the failure semantics a name has to carry
 type: convention
-status: target
 tags: [core, api, naming]
 ---
 
@@ -40,14 +39,14 @@ Do not use `process`, `manage`, `do` or `handle`. Use `handle` only when the cla
 
 ```ts
 // avoid
-ZodToolSchema.declarationOf(schema);   // packages/core/src/adapters/schema/zod-tool-schema.adapter.ts:75
-PricingSource.priceOf(model);          // packages/core/src/contracts/pricing/pricing-source.contract.ts:30
-RunJournal.reasonOf(error);            // packages/core/src/runtime/run/journal/run-journal.service.ts:229
+ZodToolSchema.declarationOf(schema);
+PricingSource.priceOf(model);
+RunJournal.reasonOf(error);
 
 // prefer
 ZodToolSchema.buildDeclaration(schema);
 PricingSource.findPrice(model);
-RunJournal.readRejectionReason(error);
+RunJournal.readFailureReason(error);
 ```
 
 `findPrice` and not `calculatePrice` on the contract, because the port answers `undefined` when it has no price for the model. `calculatePrice` is the right name where arithmetic happens over a rate the caller already holds.
@@ -70,7 +69,7 @@ A name that says less than the body is renamed, not documented. See [[comments-a
 
 ```ts
 // avoid
-ToolCallNotice.of(call, tool);     // packages/core/src/domain/tool/notice/tool-call.notice.ts:26
+ToolCallNotice.of(call, tool);
 
 // prefer
 ToolCallNotice.fromCall(call, tool);
@@ -109,6 +108,13 @@ Make absence explicit in the name. `find` returns an optional value; `findOrFail
 
 The suffix of a class says which layer it sits in; see [[layered-responsibilities]] for the four layers and their suffixes. Inside a layer, use role names such as `Builder`, `Projector`, `Validator`, `Policy`, `Strategy`, `Codec`, `Loop`, `Executor` and `Gate` for focused collaborators. Do not call every class a service.
 
-## What is still missing
+## Where each verb landed, and what is left
 
-Measured on 2026-09-14 over non-spec sources: 120 distinct `xxxOf` or `xxxFor` methods, 52 `static of()` factories and 3 `static from<Source>()` factories. The rename runs module by module, with the grep above as the countdown.
+The sweep finished on 2026-09-17. Over `packages/*/src` excluding specs, `xxxOf` and `xxxFor` are at zero and `static of()` is at zero: what used to be a factory is now either a public constructor or a `from<Source>`, and every method starts with a verb from the table.
+
+Two readings settle the cases the table left open, and new code follows them:
+
+- `read` extracts a value out of a payload, a metadata object or an error, even when the extraction can answer nothing (`readDataUrl`, `readFailover`). `find` stays for a lookup in a collection or a store (`findReplay`, `findRequiredEffect`).
+- `resolve` is for normalizing a union or asking a collaborator what a reference becomes this time (`resolveSession`, `resolveCompaction`, `resolveModel`).
+
+What is left is outside the countdown and outside this lib's production surface: helper functions local to a spec still read `contextOf`, `agentOf`, `toolFor`, and `apps/playground` keeps `of` factories on its own domain classes, which is the application's convention rather than the lib's. Two statics also name no source yet: `AskInput.with` and `ToolOutput.with`, both of which phase 6 turns into input objects.

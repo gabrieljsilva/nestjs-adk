@@ -8,7 +8,8 @@ import { InvalidRevisionError } from "../errors/invalid-revision.error";
 export class SessionRevision {
 	private readonly sequence: number;
 
-	private constructor(sequence: number) {
+	public constructor(sequence: number) {
+		if (!Number.isSafeInteger(sequence) || sequence < 0) throw new InvalidRevisionError(sequence);
 		this.sequence = sequence;
 	}
 
@@ -16,17 +17,12 @@ export class SessionRevision {
 		return new SessionRevision(0);
 	}
 
-	public static of(value: number): SessionRevision {
-		if (!Number.isSafeInteger(value) || value < 0) throw new InvalidRevisionError(value);
-		return new SessionRevision(value);
-	}
-
 	public get value(): number {
 		return this.sequence;
 	}
 
 	public next(): SessionRevision {
-		return SessionRevision.of(this.sequence + 1);
+		return new SessionRevision(this.sequence + 1);
 	}
 
 	public equals(other: SessionRevision): boolean {

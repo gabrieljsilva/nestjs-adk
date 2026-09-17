@@ -41,10 +41,10 @@ export class SignedUrlAttachmentResolver extends AttachmentResolver {
 			return stored === undefined ? AttachmentProjection.omit() : AttachmentProjection.media(stored);
 		}
 		if (!request.acceptsRemoteUrl) {
-			return AttachmentProjection.noteFor(request.reference, "the serving model cannot fetch a remote file");
+			return AttachmentProjection.fromReference(request.reference, "the serving model cannot fetch a remote file");
 		}
 		const url = await this.signer(externalId, request);
-		if (url === undefined) return AttachmentProjection.noteFor(request.reference, "no longer available");
+		if (url === undefined) return AttachmentProjection.fromReference(request.reference, "no longer available");
 		const mediaType = request.reference.mediaType ?? "";
 		return AttachmentProjection.media(MediaPart.link(url, mediaType, this.limits));
 	}

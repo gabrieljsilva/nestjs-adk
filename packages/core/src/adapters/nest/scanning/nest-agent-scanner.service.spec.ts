@@ -216,7 +216,7 @@ describe("NestAgentScanner", () => {
 	});
 
 	it("takes the run limits an agent declared for itself", () => {
-		const own = RunLimits.of(4, 2);
+		const own = new RunLimits(4, 2);
 		class BoundedAgent {}
 		Reflect.defineMetadata(AGENT_METADATA, { name: "b", description: "d", limits: own }, BoundedAgent);
 

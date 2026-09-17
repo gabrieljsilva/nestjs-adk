@@ -12,7 +12,7 @@ export class SkillMode {
 
 	private constructor(public readonly name: string) {}
 
-	public static of(name: string): SkillMode | undefined {
+	public static fromName(name: string): SkillMode | undefined {
 		return [SkillMode.ALWAYS, SkillMode.ON_DEMAND].find((mode) => mode.name === name);
 	}
 

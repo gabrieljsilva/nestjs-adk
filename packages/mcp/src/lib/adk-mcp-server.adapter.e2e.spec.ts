@@ -45,9 +45,9 @@ class ScriptedModel extends LlmModel {
 
 	public descriptor(): ModelDescriptor {
 		return new ModelDescriptor(
-			ModelIdentity.of("acme", "primary"),
-			ModelContextWindow.of(100_000, 4000),
-			ModelCapabilities.of([[ModelCapability.TOOLS, true]]),
+			new ModelIdentity("acme", "primary"),
+			new ModelContextWindow(100_000, 4000),
+			ModelCapabilities.fromEntries([[ModelCapability.TOOLS, true]]),
 		);
 	}
 
@@ -60,7 +60,7 @@ class ScriptedModel extends LlmModel {
 			return;
 		}
 		yield ModelChunk.text("done");
-		yield ModelChunk.usage(ModelUsage.of(10, 2));
+		yield ModelChunk.usage(ModelUsage.fromReport(10, 2));
 		yield ModelChunk.finish("stop");
 	}
 }

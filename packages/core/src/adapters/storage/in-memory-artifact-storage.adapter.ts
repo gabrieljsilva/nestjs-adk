@@ -25,7 +25,7 @@ export class InMemoryArtifactStorage extends ArtifactStorage {
 
 	public async put(context: SessionContext, content: ArtifactContent): Promise<ArtifactReference> {
 		const sessionId = context.sessionId;
-		const reference = ArtifactReference.of(ArtifactId.from(this.ids.next()), sessionId, content);
+		const reference = ArtifactReference.fromContent(ArtifactId.from(this.ids.next()), sessionId, content);
 		const owned = this.bySession.get(sessionId.value) ?? new Map<string, ArtifactContent>();
 		owned.set(reference.id.value, content);
 		this.bySession.set(sessionId.value, owned);
@@ -51,7 +51,7 @@ export class InMemoryArtifactStorage extends ArtifactStorage {
 	public async find(context: SessionContext, artifactId: ArtifactId): Promise<ArtifactReference | undefined> {
 		const sessionId = context.sessionId;
 		const content = this.bySession.get(sessionId.value)?.get(artifactId.value);
-		return content === undefined ? undefined : ArtifactReference.of(artifactId, sessionId, content);
+		return content === undefined ? undefined : ArtifactReference.fromContent(artifactId, sessionId, content);
 	}
 
 	public async deleteAll(context: SessionContext): Promise<void> {

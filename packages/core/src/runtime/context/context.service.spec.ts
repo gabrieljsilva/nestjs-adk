@@ -25,10 +25,10 @@ import { Session } from "../../domain/session/session.entity";
 import { JournalFixture } from "../../support/context/journal.fixture";
 import { StubModel } from "../../support/model/stub-model.fixture";
 import { RunContextFixture } from "../../support/run/run-context.fixture";
-import { ContextManager } from "./context-manager.service";
 import { ContextMeasurer } from "./context-measurer.service";
 import { ContextProjector } from "./context-projector.service";
 import { ContextWindowNotifier } from "./context-window-notifier.service";
+import { ContextService } from "./context.service";
 import { OldestFirstCompactionStrategy } from "./oldest-first-compaction.strategy";
 import { PrepareContextCommand } from "./prepare-context.command";
 import { StablePrefixDigest } from "./stable-prefix-digest.service";
@@ -52,8 +52,8 @@ function runOf(journal: JournalFixture) {
  */
 async function measured(journal: JournalFixture, inputTokens: number): Promise<PromptMeasurement> {
 	const blocks = await new ContextProjector().project(ctxOf(journal), journal.stream());
-	const characters = measurer.measure(ContextProjection.of(blocks));
-	const measurement = PromptMeasurement.from(ModelUsage.of(inputTokens, 50), characters);
+	const characters = measurer.measure(new ContextProjection(blocks));
+	const measurement = PromptMeasurement.from(ModelUsage.fromReport(inputTokens, 50), characters);
 	if (measurement === undefined) throw new Error("the fixture asked for a measurement of nothing");
 	return measurement;
 }
@@ -72,8 +72,8 @@ class UnwritableStorage extends InMemorySessionStorage {
 	}
 }
 
-function managerOf(storage: SessionStorage, notifier = new ContextWindowNotifier()): ContextManager {
-	return new ContextManager(
+function managerOf(storage: SessionStorage, notifier = new ContextWindowNotifier()): ContextService {
+	return new ContextService(
 		storage,
 		new ContextProjector(),
 		measurer,
@@ -90,7 +90,7 @@ async function storageWith(journal: JournalFixture, storage: InMemorySessionStor
 		new AppendEventsCommand(
 			journal.sessionId,
 			SessionRevision.initial(),
-			SessionEventBatch.of(journal.events.map((stored) => stored.event)),
+			new SessionEventBatch(journal.events.map((stored) => stored.event)),
 		),
 	);
 	return storage;
@@ -105,7 +105,7 @@ function conversationOf(turns: number): JournalFixture {
 	return journal;
 }
 
-describe("ContextManager", () => {
+describe("ContextService", () => {
 	it("prepares the conversation the journal recorded", async () => {
 		const journal = new JournalFixture().user("hi").assistant("hello");
 		const manager = managerOf(await storageWith(journal, new InMemorySessionStorage()));
@@ -137,7 +137,7 @@ describe("ContextManager", () => {
 	it("refuses a context a measured usage proves the window cannot hold", async () => {
 		const journal = conversationOf(10);
 		const manager = managerOf(await storageWith(journal, new InMemorySessionStorage()));
-		const model = new StubModel(ModelContextWindow.of(1000, 200));
+		const model = new StubModel(new ModelContextWindow(1000, 200));
 		const command = new PrepareContextCommand(
 			runOf(journal),
 			model,
@@ -154,7 +154,7 @@ describe("ContextManager", () => {
 	it("refuses nothing while no call has been measured, and lets the provider answer", async () => {
 		const journal = conversationOf(10);
 		const manager = managerOf(await storageWith(journal, new InMemorySessionStorage()));
-		const model = new StubModel(ModelContextWindow.of(30, 10));
+		const model = new StubModel(new ModelContextWindow(30, 10));
 
 		const prepared = await manager.prepare(new PrepareContextCommand(runOf(journal), model));
 
@@ -166,7 +166,7 @@ describe("ContextManager", () => {
 		const manager = managerOf(await storageWith(journal, new InMemorySessionStorage()));
 		const command = new PrepareContextCommand(
 			runOf(journal),
-			new StubModel(ModelContextWindow.of(1000, 200)),
+			new StubModel(new ModelContextWindow(1000, 200)),
 			[],
 			undefined,
 			undefined,
@@ -184,7 +184,7 @@ describe("ContextManager", () => {
 		const journal = conversationOf(10);
 		const sink = new RecordingSink();
 		const manager = managerOf(await storageWith(journal, new InMemorySessionStorage()), new ContextWindowNotifier(sink));
-		const model = new StubModel(new UnknownContextWindow(), ModelIdentity.of("acme", "windowless"));
+		const model = new StubModel(new UnknownContextWindow(), new ModelIdentity("acme", "windowless"));
 
 		await manager.prepare(new PrepareContextCommand(runOf(journal), model));
 		await manager.prepare(new PrepareContextCommand(runOf(journal), model));
@@ -306,7 +306,7 @@ describe("ContextManager", () => {
 		);
 		await storage.saveCheckpoint(
 			ctxOf(journal),
-			new ContextCheckpoint(journal.sessionId, SessionRevision.of(2), "oldest-first", 99, digest, []),
+			new ContextCheckpoint(journal.sessionId, new SessionRevision(2), "oldest-first", 99, digest, []),
 		);
 
 		const prepared = await managerOf(storage).prepare(new PrepareContextCommand(runOf(journal), new StubModel()));
@@ -321,10 +321,10 @@ describe("ContextManager", () => {
 			ctxOf(journal),
 			new ContextCheckpoint(
 				journal.sessionId,
-				SessionRevision.of(2),
+				new SessionRevision(2),
 				"newest-first",
 				1,
-				ContentDigest.of("sha256", "whatever"),
+				new ContentDigest("sha256", "whatever"),
 				[],
 			),
 		);

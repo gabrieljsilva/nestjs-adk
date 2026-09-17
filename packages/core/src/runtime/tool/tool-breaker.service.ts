@@ -42,11 +42,11 @@ export class ToolBreaker {
 		if (!this.limits.allowsToolFailures(seen)) throw new ToolRepeatedFailureError(toolName, seen, reason);
 	}
 
-	public failuresOf(toolName: string): number {
+	public countFailures(toolName: string): number {
 		return this.failures.get(toolName) ?? 0;
 	}
 
-	public invalidArgsOf(toolName: string): number {
+	public countInvalidArgs(toolName: string): number {
 		return this.invalidArgs.get(toolName) ?? 0;
 	}
 }

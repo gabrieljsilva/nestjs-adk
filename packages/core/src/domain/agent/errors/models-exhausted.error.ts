@@ -22,11 +22,11 @@ export class ModelsExhaustedError extends AdkError {
 		public readonly lastMessage?: string,
 	) {
 		super(
-			`Agent ${agent} exhausted its models after ${attempted.length} attempt(s): ${ModelsExhaustedError.chainOf(attempted, failureKinds)}${ModelsExhaustedError.saidBy(lastMessage)}`,
+			`Agent ${agent} exhausted its models after ${attempted.length} attempt(s): ${ModelsExhaustedError.buildChain(attempted, failureKinds)}${ModelsExhaustedError.saidBy(lastMessage)}`,
 		);
 	}
 
-	private static chainOf(attempted: readonly string[], failureKinds: readonly string[]): string {
+	private static buildChain(attempted: readonly string[], failureKinds: readonly string[]): string {
 		return attempted.map((model, index) => `${model} (${failureKinds[index] ?? "unknown"})`).join(" then ");
 	}
 

@@ -18,12 +18,12 @@ import { AgentTransferPolicy } from "./agent-transfer.policy";
  * is a decision to never shorten a conversation and not the same thing as declaring nothing.
  */
 export class AgentExecutionPolicies {
-	private constructor(
-		public readonly failover: AgentFailoverPolicy | undefined,
-		public readonly compaction: AdkCompactionPolicy | false | undefined,
-		public readonly limits: RunLimits | undefined,
-		public readonly transfer: AgentTransferPolicy,
-		public readonly delegation: AgentDelegationPolicy,
+	public constructor(
+		public readonly failover?: AgentFailoverPolicy,
+		public readonly compaction?: AdkCompactionPolicy | false,
+		public readonly limits?: RunLimits,
+		public readonly transfer: AgentTransferPolicy = AgentTransferPolicy.none(),
+		public readonly delegation: AgentDelegationPolicy = AgentDelegationPolicy.none(),
 	) {}
 
 	public static none(): AgentExecutionPolicies {
@@ -34,16 +34,6 @@ export class AgentExecutionPolicies {
 			AgentTransferPolicy.none(),
 			AgentDelegationPolicy.none(),
 		);
-	}
-
-	public static of(
-		failover?: AgentFailoverPolicy,
-		compaction?: AdkCompactionPolicy | false,
-		limits?: RunLimits,
-		transfer: AgentTransferPolicy = AgentTransferPolicy.none(),
-		delegation: AgentDelegationPolicy = AgentDelegationPolicy.none(),
-	): AgentExecutionPolicies {
-		return new AgentExecutionPolicies(failover, compaction, limits, transfer, delegation);
 	}
 
 	public withTransfer(transfer: AgentTransferPolicy): AgentExecutionPolicies {

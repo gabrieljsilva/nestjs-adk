@@ -18,7 +18,7 @@ export class ModelUsage {
 		public readonly reportsCaching: boolean = true,
 	) {}
 
-	public static of(inputTokens: number, outputTokens: number, cachedInputTokens?: number): ModelUsage {
+	public static fromReport(inputTokens: number, outputTokens: number, cachedInputTokens?: number): ModelUsage {
 		const input = Math.max(0, Math.trunc(inputTokens));
 		return new ModelUsage(
 			input,

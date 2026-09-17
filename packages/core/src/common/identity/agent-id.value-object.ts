@@ -9,7 +9,7 @@ export class AgentId {
 	}
 
 	public static from(value: string): AgentId {
-		return new AgentId(IdentityText.of(value, "AgentId"));
+		return new AgentId(IdentityText.fromText(value, "AgentId"));
 	}
 
 	public get value(): string {

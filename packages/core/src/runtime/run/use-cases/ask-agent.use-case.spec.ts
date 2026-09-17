@@ -28,9 +28,9 @@ beforeEach(() => {
 	harness = new NativeStackFixture(new ScriptedModel("primary"));
 });
 
-describe("AskAgent", () => {
+describe("AskAgentUseCase", () => {
 	it("answers with the text the model produced, on a session it created", async () => {
-		const result = await harness.asking.handle(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+		const result = await harness.asking.execute(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 
 		expect(result.text).toBe("hello");
 		expect(result.status.equals(AgentRunStatus.COMPLETED)).toBe(true);
@@ -38,9 +38,9 @@ describe("AskAgent", () => {
 	});
 
 	it("journals the question before the answer, and the answer with the end of the run", async () => {
-		const result = await harness.asking.handle(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+		const result = await harness.asking.execute(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 
-		const types = (await harness.journalOf(result.sessionId)).map((event) => event.type);
+		const types = (await harness.readJournal(result.sessionId)).map((event) => event.type);
 		expect(types).toEqual([
 			SessionCreated.TYPE,
 			UserMessageReceived.TYPE,
@@ -51,29 +51,31 @@ describe("AskAgent", () => {
 	});
 
 	it("correlates every event of the run to the same run id", async () => {
-		const result = await harness.asking.handle(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+		const result = await harness.asking.execute(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 
-		const runIds = (await harness.journalOf(result.sessionId)).map((event) => event.correlation.runId.value);
+		const runIds = (await harness.readJournal(result.sessionId)).map((event) => event.correlation.runId.value);
 		expect(new Set(runIds).size).toBe(1);
 		expect(runIds[0]).toBe(result.runId.value);
 	});
 
 	it("continues an existing session instead of starting a second one", async () => {
-		const first = await harness.asking.handle(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+		const first = await harness.asking.execute(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 
-		const second = await harness.asking.handle(new AgentRunCommand(SUPPORT, AskInput.of("again", first.sessionId)));
+		const second = await harness.asking.execute(
+			new AgentRunCommand(SUPPORT, AskInput.fromMessage("again", first.sessionId)),
+		);
 
 		expect(second.sessionId.value).toBe(first.sessionId.value);
-		const created = (await harness.journalOf(first.sessionId)).filter((event) => event.type === SessionCreated.TYPE);
+		const created = (await harness.readJournal(first.sessionId)).filter((event) => event.type === SessionCreated.TYPE);
 		expect(created).toHaveLength(1);
 	});
 
 	it("shows the model the conversation the journal recorded", async () => {
-		const first = await harness.asking.handle(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+		const first = await harness.asking.execute(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 
-		await harness.asking.handle(new AgentRunCommand(SUPPORT, AskInput.of("again", first.sessionId)));
+		await harness.asking.execute(new AgentRunCommand(SUPPORT, AskInput.fromMessage("again", first.sessionId)));
 
-		const said = (await harness.journalOf(first.sessionId))
+		const said = (await harness.readJournal(first.sessionId))
 			.filter((event): event is UserMessageReceived => event instanceof UserMessageReceived)
 			.map((event) => event.text);
 		expect(said).toEqual(["hi", "again"]);
@@ -83,14 +85,14 @@ describe("AskAgent", () => {
 		const measured = new NativeStackFixture(
 			new ScriptedModel("primary", [
 				ModelChunk.text("hello"),
-				ModelChunk.usage(ModelUsage.of(120, 10)),
+				ModelChunk.usage(ModelUsage.fromReport(120, 10)),
 				ModelChunk.finish("stop"),
 			]),
 		);
 
-		const result = await measured.asking.handle(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+		const result = await measured.asking.execute(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 
-		const answer = (await measured.journalOf(result.sessionId)).find(
+		const answer = (await measured.readJournal(result.sessionId)).find(
 			(event): event is AssistantMessageProduced => event instanceof AssistantMessageProduced,
 		);
 		expect(answer?.measurement?.usage.inputTokens).toBe(120);
@@ -98,9 +100,9 @@ describe("AskAgent", () => {
 	});
 
 	it("records no measurement when the provider reported nothing", async () => {
-		const result = await harness.asking.handle(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+		const result = await harness.asking.execute(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 
-		const answer = (await harness.journalOf(result.sessionId)).find(
+		const answer = (await harness.readJournal(result.sessionId)).find(
 			(event): event is AssistantMessageProduced => event instanceof AssistantMessageProduced,
 		);
 		expect(answer?.measurement).toBeUndefined();
@@ -111,12 +113,12 @@ describe("AskAgent", () => {
 		const fallback = new ScriptedModel("fallback");
 		const rerouted = new NativeStackFixture(
 			primary,
-			NativeStackFixture.definitionOf(primary, new SequentialFailoverPolicy([fallback])),
+			NativeStackFixture.buildDefinition(primary, new SequentialFailoverPolicy([fallback])),
 		);
 
-		const result = await rerouted.asking.handle(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+		const result = await rerouted.asking.execute(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 
-		const journal = await rerouted.journalOf(result.sessionId);
+		const journal = await rerouted.readJournal(result.sessionId);
 		const at = journal.findIndex((event) => event instanceof ModelRerouted);
 		const reroute = journal[at];
 		expect(reroute).toBeInstanceOf(ModelRerouted);
@@ -129,35 +131,37 @@ describe("AskAgent", () => {
 	it("records the failure and rethrows it when the model gives up", async () => {
 		const failing = new NativeStackFixture(new ScriptedModel("primary", [], true));
 
-		const error = await failing.asking.handle(new AgentRunCommand(SUPPORT, AskInput.of("hi"))).catch((reason) => reason);
+		const error = await failing.asking
+			.execute(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")))
+			.catch((reason) => reason);
 
 		expect(error).toBeInstanceOf(Error);
 		const sessions = await failing.storage.find(SessionContext.fromSessionId(SessionId.from("id-1")));
 		expect(sessions).toBeDefined();
-		const failed = (await failing.journalOf(SessionId.from("id-1"))).find(
+		const failed = (await failing.readJournal(SessionId.from("id-1"))).find(
 			(event): event is AgentRunFailed => event instanceof AgentRunFailed,
 		);
 		expect(failed?.errorCode).toBe("AGENT_MODELS_EXHAUSTED");
 	});
 
 	it("leaves no run active, however the command settled", async () => {
-		await harness.asking.handle(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+		await harness.asking.execute(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 		expect(harness.tracker.isEmpty).toBe(true);
 
 		const failing = new NativeStackFixture(new ScriptedModel("primary", [], true));
-		await failing.asking.handle(new AgentRunCommand(SUPPORT, AskInput.of("hi"))).catch(() => undefined);
+		await failing.asking.execute(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi"))).catch(() => undefined);
 
 		expect(failing.tracker.isEmpty).toBe(true);
 	});
 
 	it("refuses a session that no longer accepts commands", async () => {
-		const first = await harness.asking.handle(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+		const first = await harness.asking.execute(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 		const stored = await harness.storage.findOrFail(SessionContext.fromSessionId(first.sessionId));
 		await harness.storage.delete(SessionContext.fromSessionId(first.sessionId));
 		await harness.storage.create(SessionContext.fromSessionId(first.sessionId), stored.withStatus(SessionStatus.CLOSED));
 
 		const error = await harness.asking
-			.handle(new AgentRunCommand(SUPPORT, AskInput.of("again", first.sessionId)))
+			.execute(new AgentRunCommand(SUPPORT, AskInput.fromMessage("again", first.sessionId)))
 			.catch((reason) => reason);
 
 		expect(error).toBeInstanceOf(SessionClosedError);
@@ -165,7 +169,7 @@ describe("AskAgent", () => {
 
 	it("refuses an agent the catalog does not know", async () => {
 		const error = await harness.asking
-			.handle(new AgentRunCommand(AgentName.from("billing"), AskInput.of("hi")))
+			.execute(new AgentRunCommand(AgentName.from("billing"), AskInput.fromMessage("hi")))
 			.catch((reason) => reason);
 
 		expect(error).toBeInstanceOf(Error);

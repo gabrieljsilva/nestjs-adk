@@ -18,6 +18,6 @@ export class StateChecksum {
 
 	public of(sessionId: SessionId, projectorVersion: number, state: SessionState): ContentDigest {
 		const canonical = JSON.stringify([sessionId.value, projectorVersion, this.serializer.serialize(state)]);
-		return ContentDigest.of(ALGORITHM, createHash(ALGORITHM).update(canonical).digest("hex"));
+		return new ContentDigest(ALGORITHM, createHash(ALGORITHM).update(canonical).digest("hex"));
 	}
 }

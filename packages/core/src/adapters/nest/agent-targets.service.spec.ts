@@ -9,17 +9,17 @@ Reflect.defineMetadata(AGENT_METADATA, { name: "billing", description: "Handles 
 
 class UndecoratedAgent {}
 
-function namesOf(targets: readonly unknown[]): readonly string[] {
-	return AgentTargets.namesOf(targets, "SupportAgent", "@TransfersTo");
+function readNames(targets: readonly unknown[]): readonly string[] {
+	return AgentTargets.readNames(targets, "SupportAgent", "@TransfersTo");
 }
 
 describe("AgentTargets", () => {
 	it("takes a name as the name it is", () => {
-		expect(namesOf(["billing", "escalation"])).toEqual(["billing", "escalation"]);
+		expect(readNames(["billing", "escalation"])).toEqual(["billing", "escalation"]);
 	});
 
 	it("reads the name off the class that declared the agent", () => {
-		expect(namesOf([BillingAgent])).toEqual(["billing"]);
+		expect(readNames([BillingAgent])).toEqual(["billing"]);
 	});
 
 	/**
@@ -30,21 +30,21 @@ describe("AgentTargets", () => {
 	 * after every module has finished loading.
 	 */
 	it("calls a function that stands in for a class defined later", () => {
-		expect(namesOf([() => BillingAgent])).toEqual(["billing"]);
+		expect(readNames([() => BillingAgent])).toEqual(["billing"]);
 	});
 
 	it("keeps the order the targets were declared in, whatever form each one took", () => {
-		expect(namesOf([BillingAgent, "escalation", () => BillingAgent])).toEqual(["billing", "escalation", "billing"]);
+		expect(readNames([BillingAgent, "escalation", () => BillingAgent])).toEqual(["billing", "escalation", "billing"]);
 	});
 
 	/** The class is right there in the message, because the fix is a decorator on it. */
 	it("refuses a class that never declared an agent, and names it", () => {
-		expect(() => namesOf([UndecoratedAgent])).toThrow(InvalidAgentMetadataError);
-		expect(() => namesOf([UndecoratedAgent])).toThrow(/UndecoratedAgent, which does not declare @Agent/);
+		expect(() => readNames([UndecoratedAgent])).toThrow(InvalidAgentMetadataError);
+		expect(() => readNames([UndecoratedAgent])).toThrow(/UndecoratedAgent, which does not declare @Agent/);
 	});
 
 	it("refuses a function that resolves to something that is not an agent", () => {
-		expect(() => namesOf([() => UndecoratedAgent])).toThrow(/UndecoratedAgent, which does not declare @Agent/);
+		expect(() => readNames([() => UndecoratedAgent])).toThrow(/UndecoratedAgent, which does not declare @Agent/);
 	});
 
 	/**
@@ -59,10 +59,10 @@ describe("AgentTargets", () => {
 			throw new ReferenceError("Cannot access 'BillingAgent' before initialization");
 		};
 
-		expect(() => namesOf([thunk])).toThrow(/threw when it was read: Cannot access 'BillingAgent'/);
-		expect(() => namesOf([thunk])).not.toThrow(/does not declare @Agent/);
+		expect(() => readNames([thunk])).toThrow(/threw when it was read: Cannot access 'BillingAgent'/);
+		expect(() => readNames([thunk])).not.toThrow(/does not declare @Agent/);
 		try {
-			namesOf([thunk]);
+			readNames([thunk]);
 		} catch (error) {
 			expect((error as { cause?: unknown }).cause).toBeInstanceOf(ReferenceError);
 		}
@@ -77,7 +77,7 @@ describe("AgentTargets", () => {
 			}
 		}
 
-		expect(() => namesOf([Watching])).toThrow(/the class Watching, which does not declare @Agent/);
+		expect(() => readNames([Watching])).toThrow(/the class Watching, which does not declare @Agent/);
 		expect(called).toBe(false);
 	});
 
@@ -89,7 +89,7 @@ describe("AgentTargets", () => {
 	it("resolves a subclass of an agent to the name its parent declared", () => {
 		class SpecialBillingAgent extends BillingAgent {}
 
-		expect(namesOf([SpecialBillingAgent])).toEqual(["billing"]);
+		expect(readNames([SpecialBillingAgent])).toEqual(["billing"]);
 	});
 
 	/** Declaring the decorator and forgetting the name is a different mistake, on a different line. */
@@ -97,7 +97,7 @@ describe("AgentTargets", () => {
 		class NamelessAgent {}
 		Reflect.defineMetadata(AGENT_METADATA, { description: "Has no name." }, NamelessAgent);
 
-		expect(() => namesOf([NamelessAgent])).toThrow(/NamelessAgent, which declares @Agent without a name/);
+		expect(() => readNames([NamelessAgent])).toThrow(/NamelessAgent, which declares @Agent without a name/);
 	});
 
 	/**
@@ -105,15 +105,15 @@ describe("AgentTargets", () => {
 	 * "undefined" reaching the catalog and failing later as a target nobody registered.
 	 */
 	it("refuses a function that resolves to nothing", () => {
-		expect(() => namesOf([() => undefined])).toThrow(/resolved to undefined/);
+		expect(() => readNames([() => undefined])).toThrow(/resolved to undefined/);
 	});
 
 	it("refuses a target that is neither a name nor a class", () => {
-		expect(() => namesOf([42])).toThrow(InvalidAgentMetadataError);
-		expect(() => namesOf([42])).toThrow(/@TransfersTo accepts an agent name/);
+		expect(() => readNames([42])).toThrow(InvalidAgentMetadataError);
+		expect(() => readNames([42])).toThrow(/@TransfersTo accepts an agent name/);
 	});
 
 	it("names the provider that declared the wrong thing", () => {
-		expect(() => namesOf([42])).toThrow(/SupportAgent/);
+		expect(() => readNames([42])).toThrow(/SupportAgent/);
 	});
 });

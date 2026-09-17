@@ -48,15 +48,15 @@ class FixedExposure extends McpExposure {
 const listSchema = z.object({ limit: z.number().int().min(1).describe("How many.") });
 
 function listMeetings(handler: ToolHandler, effect = ToolEffect.READ): ToolDefinition {
-	return new ToolDefinition("list_meetings", "Lists meetings.", ZodToolSchema.of(listSchema), effect, handler);
+	return new ToolDefinition("list_meetings", "Lists meetings.", ZodToolSchema.fromSchema(listSchema), effect, handler);
 }
 
 function serviceOf(...tools: ToolDefinition[]): McpToolService {
-	return new McpToolService(new FixedExposure(ToolCatalog.of(tools), new ToolGate(new MembersOnly())));
+	return new McpToolService(new FixedExposure(new ToolCatalog(tools), new ToolGate(new MembersOnly())));
 }
 
-const MEMBER = Actor.of("ana", { member: true });
-const STRANGER = Actor.of("bob", { member: false });
+const MEMBER = Actor.fromId("ana", { member: true });
+const STRANGER = Actor.fromId("bob", { member: false });
 
 describe("McpToolService", () => {
 	it("lists every published tool with its schema and its effect as hints", () => {
@@ -76,7 +76,7 @@ describe("McpToolService", () => {
 			"list_meetings",
 			{ limit: 2, junk: 1 },
 			MEMBER,
-			McpCall.of(1),
+			McpCall.fromRequest(1),
 		);
 
 		expect(result.isError).toBeUndefined();
@@ -89,7 +89,12 @@ describe("McpToolService", () => {
 	it("refuses an actor the policy does not admit, with the policy's reason, and never runs the tool", async () => {
 		const handler = new RecordingHandler(() => []);
 
-		const result = await serviceOf(listMeetings(handler)).call("list_meetings", { limit: 2 }, STRANGER, McpCall.of(1));
+		const result = await serviceOf(listMeetings(handler)).call(
+			"list_meetings",
+			{ limit: 2 },
+			STRANGER,
+			McpCall.fromRequest(1),
+		);
 
 		expect(result.isError).toBe(true);
 		expect(result.content).toEqual([{ type: "text", text: "list_meetings is for members" }]);
@@ -99,14 +104,19 @@ describe("McpToolService", () => {
 	it("refuses arguments the schema rejects before touching the tool", async () => {
 		const handler = new RecordingHandler(() => []);
 
-		const result = await serviceOf(listMeetings(handler)).call("list_meetings", { limit: 0 }, MEMBER, McpCall.of(1));
+		const result = await serviceOf(listMeetings(handler)).call(
+			"list_meetings",
+			{ limit: 0 },
+			MEMBER,
+			McpCall.fromRequest(1),
+		);
 
 		expect(result.isError).toBe(true);
 		expect(handler.contexts).toHaveLength(0);
 	});
 
 	it("refuses a tool nobody published", async () => {
-		const result = await serviceOf().call("drop_everything", {}, MEMBER, McpCall.of(1));
+		const result = await serviceOf().call("drop_everything", {}, MEMBER, McpCall.fromRequest(1));
 
 		expect(result.isError).toBe(true);
 		expect(result.content[0]).toMatchObject({ text: "Unknown tool: drop_everything." });
@@ -117,7 +127,12 @@ describe("McpToolService", () => {
 			throw new Error("the database is away");
 		});
 
-		const result = await serviceOf(listMeetings(handler)).call("list_meetings", { limit: 1 }, MEMBER, McpCall.of(1));
+		const result = await serviceOf(listMeetings(handler)).call(
+			"list_meetings",
+			{ limit: 1 },
+			MEMBER,
+			McpCall.fromRequest(1),
+		);
 
 		expect(result.isError).toBe(true);
 		expect(result.content[0]).toMatchObject({ text: "the database is away" });
@@ -128,13 +143,13 @@ describe("McpToolService", () => {
 			"list_meetings",
 			{ limit: 1 },
 			MEMBER,
-			McpCall.of(1),
+			McpCall.fromRequest(1),
 		);
-		const wrapped = await serviceOf(listMeetings(new RecordingHandler(() => ToolOutput.of({ n: 2 })))).call(
+		const wrapped = await serviceOf(listMeetings(new RecordingHandler(() => ToolOutput.fromData({ n: 2 })))).call(
 			"list_meetings",
 			{ limit: 1 },
 			MEMBER,
-			McpCall.of(1),
+			McpCall.fromRequest(1),
 		);
 
 		expect(asText.content).toEqual([{ type: "text", text: "two meetings" }]);
@@ -146,12 +161,12 @@ describe("McpToolService", () => {
 		const ping = new ToolDefinition(
 			"ping",
 			"Pings.",
-			ZodToolSchema.of(z.object({})),
+			ZodToolSchema.fromSchema(z.object({})),
 			ToolEffect.READ,
 			new RecordingHandler(() => "pong"),
 		);
 
-		const result = await serviceOf(ping).call("ping", undefined, MEMBER, McpCall.of(1));
+		const result = await serviceOf(ping).call("ping", undefined, MEMBER, McpCall.fromRequest(1));
 
 		expect(result.isError).toBeUndefined();
 	});

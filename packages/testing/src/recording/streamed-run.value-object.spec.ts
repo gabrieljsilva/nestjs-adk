@@ -14,7 +14,7 @@ import { StreamedRun } from "./streamed-run.value-object";
 
 function streamed(chunks: readonly ModelChunk[], text = ""): StreamedRun {
 	const result = new AgentResult(SessionId.from("s-1"), AgentRunId.from("r-1"), AgentRunStatus.COMPLETED, text);
-	return new StreamedRun(new RecordedRun(result, RunEvents.of([])), chunks);
+	return new StreamedRun(new RecordedRun(result, RunEvents.fromEvents([])), chunks);
 }
 
 describe("StreamedRun", () => {
@@ -28,7 +28,7 @@ describe("StreamedRun", () => {
 		const run = streamed([
 			ModelChunk.text("olá"),
 			ModelChunk.toolCall(new ToolCallDelta(0, "{}", "c-1", "find_order")),
-			ModelChunk.usage(ModelUsage.of(10, 2)),
+			ModelChunk.usage(ModelUsage.fromReport(10, 2)),
 			ModelChunk.finish("stop"),
 		]);
 

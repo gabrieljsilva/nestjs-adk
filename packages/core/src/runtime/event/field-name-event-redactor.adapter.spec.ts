@@ -27,7 +27,7 @@ describe("FieldNameEventRedactor", () => {
 	});
 
 	it("masks a Secret under any name at all", () => {
-		const redacted = redactor.redact({ credentialOfTheSource: Secret.of("sk-live") });
+		const redacted = redactor.redact({ credentialOfTheSource: new Secret("sk-live") });
 
 		expect(redacted.credentialOfTheSource).toBe("[redacted]");
 	});

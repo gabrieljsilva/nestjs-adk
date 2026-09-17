@@ -5,11 +5,11 @@ import type { DelegateInput } from "../../domain/session/input/delegate-input.co
 import type { RejectInput } from "../../domain/session/input/reject-input.command";
 import type { AgentResult } from "../../domain/session/run/agent-result.value-object";
 import type { AgentRunCommand } from "./agent-run.command";
-import type { AskAgent } from "./use-cases/ask-agent.use-case";
-import type { DecideApproval } from "./use-cases/decide-approval.use-case";
-import type { DelegateAgent } from "./use-cases/delegate-agent.use-case";
-import type { ExplainAgent } from "./use-cases/explain-agent.use-case";
-import type { StreamAgent } from "./use-cases/stream-agent.use-case";
+import type { AskAgentUseCase } from "./use-cases/ask-agent.use-case";
+import type { DecideApprovalUseCase } from "./use-cases/decide-approval.use-case";
+import type { DelegateAgentUseCase } from "./use-cases/delegate-agent.use-case";
+import type { ExplainAgentUseCase } from "./use-cases/explain-agent.use-case";
+import type { StreamAgentUseCase } from "./use-cases/stream-agent.use-case";
 
 /**
  * What an application calls to talk to an agent.
@@ -25,15 +25,15 @@ import type { StreamAgent } from "./use-cases/stream-agent.use-case";
  */
 export class AgentRunner {
 	public constructor(
-		private readonly asking: AskAgent,
-		private readonly deciding: DecideApproval,
-		private readonly streaming: StreamAgent,
-		private readonly explaining: ExplainAgent,
-		private readonly delegating: DelegateAgent,
+		private readonly asking: AskAgentUseCase,
+		private readonly deciding: DecideApprovalUseCase,
+		private readonly streaming: StreamAgentUseCase,
+		private readonly explaining: ExplainAgentUseCase,
+		private readonly delegating: DelegateAgentUseCase,
 	) {}
 
 	public async ask(command: AgentRunCommand): Promise<AgentResult> {
-		return this.asking.handle(command);
+		return this.asking.execute(command);
 	}
 
 	/**
@@ -42,7 +42,7 @@ export class AgentRunner {
 	 * as the generator's return value once the run has ended.
 	 */
 	public stream(command: AgentRunCommand): AsyncGenerator<ModelChunk, AgentResult> {
-		return this.streaming.handle(command);
+		return this.streaming.execute(command);
 	}
 
 	/**
@@ -50,7 +50,7 @@ export class AgentRunner {
 	 * It is the same run as `ask`, watched: same session, same journal and same cost.
 	 */
 	public async explain(command: AgentRunCommand): Promise<readonly ContextSnapshot[]> {
-		return this.explaining.handle(command);
+		return this.explaining.execute(command);
 	}
 
 	/**
@@ -59,12 +59,12 @@ export class AgentRunner {
 	 * agent answering the session stays exactly who it was.
 	 */
 	public async delegate(input: DelegateInput): Promise<AgentResult> {
-		return this.delegating.handle(input);
+		return this.delegating.execute(input);
 	}
 
 	/** Lets a held turn run, under a new run that points back at the suspended one. */
 	public async approve(input: ApproveInput): Promise<AgentResult> {
-		return this.deciding.handle(input.sessionId, input.callId, "granted", {
+		return this.deciding.execute(input.sessionId, input.callId, "granted", {
 			by: input.approvedBy,
 			actor: input.actor,
 			sources: input.sources,
@@ -75,7 +75,7 @@ export class AgentRunner {
 
 	/** Refuses a held call and tells the model so, which is a result like any other. */
 	public async reject(input: RejectInput): Promise<AgentResult> {
-		return this.deciding.handle(input.sessionId, input.callId, "denied", {
+		return this.deciding.execute(input.sessionId, input.callId, "denied", {
 			by: input.deniedBy,
 			actor: input.actor,
 			reason: input.reason,

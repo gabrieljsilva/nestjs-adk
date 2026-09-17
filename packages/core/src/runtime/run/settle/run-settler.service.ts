@@ -2,7 +2,7 @@ import { SessionEventBatch } from "../../../domain/event/session-event-batch.val
 import type { SessionEvent } from "../../../domain/event/session-event.event";
 import type { SessionContext } from "../../../domain/run/session-context.value-object";
 import type { SessionState } from "../../../domain/session/state/session-state.value-object";
-import type { SessionManager } from "../../session/session-manager.service";
+import type { SessionRepository } from "../../session/session-repository.service";
 import type { RunJournal } from "../journal/run-journal.service";
 import type { StartedRun } from "./started-run.value-object";
 
@@ -21,7 +21,7 @@ import type { StartedRun } from "./started-run.value-object";
  */
 export class RunSettler {
 	public constructor(
-		private readonly sessions: SessionManager,
+		private readonly sessions: SessionRepository,
 		private readonly journal: RunJournal,
 	) {}
 
@@ -49,6 +49,6 @@ export class RunSettler {
 		state: SessionState,
 		terminal: SessionEvent,
 	): Promise<void> {
-		await this.sessions.commit(context, revision, SessionEventBatch.of([terminal]), state);
+		await this.sessions.commit(context, revision, new SessionEventBatch([terminal]), state);
 	}
 }

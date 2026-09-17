@@ -9,7 +9,7 @@ export class EventId {
 	}
 
 	public static from(value: string): EventId {
-		return new EventId(IdentityText.of(value, "EventId"));
+		return new EventId(IdentityText.fromText(value, "EventId"));
 	}
 
 	public get value(): string {

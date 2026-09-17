@@ -2,7 +2,7 @@ import type { SessionId } from "../../common/identity/session-id.value-object";
 import type { AgentName } from "../../domain/agent/agent-name.value-object";
 import { ContextBudget } from "../../domain/context/context-budget.value-object";
 import type { AgentCatalog } from "../catalog/agent-catalog.service";
-import type { InspectSession } from "../session/inspect-session.use-case";
+import type { InspectSessionUseCase } from "../session/inspect-session.use-case";
 
 /**
  * How full a conversation's context is, without running a turn to find out.
@@ -18,15 +18,15 @@ import type { InspectSession } from "../session/inspect-session.use-case";
  * looks right, so a conversation continued under a new model reads as unmeasured until
  * that model answers once.
  */
-export class InspectContextBudget {
+export class InspectContextBudgetUseCase {
 	public constructor(
-		private readonly inspecting: InspectSession,
+		private readonly inspecting: InspectSessionUseCase,
 		private readonly catalog: AgentCatalog,
 	) {}
 
-	public async handle(agent: AgentName, sessionId: SessionId): Promise<ContextBudget> {
+	public async execute(agent: AgentName, sessionId: SessionId): Promise<ContextBudget> {
 		const descriptor = this.catalog.findOrFail(agent).model.descriptor();
-		const inspection = await this.inspecting.handle(sessionId);
+		const inspection = await this.inspecting.execute(sessionId);
 		return new ContextBudget(descriptor.contextWindow, inspection.lastPrompt?.takenBy(descriptor.identity));
 	}
 }

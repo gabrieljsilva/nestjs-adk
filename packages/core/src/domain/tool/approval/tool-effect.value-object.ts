@@ -16,7 +16,7 @@ export class ToolEffect {
 		private readonly severity: number,
 	) {}
 
-	public static of(name: string): ToolEffect | undefined {
+	public static fromName(name: string): ToolEffect | undefined {
 		return [ToolEffect.READ, ToolEffect.WRITE, ToolEffect.DESTRUCTIVE].find((effect) => effect.name === name);
 	}
 

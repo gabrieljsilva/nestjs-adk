@@ -83,8 +83,8 @@ export class EventRepository {
 	}
 
 	/** The same fingerprint, taken from an event that has not been written yet. */
-	public fingerprintOf(event: SessionEvent): string {
-		return this.codec.fingerprintOf(event);
+	public calculateFingerprint(event: SessionEvent): string {
+		return this.codec.calculateFingerprint(event);
 	}
 
 	public deleteAll(sessionId: SessionId): void {
@@ -103,6 +103,6 @@ export class EventRepository {
 			causationId: row.optionalText("causation_id"),
 			payload: row.json("payload"),
 		});
-		return new StoredSessionEvent(sessionId, SessionRevision.of(row.integer("revision")), event);
+		return new StoredSessionEvent(sessionId, new SessionRevision(row.integer("revision")), event);
 	}
 }

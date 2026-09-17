@@ -6,7 +6,7 @@ import { ModelIdentity } from "../../domain/model/descriptor/model-identity.valu
 import { CapturedContexts } from "./captured-contexts.value-object";
 
 function snapshotOf(text: string): ContextSnapshot {
-	return new ContextSnapshot(AgentName.from("support"), ModelIdentity.of("acme", "primary"), [
+	return new ContextSnapshot(AgentName.from("support"), new ModelIdentity("acme", "primary"), [
 		new ContextSegment(ContextSegment.CONVERSATION, text),
 	]);
 }

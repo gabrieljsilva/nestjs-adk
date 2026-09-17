@@ -30,7 +30,7 @@ export class AgentBinder {
 	public bind(providers: readonly ScannedProvider[]): number {
 		let bound = 0;
 		for (const provider of providers) {
-			const name = this.nameOf(provider);
+			const name = this.findName(provider);
 			if (name === undefined || !(provider.instance instanceof AdkAgent)) continue;
 			provider.instance.bindTo(this.registry.get(name), this.prompting);
 			bound += 1;
@@ -38,7 +38,7 @@ export class AgentBinder {
 		return bound;
 	}
 
-	private nameOf(provider: ScannedProvider): string | undefined {
+	private findName(provider: ScannedProvider): string | undefined {
 		const metadata: unknown = Reflect.getMetadata(AGENT_METADATA, provider.type);
 		if (typeof metadata !== "object" || metadata === null) return undefined;
 		const name = Reflect.get(metadata, "name");

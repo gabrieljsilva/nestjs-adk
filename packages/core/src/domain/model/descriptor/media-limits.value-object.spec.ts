@@ -27,7 +27,7 @@ describe("MediaLimits", () => {
 	});
 
 	it("can be tightened, which is what a test needs to reach a ceiling cheaply", () => {
-		const limits = MediaLimits.of(8, 6, 12, ["image/png"]);
+		const limits = new MediaLimits(8, 6, 12, ["image/png"]);
 
 		expect(limits.maxEncodedBytes).toBe(8);
 		expect(limits.supports("image/jpeg")).toBe(false);
@@ -35,7 +35,7 @@ describe("MediaLimits", () => {
 
 	it("copies the supported list, so a caller cannot widen it afterwards", () => {
 		const supported = ["image/png"];
-		const limits = MediaLimits.of(8, 6, 12, supported);
+		const limits = new MediaLimits(8, 6, 12, supported);
 
 		supported.push("image/tiff");
 
@@ -44,7 +44,7 @@ describe("MediaLimits", () => {
 
 	it("refuses a private host by default, because the provider fetches from its own network", () => {
 		expect(MediaLimits.byDefault().allowsPrivateHost).toBe(false);
-		expect(MediaLimits.of(8, 6, 12).allowsPrivateHost).toBe(false);
+		expect(new MediaLimits(8, 6, 12).allowsPrivateHost).toBe(false);
 	});
 
 	it("names the opt out for the one setup where the address is reachable", () => {

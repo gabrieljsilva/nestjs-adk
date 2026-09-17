@@ -56,17 +56,17 @@ export class NestComponentDiscovery {
 	private toAgent(provider: DiscoveredProvider): DeclaredAgent {
 		const metadata = AgentMetadata.from(provider.metadata, provider.providerName);
 		const name = AgentName.from(metadata.name);
-		const definition = AgentDefinition.of(
+		const definition = new AgentDefinition(
 			name,
 			AgentDescription.from(metadata.description, name.value),
 			provider.model,
 			provider.instructions,
-			AgentExecutionPolicies.of(
+			new AgentExecutionPolicies(
 				provider.failover,
 				provider.compaction,
 				provider.limits,
-				this.transferOf(provider),
-				this.delegationOf(provider),
+				this.readTransferPolicy(provider),
+				this.readDelegationPolicy(provider),
 			),
 			provider.tools ?? [],
 			provider.skills ?? [],
@@ -76,12 +76,12 @@ export class NestComponentDiscovery {
 		return new DeclaredAgent(definition, provider.providerName);
 	}
 
-	private transferOf(provider: DiscoveredProvider): AgentTransferPolicy {
+	private readTransferPolicy(provider: DiscoveredProvider): AgentTransferPolicy {
 		const declared = TransferMetadata.from(provider.transfers, provider.providerName);
 		return AgentTransferPolicy.to(declared.targets.map((target) => AgentName.from(target)));
 	}
 
-	private delegationOf(provider: DiscoveredProvider): AgentDelegationPolicy {
+	private readDelegationPolicy(provider: DiscoveredProvider): AgentDelegationPolicy {
 		const declared = DelegationMetadata.from(provider.delegations, provider.providerName);
 		return AgentDelegationPolicy.to(declared.targets.map((target) => AgentName.from(target)));
 	}

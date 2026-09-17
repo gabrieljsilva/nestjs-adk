@@ -6,11 +6,11 @@ import { SessionContext } from "../../domain/run/session-context.value-object";
 import type { CreateSessionInput } from "../../domain/session/input/create-session-input.command";
 import type { SessionInspection } from "../../domain/session/session-inspection.value-object";
 import type { Session } from "../../domain/session/session.entity";
-import type { ContextManager } from "../context/context-manager.service";
-import type { InspectContextBudget } from "../context/inspect-context-budget.use-case";
-import type { CreateSession } from "./create-session.use-case";
-import type { InspectSession } from "./inspect-session.use-case";
-import type { SessionManager } from "./session-manager.service";
+import type { ContextService } from "../context/context.service";
+import type { InspectContextBudgetUseCase } from "../context/inspect-context-budget.use-case";
+import type { CreateSessionUseCase } from "./create-session.use-case";
+import type { InspectSessionUseCase } from "./inspect-session.use-case";
+import type { SessionRepository } from "./session-repository.service";
 
 /**
  * What an application calls to work with a conversation rather than to run one.
@@ -26,27 +26,27 @@ import type { SessionManager } from "./session-manager.service";
  */
 export class SessionService {
 	public constructor(
-		private readonly creating: CreateSession,
-		private readonly inspecting: InspectSession,
-		private readonly sessions: SessionManager,
-		private readonly budgeting: InspectContextBudget,
+		private readonly creating: CreateSessionUseCase,
+		private readonly inspecting: InspectSessionUseCase,
+		private readonly sessions: SessionRepository,
+		private readonly budgeting: InspectContextBudgetUseCase,
 		private readonly artifacts: ArtifactStorage,
-		private readonly context: ContextManager,
+		private readonly context: ContextService,
 	) {}
 
 	/** Opens a conversation the application names, or names one itself when it does not. */
 	public async create(agent: AgentName, input: CreateSessionInput): Promise<Session> {
-		return this.creating.handle(agent, input);
+		return this.creating.execute(agent, input);
 	}
 
 	/** Where a conversation stands, for a caller that is not running anything. */
 	public async inspect(sessionId: SessionId): Promise<SessionInspection> {
-		return this.inspecting.handle(sessionId);
+		return this.inspecting.execute(sessionId);
 	}
 
 	/** How much of the agent's window the conversation's last call took, for a caller drawing a meter. */
 	public async budget(agent: AgentName, sessionId: SessionId): Promise<ContextBudget> {
-		return this.budgeting.handle(agent, sessionId);
+		return this.budgeting.execute(agent, sessionId);
 	}
 
 	public async find(sessionId: SessionId): Promise<Session | undefined> {

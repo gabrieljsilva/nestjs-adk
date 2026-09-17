@@ -84,7 +84,7 @@ export class AttachmentReader {
 			const request = new AttachmentRequest(context.sessionId, reference, revision, isCurrentRun, acceptsRemoteUrl, () =>
 				this.materialize(context, reference),
 			);
-			const projection = await this.projectionOf(context, request);
+			const projection = await this.resolveProjection(context, request);
 			const part = projection.part;
 			if (part !== undefined) media.push(part);
 			const text = projection.text;
@@ -93,11 +93,11 @@ export class AttachmentReader {
 		return new ResolvedAttachments(media, notes);
 	}
 
-	private async projectionOf(context: SessionContext, request: AttachmentRequest): Promise<AttachmentProjection> {
+	private async resolveProjection(context: SessionContext, request: AttachmentRequest): Promise<AttachmentProjection> {
 		try {
 			return await this.resolver.resolve(context, request);
 		} catch {
-			return AttachmentProjection.noteFor(request.reference, "could not be resolved");
+			return AttachmentProjection.fromReference(request.reference, "could not be resolved");
 		}
 	}
 

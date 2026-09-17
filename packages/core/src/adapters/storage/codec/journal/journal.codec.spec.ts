@@ -17,7 +17,7 @@ import { JournalCodec } from "./journal.codec";
 
 const OCCURRED_AT = "2026-01-01T00:00:00.000Z";
 
-function headerOf(causation?: string): EventHeader {
+function buildHeader(causation?: string): EventHeader {
 	return new EventHeader(
 		EventId.from("e-1"),
 		Instant.fromIso(OCCURRED_AT),
@@ -39,7 +39,7 @@ function headerOf(causation?: string): EventHeader {
  */
 describe("JournalCodec", () => {
 	it("encodes an event as the columns a journal row is made of", () => {
-		const record = new JournalCodec().encode(new UserMessageReceived(headerOf(), "hi"));
+		const record = new JournalCodec().encode(new UserMessageReceived(buildHeader(), "hi"));
 
 		expect(record).toEqual({
 			eventId: "e-1",
@@ -55,7 +55,7 @@ describe("JournalCodec", () => {
 	});
 
 	it("carries the causation of an event that has one", () => {
-		const record = new JournalCodec().encode(new UserMessageReceived(headerOf("e-0"), "hi"));
+		const record = new JournalCodec().encode(new UserMessageReceived(buildHeader("e-0"), "hi"));
 
 		expect(record.causationId).toBe("e-0");
 	});
@@ -67,14 +67,14 @@ describe("JournalCodec", () => {
 	it("decodes a row back into the event class the runtime decides on", () => {
 		const codec = new JournalCodec();
 
-		const decoded = codec.decode(codec.encode(new UserMessageReceived(headerOf(), "hi")));
+		const decoded = codec.decode(codec.encode(new UserMessageReceived(buildHeader(), "hi")));
 
 		expect(decoded).toBeInstanceOf(UserMessageReceived);
 	});
 
 	it("brings back everything the event was written with", () => {
 		const codec = new JournalCodec();
-		const call = new ToolCallRequested(headerOf("e-0"), ToolCallId.from("c-1"), "refund", { orderId: "A-1" }, "sig-1");
+		const call = new ToolCallRequested(buildHeader("e-0"), ToolCallId.from("c-1"), "refund", { orderId: "A-1" }, "sig-1");
 
 		const decoded = codec.decode(codec.encode(call));
 
@@ -84,7 +84,7 @@ describe("JournalCodec", () => {
 	it("rebuilds the header, so a decoded event still says who produced it and when", () => {
 		const codec = new JournalCodec();
 
-		const decoded = codec.decode(codec.encode(new SessionCreated(headerOf(), AgentName.from("support"), "u-1")));
+		const decoded = codec.decode(codec.encode(new SessionCreated(buildHeader(), AgentName.from("support"), "u-1")));
 
 		expect(decoded.id.value).toBe("e-1");
 		expect(decoded.occurredAt.toIso()).toBe(OCCURRED_AT);
@@ -111,7 +111,7 @@ describe("JournalCodec", () => {
 
 	it("takes a payload the driver already parsed and one it handed back as text alike", () => {
 		const codec = new JournalCodec();
-		const row = { ...codec.encode(new UserMessageReceived(headerOf(), "hi")) };
+		const row = { ...codec.encode(new UserMessageReceived(buildHeader(), "hi")) };
 
 		const decoded = codec.decode({ ...row, payload: JSON.stringify(row.payload) });
 
@@ -120,7 +120,7 @@ describe("JournalCodec", () => {
 
 	it("refuses a row whose type no build of this runtime knows", () => {
 		const codec = new JournalCodec();
-		const row = { ...codec.encode(new UserMessageReceived(headerOf(), "hi")), type: "session.invented" };
+		const row = { ...codec.encode(new UserMessageReceived(buildHeader(), "hi")), type: "session.invented" };
 
 		expect(() => codec.decode(row)).toThrow(UnknownSessionEventTypeError);
 	});
@@ -128,7 +128,7 @@ describe("JournalCodec", () => {
 	/** Reading it would drop meaning this build has no codec for, silently. */
 	it("refuses a row written by a newer build than this one", () => {
 		const codec = new JournalCodec();
-		const row = { ...codec.encode(new UserMessageReceived(headerOf(), "hi")), schemaVersion: 99 };
+		const row = { ...codec.encode(new UserMessageReceived(buildHeader(), "hi")), schemaVersion: 99 };
 
 		expect(() => codec.decode(row)).toThrow(UnsupportedSessionEventVersionError);
 	});
@@ -139,16 +139,16 @@ describe("JournalCodec", () => {
 	 */
 	it("fingerprints an event the same way twice", () => {
 		const codec = new JournalCodec();
-		const event = new ToolCallRequested(headerOf(), ToolCallId.from("c-1"), "refund", { orderId: "A-1" });
+		const event = new ToolCallRequested(buildHeader(), ToolCallId.from("c-1"), "refund", { orderId: "A-1" });
 
-		expect(codec.fingerprintOf(event)).toBe(codec.fingerprintOf(event));
+		expect(codec.calculateFingerprint(event)).toBe(codec.calculateFingerprint(event));
 	});
 
 	it("fingerprints two different events differently", () => {
 		const codec = new JournalCodec();
-		const first = new ToolCallRequested(headerOf(), ToolCallId.from("c-1"), "refund", { orderId: "A-1" });
-		const second = new ToolCallRequested(headerOf(), ToolCallId.from("c-1"), "refund", { orderId: "A-2" });
+		const first = new ToolCallRequested(buildHeader(), ToolCallId.from("c-1"), "refund", { orderId: "A-1" });
+		const second = new ToolCallRequested(buildHeader(), ToolCallId.from("c-1"), "refund", { orderId: "A-2" });
 
-		expect(codec.fingerprintOf(first)).not.toBe(codec.fingerprintOf(second));
+		expect(codec.calculateFingerprint(first)).not.toBe(codec.calculateFingerprint(second));
 	});
 });

@@ -10,14 +10,10 @@ import type { ToolDefinition } from "../tool-definition.value-object";
  * an observer that renders tool calls does not have to remember what it was told earlier.
  */
 export class ToolResultNotice {
-	private constructor(
+	public constructor(
 		public readonly outcome: ToolOutcome,
 		public readonly tool?: ToolDefinition,
 	) {}
-
-	public static of(outcome: ToolOutcome, tool?: ToolDefinition): ToolResultNotice {
-		return new ToolResultNotice(outcome, tool);
-	}
 
 	public get callId(): ToolCallId {
 		return this.outcome.callId;

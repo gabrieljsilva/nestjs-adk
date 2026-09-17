@@ -17,7 +17,7 @@ import type { SessionContext } from "../../domain/run/session-context.value-obje
  *   public async findPrice(_context: SessionContext | undefined, model: ModelIdentity): Promise<ModelPrice | undefined> {
  *     const agreed = this.rates[model.model];
  *     if (agreed === undefined) return undefined;
- *     return ModelPrice.of(TokenRate.fromUsdPerToken(agreed.in), TokenRate.fromUsdPerToken(agreed.out));
+ *     return new ModelPrice(TokenRate.fromUsdPerToken(agreed.in), TokenRate.fromUsdPerToken(agreed.out));
  *   }
  * }
  * ```

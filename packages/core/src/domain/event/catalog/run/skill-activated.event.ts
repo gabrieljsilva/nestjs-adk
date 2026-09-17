@@ -17,7 +17,7 @@ const SCHEMA_VERSION = 2;
  */
 export class SkillActivated extends SessionEvent {
 	public readonly type = SkillActivated.TYPE;
-	public readonly schemaVersion = EventSchemaVersion.of(SCHEMA_VERSION);
+	public readonly schemaVersion = new EventSchemaVersion(SCHEMA_VERSION);
 
 	public static readonly TYPE = "skill.activated";
 

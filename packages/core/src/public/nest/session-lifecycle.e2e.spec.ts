@@ -82,7 +82,7 @@ describe("a conversation the application opens itself", () => {
 		return app.get(SupportAgent);
 	}
 
-	async function journalOf(sessionId: string): Promise<SessionEvent[]> {
+	async function readJournal(sessionId: string): Promise<SessionEvent[]> {
 		const events: SessionEvent[] = [];
 		for await (const stored of storage.readEvents(
 			SessionContext.fromSessionId(SessionId.from(sessionId)),
@@ -110,7 +110,7 @@ describe("a conversation the application opens itself", () => {
 
 		expect(result.sessionId.value).toBe(CHAT);
 		expect(result.text).toBe("hello there");
-		expect((await journalOf(CHAT)).map((event) => event.type)).toContain(SessionCreated.TYPE);
+		expect((await readJournal(CHAT)).map((event) => event.type)).toContain(SessionCreated.TYPE);
 	});
 
 	it("records the beginning once, however many questions follow", async () => {
@@ -120,7 +120,7 @@ describe("a conversation the application opens itself", () => {
 		await support.ask("where is my order?", CHAT);
 		await support.ask("and the other one?", CHAT);
 
-		const beginnings = (await journalOf(CHAT)).filter((event) => event.type === SessionCreated.TYPE);
+		const beginnings = (await readJournal(CHAT)).filter((event) => event.type === SessionCreated.TYPE);
 		expect(beginnings).toHaveLength(1);
 	});
 
@@ -158,7 +158,7 @@ describe("a conversation the application opens itself", () => {
 
 		await support.ask("where is my order?", { sessionId: CHAT, metadata: { memberId: "gabriel" } });
 
-		const written = (await journalOf(CHAT)).find((event) => event instanceof SessionMetadataSet);
+		const written = (await readJournal(CHAT)).find((event) => event instanceof SessionMetadataSet);
 		expect(written).toBeInstanceOf(SessionMetadataSet);
 		if (!(written instanceof SessionMetadataSet)) return;
 		expect(written.key).toBe("memberId");
@@ -171,7 +171,7 @@ describe("a conversation the application opens itself", () => {
 
 		await support.ask("where is my order?", CHAT);
 
-		expect((await journalOf(CHAT)).filter((event) => event instanceof SessionCreated)).toHaveLength(1);
+		expect((await readJournal(CHAT)).filter((event) => event instanceof SessionCreated)).toHaveLength(1);
 	});
 
 	it("refuses to open the same chat twice, leaving the conversation it already has", async () => {
@@ -185,7 +185,7 @@ describe("a conversation the application opens itself", () => {
 
 		expect(error).toBeInstanceOf(SessionAlreadyExistsError);
 		expect((await support.inspect(CHAT)).metadata.find(MEMBER)).toBe("gabriel");
-		expect((await journalOf(CHAT)).map((event) => event.type)).toContain(UserMessageReceived.TYPE);
+		expect((await readJournal(CHAT)).map((event) => event.type)).toContain(UserMessageReceived.TYPE);
 	});
 
 	it("still refuses a question naming a conversation nobody opened", async () => {
@@ -237,6 +237,6 @@ describe("a conversation the application opens itself", () => {
 		await support.createSession({ sessionId: CHAT });
 
 		expect(published).toEqual([]);
-		expect(await journalOf(CHAT)).toEqual([]);
+		expect(await readJournal(CHAT)).toEqual([]);
 	});
 });

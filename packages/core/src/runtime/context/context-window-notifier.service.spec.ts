@@ -20,8 +20,8 @@ class RecordingSink extends ContextNoticeSink {
 
 function descriptorOf(model: string, known: boolean): ModelDescriptor {
 	return new ModelDescriptor(
-		ModelIdentity.of("acme", model),
-		known ? ModelContextWindow.of(1000, 100) : new UnknownContextWindow(),
+		new ModelIdentity("acme", model),
+		known ? new ModelContextWindow(1000, 100) : new UnknownContextWindow(),
 		ModelCapabilities.none(),
 	);
 }

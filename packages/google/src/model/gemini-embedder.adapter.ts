@@ -66,14 +66,14 @@ export class GeminiEmbedder extends Embedder {
 		const response = await this.client.models.embedContent({
 			model: this.model,
 			contents: text,
-			config: this.configOf(),
+			config: this.buildConfig(),
 		});
 		const values = response.embeddings?.[0]?.values;
 		if (values === undefined || values.length === 0) throw new EmptyEmbeddingError(this.model);
-		return EmbeddingVector.of(values);
+		return new EmbeddingVector(values);
 	}
 
-	private configOf(): EmbedContentConfig {
+	private buildConfig(): EmbedContentConfig {
 		return { taskType: this.options.taskType, outputDimensionality: this.options.outputDimensionality };
 	}
 }

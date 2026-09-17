@@ -137,8 +137,8 @@ export { SessionEventCodecs } from "./domain/event/session-event-codecs.factory"
 export { ContractSuite } from "./support/contract/contract-suite.support";
 export { ContractCase } from "./support/contract/contract-case.support";
 export { AgentRunCommand } from "./runtime/run/agent-run.command";
-export { AdkRuntimeHost } from "./public/adk-runtime-host.edge";
-export type { StartedRuntime } from "./public/adk-runtime-host.edge";
+export { AdkRuntime } from "./public/adk-runtime.edge";
+export type { StartedRuntime } from "./public/adk-runtime.edge";
 export { HostNotStartedError } from "./public/errors/host-not-started.error";
 export { UnusableComponentError } from "./adapters/nest/errors/unusable-component.error";
 export { UnregisteredToolError } from "./adapters/nest/errors/unregistered-tool.error";

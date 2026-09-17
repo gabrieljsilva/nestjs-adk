@@ -33,7 +33,7 @@ export abstract class ModelSpec extends LlmModel {
 	}
 
 	/** The model name behind a value, whether it is already a name or a spec. */
-	public static idOf(value: unknown): string | undefined {
+	public static readId(value: unknown): string | undefined {
 		if (typeof value === "string") return value;
 		if (!ModelSpec.is(value)) return undefined;
 		return value.model;

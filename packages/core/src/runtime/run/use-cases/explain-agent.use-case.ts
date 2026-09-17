@@ -2,7 +2,7 @@ import type { ContextSnapshot } from "../../../domain/diagnostics/context-snapsh
 import { CapturedContexts } from "../../diagnostics/captured-contexts.value-object";
 import type { AgentRunCommand } from "../agent-run.command";
 import { RunObservers } from "../journal/run-observers.value-object";
-import type { AskAgent } from "./ask-agent.use-case";
+import type { AskAgentUseCase } from "./ask-agent.use-case";
 
 /**
  * Runs the command and hands back what every model call was actually given.
@@ -15,12 +15,12 @@ import type { AskAgent } from "./ask-agent.use-case";
  * A run that failed is still worth looking at, so the snapshots taken before the failure
  * come back with it rather than being thrown away with the error.
  */
-export class ExplainAgent {
-	public constructor(private readonly asking: AskAgent) {}
+export class ExplainAgentUseCase {
+	public constructor(private readonly asking: AskAgentUseCase) {}
 
-	public async handle(command: AgentRunCommand): Promise<readonly ContextSnapshot[]> {
+	public async execute(command: AgentRunCommand): Promise<readonly ContextSnapshot[]> {
 		const captured = new CapturedContexts();
-		await this.asking.handle(command, RunObservers.capturing(captured));
+		await this.asking.execute(command, RunObservers.capturing(captured));
 		return captured.all;
 	}
 
@@ -28,7 +28,7 @@ export class ExplainAgent {
 	public async attempt(command: AgentRunCommand): Promise<readonly ContextSnapshot[]> {
 		const captured = new CapturedContexts();
 		try {
-			await this.asking.handle(command, RunObservers.capturing(captured));
+			await this.asking.execute(command, RunObservers.capturing(captured));
 		} catch {
 			return captured.all;
 		}

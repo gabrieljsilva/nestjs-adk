@@ -16,7 +16,7 @@ describe("ContextNoticeSink", () => {
 	it("receives the notice the runtime produced", () => {
 		const sink = new RecordingSink();
 
-		sink.report(undefined, new ContextWindowUnknown(ModelIdentity.of("acme", "m-1")));
+		sink.report(undefined, new ContextWindowUnknown(new ModelIdentity("acme", "m-1")));
 
 		expect(sink.notices).toHaveLength(1);
 	});

@@ -74,7 +74,7 @@ export class ScriptedTurn {
 		const expectation = this.expectation;
 		if (expectation === undefined) return true;
 		if (typeof expectation === "function") return expectation(request);
-		const text = ScriptedTurn.textOf(request);
+		const text = ScriptedTurn.readText(request);
 		return typeof expectation === "string" ? text.includes(expectation) : expectation.test(text);
 	}
 
@@ -88,7 +88,7 @@ export class ScriptedTurn {
 			: `a request matching ${expectation}`;
 	}
 
-	private static textOf(request: ModelRequest): string {
+	private static readText(request: ModelRequest): string {
 		return JSON.stringify({ instructions: request.instructions?.text, messages: request.messages });
 	}
 }

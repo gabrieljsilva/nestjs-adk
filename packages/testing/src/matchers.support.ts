@@ -31,7 +31,7 @@ interface MatcherResult {
  * test asserts on the thing it happens to be holding rather than on the one shape a matcher
  * was written for.
  */
-function eventsOf(received: unknown): RunEvents | undefined {
+function readEvents(received: unknown): RunEvents | undefined {
 	if (received instanceof RunEvents) return received;
 	if (received instanceof RecordedRun) return received.events;
 	if (received instanceof TestAgent) return undefined;
@@ -56,7 +56,7 @@ export const adkMatchers = {
 	 * has not run: that is `toAwaitApproval`.
 	 */
 	toHaveRunTool(received: unknown, tool: string, args?: Record<string, unknown>): MatcherResult {
-		const events = eventsOf(received);
+		const events = readEvents(received);
 		if (events === undefined) {
 			return { pass: false, message: () => "toHaveRunTool expects a RecordedRun or RunEvents." };
 		}
@@ -75,7 +75,7 @@ export const adkMatchers = {
 
 	/** The model asked for this tool, whether or not it ever ran. */
 	toHaveRequestedTool(received: unknown, tool: string): MatcherResult {
-		const events = eventsOf(received);
+		const events = readEvents(received);
 		if (events === undefined) {
 			return { pass: false, message: () => "toHaveRequestedTool expects a RecordedRun or RunEvents." };
 		}
@@ -89,7 +89,7 @@ export const adkMatchers = {
 
 	/** A human refused this call, and the conversation carried on knowing it. */
 	toHaveDeniedTool(received: unknown, tool: string): MatcherResult {
-		const events = eventsOf(received);
+		const events = readEvents(received);
 		if (events === undefined) {
 			return { pass: false, message: () => "toHaveDeniedTool expects a RecordedRun or RunEvents." };
 		}
@@ -101,7 +101,7 @@ export const adkMatchers = {
 
 	/** The session changed hands to this agent. */
 	toHaveTransferredTo(received: unknown, agent: string): MatcherResult {
-		const events = eventsOf(received);
+		const events = readEvents(received);
 		if (events === undefined) {
 			return { pass: false, message: () => "toHaveTransferredTo expects a RecordedRun or RunEvents." };
 		}
@@ -115,7 +115,7 @@ export const adkMatchers = {
 
 	/** One task was handed to this agent, with the conversation staying where it was. */
 	toHaveDelegatedTo(received: unknown, agent: string): MatcherResult {
-		const events = eventsOf(received);
+		const events = readEvents(received);
 		if (events === undefined) {
 			return { pass: false, message: () => "toHaveDelegatedTo expects a RecordedRun or RunEvents." };
 		}
@@ -253,7 +253,7 @@ export const adkMatchers = {
 		if (typeof received !== "string") {
 			return { pass: false, message: () => "toSatisfyRubric expects a string." };
 		}
-		const rubric = criteria instanceof JudgeRubric ? criteria : JudgeRubric.of(criteria);
+		const rubric = criteria instanceof JudgeRubric ? criteria : new JudgeRubric(criteria);
 		const verdict = await judge.judge(received, rubric);
 		return {
 			pass: verdict.passed,

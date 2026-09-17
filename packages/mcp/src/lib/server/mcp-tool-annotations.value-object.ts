@@ -13,7 +13,7 @@ export class McpToolAnnotations {
 		Object.freeze(this);
 	}
 
-	public static of(effect: ToolEffect): McpToolAnnotations {
+	public static fromEffect(effect: ToolEffect): McpToolAnnotations {
 		return new McpToolAnnotations(effect.equals(ToolEffect.READ), effect.equals(ToolEffect.DESTRUCTIVE));
 	}
 

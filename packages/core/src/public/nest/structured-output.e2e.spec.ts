@@ -43,15 +43,15 @@ class AnsweringModel extends LlmModel {
 
 	public descriptor(): ModelDescriptor {
 		return new ModelDescriptor(
-			ModelIdentity.of("acme", "primary"),
-			ModelContextWindow.of(100_000, 4_000),
-			ModelCapabilities.of([[ModelCapability.STRUCTURED_OUTPUT, true]]),
+			new ModelIdentity("acme", "primary"),
+			new ModelContextWindow(100_000, 4_000),
+			ModelCapabilities.fromEntries([[ModelCapability.STRUCTURED_OUTPUT, true]]),
 		);
 	}
 
 	public async *generate(_request: ModelRequest): AsyncIterable<ModelChunk> {
 		yield ModelChunk.text(this.answer);
-		yield ModelChunk.usage(ModelUsage.of(20, 4));
+		yield ModelChunk.usage(ModelUsage.fromReport(20, 4));
 		yield ModelChunk.finish("stop");
 	}
 }
@@ -60,9 +60,9 @@ class AnsweringModel extends LlmModel {
 class ProseOnlyModel extends AnsweringModel {
 	public override descriptor(): ModelDescriptor {
 		return new ModelDescriptor(
-			ModelIdentity.of("acme", "prose"),
-			ModelContextWindow.of(100_000, 4_000),
-			ModelCapabilities.of([]),
+			new ModelIdentity("acme", "prose"),
+			new ModelContextWindow(100_000, 4_000),
+			ModelCapabilities.fromEntries([]),
 		);
 	}
 }

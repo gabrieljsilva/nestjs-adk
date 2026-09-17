@@ -19,7 +19,7 @@ const SCHEMA_VERSION = 2;
  */
 export class AgentRunSuspended extends SessionEvent {
 	public readonly type = AgentRunSuspended.TYPE;
-	public readonly schemaVersion = EventSchemaVersion.of(SCHEMA_VERSION);
+	public readonly schemaVersion = new EventSchemaVersion(SCHEMA_VERSION);
 
 	public static readonly TYPE = "run.suspended";
 

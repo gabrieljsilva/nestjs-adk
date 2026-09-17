@@ -15,23 +15,19 @@ import { MediaSplitter } from "./media-splitter.service";
  * prepared context stay comparable to the one measured before it.
  */
 export class ContextProjection {
-	private constructor(
-		public readonly blocks: readonly ContextBlock[],
-		public readonly tools: readonly ToolDeclaration[],
+	public readonly blocks: readonly ContextBlock[];
+	public readonly tools: readonly ToolDeclaration[];
+
+	public constructor(
+		blocks: readonly ContextBlock[],
+		tools: readonly ToolDeclaration[] = [],
 		public readonly runtimeInstructions?: PromptInstructions,
 		public readonly agentPrompt?: PromptInstructions,
 		/** The shape the answer must take, when the agent asks for data instead of prose. */
 		public readonly outputSchema?: object,
-	) {}
-
-	public static of(
-		blocks: readonly ContextBlock[],
-		tools: readonly ToolDeclaration[] = [],
-		runtimeInstructions?: PromptInstructions,
-		agentPrompt?: PromptInstructions,
-		outputSchema?: object,
-	): ContextProjection {
-		return new ContextProjection([...blocks], [...tools], runtimeInstructions, agentPrompt, outputSchema);
+	) {
+		this.blocks = [...blocks];
+		this.tools = [...tools];
 	}
 
 	public withBlocks(blocks: readonly ContextBlock[]): ContextProjection {

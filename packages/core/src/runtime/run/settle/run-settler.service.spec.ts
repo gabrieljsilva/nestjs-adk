@@ -15,7 +15,7 @@ import { SequenceIdGenerator } from "../../../support/sequence-id-generator.doub
 import { ActiveRunTracker } from "../../lifecycle/active-run-tracker.service";
 import { RuntimeLifecycle } from "../../lifecycle/runtime-lifecycle.service";
 import { ShutdownOptions } from "../../lifecycle/shutdown.options";
-import { SessionManager } from "../../session/session-manager.service";
+import { SessionRepository } from "../../session/session-repository.service";
 import { AgentRunFactory } from "../agent-run.factory";
 import { RunEventFactory } from "../journal/run-event.factory";
 import { RunJournal } from "../journal/run-journal.service";
@@ -55,7 +55,7 @@ function startedRun(): StartedRun {
 
 function settlerOf(storage: InMemorySessionStorage): RunSettler {
 	const journal = new RunJournal(new RunEventFactory(new SequenceIdGenerator("e"), clock));
-	return new RunSettler(new SessionManager(storage), journal);
+	return new RunSettler(new SessionRepository(storage), journal);
 }
 
 async function sessionIn(storage: InMemorySessionStorage): Promise<void> {

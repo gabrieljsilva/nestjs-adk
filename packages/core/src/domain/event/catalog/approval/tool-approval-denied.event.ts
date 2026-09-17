@@ -15,7 +15,7 @@ const SCHEMA_VERSION = 3;
  */
 export class ToolApprovalDenied extends SessionEvent {
 	public readonly type = ToolApprovalDenied.TYPE;
-	public readonly schemaVersion = EventSchemaVersion.of(SCHEMA_VERSION);
+	public readonly schemaVersion = new EventSchemaVersion(SCHEMA_VERSION);
 
 	public static readonly TYPE = "tool.approval-denied";
 

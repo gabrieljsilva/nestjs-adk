@@ -21,7 +21,7 @@ Answer in English using at most two sentences, always stating the amount in Braz
 	// A comparison is one search plus one quote per title, so this sector runs longer than
 	// the rest of the store and says so here instead of the store raising the ceiling for
 	// everyone. What an agent declares replaces the module's, field by field.
-	limits: RunLimits.of(16),
+	limits: new RunLimits(16),
 })
 export class SalesAgent extends AdkAgent {
 	/** Always composed: how the sector answers is not something to look up. */

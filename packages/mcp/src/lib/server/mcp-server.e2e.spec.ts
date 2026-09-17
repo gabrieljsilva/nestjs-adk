@@ -86,7 +86,7 @@ class TokenActors extends McpActorResolver {
 		if (token === undefined) throw new McpUnauthorizedError("no bearer token", CHALLENGE);
 		if (!token.startsWith("user:")) throw new McpUnauthorizedError("token not issued for this server", CHALLENGE);
 		const id = token.slice("user:".length);
-		return Actor.of(id, { member: this.directory.isMember(id) });
+		return Actor.fromId(id, { member: this.directory.isMember(id) });
 	}
 }
 
@@ -246,7 +246,7 @@ describe("McpServerModule, over HTTP", () => {
 		const { app: booted, url } = await boot(model);
 		const client = await connect(url, "user:bob");
 
-		await booted.get(AssistantAgent).ask("what do I have?", { actor: Actor.of("bob", { member: false }) });
+		await booted.get(AssistantAgent).ask("what do I have?", { actor: Actor.fromId("bob", { member: false }) });
 		const overMcp = await client.callTool({ name: "list_meetings", arguments: { limit: 1 } });
 
 		expect(toolResultOf(model)?.failed).toBe(true);

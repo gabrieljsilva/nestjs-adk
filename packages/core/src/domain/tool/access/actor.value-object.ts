@@ -17,9 +17,9 @@ export class Actor<TClaims extends Record<string, unknown> = Record<string, unkn
 		Object.freeze(this);
 	}
 
-	public static of(id: string): Actor;
-	public static of<TClaims extends Record<string, unknown>>(id: string, claims: TClaims): Actor<TClaims>;
-	public static of(id: string, claims: Record<string, unknown> = {}): Actor<Record<string, unknown>> {
+	public static fromId(id: string): Actor;
+	public static fromId<TClaims extends Record<string, unknown>>(id: string, claims: TClaims): Actor<TClaims>;
+	public static fromId(id: string, claims: Record<string, unknown> = {}): Actor<Record<string, unknown>> {
 		const trimmed = id.trim();
 		if (trimmed.length === 0) throw new MissingActorIdError();
 		return new Actor(trimmed, Object.freeze({ ...claims }));

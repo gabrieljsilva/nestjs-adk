@@ -5,8 +5,8 @@ import { RateLimitedFailure } from "../../domain/model/failures/rate-limited-fai
 import { ModelResponse } from "../../domain/model/model-response.value-object";
 import { ModelRunOutcome } from "./model-run-outcome.value-object";
 
-const PRIMARY = ModelIdentity.of("acme", "primary");
-const FALLBACK = ModelIdentity.of("acme", "fallback");
+const PRIMARY = new ModelIdentity("acme", "primary");
+const FALLBACK = new ModelIdentity("acme", "fallback");
 
 describe("ModelRunOutcome", () => {
 	it("reports the model that answered as the one the cost belongs to", () => {

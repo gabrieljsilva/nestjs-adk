@@ -16,7 +16,7 @@ const SESSION = SessionId.from("s-1");
 const CTX = SessionContext.fromSessionId(SESSION);
 const OTHER = SessionId.from("s-2");
 const OTHER_CTX = SessionContext.fromSessionId(OTHER);
-const report = ArtifactContent.of("a very long report", "text/markdown");
+const report = new ArtifactContent("a very long report", "text/markdown");
 
 function contextOf(sessionId: SessionId): ToolContext {
 	return new ToolContext(sessionId, AgentRunId.from("run-1"), AgentName.from("support"), ToolCallId.from("c-1"));

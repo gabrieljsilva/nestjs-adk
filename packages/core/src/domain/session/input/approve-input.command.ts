@@ -13,7 +13,7 @@ import type { Actor } from "../../tool/access/actor.value-object";
  * runnable now if the source is opened now.
  */
 export class ApproveInput {
-	private constructor(
+	public constructor(
 		public readonly sessionId: SessionId,
 		public readonly callId: ToolCallId,
 		public readonly approvedBy?: string,
@@ -23,16 +23,4 @@ export class ApproveInput {
 		public readonly actor?: Actor,
 		public readonly toolCalls?: ToolCallObserver,
 	) {}
-
-	public static of(
-		sessionId: SessionId,
-		callId: ToolCallId,
-		approvedBy?: string,
-		sources: readonly ToolSource[] = [],
-		signal?: AbortSignal,
-		actor?: Actor,
-		toolCalls?: ToolCallObserver,
-	): ApproveInput {
-		return new ApproveInput(sessionId, callId, approvedBy, sources, signal, actor, toolCalls);
-	}
 }

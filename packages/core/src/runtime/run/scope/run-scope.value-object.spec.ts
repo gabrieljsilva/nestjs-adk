@@ -20,7 +20,7 @@ import type { RunScope } from "./run-scope.value-object";
 
 const SESSION = SessionId.from("s-1");
 const model = new ScriptedModel("primary");
-const definition = NativeStackFixture.definitionOf(model);
+const definition = NativeStackFixture.buildDefinition(model);
 
 function startedRun(): StartedRun {
 	const clock = new FakeClock(Instant.fromIso("2026-01-01T00:00:00.000Z"));

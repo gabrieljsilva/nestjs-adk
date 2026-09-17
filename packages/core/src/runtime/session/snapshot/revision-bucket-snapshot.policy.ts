@@ -33,10 +33,10 @@ export class RevisionBucketSnapshotPolicy extends SnapshotPolicy {
 
 	public shouldSnapshot(before: SessionRevision, after: SessionRevision, state: SessionState): boolean {
 		if (state.isAwaitingApproval) return true;
-		return this.bucketOf(after) > this.bucketOf(before);
+		return this.calculateBucket(after) > this.calculateBucket(before);
 	}
 
-	private bucketOf(revision: SessionRevision): number {
+	private calculateBucket(revision: SessionRevision): number {
 		return Math.floor(revision.value / this.everyEvents);
 	}
 }

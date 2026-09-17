@@ -18,8 +18,8 @@ class NamedModel extends LlmModel {
 
 	public descriptor(): ModelDescriptor {
 		return new ModelDescriptor(
-			ModelIdentity.of("acme", this.name),
-			ModelContextWindow.of(1000, 100),
+			new ModelIdentity("acme", this.name),
+			new ModelContextWindow(1000, 100),
 			ModelCapabilities.none(),
 		);
 	}

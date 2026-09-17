@@ -31,23 +31,27 @@ describe("SessionStateCodec", () => {
 	});
 
 	it("keeps the values a session carries between runs", () => {
-		const state = SessionState.restored(SessionRevision.of(7), StateValues.of([["tier", "gold"]]));
+		const state = SessionState.restored(new SessionRevision(7), StateValues.fromEntries([["tier", "gold"]]));
 
 		const restored = roundTrip(state);
 
 		expect(restored.revision.value).toBe(7);
-		expect(restored.values.get("tier")).toBe("gold");
+		expect(restored.values.find("tier")).toBe("gold");
 	});
 
 	it("keeps who is answering", () => {
-		const state = SessionState.restored(SessionRevision.of(1), StateValues.empty(), AgentName.from("billing"));
+		const state = SessionState.restored(new SessionRevision(1), StateValues.empty(), AgentName.from("billing"));
 
 		expect(roundTrip(state).activeAgent?.value).toBe("billing");
 	});
 
 	it("keeps the size of the last prompt, including which model reported it", () => {
-		const measurement = PromptMeasurement.from(ModelUsage.of(100, 10, 40), 800, ModelIdentity.of("acme", "primary"));
-		const state = SessionState.restored(SessionRevision.of(1), StateValues.empty(), undefined, measurement);
+		const measurement = PromptMeasurement.from(
+			ModelUsage.fromReport(100, 10, 40),
+			800,
+			new ModelIdentity("acme", "primary"),
+		);
+		const state = SessionState.restored(new SessionRevision(1), StateValues.empty(), undefined, measurement);
 
 		const restored = roundTrip(state);
 
@@ -58,14 +62,14 @@ describe("SessionStateCodec", () => {
 	});
 
 	it("remembers that nobody reported caching, rather than restoring a zero", () => {
-		const measurement = PromptMeasurement.from(ModelUsage.of(100, 10), 800, ModelIdentity.of("acme", "primary"));
-		const state = SessionState.restored(SessionRevision.of(1), StateValues.empty(), undefined, measurement);
+		const measurement = PromptMeasurement.from(ModelUsage.fromReport(100, 10), 800, new ModelIdentity("acme", "primary"));
+		const state = SessionState.restored(new SessionRevision(1), StateValues.empty(), undefined, measurement);
 
 		expect(roundTrip(state).lastPrompt?.usage.reportsCaching).toBe(false);
 	});
 
 	it("keeps a suspended turn, with what each call is still waiting for", () => {
-		const turn = PendingTurn.of(AgentRunId.from("r-1"), [
+		const turn = new PendingTurn(AgentRunId.from("r-1"), [
 			new PendingCall(ToolCallId.from("c-1"), "lookup_order", { orderId: "42" }),
 			new PendingCall(ToolCallId.from("c-2"), "refund_order", { orderId: "42" }, "write"),
 			new PendingCall(ToolCallId.from("c-3"), "close_order", {}, "write", "denied", "not authorized"),

@@ -21,7 +21,7 @@ const DELEGATION_STARTED = "delegation.started";
 export class RunEvents {
 	private readonly received: PublishedEvent[] = [];
 
-	public static of(events: readonly PublishedEvent[]): RunEvents {
+	public static fromEvents(events: readonly PublishedEvent[]): RunEvents {
 		const collected = new RunEvents();
 		for (const event of events) collected.record(event);
 		return collected;
@@ -39,17 +39,17 @@ export class RunEvents {
 		return this.received.map((event) => event.type);
 	}
 
-	public countOf(type: string): number {
+	public countByType(type: string): number {
 		return this.received.filter((event) => event.type === type).length;
 	}
 
 	/** Only what this run published, which is how one assertion survives a suite of several runs. */
 	public forRun(runId: string): RunEvents {
-		return RunEvents.of(this.received.filter((event) => event.correlation.runId.value === runId));
+		return RunEvents.fromEvents(this.received.filter((event) => event.correlation.runId.value === runId));
 	}
 
 	public forSession(sessionId: string): RunEvents {
-		return RunEvents.of(this.received.filter((event) => event.sessionId.value === sessionId));
+		return RunEvents.fromEvents(this.received.filter((event) => event.sessionId.value === sessionId));
 	}
 
 	/**
@@ -113,7 +113,7 @@ export class RunEvents {
 	}
 
 	public get toolsAwaitingApproval(): readonly string[] {
-		return this.namesOf(TOOL_APPROVAL_REQUESTED);
+		return this.readNames(TOOL_APPROVAL_REQUESTED);
 	}
 
 	public denied(tool: string): number {
@@ -160,7 +160,7 @@ export class RunEvents {
 		this.received.length = 0;
 	}
 
-	private namesOf(type: string): readonly string[] {
+	private readNames(type: string): readonly string[] {
 		return this.received.flatMap((event) => (event.type === type ? [this.textIn(event, "toolName") ?? ""] : []));
 	}
 

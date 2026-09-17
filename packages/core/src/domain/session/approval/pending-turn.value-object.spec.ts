@@ -10,7 +10,7 @@ const REFUND = ToolCallId.from("c-2");
 const CLOSE = ToolCallId.from("c-3");
 
 function turnOf(): PendingTurn {
-	return PendingTurn.of(RUN, [
+	return new PendingTurn(RUN, [
 		new PendingCall(LOOKUP, "lookup_order", { orderId: "42" }),
 		new PendingCall(REFUND, "refund_order", { orderId: "42" }, "write"),
 		new PendingCall(CLOSE, "close_order", { orderId: "42" }, "write"),
@@ -41,7 +41,7 @@ describe("PendingTurn", () => {
 	});
 
 	it("counts a turn nobody had to answer for as already decided", () => {
-		const turn = PendingTurn.of(RUN, [new PendingCall(LOOKUP, "lookup_order", {})]);
+		const turn = new PendingTurn(RUN, [new PendingCall(LOOKUP, "lookup_order", {})]);
 
 		expect(turn.isDecided).toBe(true);
 	});

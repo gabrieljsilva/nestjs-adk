@@ -10,13 +10,12 @@ const DEFAULT_THRESHOLD = 0.7;
  * breaks on rewording is an assertion nobody keeps.
  */
 export class JudgeRubric {
-	private constructor(
-		public readonly criteria: string,
-		public readonly threshold: number,
-	) {}
+	public readonly criteria: string;
+	public readonly threshold: number;
 
-	public static of(criteria: string, threshold: number = DEFAULT_THRESHOLD): JudgeRubric {
-		return new JudgeRubric(criteria.trim(), Math.min(1, Math.max(0, threshold)));
+	public constructor(criteria: string, threshold: number = DEFAULT_THRESHOLD) {
+		this.criteria = criteria.trim();
+		this.threshold = Math.min(1, Math.max(0, threshold));
 	}
 
 	public passes(score: number): boolean {

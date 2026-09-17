@@ -21,6 +21,6 @@ export class TransferMetadata {
 		if (!Array.isArray(value)) {
 			throw new InvalidAgentMetadataError(providerName, "@TransfersTo must declare a list of targets.");
 		}
-		return new TransferMetadata(AgentTargets.namesOf(value, providerName, "@TransfersTo"));
+		return new TransferMetadata(AgentTargets.readNames(value, providerName, "@TransfersTo"));
 	}
 }

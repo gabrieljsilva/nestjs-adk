@@ -9,7 +9,7 @@ export class CorrelationId {
 	}
 
 	public static from(value: string): CorrelationId {
-		return new CorrelationId(IdentityText.of(value, "CorrelationId"));
+		return new CorrelationId(IdentityText.fromText(value, "CorrelationId"));
 	}
 
 	public get value(): string {

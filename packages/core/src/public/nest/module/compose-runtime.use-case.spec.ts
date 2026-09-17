@@ -15,15 +15,15 @@ import { ToolContext } from "../../../domain/tool/invocation/tool-context.value-
 import { FakeClock } from "../../../support/fake-clock.double";
 import { ScriptedModel } from "../../../support/run/scripted-model.fixture";
 import { SequenceIdGenerator } from "../../../support/sequence-id-generator.double";
-import { AdkRuntimeHost } from "../../adk-runtime-host.edge";
+import { AdkRuntime } from "../../adk-runtime.edge";
 import { AdkAgent } from "../agent/adk-agent.edge";
 import { AgentRegistry } from "../agent/agent-registry.service";
 import { Agent } from "../decorators/agent.decorator";
 import { McpController } from "../decorators/mcp-controller.decorator";
 import { Tool } from "../decorators/tool.decorator";
 import { AdkTool } from "../tool/adk.tool";
-import { AdkComposer } from "./adk-composer.use-case";
 import { AdkModuleOptions } from "./adk-module.options";
+import { ComposeRuntimeUseCase } from "./compose-runtime.use-case";
 
 const schema = z.object({ orderId: z.string() });
 
@@ -85,18 +85,18 @@ function contextOf(): ToolContext {
 	);
 }
 
-let host: AdkRuntimeHost;
+let host: AdkRuntime;
 let registry: AgentRegistry;
-let composer: AdkComposer;
+let composer: ComposeRuntimeUseCase;
 let agent: SupportAgent;
 let tool: LookupOrderTool;
 
 beforeEach(() => {
-	host = new AdkRuntimeHost();
+	host = new AdkRuntime();
 	registry = new AgentRegistry(host);
 	agent = new SupportAgent(new OrdersService());
 	tool = new LookupOrderTool(new OrdersService());
-	composer = new AdkComposer(
+	composer = new ComposeRuntimeUseCase(
 		host,
 		registry,
 		new AdkModuleOptions(new ScriptedModel("primary")),
@@ -111,16 +111,16 @@ afterEach(async () => {
 	await host.stop();
 });
 
-describe("AdkComposer", () => {
+describe("ComposeRuntimeUseCase", () => {
 	it("composes the runtime from what the container declared", async () => {
-		await composer.compose([provider(SupportAgent, agent), provider(LookupOrderTool, tool)]);
+		await composer.execute([provider(SupportAgent, agent), provider(LookupOrderTool, tool)]);
 
 		expect(host.isStarted).toBe(true);
 		expect(registry.names).toEqual(["support"]);
 	});
 
 	it("hands the agent class its handle, so the application injects the class and asks", async () => {
-		const bound = await composer.compose([provider(SupportAgent, agent), provider(LookupOrderTool, tool)]);
+		const bound = await composer.execute([provider(SupportAgent, agent), provider(LookupOrderTool, tool)]);
 
 		expect(bound).toBe(1);
 		expect(agent.agentName.value).toBe("support");
@@ -134,7 +134,7 @@ describe("AdkComposer", () => {
 	 * and the tool then answers "cannot read properties of undefined" to the model.
 	 */
 	it("composes the tool around the instance that has its dependencies", async () => {
-		await composer.compose([provider(SupportAgent, agent), provider(LookupOrderTool, tool)]);
+		await composer.execute([provider(SupportAgent, agent), provider(LookupOrderTool, tool)]);
 
 		const definition = host.runtime.catalog.findOrFail(AgentName.from("support")).tools[0];
 		expect(await definition?.handler.invoke({ orderId: "A-1042" }, contextOf())).toEqual({
@@ -144,7 +144,7 @@ describe("AdkComposer", () => {
 	});
 
 	it("refuses a component the container cannot give one instance of", async () => {
-		await expect(composer.compose([provider(SupportAgent, agent, false)])).rejects.toThrow(/SupportAgent/);
+		await expect(composer.execute([provider(SupportAgent, agent, false)])).rejects.toThrow(/SupportAgent/);
 	});
 
 	it("hands the runtime the resolver it was constructed with", async () => {
@@ -153,7 +153,7 @@ describe("AdkComposer", () => {
 				return definition.model;
 			}
 		})();
-		const chosen = new AdkComposer(
+		const chosen = new ComposeRuntimeUseCase(
 			host,
 			registry,
 			new AdkModuleOptions(new ScriptedModel("primary")),
@@ -164,14 +164,14 @@ describe("AdkComposer", () => {
 			resolver,
 		);
 
-		await chosen.compose([provider(SupportAgent, agent), provider(LookupOrderTool, tool)]);
+		await chosen.execute([provider(SupportAgent, agent), provider(LookupOrderTool, tool)]);
 
 		expect(host.runtime.models).toBe(resolver);
 	});
 
 	it("scans undeclared agents against the default model it was handed, not the options'", async () => {
 		const replacement = new ScriptedModel("replacement");
-		const rebased = new AdkComposer(
+		const rebased = new ComposeRuntimeUseCase(
 			host,
 			registry,
 			new AdkModuleOptions(new ScriptedModel("primary")),
@@ -184,13 +184,13 @@ describe("AdkComposer", () => {
 			replacement,
 		);
 
-		await rebased.compose([provider(SupportAgent, agent), provider(LookupOrderTool, tool)]);
+		await rebased.execute([provider(SupportAgent, agent), provider(LookupOrderTool, tool)]);
 
 		expect(host.runtime.catalog.findOrFail(AgentName.from("support")).model).toBe(replacement);
 	});
 
 	it("publishes what the controllers exposed, next to the agents", async () => {
-		await composer.compose([
+		await composer.execute([
 			provider(SupportAgent, agent),
 			provider(LookupOrderTool, tool),
 			provider(OrdersMcpController, new OrdersMcpController()),
@@ -203,7 +203,7 @@ describe("AdkComposer", () => {
 	});
 
 	it("publishes nothing when no controller was declared", async () => {
-		await composer.compose([provider(SupportAgent, agent), provider(LookupOrderTool, tool)]);
+		await composer.execute([provider(SupportAgent, agent), provider(LookupOrderTool, tool)]);
 
 		expect(host.runtime.exposed.isEmpty).toBe(true);
 	});

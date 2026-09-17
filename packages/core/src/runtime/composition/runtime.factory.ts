@@ -10,11 +10,11 @@ import { AttachmentReader } from "../artifact/attachment-reader.service";
 import { AttachmentStore } from "../artifact/attachment-store.service";
 import { ReadArtifactTool } from "../artifact/read-artifact.tool";
 import { AgentCatalog } from "../catalog/agent-catalog.service";
-import { ContextManager } from "../context/context-manager.service";
 import { ContextMeasurer } from "../context/context-measurer.service";
 import { ContextProjector } from "../context/context-projector.service";
 import { ContextWindowNotifier } from "../context/context-window-notifier.service";
-import { InspectContextBudget } from "../context/inspect-context-budget.use-case";
+import { ContextService } from "../context/context.service";
+import { InspectContextBudgetUseCase } from "../context/inspect-context-budget.use-case";
 import { OldestFirstCompactionStrategy } from "../context/oldest-first-compaction.strategy";
 import { StablePrefixDigest } from "../context/stable-prefix-digest.service";
 import { CostCalculator } from "../cost/cost-calculator.service";
@@ -36,20 +36,20 @@ import { RunSettler } from "../run/settle/run-settler.service";
 import { ApprovalGate } from "../run/turn/approval-gate.service";
 import { TurnExecutor } from "../run/turn/turn-executor.service";
 import { TurnLoop } from "../run/turn/turn-loop.service";
-import { AskAgent } from "../run/use-cases/ask-agent.use-case";
-import { DecideApproval } from "../run/use-cases/decide-approval.use-case";
-import { DelegateAgent } from "../run/use-cases/delegate-agent.use-case";
-import { ExplainAgent } from "../run/use-cases/explain-agent.use-case";
-import { StreamAgent } from "../run/use-cases/stream-agent.use-case";
-import { CreateSession } from "../session/create-session.use-case";
-import { InspectSession } from "../session/inspect-session.use-case";
-import { SessionManager } from "../session/session-manager.service";
+import { AskAgentUseCase } from "../run/use-cases/ask-agent.use-case";
+import { DecideApprovalUseCase } from "../run/use-cases/decide-approval.use-case";
+import { DelegateAgentUseCase } from "../run/use-cases/delegate-agent.use-case";
+import { ExplainAgentUseCase } from "../run/use-cases/explain-agent.use-case";
+import { StreamAgentUseCase } from "../run/use-cases/stream-agent.use-case";
+import { CreateSessionUseCase } from "../session/create-session.use-case";
+import { InspectSessionUseCase } from "../session/inspect-session.use-case";
+import { SessionRepository } from "../session/session-repository.service";
 import { SessionService } from "../session/session.service";
 import { ToolCatalog } from "../tool/tool-catalog.service";
 import { ToolExecutor } from "../tool/tool-executor.service";
 import { ToolGate } from "../tool/tool-gate.service";
-import { AgentSwitch } from "../transfer/agent-switch.use-case";
 import { TransferGate } from "../transfer/transfer-gate.service";
+import { TransferSessionUseCase } from "../transfer/transfer-session.use-case";
 import { RuntimeCompositionFailedError } from "./errors/runtime-composition-failed.error";
 import { RuntimeServices } from "./runtime-services.value-object";
 import { RuntimeOptions } from "./runtime.options";
@@ -82,8 +82,8 @@ export class RuntimeFactory {
 		const resolver = options.models ?? new CatalogModelResolver();
 		const measurer = new ContextMeasurer();
 		const events = new EventPublisher(options.consumers, options.consumerNotices, undefined, undefined, options.redactor);
-		const sessions = new SessionManager(storage, undefined, events, undefined, options.snapshots);
-		const context = new ContextManager(
+		const sessions = new SessionRepository(storage, undefined, events, undefined, options.snapshots);
+		const context = new ContextService(
 			storage,
 			new ContextProjector(new AttachmentReader(artifacts, options.attachments)),
 			measurer,
@@ -108,12 +108,12 @@ export class RuntimeFactory {
 			journal,
 			turns,
 			new ApprovalGate(options.approvals),
-			new AgentSwitch(catalog, resolver, scopes),
+			new TransferSessionUseCase(catalog, resolver, scopes),
 			delegations,
 		);
 		// The one cycle in the graph: a loop runs turns, a turn delegates, a delegation runs turns.
 		delegations.uses(loop);
-		const asking = new AskAgent(
+		const asking = new AskAgentUseCase(
 			catalog,
 			resolver,
 			new SessionOpener(sessions, clock),
@@ -131,7 +131,7 @@ export class RuntimeFactory {
 		);
 		const runner = new AgentRunner(
 			asking,
-			new DecideApproval(
+			new DecideApprovalUseCase(
 				catalog,
 				resolver,
 				sessions,
@@ -144,9 +144,9 @@ export class RuntimeFactory {
 				results,
 				options.sources,
 			),
-			new StreamAgent(asking),
-			new ExplainAgent(asking),
-			new DelegateAgent(catalog, resolver, sessions, runs, scopes, delegations, settler, results),
+			new StreamAgentUseCase(asking),
+			new ExplainAgentUseCase(asking),
+			new DelegateAgentUseCase(catalog, resolver, sessions, runs, scopes, delegations, settler, results),
 		);
 
 		try {
@@ -163,15 +163,15 @@ export class RuntimeFactory {
 						{ provide: ActiveRunTracker, useValue: tracker },
 						{ provide: RuntimeLifecycle, useValue: lifecycle },
 						{ provide: EventPublisher, useValue: events },
-						{ provide: SessionManager, useValue: sessions },
-						{ provide: ContextManager, useValue: context },
+						{ provide: SessionRepository, useValue: sessions },
+						{ provide: ContextService, useValue: context },
 						{ provide: AgentRunFactory, useValue: runs },
 						{ provide: AgentRunner, useValue: runner },
 					],
 					exports: [
 						AgentCatalog,
 						ModelResolver,
-						SessionManager,
+						SessionRepository,
 						EventPublisher,
 						ArtifactOffloader,
 						AgentRunFactory,
@@ -189,7 +189,7 @@ export class RuntimeFactory {
 				catalog,
 				resolver,
 				container.get(AgentRunner),
-				this.sessionServiceOf(catalog, sessions, clock, ids, runs, journal, artifacts, context),
+				this.buildSessionService(catalog, sessions, clock, ids, runs, journal, artifacts, context),
 				container.get(AgentRunFactory),
 				container.get(EventPublisher),
 				container.get(ArtifactOffloader),
@@ -198,7 +198,7 @@ export class RuntimeFactory {
 				tracker,
 				options.limits,
 				gate,
-				ToolCatalog.of(exposed),
+				new ToolCatalog(exposed),
 			);
 		} catch (cause) {
 			throw new RuntimeCompositionFailedError(cause instanceof Error ? cause.message : String(cause), cause);
@@ -206,22 +206,22 @@ export class RuntimeFactory {
 	}
 
 	/** The read half of sessions, which needs the catalog because a window belongs to a model. */
-	private sessionServiceOf(
+	private buildSessionService(
 		catalog: AgentCatalog,
-		sessions: SessionManager,
+		sessions: SessionRepository,
 		clock: Clock,
 		ids: IdGenerator,
 		runs: AgentRunFactory,
 		journal: RunJournal,
 		artifacts: ArtifactStorage,
-		context: ContextManager,
+		context: ContextService,
 	): SessionService {
-		const inspecting = new InspectSession(sessions);
+		const inspecting = new InspectSessionUseCase(sessions);
 		return new SessionService(
-			new CreateSession(sessions, clock, ids, runs, journal),
+			new CreateSessionUseCase(sessions, clock, ids, runs, journal),
 			inspecting,
 			sessions,
-			new InspectContextBudget(inspecting, catalog),
+			new InspectContextBudgetUseCase(inspecting, catalog),
 			artifacts,
 			context,
 		);

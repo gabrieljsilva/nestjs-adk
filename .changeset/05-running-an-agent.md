@@ -27,7 +27,7 @@ The signal is chained onto the run the way a delegation already chains onto its 
 @Agent({
 	name: "sales",
 	description: "Catalog, prices and quotes.",
-	limits: RunLimits.of(16),
+	limits: new RunLimits(16),
 })
 export class SalesAgent extends AdkAgent {}
 ```

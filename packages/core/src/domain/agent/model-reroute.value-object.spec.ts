@@ -3,8 +3,8 @@ import { ModelIdentity } from "../model/descriptor/model-identity.value-object";
 import { RateLimitedFailure } from "../model/failures/rate-limited-failure.value-object";
 import { ModelReroute } from "./model-reroute.value-object";
 
-const PRIMARY = ModelIdentity.of("acme", "primary");
-const FALLBACK = ModelIdentity.of("acme", "fallback");
+const PRIMARY = new ModelIdentity("acme", "primary");
+const FALLBACK = new ModelIdentity("acme", "fallback");
 
 describe("ModelReroute", () => {
 	it("records where the call went and where it came from", () => {

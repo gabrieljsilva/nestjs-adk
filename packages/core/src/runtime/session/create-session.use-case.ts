@@ -9,7 +9,7 @@ import { Session } from "../../domain/session/session.entity";
 import { SessionState } from "../../domain/session/state/session-state.value-object";
 import type { AgentRunFactory } from "../run/agent-run.factory";
 import type { RunJournal } from "../run/journal/run-journal.service";
-import type { SessionManager } from "./session-manager.service";
+import type { SessionRepository } from "./session-repository.service";
 
 /**
  * Opens a conversation before anything is asked in it.
@@ -31,16 +31,16 @@ import type { SessionManager } from "./session-manager.service";
  * construction: the storage refuses the second `create` with `SessionAlreadyExistsError`,
  * inside its own transaction, which is the only place the answer can be correct.
  */
-export class CreateSession {
+export class CreateSessionUseCase {
 	public constructor(
-		private readonly sessions: SessionManager,
+		private readonly sessions: SessionRepository,
 		private readonly clock: Clock,
 		private readonly ids: IdGenerator,
 		private readonly runs: AgentRunFactory,
 		private readonly journal: RunJournal,
 	) {}
 
-	public async handle(agent: AgentName, input: CreateSessionInput): Promise<Session> {
+	public async execute(agent: AgentName, input: CreateSessionInput): Promise<Session> {
 		const session = Session.start(input.sessionId ?? SessionId.from(this.ids.next()), agent, this.clock.now());
 		await this.sessions.create(new SessionContext(session.id, input.metadata, session.revision), session);
 		if (input.metadata.isEmpty) return session;
@@ -54,7 +54,7 @@ export class CreateSession {
 			const state = await this.sessions.commit(
 				new SessionContext(session.id, input.metadata, session.revision),
 				session.revision,
-				SessionEventBatch.of([...this.journal.metadata(started, input.metadata)]),
+				new SessionEventBatch([...this.journal.metadata(started, input.metadata)]),
 				SessionState.initial(),
 			);
 			return session.at(state.revision, this.clock.now());

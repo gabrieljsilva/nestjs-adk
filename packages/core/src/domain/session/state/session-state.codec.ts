@@ -34,8 +34,8 @@ export class SessionStateCodec {
 
 	public decode(payload: Readonly<Record<string, unknown>>): SessionState {
 		return SessionState.restored(
-			SessionRevision.of(this.number(payload.revision)),
-			StateValues.of(this.pairs(payload.values)),
+			new SessionRevision(this.number(payload.revision)),
+			StateValues.fromEntries(this.pairs(payload.values)),
 			this.optionalText(payload.activeAgent) === undefined ? undefined : AgentName.from(this.text(payload.activeAgent)),
 			this.decodePrompt(payload.lastPrompt),
 			this.decodeTurn(payload.pendingTurn),
@@ -61,13 +61,13 @@ export class SessionStateCodec {
 		const cached = Reflect.get(value, "cachedInputTokens");
 		const provider = Reflect.get(value, "provider");
 		const model = Reflect.get(value, "model");
-		const usage = ModelUsage.of(
+		const usage = ModelUsage.fromReport(
 			this.number(Reflect.get(value, "inputTokens")),
 			this.number(Reflect.get(value, "outputTokens")),
 			typeof cached === "number" ? cached : undefined,
 		);
 		const identity =
-			typeof provider === "string" && typeof model === "string" ? ModelIdentity.of(provider, model) : undefined;
+			typeof provider === "string" && typeof model === "string" ? new ModelIdentity(provider, model) : undefined;
 		return PromptMeasurement.from(usage, this.number(Reflect.get(value, "characters")), identity);
 	}
 
@@ -91,7 +91,7 @@ export class SessionStateCodec {
 		if (typeof value !== "object" || value === null) return undefined;
 		const calls = Reflect.get(value, "calls");
 		if (!Array.isArray(calls)) return undefined;
-		return PendingTurn.of(
+		return new PendingTurn(
 			AgentRunId.from(this.text(Reflect.get(value, "runId"))),
 			calls.map((call) => this.decodeCall(call)),
 		);

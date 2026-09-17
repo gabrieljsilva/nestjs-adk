@@ -34,7 +34,7 @@ export class SessionEventRegistry {
 		return [...this.codecs.keys()];
 	}
 
-	public codecFor(type: string): SessionEventCodec<SessionEvent> {
+	public findCodecOrFail(type: string): SessionEventCodec<SessionEvent> {
 		const codec = this.codecs.get(type);
 		if (codec === undefined) throw new UnknownSessionEventTypeError(type);
 		return codec;
@@ -46,8 +46,8 @@ export class SessionEventRegistry {
 		payload: Readonly<Record<string, unknown>>,
 		header: EventHeader,
 	): SessionEvent {
-		const codec = this.codecFor(type);
-		const found = EventSchemaVersion.of(storedVersion);
+		const codec = this.findCodecOrFail(type);
+		const found = new EventSchemaVersion(storedVersion);
 		if (found.isAfter(codec.schemaVersion)) {
 			throw new UnsupportedSessionEventVersionError(type, found.value, codec.schemaVersion.value);
 		}

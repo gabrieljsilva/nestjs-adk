@@ -16,7 +16,7 @@ import type { Session } from "../../../domain/session/session.entity";
 import type { Actor } from "../../../domain/tool/access/actor.value-object";
 import type { AgentCatalog } from "../../catalog/agent-catalog.service";
 import { OpenedSession } from "../../session/opened-session.value-object";
-import type { SessionManager } from "../../session/session-manager.service";
+import type { SessionRepository } from "../../session/session-repository.service";
 import { ToolSourceScope } from "../../tool/tool-source-scope.service";
 import type { AgentRunFactory } from "../agent-run.factory";
 import type { RunJournal } from "../journal/run-journal.service";
@@ -57,11 +57,11 @@ export interface ApprovalOptions {
  * a human agreed to was those calls with those arguments. Everything after them is an
  * ordinary turn: the model reads the results and decides what to do next.
  */
-export class DecideApproval {
+export class DecideApprovalUseCase {
 	public constructor(
 		private readonly catalog: AgentCatalog,
 		private readonly models: ModelResolver,
-		private readonly sessions: SessionManager,
+		private readonly sessions: SessionRepository,
 		private readonly runs: AgentRunFactory,
 		private readonly scopes: RunScopeFactory,
 		private readonly journal: RunJournal,
@@ -72,7 +72,7 @@ export class DecideApproval {
 		private readonly sources: readonly ToolSource[] = [],
 	) {}
 
-	public async handle(
+	public async execute(
 		sessionId: SessionId,
 		callId: ToolCallId,
 		decision: ApprovalDecision,
@@ -93,7 +93,7 @@ export class DecideApproval {
 			await this.sessions.commit(
 				context,
 				rehydrated.session.revision,
-				SessionEventBatch.of([
+				new SessionEventBatch([
 					this.journal.started(started, definition.name, model.descriptor().identity),
 					this.journal.decision(
 						started,

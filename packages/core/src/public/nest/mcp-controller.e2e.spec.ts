@@ -11,7 +11,7 @@ import type { ToolContext } from "../../domain/tool/invocation/tool-context.valu
 import type { ToolDefinition } from "../../domain/tool/tool-definition.value-object";
 import { RuntimeOptions } from "../../runtime/composition/runtime.options";
 import { ToolCallingModel } from "../../support/nest/tool-calling-model.fixture";
-import { AdkRuntimeHost } from "../adk-runtime-host.edge";
+import { AdkRuntime } from "../adk-runtime.edge";
 import { AdkAgent } from "./agent/adk-agent.edge";
 import { Agent } from "./decorators/agent.decorator";
 import { McpController } from "./decorators/mcp-controller.decorator";
@@ -101,7 +101,7 @@ describe("@McpController, booted with the agents", () => {
 	it("publishes the shared class and its own methods, and nothing an agent declared for itself", async () => {
 		const booted = await boot(new ToolCallingModel("list_meetings", { limit: 1 }));
 
-		const exposed = booted.get(AdkRuntimeHost).runtime.exposed;
+		const exposed = booted.get(AdkRuntime).runtime.exposed;
 		expect(exposed.names).toEqual(["list_meetings", "count_meetings"]);
 	});
 
@@ -109,7 +109,7 @@ describe("@McpController, booted with the agents", () => {
 		const model = new ToolCallingModel("list_meetings", { limit: 1 });
 		const booted = await boot(model);
 
-		await booted.get(AssistantAgent).ask("what do I have?", { actor: Actor.of("ana", { member: true }) });
+		await booted.get(AssistantAgent).ask("what do I have?", { actor: Actor.fromId("ana", { member: true }) });
 
 		const offered = model.requests[0]?.tools.map((tool) => tool.name) ?? [];
 		expect(offered).toEqual(expect.arrayContaining(["list_meetings", "draft_reply"]));
@@ -120,7 +120,7 @@ describe("@McpController, booted with the agents", () => {
 		const model = new ToolCallingModel("list_meetings", { limit: 1 });
 		const booted = await boot(model);
 
-		await booted.get(AssistantAgent).ask("what do I have?", { actor: Actor.of("ana", { member: true }) });
+		await booted.get(AssistantAgent).ask("what do I have?", { actor: Actor.fromId("ana", { member: true }) });
 
 		expect(toolResultOf(model)?.output).toEqual({ actor: "ana", meetings: ["ana:meeting-1"] });
 	});
@@ -129,7 +129,9 @@ describe("@McpController, booted with the agents", () => {
 		const model = new ToolCallingModel("list_meetings", { limit: 1 });
 		const booted = await boot(model);
 
-		const result = await booted.get(AssistantAgent).ask("what do I have?", { actor: Actor.of("bob", { member: false }) });
+		const result = await booted
+			.get(AssistantAgent)
+			.ask("what do I have?", { actor: Actor.fromId("bob", { member: false }) });
 
 		expect(toolResultOf(model)?.failed).toBe(true);
 		expect(toolResultOf(model)?.output).toEqual({ refused: true, reason: "list_meetings is for members" });

@@ -15,16 +15,12 @@ import type { UsdAmount } from "./usd-amount.value-object";
  * fiction. A consumer that needs the rate reads it off the call.
  */
 export class ModelCost {
-	private constructor(
+	public constructor(
 		public readonly model: ModelIdentity,
 		public readonly calls: number,
 		public readonly usage: ModelUsage,
 		public readonly breakdown: CostBreakdown,
 	) {}
-
-	public static of(model: ModelIdentity, calls: number, usage: ModelUsage, breakdown: CostBreakdown): ModelCost {
-		return new ModelCost(model, calls, usage, breakdown);
-	}
 
 	public static none(model: ModelIdentity): ModelCost {
 		return new ModelCost(model, 0, ModelUsage.none(), CostBreakdown.zero());

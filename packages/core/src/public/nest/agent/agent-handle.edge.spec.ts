@@ -237,7 +237,7 @@ describe("AgentHandle", () => {
 
 	it("carries who is asking into the command", async () => {
 		const { calls, handle } = spyingRuntime();
-		const actor = Actor.of("u-1");
+		const actor = Actor.fromId("u-1");
 
 		await handle.ask("hi", { actor });
 
@@ -266,7 +266,7 @@ describe("AgentHandle", () => {
 
 	it("carries who is deciding into the decision", async () => {
 		const { calls, handle } = spyingRuntime();
-		const actor = Actor.of("u-1");
+		const actor = Actor.fromId("u-1");
 
 		await handle.approve(SESSION, ToolCallId.from("c-1"), { by: "ana", actor });
 		await handle.reject(SESSION, ToolCallId.from("c-2"), "no", { by: "ana", actor });

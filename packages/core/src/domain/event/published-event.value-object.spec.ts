@@ -26,7 +26,7 @@ const event = new UserMessageReceived(
 
 describe("PublishedEvent", () => {
 	it("carries the type, the correlation and the payload it was given", () => {
-		const published = PublishedEvent.durable(new StoredSessionEvent(SESSION, SessionRevision.of(1), event), {
+		const published = PublishedEvent.durable(new StoredSessionEvent(SESSION, new SessionRevision(1), event), {
 			text: "hi",
 		});
 
@@ -37,7 +37,7 @@ describe("PublishedEvent", () => {
 	});
 
 	it("is durable when it advanced a revision", () => {
-		const published = PublishedEvent.durable(new StoredSessionEvent(SESSION, SessionRevision.of(3), event), {});
+		const published = PublishedEvent.durable(new StoredSessionEvent(SESSION, new SessionRevision(3), event), {});
 
 		expect(published.isDurable).toBe(true);
 		expect(published.revision?.value).toBe(3);

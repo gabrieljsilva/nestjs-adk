@@ -38,7 +38,7 @@ export class AgentRunFactory {
 			this.clock.now(),
 			CorrelationId.from(this.ids.next()),
 		);
-		const cancellation = this.cancellationFor(signal);
+		const cancellation = this.buildCancellation(signal);
 		this.tracker.track(run.id, cancellation);
 		return new StartedRun(run, cancellation);
 	}
@@ -76,7 +76,7 @@ export class AgentRunFactory {
 			CorrelationId.from(this.ids.next()),
 			resumedRunId,
 		);
-		const cancellation = this.cancellationFor(signal);
+		const cancellation = this.buildCancellation(signal);
 		this.tracker.track(run.id, cancellation);
 		return new StartedRun(run, cancellation);
 	}
@@ -93,7 +93,7 @@ export class AgentRunFactory {
 	 * before the run exists. This is the only way a caller ends a run: abandoning a stream
 	 * stops the reading and never the generating, so the provider bills the rest anyway.
 	 */
-	private cancellationFor(signal?: AbortSignal): RunCancellation {
+	private buildCancellation(signal?: AbortSignal): RunCancellation {
 		const cancellation = new RunCancellation();
 		if (signal === undefined) return cancellation;
 		signal.addEventListener("abort", () => cancellation.cancel(CALLER_ABORTED), { once: true });

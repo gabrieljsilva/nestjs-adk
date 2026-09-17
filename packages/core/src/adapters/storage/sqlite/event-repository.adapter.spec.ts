@@ -38,7 +38,7 @@ function repository(): EventRepository {
 describe("EventRepository", () => {
 	it("reads an event back as the class that was written", () => {
 		const events = repository();
-		events.append(ID, SessionRevision.of(1), new UserMessageReceived(header("e-1"), "hello"));
+		events.append(ID, new SessionRevision(1), new UserMessageReceived(header("e-1"), "hello"));
 
 		const [stored] = events.after(ID, SessionRevision.initial());
 
@@ -48,7 +48,7 @@ describe("EventRepository", () => {
 
 	it("keeps the correlation a run stamped on the event", () => {
 		const events = repository();
-		events.append(ID, SessionRevision.of(1), new UserMessageReceived(header("e-1", "e-0"), "hello"));
+		events.append(ID, new SessionRevision(1), new UserMessageReceived(header("e-1", "e-0"), "hello"));
 
 		const [stored] = events.after(ID, SessionRevision.initial());
 
@@ -58,16 +58,16 @@ describe("EventRepository", () => {
 
 	it("reads only what comes after the revision it was asked about, in order", () => {
 		const events = repository();
-		events.append(ID, SessionRevision.of(1), new UserMessageReceived(header("e-1"), "one"));
-		events.append(ID, SessionRevision.of(2), new UserMessageReceived(header("e-2"), "two"));
-		events.append(ID, SessionRevision.of(3), new UserMessageReceived(header("e-3"), "three"));
+		events.append(ID, new SessionRevision(1), new UserMessageReceived(header("e-1"), "one"));
+		events.append(ID, new SessionRevision(2), new UserMessageReceived(header("e-2"), "two"));
+		events.append(ID, new SessionRevision(3), new UserMessageReceived(header("e-3"), "three"));
 
-		expect(events.after(ID, SessionRevision.of(1)).map((stored) => stored.revision.value)).toEqual([2, 3]);
+		expect(events.after(ID, new SessionRevision(1)).map((stored) => stored.revision.value)).toEqual([2, 3]);
 	});
 
 	it("finds what was written under a set of event ids", () => {
 		const events = repository();
-		events.append(ID, SessionRevision.of(1), new UserMessageReceived(header("e-1"), "one"));
+		events.append(ID, new SessionRevision(1), new UserMessageReceived(header("e-1"), "one"));
 
 		expect(events.byIds(ID, ["e-1"])).toHaveLength(1);
 		expect(events.byIds(ID, ["e-9"])).toHaveLength(0);
@@ -78,17 +78,17 @@ describe("EventRepository", () => {
 		const events = repository();
 		const first = new SessionCreated(header("e-1"), AgentName.from("support"), undefined);
 		const other = new SessionCreated(header("e-1"), AgentName.from("billing"), undefined);
-		events.append(ID, SessionRevision.of(1), first);
+		events.append(ID, new SessionRevision(1), first);
 
 		const written = events.writtenPayloads(ID, ["e-1"]);
 
-		expect(written.get("e-1")).toBe(events.fingerprintOf(first));
-		expect(written.get("e-1")).not.toBe(events.fingerprintOf(other));
+		expect(written.get("e-1")).toBe(events.calculateFingerprint(first));
+		expect(written.get("e-1")).not.toBe(events.calculateFingerprint(other));
 	});
 
 	it("forgets the whole journal of a session it was told to clear", () => {
 		const events = repository();
-		events.append(ID, SessionRevision.of(1), new UserMessageReceived(header("e-1"), "one"));
+		events.append(ID, new SessionRevision(1), new UserMessageReceived(header("e-1"), "one"));
 
 		events.deleteAll(ID);
 

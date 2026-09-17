@@ -40,7 +40,7 @@ const internal = new ToolDefinition(
 
 describe("ToolResultNotice", () => {
 	it("hands over what the journal records for a result", () => {
-		const notice = ToolResultNotice.of(ToolOutcome.succeeded(CALL, "lookup", { status: "shipped" }, "shipped"));
+		const notice = new ToolResultNotice(ToolOutcome.succeeded(CALL, "lookup", { status: "shipped" }, "shipped"));
 
 		expect(notice.callId).toBe(CALL);
 		expect(notice.toolName).toBe("lookup");
@@ -51,7 +51,7 @@ describe("ToolResultNotice", () => {
 	});
 
 	it("carries the reason of a failure as the model reads it", () => {
-		const notice = ToolResultNotice.of(ToolOutcome.failed(CALL, "lookup", "boom"));
+		const notice = new ToolResultNotice(ToolOutcome.failed(CALL, "lookup", "boom"));
 
 		expect(notice.failed).toBe(true);
 		expect(notice.isRefused).toBe(false);
@@ -59,7 +59,7 @@ describe("ToolResultNotice", () => {
 	});
 
 	it("tells a refusal apart from an error", () => {
-		const notice = ToolResultNotice.of(ToolOutcome.refused(CALL, "refund", "the order stays open"));
+		const notice = new ToolResultNotice(ToolOutcome.refused(CALL, "refund", "the order stays open"));
 
 		expect(notice.failed).toBe(true);
 		expect(notice.isRefused).toBe(true);
@@ -67,12 +67,12 @@ describe("ToolResultNotice", () => {
 	});
 
 	it("shows the placeholder and the reference for a result that was offloaded, never the content", () => {
-		const reference = ArtifactReference.of(
+		const reference = ArtifactReference.fromContent(
 			ArtifactId.from("a-1"),
 			SessionId.from("s-1"),
-			ArtifactContent.of("a very long report"),
+			new ArtifactContent("a very long report"),
 		);
-		const notice = ToolResultNotice.of(
+		const notice = new ToolResultNotice(
 			ToolOutcome.succeeded(CALL, "report", { rows: 10_000 }, reference.toString(), reference),
 		);
 
@@ -83,7 +83,7 @@ describe("ToolResultNotice", () => {
 	it("marks a result of a tool the runtime owns", () => {
 		const outcome = ToolOutcome.succeeded(CALL, "read_artifact", {}, "");
 
-		expect(ToolResultNotice.of(outcome, internal).isInternal).toBe(true);
-		expect(ToolResultNotice.of(outcome).isInternal).toBe(false);
+		expect(new ToolResultNotice(outcome, internal).isInternal).toBe(true);
+		expect(new ToolResultNotice(outcome).isInternal).toBe(false);
 	});
 });

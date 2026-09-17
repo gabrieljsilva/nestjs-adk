@@ -14,8 +14,8 @@ class AlwaysCompacts extends AdkCompactionPolicy {
 
 describe("AdkCompactionPolicy", () => {
 	it("is extended to decide compaction, and answers with a decision", () => {
-		const measurement = PromptMeasurement.from(ModelUsage.of(500, 20), 1000);
-		const budget = new ContextBudget(ModelContextWindow.of(1000, 100), measurement, 1000);
+		const measurement = PromptMeasurement.from(ModelUsage.fromReport(500, 20), 1000);
+		const budget = new ContextBudget(new ModelContextWindow(1000, 100), measurement, 1000);
 
 		const decision = new AlwaysCompacts().decide(budget);
 

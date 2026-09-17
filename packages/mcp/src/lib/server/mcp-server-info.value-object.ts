@@ -1,13 +1,11 @@
 /** How the server introduces itself in the initialize handshake. */
 export class McpServerInfo {
-	private constructor(
-		public readonly name: string,
-		public readonly version: string,
-	) {
-		Object.freeze(this);
-	}
+	public readonly name: string;
+	public readonly version: string;
 
-	public static of(name: string, version: string): McpServerInfo {
-		return new McpServerInfo(name.trim(), version.trim());
+	public constructor(name: string, version: string) {
+		this.name = name.trim();
+		this.version = version.trim();
+		Object.freeze(this);
 	}
 }

@@ -49,7 +49,7 @@ export class GeminiModel extends ModelSpec {
 	}
 
 	public descriptor(): ModelDescriptor {
-		return new ModelDescriptor(ModelIdentity.of(PROVIDER, this.model), this.windowOf(), this.capabilitiesOf());
+		return new ModelDescriptor(new ModelIdentity(PROVIDER, this.model), this.buildWindow(), this.buildCapabilities());
 	}
 
 	public generate(request: ModelRequest, signal?: AbortSignal): AsyncIterable<ModelChunk> {
@@ -61,14 +61,14 @@ export class GeminiModel extends ModelSpec {
 		return this.transport.countTokens(this.requests.toRequest(this.model, request, this.options));
 	}
 
-	private windowOf(): ModelContextWindow | UnknownContextWindow {
+	private buildWindow(): ModelContextWindow | UnknownContextWindow {
 		const total = this.options.contextWindowTokens;
 		if (total === undefined) return new UnknownContextWindow();
-		return ModelContextWindow.of(total, this.options.reservedOutputTokens ?? this.options.maxOutputTokens ?? 0);
+		return new ModelContextWindow(total, this.options.reservedOutputTokens ?? this.options.maxOutputTokens ?? 0);
 	}
 
-	private capabilitiesOf(): ModelCapabilities {
-		return ModelCapabilities.of([
+	private buildCapabilities(): ModelCapabilities {
+		return ModelCapabilities.fromEntries([
 			[ModelCapability.TOOLS, true],
 			[ModelCapability.STREAMING, true],
 			[ModelCapability.STRUCTURED_OUTPUT, true],

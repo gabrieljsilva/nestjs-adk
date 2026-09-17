@@ -8,10 +8,10 @@ import { PromptInstructions } from "../../domain/prompt/prompt-instructions.valu
 import { ContextPhotographer } from "./context-photographer.service";
 
 const SUPPORT = AgentName.from("support");
-const MODEL = ModelIdentity.of("acme", "primary");
+const MODEL = new ModelIdentity("acme", "primary");
 
 function projectionOf(tools: readonly ToolDeclaration[] = []): ContextProjection {
-	return ContextProjection.of([], tools, undefined, PromptInstructions.from("Be brief."));
+	return new ContextProjection([], tools, undefined, PromptInstructions.from("Be brief."));
 }
 
 describe("ContextPhotographer", () => {

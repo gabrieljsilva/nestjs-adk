@@ -8,17 +8,14 @@ import { ContextWindow } from "./context-window.value-object";
 export class ModelContextWindow extends ContextWindow {
 	public readonly isKnown = true;
 
-	private constructor(
-		public readonly totalTokens: number,
-		public readonly reservedOutputTokens: number,
-	) {
-		super();
-	}
+	public readonly totalTokens: number;
+	public readonly reservedOutputTokens: number;
 
-	public static of(totalTokens: number, reservedOutputTokens: number): ModelContextWindow {
+	public constructor(totalTokens: number, reservedOutputTokens: number) {
+		super();
 		const total = Math.max(0, Math.trunc(totalTokens));
-		const reserved = Math.min(total, Math.max(0, Math.trunc(reservedOutputTokens)));
-		return new ModelContextWindow(total, reserved);
+		this.totalTokens = total;
+		this.reservedOutputTokens = Math.min(total, Math.max(0, Math.trunc(reservedOutputTokens)));
 	}
 
 	public get inputTokens(): number {

@@ -18,7 +18,7 @@ export class SharedToolLookup {
 	public resolve(entry: unknown, providerName: string): ToolDefinition {
 		const tool = this.shared.get(entry) ?? this.byName(entry);
 		if (tool === undefined) {
-			throw new UnregisteredToolError(providerName, this.nameOf(entry), this.registeredNames());
+			throw new UnregisteredToolError(providerName, this.readName(entry), this.registeredNames());
 		}
 		return tool;
 	}
@@ -37,7 +37,7 @@ export class SharedToolLookup {
 	}
 
 	/** A class is named by its own name, and anything else by what it prints as. */
-	private nameOf(entry: unknown): string {
+	private readName(entry: unknown): string {
 		const declared = typeof entry === "function" ? Reflect.get(entry, "name") : undefined;
 		return typeof declared === "string" && declared.length > 0 ? declared : String(entry);
 	}

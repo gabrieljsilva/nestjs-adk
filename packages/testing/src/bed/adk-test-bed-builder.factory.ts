@@ -4,7 +4,7 @@ import {
 	ADK_OPTIONS,
 	ADK_RUNTIME_PATCH,
 	type AdkModuleOptions,
-	AdkRuntimeHost,
+	AdkRuntime,
 	type AdkTool,
 	AgentMetadata,
 	AgentName,
@@ -25,7 +25,7 @@ import { RunRecorder } from "../recording/run-recorder.service";
 import type { ToolFake } from "../tool-fake.double";
 import { AdkTestBed } from "./adk-test-bed.service";
 
-/** What a test may hand `withModelFor`: the class an application injects, or the declared name. */
+/** What a test may hand `withAgentModel`: the class an application injects, or the declared name. */
 type AgentRef = unknown;
 
 /**
@@ -64,7 +64,7 @@ export class AdkTestBedBuilder {
 	 * The model every agent that declared none answers on.
 	 *
 	 * An agent that declared its own model in `@Agent` keeps it, exactly as in production.
-	 * Routing one of those to something else is `withModelFor`, which is explicit on purpose.
+	 * Routing one of those to something else is `withAgentModel`, which is explicit on purpose.
 	 */
 	public withModel(model: LlmModel): this {
 		this.fallback = model;
@@ -78,8 +78,8 @@ export class AdkTestBedBuilder {
 	 * directly, for a session transferred to this agent and for a task delegated to it. That
 	 * is what makes a mixed run possible: a real provider deciding, scripts answering.
 	 */
-	public withModelFor(agent: AgentRef, model: LlmModel): this {
-		this.routed.set(AdkTestBedBuilder.nameOf(agent), model);
+	public withAgentModel(agent: AgentRef, model: LlmModel): this {
+		this.routed.set(AdkTestBedBuilder.readName(agent), model);
 		return this;
 	}
 
@@ -91,7 +91,7 @@ export class AdkTestBedBuilder {
 	 * for a turn nobody queued fails naming the agent.
 	 */
 	public withScript(agent: AgentRef, queue: (script: ScriptedModel) => void): this {
-		const name = AdkTestBedBuilder.nameOf(agent);
+		const name = AdkTestBedBuilder.readName(agent);
 		const script = this.scripts.get(name) ?? new ScriptedModel(name).strict();
 		queue(script);
 		this.scripts.set(name, script);
@@ -194,7 +194,7 @@ export class AdkTestBedBuilder {
 
 	/** A name nobody declared is a typo, and the boot is where a typo is cheapest to find. */
 	private assertAgentsExist(module: TestingModule): void {
-		const declared = module.get(AdkRuntimeHost).runtime.catalog.names;
+		const declared = module.get(AdkRuntime).runtime.catalog.names;
 		for (const agent of this.routed.keys()) {
 			if (!declared.includes(agent)) throw new UnknownTestAgentError(agent, declared);
 		}
@@ -210,7 +210,7 @@ export class AdkTestBedBuilder {
 	 */
 	private assertEveryAgentIsScripted(module: TestingModule): void {
 		if (this.allowsUnscripted) return;
-		const runtime = module.get(AdkRuntimeHost).runtime;
+		const runtime = module.get(AdkRuntime).runtime;
 		const chosen = new Set<LlmModel>([...this.routed.values(), ...(this.fallback === undefined ? [] : [this.fallback])]);
 		const unscripted = runtime.catalog.names.filter(
 			(name) => !chosen.has(runtime.models.resolve(runtime.catalog.findOrFail(AgentName.from(name)))),
@@ -218,7 +218,7 @@ export class AdkTestBedBuilder {
 		if (unscripted.length > 0) throw new UnscriptedAgentError(unscripted);
 	}
 
-	private static nameOf(agent: AgentRef): string {
+	private static readName(agent: AgentRef): string {
 		return typeof agent === "string" ? agent : AgentMetadata.findOrFail(agent).name;
 	}
 }

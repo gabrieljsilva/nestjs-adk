@@ -22,7 +22,7 @@ describe("ModelChunk", () => {
 	});
 
 	it("carries the usage the provider reported", () => {
-		const chunk = ModelChunk.usage(ModelUsage.of(100, 40));
+		const chunk = ModelChunk.usage(ModelUsage.fromReport(100, 40));
 
 		expect(chunk.usage?.totalTokens).toBe(140);
 		expect(chunk.isFinal).toBe(false);

@@ -14,7 +14,7 @@ The call direction is fixed: Edge calls a UseCase, a UseCase calls Services, a S
 
 I/O and the public API. An edge converts input into a command, calls one use case, and converts the result into a public shape. It holds no logic: no loop, no branch on domain state, no arithmetic.
 
-Suffix: `Handle`, `Module`, `Agent`, `Tool`, or a decorator. `AgentHandle` (`packages/core/src/public/nest/agent/agent-handle.edge.ts`), `AdkModule`, `AdkAgent` and the `read_artifact` tool are the edges today.
+Suffix: `Handle`, `Module`, `Agent`, `Tool`, or a decorator. `AgentHandle` (`packages/core/src/public/nest/agent/agent-handle.edge.ts`), `AdkRuntime`, `AdkModule`, `AdkAgent` and the `read_artifact` tool are the edges today.
 
 ## UseCase
 
@@ -44,20 +44,18 @@ Constructor arity drops as a consequence of this move, never the other way round
 
 ## What is still missing
 
-The mapping from today's names to the target, verified against `packages/core/src` on 2026-09-14:
+The names landed on 2026-09-17, verified against `packages/core/src`:
 
-| Layer | Today | Becomes |
+| Layer | Today | Still to come |
 | --- | --- | --- |
-| Edge | `AgentHandle`, `AdkModule`, `AdkAgent`, `read_artifact` | Same names. `AdkAgent` stops mirroring `AgentHandle` method by method and exposes the handle |
-| Edge | `AdkRuntimeHost` (`packages/core/src/public/adk-runtime-host.edge.ts`) | `AdkRuntime`: it imports nothing from Nest |
-| UseCase | `AskAgent`, `DecideApproval`, `DelegateAgent` (`packages/core/src/runtime/run/`) | `AskAgentUseCase`, `DecideApprovalUseCase`, `DelegateAgentUseCase` |
-| UseCase | `AgentSwitch` (`packages/core/src/runtime/transfer/agent-switch.use-case.ts`) | `TransferSessionUseCase` |
-| UseCase | `AdkComposer` (`packages/core/src/public/nest/module/adk-composer.use-case.ts`) | `ComposeRuntimeUseCase` |
-| Service | `SessionManager` | `SessionService` |
-| Service | `ContextProjector`, with `TurnLoop` behind it | `ContextService`; `TurnLoop` stays a collaborator |
-| Service | `ToolExecutor` | `ToolService`, keeping the executor as a collaborator |
-| Service | `ModelRunner` | `ModelService` |
-| Service | the five Nest scanners inside `AdkComposer` | one `NestScanService` |
+| Edge | `AgentHandle`, `AdkRuntime`, `AdkModule`, `AdkAgent`, `read_artifact` | `AdkAgent` stops mirroring `AgentHandle` method by method and exposes the handle |
+| UseCase | `AskAgentUseCase`, `StreamAgentUseCase`, `ExplainAgentUseCase`, `DecideApprovalUseCase`, `DelegateAgentUseCase`, `CreateSessionUseCase`, `InspectSessionUseCase`, `InspectContextBudgetUseCase`, `TransferSessionUseCase`, `ComposeRuntimeUseCase` | Each one down to a single public `execute`: `TransferSessionUseCase` still exposes `requestedIn` beside it, and `ExplainAgentUseCase` still exposes `attempt` |
+| Service | `SessionService` with `SessionRepository` behind it, `ContextService` with `ContextProjector` and `TurnLoop` behind it, `ToolExecutor`, `ModelRunner`, five Nest scanners | `ToolService` and `ModelService` once a module facade exists; the five scanners become one `NestScanService` |
 | Repository | `SessionStorage`, `ArtifactStorage`, `PricingSource`, `GeminiTransport` | Same names |
 
-There is no `TransferSession` class: the transfer runtime is `AgentSwitch` plus `TransferGate` in `packages/core/src/runtime/transfer/`. The rename above reflects that.
+Two entries of the original mapping were corrected against the code rather than followed:
+
+- `SessionManager` could not become `SessionService`, because `SessionService` already existed as the module API that `RuntimeServices.sessions` hands out. `SessionManager` is what sits behind it, talking to `SessionStorage` and folding the journal, so it became `SessionRepository`.
+- Of `ContextProjector` and `ContextManager`, the module API is the one the turn loop calls, which is `ContextManager.prepare`. It became `ContextService`, and `ContextProjector` stayed a role collaborator.
+
+There is no `TransferSession` class separate from the use case: the transfer runtime is `TransferSessionUseCase` plus `TransferGate` in `packages/core/src/runtime/transfer/`.

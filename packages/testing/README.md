@@ -69,11 +69,11 @@ script.mockStream(["A garantia ", "é de 90 ", "dias."]);
 
 ## Real models, or a mix of both
 
-`withModelFor` decides the model agent by agent, through the same resolver production uses. A transfer, a delegation and a resumed approval each resolve again, so a real model can decide while scripts answer:
+`withAgentModel` decides the model agent by agent, through the same resolver production uses. A transfer, a delegation and a resumed approval each resolve again, so a real model can decide while scripts answer:
 
 ```ts
 await AdkTestBedBuilder.for({ imports: [AppModule] })
-	.withModelFor(ConciergeAgent, new OpenAiModel("gpt-5.6-luna", { apiKey })) // pay for the decision
+	.withAgentModel(ConciergeAgent, new OpenAiModel("gpt-5.6-luna", { apiKey })) // pay for the decision
 	.withScript(WarrantyAgent, (s) => s.mockText("We will replace your controller.")) // not for the answer
 	.withScript(SalesAgent, (s) => s.mockText("nothing to sell right now"))
 	.boot();
@@ -282,7 +282,7 @@ Everything the package exports. A name that is not here is not part of the publi
 
 | Symbol | What it is for |
 | --- | --- |
-| `AdkTestBedBuilder` | Builds the bed: `for(metadata)` or `from(builder)`, then `withScript`, `withModel`, `withModelFor`, `replaceTool`, `withRuntime`, `withConsumers`, `overriding`, `allowingUnscriptedModels`, `boot` |
+| `AdkTestBedBuilder` | Builds the bed: `for(metadata)` or `from(builder)`, then `withScript`, `withModel`, `withAgentModel`, `replaceTool`, `withRuntime`, `withConsumers`, `overriding`, `allowingUnscriptedModels`, `boot` |
 | `AdkTestBed` | What `boot` answers: `get`, `agent`, `script`, `tool`, `events`, `verify`, `close`. Disposable with `await using` |
 | `TestAgent` | One agent as a test drives it: `ask`, `stream`, `approve`, `reject`, `inspect`, `newSession`, `lastInstruction` |
 | `RecordedRun` | An `AgentResult` with the evidence attached: `toolCalls`, `toolsRun`, `toolsRequested`, `transfers`, `delegations`, `callsTo`, `pendingCall` |

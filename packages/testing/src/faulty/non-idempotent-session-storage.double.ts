@@ -23,7 +23,7 @@ export class NonIdempotentSessionStorage extends InMemorySessionStorage {
 		if (!(await this.isRetry(context, command))) return super.append(context, command);
 
 		const head = (await this.findOrFail(context)).revision;
-		const forced = SessionEventBatch.of([...command.batch.events, this.unseenEvent()]);
+		const forced = new SessionEventBatch([...command.batch.events, this.unseenEvent()]);
 		return super.append(context, new AppendEventsCommand(command.sessionId, head, forced));
 	}
 

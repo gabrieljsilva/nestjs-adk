@@ -55,12 +55,12 @@ export class ModelChunkAggregator {
 		for (const index of [...this.calls.keys()].sort((left, right) => left - right)) {
 			const partial = this.calls.get(index);
 			if (partial === undefined) continue;
-			calls.push(this.toolCallOf(partial, index));
+			calls.push(this.buildToolCall(partial, index));
 		}
 		return calls;
 	}
 
-	private toolCallOf(partial: PartialToolCall, index: number): ToolCall {
+	private buildToolCall(partial: PartialToolCall, index: number): ToolCall {
 		const name = partial.toolName;
 		if (name === undefined) throw new MalformedToolCallError(`call at index ${index}`, "the model never named the tool");
 		const args = partial.parseArguments();

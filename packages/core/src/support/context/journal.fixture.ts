@@ -23,7 +23,7 @@ import { ModelIdentity } from "../../domain/model/descriptor/model-identity.valu
 import type { PromptMeasurement } from "../../domain/model/usage/prompt-measurement.value-object";
 
 const START = Instant.fromIso("2026-01-01T00:00:00.000Z");
-const MODEL = ModelIdentity.of("google", "gemini-flash");
+const MODEL = new ModelIdentity("google", "gemini-flash");
 
 /**
  * Builds the journal a context test needs, one call per fact.
@@ -67,7 +67,7 @@ export class JournalFixture {
 	public skill(name: string, scope: "run" | "session" = "run", callId = "c-1"): this {
 		return this.append(
 			(header) =>
-				new SkillActivated(header, name, scope, ContentDigest.of("sha256", "skill-body"), ToolCallId.from(callId)),
+				new SkillActivated(header, name, scope, new ContentDigest("sha256", "skill-body"), ToolCallId.from(callId)),
 		);
 	}
 

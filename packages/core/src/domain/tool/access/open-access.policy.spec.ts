@@ -18,7 +18,7 @@ class NoopHandler extends ToolHandler {
 const tool = new ToolDefinition(
 	"refund",
 	"Refunds.",
-	ZodToolSchema.of(z.object({})),
+	ZodToolSchema.fromSchema(z.object({})),
 	ToolEffect.DESTRUCTIVE,
 	new NoopHandler(),
 );
@@ -26,7 +26,7 @@ const invocation = new ToolInvocation(ToolCallId.from("c-1"), "refund", {});
 
 describe("OpenAccessPolicy", () => {
 	it("grants a call with an actor", () => {
-		expect(new OpenAccessPolicy().decide(tool, invocation, Actor.of("u-1")).isGranted).toBe(true);
+		expect(new OpenAccessPolicy().decide(tool, invocation, Actor.fromId("u-1")).isGranted).toBe(true);
 	});
 
 	it("grants a call without one", () => {

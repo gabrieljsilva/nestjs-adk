@@ -66,7 +66,7 @@ export class LiteLLMPricingSource extends PricingSource {
 		const catalog = this.catalog;
 		if (catalog === undefined) return undefined;
 
-		for (const key of this.keysFor(model)) {
+		for (const key of this.buildKeys(model)) {
 			const price = catalog.get(key);
 			if (price !== undefined) return price;
 		}
@@ -82,7 +82,7 @@ export class LiteLLMPricingSource extends PricingSource {
 	 * also exists. The bare name is the fallback, and it is also what makes a model whose descriptor
 	 * already carries a prefix resolve without the core knowing a single provider name.
 	 */
-	private keysFor(model: ModelIdentity): readonly string[] {
+	private buildKeys(model: ModelIdentity): readonly string[] {
 		const qualified = `${model.provider}/${model.model}`;
 		return qualified === model.model ? [model.model] : [qualified, model.model];
 	}

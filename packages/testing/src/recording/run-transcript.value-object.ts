@@ -26,13 +26,13 @@ export class RunTranscript extends SessionEventConsumer {
 
 	public async consume(_context: SessionContext, event: PublishedEvent): Promise<void> {
 		this.remember(event);
-		const line = this.lineOf(event);
+		const line = this.formatLine(event);
 		if (line !== undefined) this.print(line);
 	}
 
-	private lineOf(event: PublishedEvent): string | undefined {
+	private formatLine(event: PublishedEvent): string | undefined {
 		const payload = event.payload;
-		const agent = this.agentOf(event);
+		const agent = this.readAgent(event);
 		if (event.type === "session.user-message-received") {
 			const delegated = this.delegatedRuns.get(event.correlation.runId.value);
 			return delegated === undefined
@@ -53,10 +53,10 @@ export class RunTranscript extends SessionEventConsumer {
 			return `  ⏸ ${this.textIn(payload, "toolName")}`;
 		}
 		if (event.type === "tool.approval-granted") {
-			return `  ✓ ${this.toolOf(payload)}${this.personIn(payload, "approvedBy")}`;
+			return `  ✓ ${this.readTool(payload)}${this.personIn(payload, "approvedBy")}`;
 		}
 		if (event.type === "tool.approval-denied") {
-			return `  × ${this.toolOf(payload)}${this.personIn(payload, "deniedBy")}: ${this.textIn(payload, "reason")}`;
+			return `  × ${this.readTool(payload)}${this.personIn(payload, "deniedBy")}: ${this.textIn(payload, "reason")}`;
 		}
 		if (event.type === "agent.transferred") {
 			return `  → ${this.textIn(payload, "from")} → ${this.textIn(payload, "to")}`;
@@ -83,11 +83,11 @@ export class RunTranscript extends SessionEventConsumer {
 		}
 	}
 
-	private agentOf(event: PublishedEvent): string {
+	private readAgent(event: PublishedEvent): string {
 		return this.agentsByRun.get(event.correlation.runId.value) ?? "unknown";
 	}
 
-	private toolOf(payload: Readonly<Record<string, unknown>>): string {
+	private readTool(payload: Readonly<Record<string, unknown>>): string {
 		const named = payload.toolName;
 		if (typeof named === "string" && named.length > 0) return named;
 		const callId = payload.callId;

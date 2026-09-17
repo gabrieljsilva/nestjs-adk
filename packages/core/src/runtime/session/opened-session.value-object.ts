@@ -6,7 +6,7 @@ import type { SessionState } from "../../domain/session/state/session-state.valu
  *
  * `isNew` is about the journal and not about who wrote the head: it says this conversation
  * has no beginning recorded yet, so the run about to happen is the one that records it.
- * A session opened ahead of time by `CreateSession` and one created by this very command
+ * A session opened ahead of time by `CreateSessionUseCase` and one created by this very command
  * are both in that position, and a conversation that already has a first event is not,
  * because writing that fact twice would give a reader two beginnings for one conversation.
  */

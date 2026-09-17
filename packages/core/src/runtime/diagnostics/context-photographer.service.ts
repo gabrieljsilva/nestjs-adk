@@ -19,20 +19,20 @@ import type { ModelIdentity } from "../../domain/model/descriptor/model-identity
 export class ContextPhotographer {
 	public of(agent: AgentName, model: ModelIdentity, projection: ContextProjection): ContextSnapshot {
 		return new ContextSnapshot(agent, model, [
-			new ContextSegment(ContextSegment.INSTRUCTIONS, this.instructionsOf(projection)),
-			new ContextSegment(ContextSegment.TOOLS, this.toolsOf(projection)),
-			new ContextSegment(ContextSegment.CONVERSATION, this.conversationOf(projection)),
+			new ContextSegment(ContextSegment.INSTRUCTIONS, this.formatInstructions(projection)),
+			new ContextSegment(ContextSegment.TOOLS, this.formatTools(projection)),
+			new ContextSegment(ContextSegment.CONVERSATION, this.formatConversation(projection)),
 		]);
 	}
 
-	private instructionsOf(projection: ContextProjection): string {
+	private formatInstructions(projection: ContextProjection): string {
 		return CanonicalJson.stringify({
 			runtime: projection.runtimeInstructions?.text,
 			agent: projection.agentPrompt?.text,
 		});
 	}
 
-	private toolsOf(projection: ContextProjection): string {
+	private formatTools(projection: ContextProjection): string {
 		return CanonicalJson.stringify(
 			projection.tools.map((tool) => ({
 				name: tool.name,
@@ -42,7 +42,7 @@ export class ContextPhotographer {
 		);
 	}
 
-	private conversationOf(projection: ContextProjection): string {
+	private formatConversation(projection: ContextProjection): string {
 		return CanonicalJson.stringify(projection.messages.map((message) => ({ role: message.role, text: message.text })));
 	}
 }

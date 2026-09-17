@@ -27,7 +27,7 @@ describe("CanonicalStateSerializer", () => {
 
 	it("separates states that differ only by revision", () => {
 		const first = SessionState.initial();
-		const second = first.at(SessionRevision.of(1));
+		const second = first.at(new SessionRevision(1));
 
 		expect(serializer.serialize(first)).not.toBe(serializer.serialize(second));
 	});
@@ -35,13 +35,13 @@ describe("CanonicalStateSerializer", () => {
 	it("separates states that differ only by a value", () => {
 		const base = SessionState.initial();
 
-		expect(serializer.serialize(base.withValues(StateValues.of([["k", "1"]])))).not.toBe(
-			serializer.serialize(base.withValues(StateValues.of([["k", "2"]]))),
+		expect(serializer.serialize(base.withValues(StateValues.fromEntries([["k", "1"]])))).not.toBe(
+			serializer.serialize(base.withValues(StateValues.fromEntries([["k", "2"]]))),
 		);
 	});
 
 	it("is stable across repeated calls on the same state", () => {
-		const state = SessionState.initial().withValues(StateValues.of([["k", "v"]]));
+		const state = SessionState.initial().withValues(StateValues.fromEntries([["k", "v"]]));
 
 		expect(serializer.serialize(state)).toBe(serializer.serialize(state));
 	});

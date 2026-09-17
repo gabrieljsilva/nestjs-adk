@@ -14,8 +14,8 @@ import { ToolSchema } from "../../domain/tool/tool-schema.contract";
 import { NativeStackFixture } from "../../support/run/native-stack.fixture";
 import { TurnScriptModel } from "../../support/run/turn-script-model.fixture";
 import { AgentRunCommand } from "../run/agent-run.command";
-import { InspectSession } from "./inspect-session.use-case";
-import { SessionManager } from "./session-manager.service";
+import { InspectSessionUseCase } from "./inspect-session.use-case";
+import { SessionRepository } from "./session-repository.service";
 
 const SUPPORT = NativeStackFixture.AGENT;
 const REFUND = ToolCallId.from("c-1");
@@ -54,17 +54,17 @@ function suspendingStack(): NativeStackFixture {
 	const model = askingModel();
 	return new NativeStackFixture(
 		model,
-		NativeStackFixture.definitionOf(model, undefined, [refundTool()]),
+		NativeStackFixture.buildDefinition(model, undefined, [refundTool()]),
 		EffectApprovalPolicy.from(ToolEffect.WRITE),
 	);
 }
 
-describe("InspectSession", () => {
+describe("InspectSessionUseCase", () => {
 	it("says what a suspended session is waiting on, to a caller that ran nothing", async () => {
 		const stack = suspendingStack();
-		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("refund order 42")));
+		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund order 42")));
 
-		const inspection = await new InspectSession(stack.sessions).handle(suspended.sessionId);
+		const inspection = await new InspectSessionUseCase(stack.sessions).execute(suspended.sessionId);
 
 		expect(inspection.isAwaitingApproval).toBe(true);
 		expect(inspection.approval.awaiting[0]?.callId.value).toBe(REFUND.value);
@@ -73,10 +73,10 @@ describe("InspectSession", () => {
 
 	it("answers the same to a reader that never saw the run, since it reads the journal", async () => {
 		const stack = suspendingStack();
-		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("refund order 42")));
-		const elsewhere = new SessionManager(stack.storage);
+		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund order 42")));
+		const elsewhere = new SessionRepository(stack.storage);
 
-		const inspection = await new InspectSession(elsewhere).handle(suspended.sessionId);
+		const inspection = await new InspectSessionUseCase(elsewhere).execute(suspended.sessionId);
 
 		expect(inspection.isAwaitingApproval).toBe(true);
 		expect(inspection.approval.awaiting[0]?.toolName).toBe("refund_order");
@@ -85,21 +85,21 @@ describe("InspectSession", () => {
 
 	it("says nobody is waiting once the decision released the turn", async () => {
 		const stack = suspendingStack();
-		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("refund order 42")));
-		await stack.deciding.handle(suspended.sessionId, REFUND, "granted", { by: "gabriel" });
+		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund order 42")));
+		await stack.deciding.execute(suspended.sessionId, REFUND, "granted", { by: "gabriel" });
 
-		const inspection = await new InspectSession(stack.sessions).handle(suspended.sessionId);
+		const inspection = await new InspectSessionUseCase(stack.sessions).execute(suspended.sessionId);
 
 		expect(inspection.isAwaitingApproval).toBe(false);
 	});
 
 	it("moves the revision as the journal moves, which is what tells one read from the next", async () => {
 		const stack = suspendingStack();
-		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("refund order 42")));
-		const before = await new InspectSession(stack.sessions).handle(suspended.sessionId);
+		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund order 42")));
+		const before = await new InspectSessionUseCase(stack.sessions).execute(suspended.sessionId);
 
-		await stack.deciding.handle(suspended.sessionId, REFUND, "granted");
-		const after = await new InspectSession(stack.sessions).handle(suspended.sessionId);
+		await stack.deciding.execute(suspended.sessionId, REFUND, "granted");
+		const after = await new InspectSessionUseCase(stack.sessions).execute(suspended.sessionId);
 
 		expect(after.revision.value).toBeGreaterThan(before.revision.value);
 	});
@@ -107,8 +107,8 @@ describe("InspectSession", () => {
 	it("refuses a session that was never created, rather than answering it as empty", async () => {
 		const stack = suspendingStack();
 
-		const error = await new InspectSession(stack.sessions)
-			.handle(SessionId.from("never-created"))
+		const error = await new InspectSessionUseCase(stack.sessions)
+			.execute(SessionId.from("never-created"))
 			.catch((reason: unknown) => reason);
 
 		expect(error).toBeInstanceOf(SessionNotFoundError);

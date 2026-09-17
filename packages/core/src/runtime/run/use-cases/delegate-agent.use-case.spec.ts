@@ -9,22 +9,22 @@ import { AgentRunCommand } from "../agent-run.command";
 
 const SUPPORT = NativeStackFixture.AGENT;
 
-describe("DelegateAgent", () => {
+describe("DelegateAgentUseCase", () => {
 	it("refuses a delegation the asking agent never declared, without touching the session", async () => {
 		const stack = new NativeStackFixture(new ScriptedModel("primary"));
-		const started = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
-		const before = (await stack.journalOf(started.sessionId)).length;
+		const started = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
+		const before = (await stack.readJournal(started.sessionId)).length;
 
 		await expect(
 			stack.runner.delegate(new DelegateInput(started.sessionId, SUPPORT, AgentName.from("support"), "do it")),
 		).rejects.toBeInstanceOf(DelegationNotDeclaredError);
 
-		expect((await stack.journalOf(started.sessionId)).length).toBe(before);
+		expect((await stack.readJournal(started.sessionId)).length).toBe(before);
 	});
 
 	it("answers on the session that already existed, keeping its id", async () => {
 		const stack = new NativeStackFixture(new ScriptedModel("primary"));
-		const started = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.of("hi")));
+		const started = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
 
 		await expect(
 			stack.runner.delegate(new DelegateInput(started.sessionId, SUPPORT, AgentName.from("nobody"), "do it")),

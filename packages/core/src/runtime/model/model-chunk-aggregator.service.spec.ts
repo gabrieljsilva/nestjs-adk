@@ -6,7 +6,7 @@ import { ToolCallDelta } from "../../domain/model/streaming/tool-call-delta.valu
 import { ModelUsage } from "../../domain/model/usage/model-usage.value-object";
 import { ModelChunkAggregator } from "./model-chunk-aggregator.service";
 
-const MODEL = ModelIdentity.of("acme", "m-1");
+const MODEL = new ModelIdentity("acme", "m-1");
 
 function aggregate(chunks: ModelChunk[]): ModelChunkAggregator {
 	const aggregator = new ModelChunkAggregator();
@@ -80,7 +80,7 @@ describe("ModelChunkAggregator", () => {
 	it("keeps the usage the provider reported", () => {
 		const response = aggregate([
 			ModelChunk.text("hi"),
-			ModelChunk.usage(ModelUsage.of(100, 40, 80)),
+			ModelChunk.usage(ModelUsage.fromReport(100, 40, 80)),
 			ModelChunk.finish("stop"),
 		]).toResponse(MODEL);
 

@@ -42,7 +42,7 @@ export class PendingCall {
 		return this.isHeld && !this.isDecided;
 	}
 
-	public isFor(callId: ToolCallId): boolean {
+	public matches(callId: ToolCallId): boolean {
 		return this.callId.equals(callId);
 	}
 

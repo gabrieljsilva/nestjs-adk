@@ -3,7 +3,7 @@ import { ToolResultMessage } from "../model/messages/tool-result-message.value-o
 import { UserMessage } from "../model/messages/user-message.value-object";
 
 /** What introduces the image, in the message that carries it. */
-function noteFor(toolName: string): string {
+function fromReference(toolName: string): string {
 	return `Image returned by the ${toolName} tool.`;
 }
 
@@ -32,7 +32,7 @@ export class MediaSplitter {
 				continue;
 			}
 			split.push(message.withoutMedia());
-			split.push(new UserMessage(noteFor(message.toolName), message.media));
+			split.push(new UserMessage(fromReference(message.toolName), message.media));
 		}
 		return split;
 	}

@@ -7,7 +7,7 @@ export class SessionStatus {
 	private constructor(public readonly name: string) {}
 
 	/** The one instance a stored name denotes: identity is what `acceptsCommands` compares on. */
-	public static of(name: string): SessionStatus | undefined {
+	public static fromName(name: string): SessionStatus | undefined {
 		return [SessionStatus.ACTIVE, SessionStatus.SUSPENDED, SessionStatus.CLOSED].find((status) => status.name === name);
 	}
 

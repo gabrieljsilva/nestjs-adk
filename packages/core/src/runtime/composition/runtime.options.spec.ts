@@ -22,7 +22,7 @@ class DoesNothing extends ToolHandler {
 }
 
 const toolOf = (effect: ToolEffect) =>
-	new ToolDefinition("refund", "Refunds an order", ZodToolSchema.of(z.object({})), effect, new DoesNothing());
+	new ToolDefinition("refund", "Refunds an order", ZodToolSchema.fromSchema(z.object({})), effect, new DoesNothing());
 
 describe("RuntimeOptions", () => {
 	it("waits indefinitely and caps the run at fifty iterations when the application chose nothing", () => {
@@ -70,14 +70,14 @@ describe("RuntimeOptions", () => {
 	});
 
 	it("carries the module wide limits the agent and the call may narrow", () => {
-		const options = new RuntimeOptions(ShutdownOptions.withTimeout(1000), RunLimits.of(6));
+		const options = new RuntimeOptions(ShutdownOptions.withTimeout(1000), new RunLimits(6));
 
 		expect(options.limits.maxIterations).toBe(6);
 		expect(options.shutdown.waitsIndefinitely).toBe(false);
 	});
 
 	it("builds from a literal with the same defaults as declaring none", () => {
-		const options = RuntimeOptions.from({ limits: RunLimits.of(3) });
+		const options = RuntimeOptions.from({ limits: new RunLimits(3) });
 
 		expect(options.limits.maxIterations).toBe(3);
 		expect(options.shutdown.waitsIndefinitely).toBe(true);
@@ -85,9 +85,9 @@ describe("RuntimeOptions", () => {
 	});
 
 	it("patches only the named fields and keeps every other one", () => {
-		const declared = new RuntimeOptions(ShutdownOptions.withTimeout(1000), RunLimits.of(6));
+		const declared = new RuntimeOptions(ShutdownOptions.withTimeout(1000), new RunLimits(6));
 
-		const patched = declared.with({ limits: RunLimits.of(2) });
+		const patched = declared.with({ limits: new RunLimits(2) });
 
 		expect(patched.limits.maxIterations).toBe(2);
 		expect(patched.shutdown).toBe(declared.shutdown);
@@ -97,7 +97,7 @@ describe("RuntimeOptions", () => {
 	it("answers a new instance from a patch, leaving the original untouched", () => {
 		const declared = new RuntimeOptions();
 
-		const patched = declared.with({ limits: RunLimits.of(2) });
+		const patched = declared.with({ limits: new RunLimits(2) });
 
 		expect(patched).not.toBe(declared);
 		expect(declared.limits.maxIterations).toBe(RunLimits.DEFAULT_MAX_ITERATIONS);

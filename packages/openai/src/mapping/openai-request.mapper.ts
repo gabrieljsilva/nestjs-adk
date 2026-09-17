@@ -39,9 +39,9 @@ export class OpenAiRequestMapper {
 	public toChatRequest(model: string, request: ModelRequest, options: OpenAiOptions = {}): OpenAiChatRequest {
 		return new OpenAiChatRequest(
 			model,
-			this.messagesOf(request, this.replaysReasoning(options)),
-			request.tools.map((tool) => this.toolOf(tool.name, tool.description, tool.parameters)),
-			{ ...this.parametersOf(options), ...this.responseFormatOf(request) },
+			this.buildMessages(request, this.replaysReasoning(options)),
+			request.tools.map((tool) => this.buildTool(tool.name, tool.description, tool.parameters)),
+			{ ...this.buildParameters(options), ...this.buildResponseFormat(request) },
 		);
 	}
 
@@ -50,11 +50,11 @@ export class OpenAiRequestMapper {
 	 * provider enforce it. `strict` is what makes enforcing mean the schema rather than
 	 * only valid JSON, and `StrictSchemaValidator` checks the claim before it is made.
 	 */
-	private responseFormatOf(request: ModelRequest): Record<string, unknown> {
+	private buildResponseFormat(request: ModelRequest): Record<string, unknown> {
 		const schema = request.outputSchema;
 		if (schema === undefined) return {};
 		if (typeof schema !== "object" || schema === null || Array.isArray(schema)) {
-			throw new InvalidJsonSchemaError("the requested output", this.typeNameOf(schema));
+			throw new InvalidJsonSchemaError("the requested output", this.readTypeName(schema));
 		}
 		this.strict.validate(schema);
 		return { response_format: { type: "json_schema", json_schema: { name: "response", schema, strict: true } } };
@@ -65,7 +65,7 @@ export class OpenAiRequestMapper {
 		return options.replaysReasoning ?? options.baseURL !== undefined;
 	}
 
-	private messagesOf(request: ModelRequest, replaysReasoning: boolean): ChatCompletionMessageParam[] {
+	private buildMessages(request: ModelRequest, replaysReasoning: boolean): ChatCompletionMessageParam[] {
 		const messages: ChatCompletionMessageParam[] = [];
 		const instructions = request.instructions;
 		if (instructions !== undefined && !instructions.isEmpty) {
@@ -77,15 +77,15 @@ export class OpenAiRequestMapper {
 				calls.push(message);
 				continue;
 			}
-			if (calls.length > 0) messages.push(this.callsOf(calls, replaysReasoning));
+			if (calls.length > 0) messages.push(this.buildCalls(calls, replaysReasoning));
 			calls = [];
-			messages.push(this.messageOf(message));
+			messages.push(this.buildMessage(message));
 		}
-		if (calls.length > 0) messages.push(this.callsOf(calls, replaysReasoning));
+		if (calls.length > 0) messages.push(this.buildCalls(calls, replaysReasoning));
 		return messages;
 	}
 
-	private callsOf(calls: readonly ToolCallMessage[], replaysReasoning: boolean): ReasonedToolCallsTurn {
+	private buildCalls(calls: readonly ToolCallMessage[], replaysReasoning: boolean): ReasonedToolCallsTurn {
 		const reasoning = calls.find((message) => message.signature !== undefined)?.signature;
 		// `content` travels empty rather than absent: DeepSeek validates the turn as the message it
 		// returned, which always carried the field, and refuses the shape without it.
@@ -101,12 +101,12 @@ export class OpenAiRequestMapper {
 		};
 	}
 
-	private messageOf(message: ModelMessage): ChatCompletionMessageParam {
+	private buildMessage(message: ModelMessage): ChatCompletionMessageParam {
 		if (message instanceof AssistantMessage) return { role: "assistant", content: message.text };
 		if (message instanceof ToolResultMessage) {
 			return { role: "tool", tool_call_id: message.callId.value, content: JSON.stringify(message.output) };
 		}
-		if (message instanceof UserMessage) return { role: "user", content: this.userContentOf(message) };
+		if (message instanceof UserMessage) return { role: "user", content: this.buildUserContent(message) };
 		return { role: "user", content: message.text };
 	}
 
@@ -117,7 +117,7 @@ export class OpenAiRequestMapper {
 	 * the provider fetches or the data URL the bytes became, and OpenAI documents it as
 	 * exactly that. The words follow the images.
 	 */
-	private userContentOf(message: UserMessage): string | ChatCompletionContentPart[] {
+	private buildUserContent(message: UserMessage): string | ChatCompletionContentPart[] {
 		if (!message.hasMedia) return message.text;
 		const media: ChatCompletionContentPart[] = message.media.map((part) => ({
 			type: "image_url",
@@ -127,22 +127,22 @@ export class OpenAiRequestMapper {
 	}
 
 	/** A tool schema arrives as `unknown` and is checked here, never sent on trust. */
-	private toolOf(name: string, description: string, parameters: unknown): ChatCompletionFunctionTool {
+	private buildTool(name: string, description: string, parameters: unknown): ChatCompletionFunctionTool {
 		if (typeof parameters !== "object" || parameters === null || Array.isArray(parameters)) {
-			throw new InvalidJsonSchemaError(name, this.typeNameOf(parameters));
+			throw new InvalidJsonSchemaError(name, this.readTypeName(parameters));
 		}
 		const schema: Record<string, unknown> = {};
 		for (const key of Object.keys(parameters)) schema[key] = Reflect.get(parameters, key);
 		return { type: "function", function: { name, description, parameters: schema } };
 	}
 
-	private typeNameOf(value: unknown): string {
+	private readTypeName(value: unknown): string {
 		if (value === null) return "null";
 		return Array.isArray(value) ? "array" : typeof value;
 	}
 
 	/** Typed options win over the passthrough body, so a stray key cannot silently override them. */
-	private parametersOf(options: OpenAiOptions): Record<string, unknown> {
+	private buildParameters(options: OpenAiOptions): Record<string, unknown> {
 		const parameters: Record<string, unknown> = { ...options.body };
 		if (options.temperature !== undefined) parameters.temperature = options.temperature;
 		if (options.topP !== undefined) parameters.top_p = options.topP;

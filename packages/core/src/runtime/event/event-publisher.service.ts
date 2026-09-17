@@ -52,14 +52,14 @@ export class EventPublisher extends SessionEventPublisher {
 	/** One event at a time, so every consumer sees a batch in the order the journal recorded it. */
 	public async publish(context: SessionContext, committed: readonly StoredSessionEvent[]): Promise<void> {
 		if (!this.hasConsumers) return;
-		const events = committed.map((stored) => PublishedEvent.durable(stored, this.payloadOf(stored.event)));
+		const events = committed.map((stored) => PublishedEvent.durable(stored, this.buildPayload(stored.event)));
 		await this.deliver(context, events);
 	}
 
 	/** A fact that never reached the journal, and never will: a chunk, a notice, a progress step. */
 	public async emit(context: SessionContext, event: SessionEvent): Promise<void> {
 		if (!this.hasConsumers) return;
-		await this.deliver(context, [PublishedEvent.runtime(context.sessionId, event, this.payloadOf(event))]);
+		await this.deliver(context, [PublishedEvent.runtime(context.sessionId, event, this.buildPayload(event))]);
 	}
 
 	/**
@@ -146,7 +146,7 @@ export class EventPublisher extends SessionEventPublisher {
 		}
 	}
 
-	private payloadOf(event: SessionEvent): Readonly<Record<string, unknown>> {
-		return this.redactor.redact(this.codecs.codecFor(event.type).encode(event));
+	private buildPayload(event: SessionEvent): Readonly<Record<string, unknown>> {
+		return this.redactor.redact(this.codecs.findCodecOrFail(event.type).encode(event));
 	}
 }

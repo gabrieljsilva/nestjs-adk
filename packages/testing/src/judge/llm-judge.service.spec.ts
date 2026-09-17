@@ -4,7 +4,7 @@ import { ScriptedModel } from "../model/scripted-model.double";
 import { JudgeRubric } from "./judge-rubric.value-object";
 import { LlmJudge } from "./llm-judge.service";
 
-const RUBRIC = JudgeRubric.of("names the order id and says it shipped");
+const RUBRIC = new JudgeRubric("names the order id and says it shipped");
 
 function judgeAnswering(text: string): LlmJudge {
 	return new LlmJudge(new ScriptedModel().mockText(text));
@@ -33,7 +33,7 @@ describe("LlmJudge", () => {
 	});
 
 	it("uses the threshold the rubric declared", async () => {
-		const strict = JudgeRubric.of("mentions the refund", 0.95);
+		const strict = new JudgeRubric("mentions the refund", 0.95);
 
 		const verdict = await judgeAnswering('{"score":0.9,"reason":"close"}').judge("refunded", strict);
 

@@ -14,7 +14,7 @@ import type { RunScope } from "../run/scope/run-scope.value-object";
 import { RunProgress } from "../run/settle/run-progress.value-object";
 import type { StartedRun } from "../run/settle/started-run.value-object";
 import type { OpenedSession } from "../session/opened-session.value-object";
-import type { SessionManager } from "../session/session-manager.service";
+import type { SessionRepository } from "../session/session-repository.service";
 import { DelegateToAgentTool } from "./delegate-to-agent.tool";
 import type { DelegatedTurnLoop } from "./delegated-turn-loop.contract";
 import { DelegationSuspendedError } from "./errors/delegation-suspended.error";
@@ -45,7 +45,7 @@ export class DelegationRunner {
 		private readonly runs: AgentRunFactory,
 		private readonly scopes: RunScopeFactory,
 		private readonly journal: RunJournal,
-		private readonly sessions: SessionManager,
+		private readonly sessions: SessionRepository,
 	) {}
 
 	/**
@@ -91,7 +91,7 @@ export class DelegationRunner {
 		agentName: string,
 		task: string,
 	): Promise<string> {
-		const target = this.targetOf(scope.definition, AgentName.from(agentName));
+		const target = this.resolveTarget(scope.definition, AgentName.from(agentName));
 		if (scope.run.depth >= MAX_DEPTH) throw new AgentMaxDelegationDepthError(scope.agent.value, MAX_DEPTH);
 
 		// Resolved once and carried: a resolver that answers by load, cost or time may answer
@@ -115,7 +115,7 @@ export class DelegationRunner {
 		}
 	}
 
-	private targetOf(from: AgentDefinition, to: AgentName): AgentDefinition {
+	private resolveTarget(from: AgentDefinition, to: AgentName): AgentDefinition {
 		if (!from.delegation.allows(to)) {
 			throw new DelegationNotDeclaredError(from.name.value, to.value, from.delegation.names);
 		}
@@ -152,7 +152,7 @@ export class DelegationRunner {
 		const closed = await this.sessions.commit(
 			scope.context,
 			childProgress.state.revision,
-			SessionEventBatch.of([this.journal.delegationEnd(scope.started, child, COMPLETED)]),
+			new SessionEventBatch([this.journal.delegationEnd(scope.started, child, COMPLETED)]),
 			childProgress.state,
 		);
 		progress.advanced(closed);

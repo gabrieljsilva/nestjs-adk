@@ -46,7 +46,7 @@ export class SessionMetadata {
 	}
 
 	public with<T extends MetadataValue>(key: MetadataKey<T> | string, value: T): SessionMetadata {
-		const name = SessionMetadata.nameOf(key);
+		const name = SessionMetadata.readName(key);
 		SessionMetadata.verify(name, value);
 		const next = new Map(this.values);
 		next.set(name, value);
@@ -55,7 +55,7 @@ export class SessionMetadata {
 
 	public without(key: MetadataKey | string): SessionMetadata {
 		const next = new Map(this.values);
-		next.delete(SessionMetadata.nameOf(key));
+		next.delete(SessionMetadata.readName(key));
 		return new SessionMetadata(next);
 	}
 
@@ -67,7 +67,7 @@ export class SessionMetadata {
 	}
 
 	public has(key: MetadataKey | string): boolean {
-		return this.values.has(SessionMetadata.nameOf(key));
+		return this.values.has(SessionMetadata.readName(key));
 	}
 
 	public get size(): number {
@@ -83,7 +83,7 @@ export class SessionMetadata {
 		return [...this.values.entries()].sort((left, right) => left[0].localeCompare(right[0]));
 	}
 
-	private static nameOf(key: MetadataKey | string): string {
+	private static readName(key: MetadataKey | string): string {
 		return typeof key === "string" ? key : key.name;
 	}
 

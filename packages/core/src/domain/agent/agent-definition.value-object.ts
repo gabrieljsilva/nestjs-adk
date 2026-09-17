@@ -23,14 +23,18 @@ import { MissingAgentModelError } from "./errors/missing-agent-model.error";
  * which of the two objects a rule happens to live on.
  */
 export class AgentDefinition {
-	private constructor(
+	public readonly model: LlmModel;
+	public readonly tools: readonly ToolDefinition[];
+	public readonly skills: readonly SkillDefinition[];
+
+	public constructor(
 		public readonly name: AgentName,
 		public readonly description: AgentDescription,
-		public readonly model: LlmModel,
-		public readonly instructions: PromptInstructions | undefined,
-		public readonly policies: AgentExecutionPolicies,
-		public readonly tools: readonly ToolDefinition[] = [],
-		public readonly skills: readonly SkillDefinition[] = [],
+		model: LlmModel | undefined,
+		public readonly instructions?: PromptInstructions,
+		public readonly policies: AgentExecutionPolicies = AgentExecutionPolicies.none(),
+		tools: readonly ToolDefinition[] = [],
+		skills: readonly SkillDefinition[] = [],
 		/**
 		 * Builds the prompt once per run, for an agent whose instruction depends on data.
 		 *
@@ -49,31 +53,11 @@ export class AgentDefinition {
 		 * those three places.
 		 */
 		public readonly outputSchema?: object,
-	) {}
-
-	public static of(
-		name: AgentName,
-		description: AgentDescription,
-		model: LlmModel | undefined,
-		instructions?: PromptInstructions,
-		policies: AgentExecutionPolicies = AgentExecutionPolicies.none(),
-		tools: readonly ToolDefinition[] = [],
-		skills: readonly SkillDefinition[] = [],
-		promptBuilder?: PromptBuilder,
-		outputSchema?: object,
-	): AgentDefinition {
+	) {
 		if (model === undefined) throw new MissingAgentModelError(name.value);
-		return new AgentDefinition(
-			name,
-			description,
-			model,
-			instructions,
-			policies,
-			[...tools],
-			[...skills],
-			promptBuilder,
-			outputSchema,
-		);
+		this.model = model;
+		this.tools = [...tools];
+		this.skills = [...skills];
 	}
 
 	public get failover(): AgentFailoverPolicy | undefined {

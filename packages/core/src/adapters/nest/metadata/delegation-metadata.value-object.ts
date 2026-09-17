@@ -18,6 +18,6 @@ export class DelegationMetadata {
 		if (!Array.isArray(value)) {
 			throw new InvalidAgentMetadataError(providerName, "@DelegatesTo must declare a list of targets.");
 		}
-		return new DelegationMetadata(AgentTargets.namesOf(value, providerName, "@DelegatesTo"));
+		return new DelegationMetadata(AgentTargets.readNames(value, providerName, "@DelegatesTo"));
 	}
 }

@@ -7,7 +7,7 @@ const keyOf = (client: object): unknown => Reflect.get(client, "apiKey");
 
 describe("OpenAiClientFactory", () => {
 	it("reveals a secret key once, at the call that builds the client", () => {
-		const client = new OpenAiClientFactory().create({ apiKey: Secret.of("sk-live-1") });
+		const client = new OpenAiClientFactory().create({ apiKey: new Secret("sk-live-1") });
 
 		expect(keyOf(client)).toBe("sk-live-1");
 	});

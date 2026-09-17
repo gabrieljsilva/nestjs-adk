@@ -17,7 +17,7 @@ A delegation hands its calls up to the parent with `progress.charged(...childPro
 
 ## Pricing
 
-`RunResultFactory` is the only place a run is priced, and it runs after the loop. It exists because three commands (`AskAgent`, `DecideApproval`, `DelegateAgent`) used to assemble the same result inline, and adding an `await` to each would have put the same catalog call in three places.
+`RunResultFactory` is the only place a run is priced, and it runs after the loop. It exists because three commands (`AskAgentUseCase`, `DecideApprovalUseCase`, `DelegateAgentUseCase`) used to assemble the same result inline, and adding an `await` to each would have put the same catalog call in three places.
 
 `RunCostReporter` asks the source once per distinct model, however many calls it served, and checks usage before price: a call the provider reported nothing for has no price whatever a catalog says, and skipping it early keeps the source from being asked about a model it cannot help with.
 

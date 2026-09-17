@@ -21,7 +21,7 @@ export class ArtifactReference {
 		public readonly characters: number,
 	) {}
 
-	public static of(id: ArtifactId, sessionId: SessionId, content: ArtifactContent): ArtifactReference {
+	public static fromContent(id: ArtifactId, sessionId: SessionId, content: ArtifactContent): ArtifactReference {
 		return new ArtifactReference(id, sessionId, content.digest(), content.mediaType, content.characters);
 	}
 

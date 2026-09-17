@@ -8,18 +8,18 @@ import { DeclaredAgent } from "../domain/agent/declared-agent.value-object";
 import { FakeClock } from "../support/fake-clock.double";
 import { ScriptedModel } from "../support/run/scripted-model.fixture";
 import { SequenceIdGenerator } from "../support/sequence-id-generator.double";
-import { AdkRuntimeHost } from "./adk-runtime-host.edge";
+import { AdkRuntime } from "./adk-runtime.edge";
 import { HostNotStartedError } from "./errors/host-not-started.error";
 
 function declared(name: string): DeclaredAgent {
 	const agent = AgentName.from(name);
 	return new DeclaredAgent(
-		AgentDefinition.of(agent, AgentDescription.from(`${name} agent`, name), new ScriptedModel("primary")),
+		new AgentDefinition(agent, AgentDescription.from(`${name} agent`, name), new ScriptedModel("primary")),
 		`${name}Provider`,
 	);
 }
 
-async function started(host: AdkRuntimeHost, ...names: readonly string[]): Promise<void> {
+async function started(host: AdkRuntime, ...names: readonly string[]): Promise<void> {
 	await host.start(
 		names.map(declared),
 		new InMemorySessionStorage(),
@@ -29,7 +29,7 @@ async function started(host: AdkRuntimeHost, ...names: readonly string[]): Promi
 	);
 }
 
-describe("AdkRuntimeHost", () => {
+describe("AdkRuntime", () => {
 	/**
 	 * The answer anything asking too early gets.
 	 *
@@ -38,14 +38,14 @@ describe("AdkRuntimeHost", () => {
 	 * is what keeps a half composed runtime from ever being handed out.
 	 */
 	it("refuses to hand out a runtime it has not composed", () => {
-		const host = new AdkRuntimeHost();
+		const host = new AdkRuntime();
 
 		expect(host.isStarted).toBe(false);
 		expect(() => host.runtime).toThrow(HostNotStartedError);
 	});
 
 	it("composes what it was declared, and answers with it afterwards", async () => {
-		const host = new AdkRuntimeHost();
+		const host = new AdkRuntime();
 
 		await started(host, "support", "billing");
 
@@ -55,7 +55,7 @@ describe("AdkRuntimeHost", () => {
 	});
 
 	it("stops twice without complaining, which is what a double shutdown does", async () => {
-		const host = new AdkRuntimeHost();
+		const host = new AdkRuntime();
 		await started(host, "support");
 
 		await host.stop();
@@ -64,6 +64,6 @@ describe("AdkRuntimeHost", () => {
 	});
 
 	it("stops before starting, for an application that failed on the way up", async () => {
-		await expect(new AdkRuntimeHost().stop()).resolves.toBeUndefined();
+		await expect(new AdkRuntime().stop()).resolves.toBeUndefined();
 	});
 });

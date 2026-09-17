@@ -30,7 +30,7 @@ export abstract class Embedder {
 	public async embedMetered(text: string): Promise<MeteredEmbedding> {
 		return new MeteredEmbedding(
 			await this.embed(text),
-			ModelIdentity.of(UNMETERED_PROVIDER, this.constructor.name),
+			new ModelIdentity(UNMETERED_PROVIDER, this.constructor.name),
 			ModelUsage.none(),
 		);
 	}

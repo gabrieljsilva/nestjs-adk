@@ -13,7 +13,7 @@ const SESSION = SessionId.from("s-1");
 const CTX = SessionContext.fromSessionId(SESSION);
 const OTHER = SessionId.from("s-2");
 const OTHER_CTX = SessionContext.fromSessionId(OTHER);
-const content = ArtifactContent.of("a very long report", "text/markdown");
+const content = new ArtifactContent("a very long report", "text/markdown");
 
 function storageOf(): InMemoryArtifactStorage {
 	return new InMemoryArtifactStorage(new SequenceIdGenerator("a"));
@@ -51,7 +51,7 @@ describe("InMemoryArtifactStorage", () => {
 	it("keeps two sessions apart even when the ids would have collided", async () => {
 		const storage = storageOf();
 		const mine = await storage.put(CTX, content);
-		await storage.put(OTHER_CTX, ArtifactContent.of("someone else's report"));
+		await storage.put(OTHER_CTX, new ArtifactContent("someone else's report"));
 
 		expect((await storage.read(CTX, mine)).text).toBe(content.text);
 	});
@@ -62,7 +62,7 @@ describe("InMemoryArtifactStorage", () => {
 		const tampered = ArtifactReference.restore(
 			reference.id,
 			SESSION,
-			ArtifactContent.of("a tampered report").digest(),
+			new ArtifactContent("a tampered report").digest(),
 			reference.mediaType,
 			reference.characters,
 		);
@@ -74,7 +74,7 @@ describe("InMemoryArtifactStorage", () => {
 
 	it("reports an id it never stored as absent", async () => {
 		const storage = storageOf();
-		const unknown = ArtifactReference.of(ArtifactId.from("never-written"), SESSION, content);
+		const unknown = ArtifactReference.fromContent(ArtifactId.from("never-written"), SESSION, content);
 
 		await expect(storage.read(CTX, unknown)).rejects.toBeInstanceOf(ArtifactNotFoundError);
 	});

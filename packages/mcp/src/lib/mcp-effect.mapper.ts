@@ -10,7 +10,7 @@ export interface McpToolAnnotations {
  * unannotated tool lands on `destructive`: it is a third-party server, and the benefit of the
  * doubt is not ours to give.
  */
-export function effectOf(annotations: McpToolAnnotations | undefined): string {
+export function readEffectName(annotations: McpToolAnnotations | undefined): string {
 	if (annotations?.readOnlyHint === true) return "read";
 	if (annotations?.destructiveHint === false) return "write";
 	return "destructive";

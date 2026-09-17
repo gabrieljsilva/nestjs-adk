@@ -31,12 +31,12 @@ describe("ContextCategory", () => {
 	});
 });
 
-describe("ContextCategory.of", () => {
+describe("ContextCategory.fromKey", () => {
 	it("answers with the one instance a stored key denotes", () => {
-		expect(ContextCategory.of("conversation")).toBe(ContextCategory.CONVERSATION);
+		expect(ContextCategory.fromKey("conversation")).toBe(ContextCategory.CONVERSATION);
 	});
 
 	it("answers with nothing for a key no version of this runtime wrote", () => {
-		expect(ContextCategory.of("invented")).toBeUndefined();
+		expect(ContextCategory.fromKey("invented")).toBeUndefined();
 	});
 });

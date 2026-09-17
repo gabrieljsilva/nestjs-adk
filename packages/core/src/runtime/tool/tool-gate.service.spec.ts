@@ -26,7 +26,7 @@ class OwnersOnly extends AdkAccessPolicy {
 	}
 }
 
-const schema = ZodToolSchema.of(z.object({ orderId: z.string() }));
+const schema = ZodToolSchema.fromSchema(z.object({ orderId: z.string() }));
 
 function refund(internal = false): ToolDefinition {
 	return new ToolDefinition("refund", "Refunds.", schema, ToolEffect.DESTRUCTIVE, new NoopHandler(), internal);
@@ -41,7 +41,7 @@ describe("ToolGate", () => {
 		const admission = await new ToolGate(new OwnersOnly()).admit(
 			refund(),
 			call({ orderId: "A-1", extra: "dropped" }),
-			Actor.of("u-1", { role: "owner" }),
+			Actor.fromId("u-1", { role: "owner" }),
 		);
 
 		expect(admission.isAdmitted).toBe(true);
@@ -53,7 +53,7 @@ describe("ToolGate", () => {
 		const admission = await new ToolGate(policy).admit(
 			refund(),
 			call({ orderId: 7 }),
-			Actor.of("u-1", { role: "owner" }),
+			Actor.fromId("u-1", { role: "owner" }),
 		);
 
 		expect(admission.isAdmitted).toBe(false);
@@ -67,7 +67,7 @@ describe("ToolGate", () => {
 		const admission = await new ToolGate(policy).admit(
 			refund(),
 			call({ orderId: "A-1" }),
-			Actor.of("u-2", { role: "member" }),
+			Actor.fromId("u-2", { role: "member" }),
 		);
 
 		expect(admission.isAdmitted).toBe(false);

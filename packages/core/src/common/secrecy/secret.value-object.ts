@@ -24,12 +24,8 @@ const INSPECT = Symbol.for("nodejs.util.inspect.custom");
 export class Secret {
 	readonly #value: string;
 
-	private constructor(value: string) {
+	public constructor(value: string) {
 		this.#value = value;
-	}
-
-	public static of(value: string): Secret {
-		return new Secret(value);
 	}
 
 	/**

@@ -16,7 +16,7 @@ export class NonAtomicSessionStorage extends InMemorySessionStorage {
 		if (command.batch.size <= 1 || first === undefined) return super.append(context, command);
 		return super.append(
 			context,
-			new AppendEventsCommand(command.sessionId, command.expectedRevision, SessionEventBatch.of([first])),
+			new AppendEventsCommand(command.sessionId, command.expectedRevision, new SessionEventBatch([first])),
 		);
 	}
 }

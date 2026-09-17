@@ -13,15 +13,10 @@ import { UnknownTransferTargetError } from "./errors/unknown-transfer-target.err
 export class AgentCatalog {
 	private readonly byName: ReadonlyMap<string, DeclaredAgent>;
 
-	private constructor(entries: readonly DeclaredAgent[]) {
+	public constructor(entries: readonly DeclaredAgent[]) {
 		this.byName = new Map(entries.map((entry) => [entry.definition.name.value, entry]));
 		Object.freeze(this);
-	}
-
-	public static of(entries: readonly DeclaredAgent[]): AgentCatalog {
-		const catalog = new AgentCatalog(entries);
-		catalog.assertEdgesResolve();
-		return catalog;
+		this.assertEdgesResolve();
 	}
 
 	public get names(): readonly string[] {

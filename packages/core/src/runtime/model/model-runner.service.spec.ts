@@ -47,8 +47,8 @@ class ScriptedModel extends LlmModel {
 
 	public descriptor(): ModelDescriptor {
 		return new ModelDescriptor(
-			ModelIdentity.of("acme", this.name),
-			ModelContextWindow.of(1000, 100),
+			new ModelIdentity("acme", this.name),
+			new ModelContextWindow(1000, 100),
 			ModelCapabilities.none(),
 		);
 	}
@@ -74,8 +74,8 @@ class BrokenModel extends LlmModel {
 
 	public descriptor(): ModelDescriptor {
 		return new ModelDescriptor(
-			ModelIdentity.of("acme", "broken"),
-			ModelContextWindow.of(1000, 100),
+			new ModelIdentity("acme", "broken"),
+			new ModelContextWindow(1000, 100),
 			ModelCapabilities.none(),
 		);
 	}
@@ -100,7 +100,7 @@ class RecordingPolicy extends AgentFailoverPolicy {
 	}
 }
 
-function commandOf(model: LlmModel, failover?: AgentFailoverPolicy): ModelRunCommand {
+function buildCommand(model: LlmModel, failover?: AgentFailoverPolicy): ModelRunCommand {
 	return new ModelRunCommand(CONTEXT, RUN, AGENT, model, request, failover);
 }
 
@@ -123,7 +123,7 @@ describe("ModelRunner", () => {
 	it("answers from the primary model when nothing fails", async () => {
 		const primary = new ScriptedModel("primary", [ModelChunk.text("hi"), ModelChunk.finish("stop")]);
 
-		const outcome = await runner.run(commandOf(primary));
+		const outcome = await runner.run(buildCommand(primary));
 
 		expect(outcome.response.text).toBe("hi");
 		expect(outcome.wasRerouted).toBe(false);
@@ -134,7 +134,7 @@ describe("ModelRunner", () => {
 		const primary = new ScriptedModel("primary", [], new RateLimitedFailure("slow down"));
 		const fallback = new ScriptedModel("fallback", [ModelChunk.text("from the fallback"), ModelChunk.finish("stop")]);
 
-		const outcome = await runner.run(commandOf(primary, new SequentialFailoverPolicy([fallback])));
+		const outcome = await runner.run(buildCommand(primary, new SequentialFailoverPolicy([fallback])));
 
 		expect(outcome.response.text).toBe("from the fallback");
 		expect(outcome.servedBy.toString()).toBe("acme/fallback");
@@ -173,7 +173,7 @@ describe("ModelRunner", () => {
 		const primary = new ScriptedModel("primary", [], new RateLimitedFailure("slow down"));
 		const fallback = new ScriptedModel("fallback", [ModelChunk.text("ok"), ModelChunk.finish("stop")]);
 
-		const outcome = await runner.run(commandOf(primary, new SequentialFailoverPolicy([fallback])));
+		const outcome = await runner.run(buildCommand(primary, new SequentialFailoverPolicy([fallback])));
 
 		expect(outcome.reroutes).toHaveLength(1);
 		expect(outcome.reroutes[0]?.from.toString()).toBe("acme/primary");
@@ -187,7 +187,7 @@ describe("ModelRunner", () => {
 		const second = new ScriptedModel("second", [], new UnavailableFailure("overloaded"));
 		const third = new ScriptedModel("third", [ModelChunk.text("finally"), ModelChunk.finish("stop")]);
 
-		const outcome = await runner.run(commandOf(primary, new SequentialFailoverPolicy([second, third])));
+		const outcome = await runner.run(buildCommand(primary, new SequentialFailoverPolicy([second, third])));
 
 		expect(outcome.response.text).toBe("finally");
 		expect(outcome.reroutes.map((reroute) => reroute.to.toString())).toEqual(["acme/second", "acme/third"]);
@@ -197,11 +197,11 @@ describe("ModelRunner", () => {
 		const primary = new ScriptedModel("primary", [], new RateLimitedFailure("slow down"));
 		const fallback = new ScriptedModel("fallback", [
 			ModelChunk.text("ok"),
-			ModelChunk.usage(ModelUsage.of(100, 40)),
+			ModelChunk.usage(ModelUsage.fromReport(100, 40)),
 			ModelChunk.finish("stop"),
 		]);
 
-		const outcome = await runner.run(commandOf(primary, new SequentialFailoverPolicy([fallback])));
+		const outcome = await runner.run(buildCommand(primary, new SequentialFailoverPolicy([fallback])));
 
 		expect(outcome.response.model.toString()).toBe("acme/fallback");
 		expect(outcome.response.usage.inputTokens).toBe(100);
@@ -211,7 +211,7 @@ describe("ModelRunner", () => {
 		const primary = new ScriptedModel("primary", [ModelChunk.text("half")], new UnavailableFailure("died"), 1);
 		const fallback = new ScriptedModel("fallback", [ModelChunk.text("never"), ModelChunk.finish("stop")]);
 
-		const failure = await runner.run(commandOf(primary, new SequentialFailoverPolicy([fallback]))).catch((e) => e);
+		const failure = await runner.run(buildCommand(primary, new SequentialFailoverPolicy([fallback]))).catch((e) => e);
 
 		expect(failure).toBeInstanceOf(ModelCallFailedError);
 		expect(fallback.calls).toBe(0);
@@ -221,7 +221,7 @@ describe("ModelRunner", () => {
 		const broken = new BrokenModel();
 		const fallback = new ScriptedModel("fallback", [ModelChunk.text("never"), ModelChunk.finish("stop")]);
 
-		const failure = await runner.run(commandOf(broken, new SequentialFailoverPolicy([fallback]))).catch((e) => e);
+		const failure = await runner.run(buildCommand(broken, new SequentialFailoverPolicy([fallback]))).catch((e) => e);
 
 		expect(failure).toBeInstanceOf(TypeError);
 		expect(fallback.calls).toBe(0);
@@ -250,7 +250,7 @@ describe("ModelRunner", () => {
 		const primary = new ScriptedModel("primary", [], new RateLimitedFailure("slow down"));
 		const second = new ScriptedModel("second", [], new UnavailableFailure("overloaded"));
 
-		const failure = await runner.run(commandOf(primary, new SequentialFailoverPolicy([second]))).catch((e) => e);
+		const failure = await runner.run(buildCommand(primary, new SequentialFailoverPolicy([second]))).catch((e) => e);
 
 		expect(failure).toBeInstanceOf(ModelsExhaustedError);
 		if (!(failure instanceof ModelsExhaustedError)) return;
@@ -262,7 +262,7 @@ describe("ModelRunner", () => {
 	it("fails at the first failure when the agent declared no policy", async () => {
 		const primary = new ScriptedModel("primary", [], new UnknownFailure("boom"));
 
-		const failure = await runner.run(commandOf(primary)).catch((error) => error);
+		const failure = await runner.run(buildCommand(primary)).catch((error) => error);
 
 		expect(failure).toBeInstanceOf(ModelsExhaustedError);
 		if (!(failure instanceof ModelsExhaustedError)) return;
@@ -275,7 +275,7 @@ describe("ModelRunner", () => {
 		const third = new ScriptedModel("third", [ModelChunk.text("ok"), ModelChunk.finish("stop")]);
 		const policy = new RecordingPolicy([second, third]);
 
-		await runner.run(commandOf(primary, policy));
+		await runner.run(buildCommand(primary, policy));
 
 		expect(policy.seen).toHaveLength(2);
 		expect(policy.seen[0]?.attempts).toBe(1);
@@ -293,7 +293,7 @@ describe("ModelRunner", () => {
 			ModelChunk.finish("stop"),
 		]);
 
-		const texts = await collect(runner, commandOf(primary, new SequentialFailoverPolicy([fallback])));
+		const texts = await collect(runner, buildCommand(primary, new SequentialFailoverPolicy([fallback])));
 
 		expect(texts.join("")).toBe("from the fallback");
 	});

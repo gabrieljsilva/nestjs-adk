@@ -5,7 +5,7 @@ import { SessionClosedError } from "../../domain/session/errors/session-closed.e
 import { Session } from "../../domain/session/session.entity";
 import { SessionState } from "../../domain/session/state/session-state.value-object";
 import { OpenedSession } from "../session/opened-session.value-object";
-import type { SessionManager } from "../session/session-manager.service";
+import type { SessionRepository } from "../session/session-repository.service";
 import type { AgentRunCommand } from "./agent-run.command";
 
 /**
@@ -17,12 +17,12 @@ import type { AgentRunCommand } from "./agent-run.command";
  * written, because appending to a closed conversation is not something a caller can undo.
  *
  * A session id that names nothing is still refused. Opening a conversation is something a
- * caller asks for, through `CreateSession`, and inferring it from an unknown id would turn
+ * caller asks for, through `CreateSessionUseCase`, and inferring it from an unknown id would turn
  * a stale or mistyped identifier into a fresh conversation nobody notices.
  */
 export class SessionOpener {
 	public constructor(
-		private readonly sessions: SessionManager,
+		private readonly sessions: SessionRepository,
 		private readonly clock: Clock,
 	) {}
 
@@ -47,7 +47,7 @@ export class SessionOpener {
 	 * to happen has to record the conversation beginning.
 	 *
 	 * It is read off the projection rather than from the revision, and that is the whole
-	 * point: a session opened by `CreateSession` with metadata on it has a journal and still
+	 * point: a session opened by `CreateSessionUseCase` with metadata on it has a journal and still
 	 * has no beginning, and only `SessionCreated` and a transfer ever name an active agent. It
 	 * also covers the run that created a head and then failed before committing anything,
 	 * which under a revision reading could never record its own beginning.

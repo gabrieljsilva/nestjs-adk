@@ -48,13 +48,13 @@ describe("MediaPart", () => {
 	});
 
 	it("refuses an image over the encoded ceiling", () => {
-		const limits = MediaLimits.of(8, 1024, 1024);
+		const limits = new MediaLimits(8, 1024, 1024);
 
 		expect(() => MediaPart.image("image/png", PIXEL, limits)).toThrow(MediaTooLargeError);
 	});
 
 	it("refuses an image that only overflows once decoded", () => {
-		const limits = MediaLimits.of(1024, 4, 1024);
+		const limits = new MediaLimits(1024, 4, 1024);
 
 		expect(() => MediaPart.image("image/png", PIXEL, limits)).toThrow(MediaTooLargeError);
 	});

@@ -14,7 +14,7 @@ const SCHEMA_VERSION = 5;
 /** Codec for the outcome of one tool call, kept paired with its request by callId. */
 export class ToolResultProducedCodec extends SessionEventCodec<ToolResultProduced> {
 	public readonly type = ToolResultProduced.TYPE;
-	public readonly schemaVersion = EventSchemaVersion.of(SCHEMA_VERSION);
+	public readonly schemaVersion = new EventSchemaVersion(SCHEMA_VERSION);
 
 	private readonly attachments = new AttachmentReferenceCodec();
 

@@ -350,7 +350,7 @@ describe("AdkTestBed, over what the application declared", () => {
 		bed = await scriptedBed({
 			billing: (script) => script.mockToolCall("issue_refund", { orderId: ORDER, amountBrl: 349 }).mockText("completed"),
 		})
-			.withRuntime({ limits: RunLimits.of(2) })
+			.withRuntime({ limits: new RunLimits(2) })
 			.boot();
 
 		const run = await bed.agent(BillingAgent).ask("refund it");

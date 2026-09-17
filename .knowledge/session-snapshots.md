@@ -9,13 +9,13 @@ A session's state is a fold of its journal, so it can always be rebuilt from rev
 
 ## Reading never depends on one
 
-`SessionManager.rehydrate` prefers a snapshot and never needs it. A snapshot written by another projector version, one whose checksum does not match its state, or one sitting past the session head, is ignored and the journal is replayed whole. The suspicious snapshot is left where it is rather than deleted: it is evidence, and deleting it would lose the only trace of whatever wrote it.
+`SessionRepository.rehydrate` prefers a snapshot and never needs it. A snapshot written by another projector version, one whose checksum does not match its state, or one sitting past the session head, is ignored and the journal is replayed whole. The suspicious snapshot is left where it is rather than deleted: it is evidence, and deleting it would lose the only trace of whatever wrote it.
 
 That is why `SessionSnapshot` carries `projectorVersion` and a `checksum`. Without them a stale snapshot loads silently and the session means something it never meant.
 
 ## Writing never fails a run
 
-Writing happens inside `SessionManager.commit`, after the append is confirmed and before the publisher is told anything. A storage that refuses the write is swallowed: the journal is already durable, so the cost is a replay later and nothing else. Turning it into a thrown error would end a run that actually succeeded, which trades a correct outcome for an optimization.
+Writing happens inside `SessionRepository.commit`, after the append is confirmed and before the publisher is told anything. A storage that refuses the write is swallowed: the journal is already durable, so the cost is a replay later and nothing else. Turning it into a thrown error would end a run that actually succeeded, which trades a correct outcome for an optimization.
 
 For the same reason an empty batch writes nothing. There is no new state to shortcut to.
 

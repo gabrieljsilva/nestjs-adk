@@ -20,6 +20,6 @@ export class AgentCatalogBuilder {
 	}
 
 	public build(): AgentCatalog {
-		return AgentCatalog.of([...this.declared]);
+		return new AgentCatalog([...this.declared]);
 	}
 }

@@ -2,11 +2,8 @@ import { InvalidEventSchemaVersionError } from "./errors/invalid-event-schema-ve
 
 /** Version of the payload shape of one event type. */
 export class EventSchemaVersion {
-	private constructor(public readonly value: number) {}
-
-	public static of(value: number): EventSchemaVersion {
+	public constructor(public readonly value: number) {
 		if (!Number.isSafeInteger(value) || value < 1) throw new InvalidEventSchemaVersionError(value);
-		return new EventSchemaVersion(value);
 	}
 
 	public static initial(): EventSchemaVersion {

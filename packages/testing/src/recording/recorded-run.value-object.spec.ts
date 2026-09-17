@@ -14,16 +14,16 @@ import { describe, expect, it } from "vitest";
 import { RecordedRun } from "./recorded-run.value-object";
 import { RunEvents } from "./run-events.value-object";
 
-const LUNA = ModelIdentity.of("openai", "gpt-5.6-luna");
+const LUNA = new ModelIdentity("openai", "gpt-5.6-luna");
 
-function costOf(pico: bigint): RunCost {
-	return RunCost.of([
-		ModelCost.of(LUNA, 1, ModelUsage.of(40, 12), CostBreakdown.of(UsdAmount.ofPico(pico), UsdAmount.zero())),
+function calculateCost(pico: bigint): RunCost {
+	return new RunCost([
+		new ModelCost(LUNA, 1, ModelUsage.fromReport(40, 12), new CostBreakdown(UsdAmount.ofPico(pico), UsdAmount.zero())),
 	]);
 }
 
 function recorded(result: AgentResult): RecordedRun {
-	return new RecordedRun(result, RunEvents.of([]));
+	return new RecordedRun(result, RunEvents.fromEvents([]));
 }
 
 describe("RecordedRun", () => {
@@ -39,7 +39,7 @@ describe("RecordedRun", () => {
 			AgentRunStatus.COMPLETED,
 			"done",
 			[],
-			costOf(8_800_000n),
+			calculateCost(8_800_000n),
 		);
 
 		const run = recorded(result);

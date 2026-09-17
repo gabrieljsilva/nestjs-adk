@@ -27,15 +27,10 @@ const PLACEHOLDER = /\{\{\{(\w+)\}\}\}|\{\{(\w+)\}\}/g;
  * the same thing as a key that was never passed.
  */
 export class PromptTemplate {
-	private constructor(
+	public constructor(
 		private readonly text: string,
 		private readonly name?: string,
 	) {}
-
-	/** The name is only ever used to say which template failed, so an inline string needs none. */
-	public static of(text: string, name?: string): PromptTemplate {
-		return new PromptTemplate(text, name);
-	}
 
 	public render(vars: Record<string, unknown> = {}): string {
 		const missing = new Set<string>();

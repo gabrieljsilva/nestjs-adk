@@ -12,7 +12,7 @@ const SCHEMA_VERSION = 2;
 /** Codec for the activation of a skill, with its digest kept as algorithm and value. */
 export class SkillActivatedCodec extends SessionEventCodec<SkillActivated> {
 	public readonly type = SkillActivated.TYPE;
-	public readonly schemaVersion = EventSchemaVersion.of(SCHEMA_VERSION);
+	public readonly schemaVersion = new EventSchemaVersion(SCHEMA_VERSION);
 
 	public encode(event: SkillActivated): Record<string, unknown> {
 		return {
@@ -29,7 +29,7 @@ export class SkillActivatedCodec extends SessionEventCodec<SkillActivated> {
 			header,
 			this.readText(payload, "skillName"),
 			this.readScope(payload),
-			ContentDigest.of(this.readText(digest, "algorithm"), this.readText(digest, "value")),
+			new ContentDigest(this.readText(digest, "algorithm"), this.readText(digest, "value")),
 			ToolCallId.from(this.readText(payload, "callId")),
 		);
 	}

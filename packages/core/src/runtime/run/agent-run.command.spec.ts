@@ -9,21 +9,21 @@ const SUPPORT = AgentName.from("support");
 
 describe("AgentRunCommand", () => {
 	it("defaults to no declared limits and no model of its own", () => {
-		const command = new AgentRunCommand(SUPPORT, AskInput.of("hi"));
+		const command = new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi"));
 
 		expect(command.limits.hasIterationLimit).toBe(false);
 		expect(command.model).toBeUndefined();
 	});
 
 	it("continues a session when the input names one", () => {
-		const command = new AgentRunCommand(SUPPORT, AskInput.of("hi", SessionId.from("s-1")));
+		const command = new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi", SessionId.from("s-1")));
 
 		expect(command.continuesSession).toBe(true);
-		expect(new AgentRunCommand(SUPPORT, AskInput.of("hi")).continuesSession).toBe(false);
+		expect(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")).continuesSession).toBe(false);
 	});
 
 	it("carries the limits the caller already resolved", () => {
-		const command = new AgentRunCommand(SUPPORT, AskInput.of("hi"), RunLimits.of(4));
+		const command = new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi"), new RunLimits(4));
 
 		expect(command.limits.maxIterations).toBe(4);
 	});

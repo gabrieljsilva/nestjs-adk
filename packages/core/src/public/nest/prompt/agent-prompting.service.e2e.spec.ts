@@ -32,7 +32,7 @@ const PROMPTS = join(dirname(fileURLToPath(import.meta.url)), "fixtures", "promp
 /** The dependency the prompt is built from, which is the whole reason it is a method. */
 @Injectable()
 class CustomersService {
-	public nameOf(owner?: string): string {
+	public readName(owner?: string): string {
 		return owner === "user-7" ? "Ana" : "a guest";
 	}
 }
@@ -66,7 +66,7 @@ class SupportAgent extends AdkAgent {
 	protected override async prompt(context: PromptContext): Promise<string> {
 		this.seen.push(context);
 		return this.prompting.renderFromFileOrFail("support.md", {
-			name: this.customers.nameOf(context.metadata.find(MEMBER)),
+			name: this.customers.readName(context.metadata.find(MEMBER)),
 		});
 	}
 

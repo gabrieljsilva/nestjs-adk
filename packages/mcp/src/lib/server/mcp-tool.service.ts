@@ -23,8 +23,8 @@ export class McpToolService {
 			return {
 				name: tool.name,
 				description: tool.description,
-				inputSchema: McpToolService.schemaOf(tool.schema.declaration()),
-				annotations: McpToolAnnotations.of(tool.effect).toJSON(),
+				inputSchema: McpToolService.readSchema(tool.schema.declaration()),
+				annotations: McpToolAnnotations.fromEffect(tool.effect).toJSON(),
 			};
 		});
 	}
@@ -45,7 +45,7 @@ export class McpToolService {
 		}
 	}
 
-	private static schemaOf(declaration: unknown): Tool["inputSchema"] {
+	private static readSchema(declaration: unknown): Tool["inputSchema"] {
 		if (typeof declaration === "object" && declaration !== null && !Array.isArray(declaration)) {
 			return { ...declaration, type: "object" };
 		}
@@ -54,7 +54,7 @@ export class McpToolService {
 
 	private static answered(produced: unknown): CallToolResult {
 		const data = produced instanceof ToolOutput ? produced.data : produced;
-		const text = McpToolService.textOf(data);
+		const text = McpToolService.formatText(data);
 		const structured = typeof data === "object" && data !== null && !Array.isArray(data) ? { ...data } : undefined;
 		return {
 			content: [{ type: "text", text }],
@@ -66,7 +66,7 @@ export class McpToolService {
 		return { content: [{ type: "text", text: reason }], isError: true };
 	}
 
-	private static textOf(data: unknown): string {
+	private static formatText(data: unknown): string {
 		if (data === undefined || data === null) return "";
 		return typeof data === "string" ? data : JSON.stringify(data);
 	}

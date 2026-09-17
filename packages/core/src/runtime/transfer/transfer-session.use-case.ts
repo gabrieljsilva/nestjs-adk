@@ -17,7 +17,7 @@ import type { RunScope } from "../run/scope/run-scope.value-object";
  * and everything already spent stay exactly where they were, which is what makes a
  * transfer a change of who answers rather than a second conversation.
  */
-export class AgentSwitch {
+export class TransferSessionUseCase {
 	public constructor(
 		private readonly catalog: AgentCatalog,
 		private readonly models: ModelResolver,
@@ -30,7 +30,7 @@ export class AgentSwitch {
 		return transferred.at(-1)?.to;
 	}
 
-	public async to(scope: RunScope, target: AgentName): Promise<RunScope> {
+	public async execute(scope: RunScope, target: AgentName): Promise<RunScope> {
 		const definition = this.catalog.findOrFail(target);
 		return await this.scopes.switched(scope, definition, this.models.resolve(definition));
 	}

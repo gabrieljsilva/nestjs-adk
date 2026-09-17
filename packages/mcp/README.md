@@ -193,7 +193,7 @@ export class KeycloakActors extends McpActorResolver {
 		const token = request.bearerToken;
 		if (token === undefined) throw new McpUnauthorizedError("no bearer token", CHALLENGE);
 		const verified = await this.keycloak.verifyForAudience(token, "acme-mcp");
-		return Actor.of(verified.sub, { scopes: verified.scopes });
+		return Actor.fromId(verified.sub, { scopes: verified.scopes });
 	}
 }
 ```

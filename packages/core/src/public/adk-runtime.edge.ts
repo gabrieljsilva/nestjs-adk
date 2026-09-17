@@ -28,7 +28,7 @@ export interface StartedRuntime {
  * the catalog and composes the runtime; stopping drains active runs before disposing,
  * and is safe to call twice because both the drain and the disposal are idempotent.
  */
-export class AdkRuntimeHost implements StartedRuntime {
+export class AdkRuntime implements StartedRuntime {
 	private services?: RuntimeServices;
 
 	public constructor(private readonly factory: RuntimeFactory = new RuntimeFactory()) {}

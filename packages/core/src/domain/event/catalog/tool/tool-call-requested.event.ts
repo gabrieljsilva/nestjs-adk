@@ -15,7 +15,7 @@ const SCHEMA_VERSION = 2;
  */
 export class ToolCallRequested extends SessionEvent {
 	public readonly type = ToolCallRequested.TYPE;
-	public readonly schemaVersion = EventSchemaVersion.of(SCHEMA_VERSION);
+	public readonly schemaVersion = new EventSchemaVersion(SCHEMA_VERSION);
 
 	public static readonly TYPE = "tool.call-requested";
 

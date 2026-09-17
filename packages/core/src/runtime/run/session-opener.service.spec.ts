@@ -19,7 +19,7 @@ import { AskInput } from "../../domain/session/input/ask-input.command";
 import { SessionStatus } from "../../domain/session/session-status.value-object";
 import { Session } from "../../domain/session/session.entity";
 import { FakeClock } from "../../support/fake-clock.double";
-import { SessionManager } from "../session/session-manager.service";
+import { SessionRepository } from "../session/session-repository.service";
 import { AgentRunCommand } from "./agent-run.command";
 import { SessionOpener } from "./session-opener.service";
 
@@ -28,7 +28,7 @@ const SUPPORT = AgentName.from("support");
 const SESSION = SessionId.from("s-1");
 
 function openerOf(storage: InMemorySessionStorage): SessionOpener {
-	return new SessionOpener(new SessionManager(storage), new FakeClock(NOW));
+	return new SessionOpener(new SessionRepository(storage), new FakeClock(NOW));
 }
 
 /** A journal that has begun is one holding the beginning, which is what names an active agent. */
@@ -43,7 +43,7 @@ async function beginJournalOf(storage: InMemorySessionStorage): Promise<void> {
 		new AppendEventsCommand(
 			SESSION,
 			SessionRevision.initial(),
-			SessionEventBatch.of([new SessionCreated(header, SUPPORT, undefined)]),
+			new SessionEventBatch([new SessionCreated(header, SUPPORT, undefined)]),
 		),
 	);
 }
@@ -52,7 +52,7 @@ describe("SessionOpener", () => {
 	it("starts a session for a command that names none, and says it is new", async () => {
 		const storage = new InMemorySessionStorage();
 
-		const opened = await openerOf(storage).open(new AgentRunCommand(SUPPORT, AskInput.of("hi")), SESSION);
+		const opened = await openerOf(storage).open(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")), SESSION);
 
 		expect(opened.isNew).toBe(true);
 		expect(await storage.find(SessionContext.fromSessionId(SESSION))).toBeDefined();
@@ -63,7 +63,10 @@ describe("SessionOpener", () => {
 		await storage.create(SessionContext.fromSessionId(SESSION), Session.start(SESSION, SUPPORT, NOW));
 		await beginJournalOf(storage);
 
-		const opened = await openerOf(storage).open(new AgentRunCommand(SUPPORT, AskInput.of("again", SESSION)), SESSION);
+		const opened = await openerOf(storage).open(
+			new AgentRunCommand(SUPPORT, AskInput.fromMessage("again", SESSION)),
+			SESSION,
+		);
 
 		expect(opened.isNew).toBe(false);
 		expect(opened.session.id.value).toBe(SESSION.value);
@@ -73,7 +76,10 @@ describe("SessionOpener", () => {
 		const storage = new InMemorySessionStorage();
 		await storage.create(SessionContext.fromSessionId(SESSION), Session.start(SESSION, SUPPORT, NOW));
 
-		const opened = await openerOf(storage).open(new AgentRunCommand(SUPPORT, AskInput.of("first", SESSION)), SESSION);
+		const opened = await openerOf(storage).open(
+			new AgentRunCommand(SUPPORT, AskInput.fromMessage("first", SESSION)),
+			SESSION,
+		);
 
 		expect(opened.isNew).toBe(true);
 	});
@@ -86,7 +92,7 @@ describe("SessionOpener", () => {
 		);
 
 		const error = await openerOf(storage)
-			.open(new AgentRunCommand(SUPPORT, AskInput.of("again", SESSION)), SESSION)
+			.open(new AgentRunCommand(SUPPORT, AskInput.fromMessage("again", SESSION)), SESSION)
 			.catch((reason) => reason);
 
 		expect(error).toBeInstanceOf(SessionClosedError);
@@ -94,7 +100,7 @@ describe("SessionOpener", () => {
 
 	it("refuses a session id that names nothing, rather than starting one behind the caller", async () => {
 		const error = await openerOf(new InMemorySessionStorage())
-			.open(new AgentRunCommand(SUPPORT, AskInput.of("again", SESSION)), SESSION)
+			.open(new AgentRunCommand(SUPPORT, AskInput.fromMessage("again", SESSION)), SESSION)
 			.catch((reason) => reason);
 
 		expect(error).toBeInstanceOf(Error);

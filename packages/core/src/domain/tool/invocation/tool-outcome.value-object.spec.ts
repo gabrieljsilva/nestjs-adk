@@ -7,10 +7,10 @@ import { ArtifactReference } from "../../artifact/artifact-reference.value-objec
 import { ToolOutcome } from "./tool-outcome.value-object";
 
 const CALL = ToolCallId.from("c-1");
-const reference = ArtifactReference.of(
+const reference = ArtifactReference.fromContent(
 	ArtifactId.from("a-1"),
 	SessionId.from("s-1"),
-	ArtifactContent.of("a very long report"),
+	new ArtifactContent("a very long report"),
 );
 
 describe("ToolOutcome", () => {

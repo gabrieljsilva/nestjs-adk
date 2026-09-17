@@ -36,7 +36,7 @@ export class TransferToAgentTool {
 	}
 
 	/** The name a successful call handed the session to, or nothing when it was not that call. */
-	public static targetOf(toolName: string, args: Record<string, unknown>): string | undefined {
+	public static findTarget(toolName: string, args: Record<string, unknown>): string | undefined {
 		if (toolName !== NAME) return undefined;
 		const target = args.agentName;
 		return typeof target === "string" ? target : undefined;

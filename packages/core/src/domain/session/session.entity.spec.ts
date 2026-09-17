@@ -26,7 +26,7 @@ describe("Session start", () => {
 
 describe("Session restore", () => {
 	it("brings back every part it was given", () => {
-		const session = Session.restore(ID, SUPPORT, SessionStatus.SUSPENDED, SessionRevision.of(7), CREATED, LATER);
+		const session = Session.restore(ID, SUPPORT, SessionStatus.SUSPENDED, new SessionRevision(7), CREATED, LATER);
 
 		expect(session.status).toBe(SessionStatus.SUSPENDED);
 		expect(session.revision.value).toBe(7);
@@ -35,7 +35,7 @@ describe("Session restore", () => {
 
 	/** A row saying it changed before it existed is a corrupt row, not a session. */
 	it("refuses a row that was updated before it was created", () => {
-		expect(() => Session.restore(ID, SUPPORT, SessionStatus.ACTIVE, SessionRevision.of(1), LATER, CREATED)).toThrow(
+		expect(() => Session.restore(ID, SUPPORT, SessionStatus.ACTIVE, new SessionRevision(1), LATER, CREATED)).toThrow(
 			InvertedSessionTimestampsError,
 		);
 	});
@@ -49,7 +49,7 @@ describe("Session restore", () => {
 
 describe("Session copies", () => {
 	it("moves the revision and the moment it moved, keeping everything else", () => {
-		const advanced = Session.start(ID, SUPPORT, CREATED).at(SessionRevision.of(3), LATER);
+		const advanced = Session.start(ID, SUPPORT, CREATED).at(new SessionRevision(3), LATER);
 
 		expect(advanced.revision.value).toBe(3);
 		expect(advanced.updatedAt.toIso()).toBe(LATER.toIso());
@@ -58,13 +58,13 @@ describe("Session copies", () => {
 	});
 
 	it("keeps the moment of the last change when the caller names none", () => {
-		const advanced = Session.start(ID, SUPPORT, CREATED).at(SessionRevision.of(1));
+		const advanced = Session.start(ID, SUPPORT, CREATED).at(new SessionRevision(1));
 
 		expect(advanced.updatedAt.toIso()).toBe(CREATED.toIso());
 	});
 
 	it("changes the status without touching the journal it stands on", () => {
-		const closed = Session.start(ID, SUPPORT, CREATED).at(SessionRevision.of(2), LATER).withStatus(SessionStatus.CLOSED);
+		const closed = Session.start(ID, SUPPORT, CREATED).at(new SessionRevision(2), LATER).withStatus(SessionStatus.CLOSED);
 
 		expect(closed.status).toBe(SessionStatus.CLOSED);
 		expect(closed.acceptsCommands).toBe(false);

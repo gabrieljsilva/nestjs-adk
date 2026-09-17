@@ -31,7 +31,7 @@ import { StateProjector } from "./state-projector.service";
  * mirror of that: it happens after the journal is already durable and never speaks up
  * when it fails, because a run must not end differently over a lost shortcut.
  */
-export class SessionManager {
+export class SessionRepository {
 	public constructor(
 		private readonly storage: SessionStorage,
 		private readonly projector: StateProjector = new StateProjector(),

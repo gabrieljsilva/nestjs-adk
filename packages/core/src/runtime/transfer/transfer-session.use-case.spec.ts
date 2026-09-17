@@ -30,7 +30,7 @@ import { AgentCatalog } from "../catalog/agent-catalog.service";
 import { RunCancellation } from "../lifecycle/run-cancellation.service";
 import { RunScopeFactory } from "../run/scope/run-scope.factory";
 import { StartedRun } from "../run/settle/started-run.value-object";
-import { AgentSwitch } from "./agent-switch.use-case";
+import { TransferSessionUseCase } from "./transfer-session.use-case";
 
 const NOW = Instant.fromIso("2026-01-01T00:00:00.000Z");
 const SUPPORT = AgentName.from("support");
@@ -59,12 +59,12 @@ function toolNamed(name: string): ToolDefinition {
 }
 
 function agent(name: AgentName, model: LlmModel, tools: readonly ToolDefinition[]): AgentDefinition {
-	return AgentDefinition.of(
+	return new AgentDefinition(
 		name,
 		AgentDescription.from(`${name.value} agent`, name.value),
 		model,
 		undefined,
-		AgentExecutionPolicies.of(undefined, undefined, undefined, AgentTransferPolicy.to([BILLING])),
+		new AgentExecutionPolicies(undefined, undefined, undefined, AgentTransferPolicy.to([BILLING])),
 		tools,
 	);
 }
@@ -89,15 +89,15 @@ function startedRun(): StartedRun {
 	return new StartedRun(run, new RunCancellation());
 }
 
-function switchOver(...definitions: readonly AgentDefinition[]): AgentSwitch {
-	const catalog = AgentCatalog.of(definitions.map((definition) => new DeclaredAgent(definition, "Provider")));
+function switchOver(...definitions: readonly AgentDefinition[]): TransferSessionUseCase {
+	const catalog = new AgentCatalog(definitions.map((definition) => new DeclaredAgent(definition, "Provider")));
 	const resolver = new DeclaredModelResolver();
-	return new AgentSwitch(catalog, resolver, new RunScopeFactory());
+	return new TransferSessionUseCase(catalog, resolver, new RunScopeFactory());
 }
 
-describe("AgentSwitch", () => {
+describe("TransferSessionUseCase", () => {
 	it("finds the agent a committed batch handed the session to", async () => {
-		const batch = SessionEventBatch.of([
+		const batch = new SessionEventBatch([
 			new SessionCreated(header("e-1"), SUPPORT, undefined),
 			new AgentTransferred(header("e-2"), SUPPORT, BILLING),
 		]);
@@ -106,13 +106,13 @@ describe("AgentSwitch", () => {
 	});
 
 	it("finds nobody in a batch that handed the session to nobody", async () => {
-		const batch = SessionEventBatch.of([new SessionCreated(header("e-1"), SUPPORT, undefined)]);
+		const batch = new SessionEventBatch([new SessionCreated(header("e-1"), SUPPORT, undefined)]);
 
 		expect(switchOver().requestedIn(batch)).toBeUndefined();
 	});
 
 	it("takes the last handover when a turn produced more than one", async () => {
-		const batch = SessionEventBatch.of([
+		const batch = new SessionEventBatch([
 			new AgentTransferred(header("e-1"), SUPPORT, BILLING),
 			new AgentTransferred(header("e-2"), BILLING, SUPPORT),
 		]);
@@ -124,8 +124,8 @@ describe("AgentSwitch", () => {
 		const support = agent(SUPPORT, SUPPORT_MODEL, [toolNamed("lookup_order")]);
 		const billing = agent(BILLING, BILLING_MODEL, [toolNamed("issue_refund")]);
 		const scopes = new RunScopeFactory();
-		const catalog = AgentCatalog.of([new DeclaredAgent(support, "S"), new DeclaredAgent(billing, "B")]);
-		const agents = new AgentSwitch(catalog, new DeclaredModelResolver(), scopes);
+		const catalog = new AgentCatalog([new DeclaredAgent(support, "S"), new DeclaredAgent(billing, "B")]);
+		const agents = new TransferSessionUseCase(catalog, new DeclaredModelResolver(), scopes);
 		const started = startedRun();
 		const context = RunContextFixture.run(started.run.sessionId, {
 			agent: started.run.agent,
@@ -133,7 +133,7 @@ describe("AgentSwitch", () => {
 		});
 		const scope = await scopes.create(context, support, SUPPORT_MODEL, started);
 
-		const switched = await agents.to(scope, BILLING);
+		const switched = await agents.execute(scope, BILLING);
 
 		expect(switched.agent.value).toBe("billing");
 		expect(switched.model).toBe(BILLING_MODEL);
@@ -145,8 +145,8 @@ describe("AgentSwitch", () => {
 		const support = agent(SUPPORT, SUPPORT_MODEL, [toolNamed("lookup_order")]);
 		const billing = agent(BILLING, BILLING_MODEL, [toolNamed("issue_refund")]);
 		const scopes = new RunScopeFactory();
-		const catalog = AgentCatalog.of([new DeclaredAgent(support, "S"), new DeclaredAgent(billing, "B")]);
-		const agents = new AgentSwitch(catalog, new DeclaredModelResolver(), scopes);
+		const catalog = new AgentCatalog([new DeclaredAgent(support, "S"), new DeclaredAgent(billing, "B")]);
+		const agents = new TransferSessionUseCase(catalog, new DeclaredModelResolver(), scopes);
 		const started = startedRun();
 		const context = RunContextFixture.run(started.run.sessionId, {
 			agent: started.run.agent,
@@ -154,7 +154,7 @@ describe("AgentSwitch", () => {
 		});
 		const scope = await scopes.create(context, support, SUPPORT_MODEL, started);
 
-		const switched = await agents.to(scope, BILLING);
+		const switched = await agents.execute(scope, BILLING);
 
 		expect(switched.run.id.value).toBe(scope.run.id.value);
 		expect(switched.limits).toBe(scope.limits);

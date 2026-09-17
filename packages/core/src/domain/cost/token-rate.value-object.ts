@@ -35,7 +35,7 @@ export class TokenRate {
 		return new TokenRate(BigInt(Math.round(usdPerToken * PICO_PER_USD)));
 	}
 
-	public costOf(tokens: number): UsdAmount {
+	public calculateCost(tokens: number): UsdAmount {
 		return UsdAmount.ofPico(this.picoPerToken).times(tokens);
 	}
 

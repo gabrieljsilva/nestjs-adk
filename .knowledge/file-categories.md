@@ -28,7 +28,7 @@ A file is named `<name>.<category>.ts`. The category says what the file may cont
 | `.use-case.ts` | One operation, one `execute`, see [[layered-responsibilities]] |
 | `.service.ts` | The high-level API of one module, or a role collaborator it owns, see [[layered-responsibilities]] |
 | `.factory.ts` | A collaborator whose only job is to build another object, so what is built stays free of how |
-| `.edge.ts` | A public entry point that converts input into a command and a result into a public shape: `AgentHandle`, `AdkRuntimeHost`, `AdkAgent` |
+| `.edge.ts` | A public entry point that converts input into a command and a result into a public shape: `AgentHandle`, `AdkRuntime`, `AdkAgent` |
 | `.tool.ts` | A tool a model may call |
 | `.decorator.ts` | A decorator. A function, because TypeScript gives no other form |
 | `.controller.ts` | A NestJS controller. The framework's own name for an edge, kept because its ecosystem reads it |

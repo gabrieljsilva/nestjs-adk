@@ -14,9 +14,9 @@ const PIXEL = "iVBORw0KGgo=";
 
 function descriptorOf(seesImages: boolean): ModelDescriptor {
 	return new ModelDescriptor(
-		ModelIdentity.of("acme", "m-1"),
-		ModelContextWindow.of(1000, 100),
-		ModelCapabilities.of([[ModelCapability.MEDIA_INPUT, seesImages]]),
+		new ModelIdentity("acme", "m-1"),
+		new ModelContextWindow(1000, 100),
+		ModelCapabilities.fromEntries([[ModelCapability.MEDIA_INPUT, seesImages]]),
 	);
 }
 

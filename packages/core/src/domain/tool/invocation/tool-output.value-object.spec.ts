@@ -6,7 +6,7 @@ const PIXEL = "iVBORw0KGgo=";
 
 describe("ToolOutput", () => {
 	it("carries data with nothing to look at", () => {
-		const output = ToolOutput.of({ status: "shipped" });
+		const output = ToolOutput.fromData({ status: "shipped" });
 
 		expect(output.data).toEqual({ status: "shipped" });
 		expect(output.hasMedia).toBe(false);

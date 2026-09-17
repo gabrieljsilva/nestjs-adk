@@ -26,7 +26,7 @@ const SAFETY_CODES = new Set(["content_filter", "content_policy_violation"]);
  */
 export class OpenAiFailureMapper {
 	public toFailure(error: unknown): ModelFailure {
-		const message = this.messageOf(error);
+		const message = this.readMessage(error);
 		const status = this.numberAt(error, "status");
 		const code = this.textAt(error, "code");
 		const type = this.textAt(error, "type");
@@ -55,21 +55,21 @@ export class OpenAiFailureMapper {
 
 	private isTimeout(error: unknown, code: string | undefined): boolean {
 		if (code === "ETIMEDOUT" || code === "ECONNABORTED") return true;
-		return this.nameOf(error).includes("Timeout");
+		return this.readName(error).includes("Timeout");
 	}
 
 	/** No status at all means the request never reached the provider. */
 	private isConnection(error: unknown, code: string | undefined): boolean {
 		if (code === "ECONNREFUSED" || code === "ENOTFOUND" || code === "ECONNRESET") return true;
-		return this.nameOf(error).includes("Connection");
+		return this.readName(error).includes("Connection");
 	}
 
-	private nameOf(error: unknown): string {
+	private readName(error: unknown): string {
 		if (error instanceof Error) return error.constructor.name;
 		return "";
 	}
 
-	private messageOf(error: unknown): string {
+	private readMessage(error: unknown): string {
 		if (error instanceof Error) return error.message;
 		if (typeof error === "string") return error;
 		return "the provider failed without a message";

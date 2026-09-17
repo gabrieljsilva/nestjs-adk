@@ -6,17 +6,17 @@ import { DeclaredAgent } from "../../../domain/agent/declared-agent.value-object
 import { AgentCatalog } from "../../../runtime/catalog/agent-catalog.service";
 import { AgentNotInCatalogError } from "../../../runtime/catalog/errors/agent-not-in-catalog.error";
 import { ScriptedModel } from "../../../support/run/scripted-model.fixture";
-import type { StartedRuntime } from "../../adk-runtime-host.edge";
+import type { StartedRuntime } from "../../adk-runtime.edge";
 import { AgentRegistry } from "./agent-registry.service";
 
 /** The registry reads the runtime from the host, so a spec hands it a host and not services. */
 function hostWith(...names: readonly string[]): StartedRuntime {
 	const model = new ScriptedModel("primary");
-	const catalog = AgentCatalog.of(
+	const catalog = new AgentCatalog(
 		names.map((name) => {
 			const agent = AgentName.from(name);
 			return new DeclaredAgent(
-				AgentDefinition.of(agent, AgentDescription.from(`${name} agent`, name), model),
+				new AgentDefinition(agent, AgentDescription.from(`${name} agent`, name), model),
 				`${name}Provider`,
 			);
 		}),

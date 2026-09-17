@@ -32,10 +32,10 @@ export class SnapshotCodec {
 		const record = SnapshotRecord.from(values);
 		return new SessionSnapshot(
 			SessionId.from(record.sessionId),
-			SessionRevision.of(record.revision),
+			new SessionRevision(record.revision),
 			record.projectorVersion,
 			this.state.decode(record.state),
-			ContentDigest.of(record.checksumAlgorithm, record.checksumValue),
+			new ContentDigest(record.checksumAlgorithm, record.checksumValue),
 		);
 	}
 }

@@ -16,11 +16,11 @@ import { StubModel } from "../../support/model/stub-model.fixture";
 import { SequenceIdGenerator } from "../../support/sequence-id-generator.double";
 import { AttachmentReader } from "../artifact/attachment-reader.service";
 import { AgentCatalog } from "../catalog/agent-catalog.service";
-import { ContextManager } from "../context/context-manager.service";
 import { ContextMeasurer } from "../context/context-measurer.service";
 import { ContextProjector } from "../context/context-projector.service";
 import { ContextWindowNotifier } from "../context/context-window-notifier.service";
-import { InspectContextBudget } from "../context/inspect-context-budget.use-case";
+import { ContextService } from "../context/context.service";
+import { InspectContextBudgetUseCase } from "../context/inspect-context-budget.use-case";
 import { OldestFirstCompactionStrategy } from "../context/oldest-first-compaction.strategy";
 import { StablePrefixDigest } from "../context/stable-prefix-digest.service";
 import { ActiveRunTracker } from "../lifecycle/active-run-tracker.service";
@@ -29,9 +29,9 @@ import { ShutdownOptions } from "../lifecycle/shutdown.options";
 import { AgentRunFactory } from "../run/agent-run.factory";
 import { RunEventFactory } from "../run/journal/run-event.factory";
 import { RunJournal } from "../run/journal/run-journal.service";
-import { CreateSession } from "./create-session.use-case";
-import { InspectSession } from "./inspect-session.use-case";
-import { SessionManager } from "./session-manager.service";
+import { CreateSessionUseCase } from "./create-session.use-case";
+import { InspectSessionUseCase } from "./inspect-session.use-case";
+import { SessionRepository } from "./session-repository.service";
 import { SessionService } from "./session.service";
 
 const NOW = Instant.fromIso("2026-01-01T00:00:00.000Z");
@@ -39,27 +39,27 @@ const SUPPORT = AgentName.from("support");
 const MISSING = SessionId.from("nobody");
 
 function catalogOf(): AgentCatalog {
-	const definition = AgentDefinition.of(
+	const definition = new AgentDefinition(
 		SUPPORT,
 		AgentDescription.from("answers customers", "support"),
-		new StubModel(ModelContextWindow.of(1000, 200)),
+		new StubModel(new ModelContextWindow(1000, 200)),
 	);
-	return AgentCatalog.of([new DeclaredAgent(definition, "SupportAgent")]);
+	return new AgentCatalog([new DeclaredAgent(definition, "SupportAgent")]);
 }
 
 function serviceOf(
 	storage: InMemorySessionStorage = new InMemorySessionStorage(),
 	onForget: (context: SessionContext) => void = () => undefined,
 ): SessionService {
-	const sessions = new SessionManager(storage);
+	const sessions = new SessionRepository(storage);
 	const artifacts = new InMemoryArtifactStorage(new SequenceIdGenerator("a"));
 	const projector = new WatchingProjector(new AttachmentReader(artifacts), onForget);
-	const inspecting = new InspectSession(sessions);
+	const inspecting = new InspectSessionUseCase(sessions);
 	const clock = new FakeClock(NOW);
 	const tracker = new ActiveRunTracker();
 	const lifecycle = new RuntimeLifecycle(tracker, ShutdownOptions.waitIndefinitely(), clock);
 	return new SessionService(
-		new CreateSession(
+		new CreateSessionUseCase(
 			sessions,
 			clock,
 			new SequenceIdGenerator("s"),
@@ -68,9 +68,9 @@ function serviceOf(
 		),
 		inspecting,
 		sessions,
-		new InspectContextBudget(inspecting, catalogOf()),
+		new InspectContextBudgetUseCase(inspecting, catalogOf()),
 		artifacts,
-		new ContextManager(
+		new ContextService(
 			storage,
 			projector,
 			new ContextMeasurer(),

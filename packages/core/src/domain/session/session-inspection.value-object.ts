@@ -37,12 +37,12 @@ export class SessionInspection {
 		public readonly lastPrompt?: PromptMeasurement,
 	) {}
 
-	public static of(session: Session, state: SessionState): SessionInspection {
+	public static fromSession(session: Session, state: SessionState): SessionInspection {
 		const turn = state.pendingTurn;
 		return new SessionInspection(
 			session,
 			state.activeAgent ?? session.rootAgent,
-			turn === undefined ? ApprovalStatus.none() : ApprovalStatus.of(turn),
+			turn === undefined ? ApprovalStatus.none() : ApprovalStatus.fromTurn(turn),
 			state.values,
 			state.metadata,
 			state.lastPrompt,

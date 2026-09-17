@@ -25,14 +25,14 @@ Scripts are strict. A run that asks for a turn nobody queued fails naming the ag
 
 ## The model is decided per agent
 
-`withModelFor` installs a `RoutingModelResolver` on the runtime's own `ModelResolver` port, which every entrypoint consults: `ask`, a transfer, a delegation and a resumed approval each resolve again. That is what makes a mixed run possible, and it is the reason a paid suite can pay for one decision and script the rest.
+`withAgentModel` installs a `RoutingModelResolver` on the runtime's own `ModelResolver` port, which every entrypoint consults: `ask`, a transfer, a delegation and a resumed approval each resolve again. That is what makes a mixed run possible, and it is the reason a paid suite can pay for one decision and script the rest.
 
 ```ts
-.withModelFor(ConciergeAgent, realModel)          // the decision is worth paying for
+.withAgentModel(ConciergeAgent, realModel)          // the decision is worth paying for
 .withScript(WarrantyAgent, (s) => s.mockText(…))  // the answer is not
 ```
 
-`withModel` replaces only the module's fallback, so an agent that declared `model` in `@Agent` keeps it, exactly as in production. Routing one of those is `withModelFor`, which is deliberately explicit.
+`withModel` replaces only the module's fallback, so an agent that declared `model` in `@Agent` keeps it, exactly as in production. Routing one of those is `withAgentModel`, which is deliberately explicit.
 
 ## The bed refuses to boot
 

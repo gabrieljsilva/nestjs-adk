@@ -132,6 +132,6 @@ describe("OpenAiModel", () => {
 
 	it("is recognised as a spec across a package boundary", () => {
 		expect(ModelSpec.is(new OpenAiModel("gpt-5", {}, new RecordingTransport()))).toBe(true);
-		expect(ModelSpec.idOf(new OpenAiModel("gpt-5", {}, new RecordingTransport()))).toBe("gpt-5");
+		expect(ModelSpec.readId(new OpenAiModel("gpt-5", {}, new RecordingTransport()))).toBe("gpt-5");
 	});
 });

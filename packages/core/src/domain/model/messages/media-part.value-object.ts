@@ -38,8 +38,8 @@ export class MediaPart {
 	public static image(mediaType: string, base64: string, limits: MediaLimits = MediaLimits.byDefault()): MediaPart {
 		const declared = mediaType.trim().toLowerCase();
 		const data = base64.trim();
-		const url = MediaPart.dataUrlOf(data);
-		const type = url === undefined ? declared : MediaPart.agreedTypeOf(declared, url.mediaType);
+		const url = MediaPart.readDataUrl(data);
+		const type = url === undefined ? declared : MediaPart.resolveAgreedType(declared, url.mediaType);
 		const encoded = url === undefined ? data : url.base64;
 
 		if (!limits.supports(type)) throw new UnsupportedMediaTypeError(type, limits.supportedTypes);
@@ -69,7 +69,7 @@ export class MediaPart {
 		const declared = mediaType.trim().toLowerCase();
 		if (!limits.supports(declared)) throw new UnsupportedMediaTypeError(declared, limits.supportedTypes);
 
-		const address = MediaPart.remoteAddressOf(url.trim(), limits.allowsPrivateHost);
+		const address = MediaPart.readRemoteAddress(url.trim(), limits.allowsPrivateHost);
 		return new MediaPart(declared, undefined, address);
 	}
 
@@ -117,7 +117,7 @@ export class MediaPart {
 		return this.remote ?? `${DATA_URL_PREFIX}${this.mediaType}${BASE64_MARKER},${this.base64}`;
 	}
 
-	private static remoteAddressOf(url: string, allowsPrivateHost: boolean): string {
+	private static readRemoteAddress(url: string, allowsPrivateHost: boolean): string {
 		let parsed: URL;
 		try {
 			parsed = new URL(url);
@@ -142,12 +142,12 @@ export class MediaPart {
 		// URL keeps an IPv6 host in brackets: loopback, unspecified, unique local (fc00::/7) and link local (fe80::/10).
 		if (host === "[::1]" || host === "[::]") return true;
 		if (host.startsWith("[fc") || host.startsWith("[fd") || /^\[fe[89ab]/.test(host)) return true;
-		const mapped = MediaPart.mappedIpv4Of(host);
+		const mapped = MediaPart.readMappedIpv4(host);
 		return MediaPart.isPrivateIpv4(mapped ?? host);
 	}
 
 	/** The IPv4 inside an IPv4-mapped IPv6 host, which URL canonicalizes into two hex groups. */
-	private static mappedIpv4Of(host: string): string | undefined {
+	private static readMappedIpv4(host: string): string | undefined {
 		const match = /^\[::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})\]$/.exec(host);
 		if (match === null) return undefined;
 		const high = Number.parseInt(match[1] ?? "", 16);
@@ -165,14 +165,14 @@ export class MediaPart {
 		return first === 169 && second === 254;
 	}
 
-	private static agreedTypeOf(declared: string, fromUrl: string): string {
+	private static resolveAgreedType(declared: string, fromUrl: string): string {
 		if (declared.length > 0 && declared !== fromUrl) {
 			throw new MalformedMediaError(`media type ${declared} does not match the data URL type ${fromUrl}`);
 		}
 		return fromUrl;
 	}
 
-	private static dataUrlOf(data: string): { mediaType: string; base64: string } | undefined {
+	private static readDataUrl(data: string): { mediaType: string; base64: string } | undefined {
 		if (!data.toLowerCase().startsWith(DATA_URL_PREFIX)) return undefined;
 		const comma = data.indexOf(",");
 		if (comma === -1) throw new MalformedMediaError("the data URL has no content");

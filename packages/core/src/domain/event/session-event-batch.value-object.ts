@@ -7,15 +7,15 @@ import type { SessionEvent } from "./session-event.event";
  * without first having to defend itself against the producer.
  */
 export class SessionEventBatch {
-	private constructor(public readonly events: readonly SessionEvent[]) {}
+	public readonly events: readonly SessionEvent[];
 
-	public static of(events: readonly SessionEvent[]): SessionEventBatch {
+	public constructor(events: readonly SessionEvent[]) {
 		const seen = new Set<string>();
 		for (const event of events) {
 			if (seen.has(event.id.value)) throw new DuplicatedEventIdError(event.id.value);
 			seen.add(event.id.value);
 		}
-		return new SessionEventBatch([...events]);
+		this.events = [...events];
 	}
 
 	public static empty(): SessionEventBatch {

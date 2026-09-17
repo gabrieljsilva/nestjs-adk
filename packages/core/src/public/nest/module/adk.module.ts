@@ -22,15 +22,15 @@ import { SessionStorage } from "../../../contracts/storage/session-storage.contr
 import type { LlmModel } from "../../../domain/model/llm-model.contract";
 import type { RuntimeOptionsPatch } from "../../../runtime/composition/runtime.options";
 import { CatalogModelResolver } from "../../../runtime/model/catalog-model-resolver.adapter";
-import { AdkRuntimeHost } from "../../adk-runtime-host.edge";
+import { AdkRuntime } from "../../adk-runtime.edge";
 import { AgentRegistry } from "../agent/agent-registry.service";
 import { AsyncOptionsNotDeclaredError } from "../errors/async-options-not-declared.error";
 import { ConflictingAsyncOptionsError } from "../errors/conflicting-async-options.error";
 import { RandomIdGenerator } from "../random-id-generator.adapter";
 import { UndeclaredEmbedder } from "../undeclared-embedder.adapter";
-import { AdkComposer } from "./adk-composer.use-case";
 import type { AdkModuleAsyncOptions, AdkOptionsFactory } from "./adk-module-async.options";
 import { AdkModuleOptions } from "./adk-module.options";
+import { ComposeRuntimeUseCase } from "./compose-runtime.use-case";
 
 /** The token an application injects to reach what the module built. */
 export const ADK_OPTIONS = Symbol.for("adk:module-options");
@@ -84,8 +84,8 @@ export const ADK_RUNTIME_PATCH = Symbol.for("adk:runtime-patch");
 export class AdkModule implements OnModuleInit, OnApplicationShutdown {
 	public constructor(
 		private readonly discovery: DiscoveryService,
-		private readonly composer: AdkComposer,
-		private readonly host: AdkRuntimeHost,
+		private readonly composer: ComposeRuntimeUseCase,
+		private readonly host: AdkRuntime,
 	) {}
 
 	public static forRoot(options: AdkModuleOptions): DynamicModule {
@@ -113,7 +113,7 @@ export class AdkModule implements OnModuleInit, OnApplicationShutdown {
 	 * the options that decide what `SessionStorage` is, is a cycle NestJS will refuse.
 	 */
 	public static forRootAsync(options: AdkModuleAsyncOptions): DynamicModule {
-		return AdkModule.moduleWith(AdkModule.optionsProvidersFor(options), options.imports);
+		return AdkModule.moduleWith(AdkModule.buildOptionsProviders(options), options.imports);
 	}
 
 	/** One shape for both entry points, so the two can never drift on what the module exports. */
@@ -121,17 +121,8 @@ export class AdkModule implements OnModuleInit, OnApplicationShutdown {
 		return {
 			module: AdkModule,
 			imports: [DiscoveryModule, ...imports],
-			providers: [...options, ...AdkModule.providersFor()],
-			exports: [
-				AgentRegistry,
-				AdkRuntimeHost,
-				SessionStorage,
-				ArtifactStorage,
-				Clock,
-				IdGenerator,
-				ModelResolver,
-				Embedder,
-			],
+			providers: [...options, ...AdkModule.buildProviders()],
+			exports: [AgentRegistry, AdkRuntime, SessionStorage, ArtifactStorage, Clock, IdGenerator, ModelResolver, Embedder],
 		};
 	}
 
@@ -142,7 +133,7 @@ export class AdkModule implements OnModuleInit, OnApplicationShutdown {
 	 * during the boot it would otherwise poison. `useClass` is registered as a provider of
 	 * this module, which is what lets an application name a class it declared nowhere.
 	 */
-	private static optionsProvidersFor(declared: AdkModuleAsyncOptions): Provider[] {
+	private static buildOptionsProviders(declared: AdkModuleAsyncOptions): Provider[] {
 		const forms = AdkModule.declaredForms(declared);
 		const [only] = forms;
 		if (only === undefined) throw new AsyncOptionsNotDeclaredError();
@@ -178,7 +169,7 @@ export class AdkModule implements OnModuleInit, OnApplicationShutdown {
 	}
 
 	public async onModuleInit(): Promise<void> {
-		await this.composer.compose(this.discovery.getProviders());
+		await this.composer.execute(this.discovery.getProviders());
 	}
 
 	public async onApplicationShutdown(): Promise<void> {
@@ -194,7 +185,7 @@ export class AdkModule implements OnModuleInit, OnApplicationShutdown {
 	 * one provider rather than to the module, since none of these know when the options
 	 * arrived, only that the token answers.
 	 */
-	private static providersFor(): Provider[] {
+	private static buildProviders(): Provider[] {
 		return [
 			{
 				provide: ADK_DEFAULT_MODEL,
@@ -234,16 +225,16 @@ export class AdkModule implements OnModuleInit, OnApplicationShutdown {
 				useFactory: (declared: AdkModuleOptions) => declared.runtime?.models ?? new CatalogModelResolver(),
 				inject: [ADK_OPTIONS],
 			},
-			AdkRuntimeHost,
+			AdkRuntime,
 			{
 				provide: AgentRegistry,
-				useFactory: (host: AdkRuntimeHost) => new AgentRegistry(host),
-				inject: [AdkRuntimeHost],
+				useFactory: (host: AdkRuntime) => new AgentRegistry(host),
+				inject: [AdkRuntime],
 			},
 			{
-				provide: AdkComposer,
+				provide: ComposeRuntimeUseCase,
 				useFactory: (
-					host: AdkRuntimeHost,
+					host: AdkRuntime,
 					registry: AgentRegistry,
 					declared: AdkModuleOptions,
 					storage: SessionStorage,
@@ -255,9 +246,21 @@ export class AdkModule implements OnModuleInit, OnApplicationShutdown {
 					defaultModel: LlmModel | undefined,
 					patch: RuntimeOptionsPatch,
 				) =>
-					new AdkComposer(host, registry, declared, storage, artifacts, clock, ids, models, consumers, defaultModel, patch),
+					new ComposeRuntimeUseCase(
+						host,
+						registry,
+						declared,
+						storage,
+						artifacts,
+						clock,
+						ids,
+						models,
+						consumers,
+						defaultModel,
+						patch,
+					),
 				inject: [
-					AdkRuntimeHost,
+					AdkRuntime,
 					AgentRegistry,
 					ADK_OPTIONS,
 					SessionStorage,

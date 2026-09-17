@@ -114,7 +114,7 @@ describe("AI: sales, tools and the answer they produce", () => {
 
 		const priced = run.cost.byModel[0];
 		if (priced === undefined) throw new Error("the run was not priced");
-		const price = await new LiteLLMPricingSource().findPrice(undefined, ModelIdentity.of("openai", "gpt-5.6-luna"));
+		const price = await new LiteLLMPricingSource().findPrice(undefined, new ModelIdentity("openai", "gpt-5.6-luna"));
 		if (price === undefined) throw new Error("the catalog does not know the model");
 
 		const { inputTokens, outputTokens, cachedInputTokens } = priced.usage;
@@ -129,7 +129,7 @@ describe("AI: sales, tools and the answer they produce", () => {
 		);
 
 		// A prompt this size is far from the band the catalog declares, so the base rates applied.
-		expect(price.ratesFor(inputTokens).input.picoPerToken).toBe(price.input.picoPerToken);
+		expect(price.resolveRates(inputTokens).input.picoPerToken).toBe(price.input.picoPerToken);
 
 		/**
 		 * Whether the cache engaged is the provider's call and not something to fail a run over.
@@ -268,10 +268,10 @@ describe("AI: sales, tools and the answer they produce", () => {
 			.overriding(SessionStorage, new SqliteSessionStorage(connection))
 			.withConsumers(new RunTranscript())
 			.withModel(recording)
-			.withModelFor("concierge", recording)
-			.withModelFor("sales", recording)
-			.withModelFor("warranty", recording)
-			.withModelFor("billing", recording)
+			.withAgentModel("concierge", recording)
+			.withAgentModel("sales", recording)
+			.withAgentModel("warranty", recording)
+			.withAgentModel("billing", recording)
 			.boot();
 
 		await bed.agent(SalesAgent).ask("Hello!");
@@ -328,7 +328,7 @@ describe("AI: sales, tools and the answer they produce", () => {
 		};
 
 		await expect(read()).rejects.toThrow();
-		expect(bed.events.countOf("run.cancelled")).toBe(1);
-		expect(bed.events.countOf("run.completed")).toBe(0);
+		expect(bed.events.countByType("run.cancelled")).toBe(1);
+		expect(bed.events.countByType("run.completed")).toBe(0);
 	});
 });

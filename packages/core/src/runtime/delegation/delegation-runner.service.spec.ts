@@ -34,7 +34,7 @@ import { RunScopeFactory } from "../run/scope/run-scope.factory";
 import { RunProgress } from "../run/settle/run-progress.value-object";
 import type { StartedRun } from "../run/settle/started-run.value-object";
 import { OpenedSession } from "../session/opened-session.value-object";
-import { SessionManager } from "../session/session-manager.service";
+import { SessionRepository } from "../session/session-repository.service";
 import { DelegatedTurnLoop } from "./delegated-turn-loop.contract";
 import { DelegationRunner } from "./delegation-runner.service";
 import { DelegationUnboundError } from "./errors/delegation-unbound.error";
@@ -66,12 +66,12 @@ class AnsweringLoop extends DelegatedTurnLoop {
 }
 
 function agent(name: AgentName, delegation: AgentDelegationPolicy = AgentDelegationPolicy.none()): AgentDefinition {
-	return AgentDefinition.of(
+	return new AgentDefinition(
 		name,
 		AgentDescription.from(`${name.value} agent`, name.value),
 		MODEL,
 		undefined,
-		AgentExecutionPolicies.of(undefined, undefined, undefined, undefined, delegation),
+		new AgentExecutionPolicies(undefined, undefined, undefined, undefined, delegation),
 	);
 }
 
@@ -91,8 +91,8 @@ function stack(support: AgentDefinition, models: ModelResolver = new FixedResolv
 	const ids = new SequenceIdGenerator("id");
 	const tracker = new ActiveRunTracker();
 	const lifecycle = new RuntimeLifecycle(tracker, ShutdownOptions.waitIndefinitely(), clock);
-	const sessions = new SessionManager(storage);
-	const catalog = AgentCatalog.of([
+	const sessions = new SessionRepository(storage);
+	const catalog = new AgentCatalog([
 		new DeclaredAgent(support, "SupportAgent"),
 		new DeclaredAgent(agent(RESEARCHER), "ResearchAgent"),
 	]);
@@ -103,7 +103,7 @@ function stack(support: AgentDefinition, models: ModelResolver = new FixedResolv
 	return { storage, clock, sessions, runs, scopes, runner, support };
 }
 
-async function openedSession(sessions: SessionManager): Promise<OpenedSession> {
+async function openedSession(sessions: SessionRepository): Promise<OpenedSession> {
 	const session = Session.start(SESSION, SUPPORT, NOW);
 	await sessions.create(SessionContext.fromSessionId(SESSION), session);
 	return new OpenedSession(session, SessionState.initial(), true);

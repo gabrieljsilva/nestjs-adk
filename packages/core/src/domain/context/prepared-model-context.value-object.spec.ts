@@ -8,12 +8,12 @@ import { ContextBudget } from "./context-budget.value-object";
 import { ContextProjection } from "./context-projection.value-object";
 import { PreparedModelContext } from "./prepared-model-context.value-object";
 
-const DIGEST = ContentDigest.of("sha256", "abc123");
-const R1 = SessionRevision.of(1);
+const DIGEST = new ContentDigest("sha256", "abc123");
+const R1 = new SessionRevision(1);
 
 function prepare(message = new UserMessage("hi")): PreparedModelContext {
-	const projection = ContextProjection.of([ContextBlock.conversation(message, R1)]);
-	const budget = new ContextBudget(ModelContextWindow.of(1000, 100), undefined, message.text.length);
+	const projection = new ContextProjection([ContextBlock.conversation(message, R1)]);
+	const budget = new ContextBudget(new ModelContextWindow(1000, 100), undefined, message.text.length);
 	return new PreparedModelContext(projection, budget, DIGEST);
 }
 

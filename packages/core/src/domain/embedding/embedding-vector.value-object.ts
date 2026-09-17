@@ -8,14 +8,14 @@ import { EmptyVectorError } from "./errors/empty-vector.error";
  * nothing. Everything downstream can then compare without checking.
  */
 export class EmbeddingVector {
-	private constructor(public readonly values: readonly number[]) {}
+	public readonly values: readonly number[];
 
-	public static of(values: readonly number[]): EmbeddingVector {
+	public constructor(values: readonly number[]) {
 		if (values.length === 0) throw new EmptyVectorError("it has no dimensions");
 		if (values.some((value) => !Number.isFinite(value))) {
 			throw new EmptyVectorError("it has a value that is not a finite number");
 		}
-		return new EmbeddingVector([...values]);
+		this.values = [...values];
 	}
 
 	public get dimension(): number {

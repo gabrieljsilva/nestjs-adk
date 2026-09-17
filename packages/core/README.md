@@ -176,7 +176,7 @@ Both resolve to the same definition, and a name nobody declared fails the boot t
 A tool that reads a person's data has to know which person. The run does not know either, so the caller says:
 
 ```ts
-await this.assistant.ask(message, { sessionId, actor: Actor.of(user.id, { workspaceId, role: user.role }) });
+await this.assistant.ask(message, { sessionId, actor: Actor.fromId(user.id, { workspaceId, role: user.role }) });
 ```
 
 `Actor` is an id and a bag of claims the runtime never reads. It reaches every tool of the run as `context.actor`, handovers and delegations included, and it is what an access policy judges:
@@ -224,7 +224,7 @@ export class ReadInvoiceTool extends AdkTool<typeof schema> {
 }
 ```
 
-`ToolOutput.of(data)` is the plain form and `with(data, media)` is this one. The data still reaches the model as the tool's result; the media arrives alongside it.
+`ToolOutput.fromData(data)` is the plain form and `with(data, media)` is this one. The data still reaches the model as the tool's result; the media arrives alongside it.
 
 The attachment reaches the model in the same turn, with the question already in context, and that ordering is the point. A description written when the file was uploaded answers "what colour is the shirt?" only if somebody guessed the question in advance, and "how many buttons?" is already lost. Letting the model look when it is asked costs one call instead of two, and those tokens land in `result.cost` like every other.
 
@@ -545,9 +545,9 @@ export class ClaudeViaProxy extends LlmModel {
 
 	public descriptor(): ModelDescriptor {
 		return new ModelDescriptor(
-			ModelIdentity.of("acme", "claude-sonnet-5"),
-			ModelContextWindow.of(200_000, 8_000),
-			ModelCapabilities.of([
+			new ModelIdentity("acme", "claude-sonnet-5"),
+			new ModelContextWindow(200_000, 8_000),
+			ModelCapabilities.fromEntries([
 				[ModelCapability.TOOLS, true],
 				[ModelCapability.MEDIA_INPUT, true],
 			]),
@@ -562,7 +562,7 @@ export class ClaudeViaProxy extends LlmModel {
 				yield ModelChunk.toolCall(new ToolCallDelta(piece.index, piece.json, piece.id, piece.name));
 			}
 		}
-		yield ModelChunk.usage(ModelUsage.of(stream.usage.in, stream.usage.out, stream.usage.cached));
+		yield ModelChunk.usage(ModelUsage.fromReport(stream.usage.in, stream.usage.out, stream.usage.cached));
 		yield ModelChunk.finish("stop");
 	}
 }
@@ -635,7 +635,7 @@ class PrismaSessionStorage extends SessionStorage {
 	public async *readEvents(context: SessionContext, after: SessionRevision) {
 		const sessionId = context.sessionId;
 		for await (const row of this.cursorOf(sessionId, after)) {
-			yield new StoredSessionEvent(sessionId, SessionRevision.of(row.revision), this.codecs.journal.decode(row));
+			yield new StoredSessionEvent(sessionId, new SessionRevision(row.revision), this.codecs.journal.decode(row));
 		}
 	}
 }
@@ -645,7 +645,7 @@ Every method of the port takes a `SessionContext` first, and it names the sessio
 
 `decode` takes the row your driver handed back, whichever shape it is in: a JSON column that arrived parsed and one that arrived as text are both accepted. What comes back is the event class the runtime decides on, which is the part that cannot be approximated. A plain object with the right fields passes every check in the runtime without matching one, and the conversation reads back as empty instead of failing.
 
-Four codecs cover the four collections: `journal`, `snapshot`, `head` and `checkpoint`. `journal.fingerprintOf` is how a retried batch is told from an event id that came back carrying something else, which is what idempotent append means. The errors the port is expected to throw ship here too: `SessionNotFoundError`, `SessionAlreadyExistsError`, `SessionRevisionConflictError` and `JournalCorruptedError`.
+Four codecs cover the four collections: `journal`, `snapshot`, `head` and `checkpoint`. `journal.calculateFingerprint` is how a retried batch is told from an event id that came back carrying something else, which is what idempotent append means. The errors the port is expected to throw ship here too: `SessionNotFoundError`, `SessionAlreadyExistsError`, `SessionRevisionConflictError` and `JournalCorruptedError`.
 
 Then prove it, with the same cases the adapters here answer. The suite lives in `@nestjs-adk/testing`, because measuring an adapter is testing:
 
@@ -676,7 +676,7 @@ A lost model can call tools forever, and a broken tool can fail forever while th
 AdkModule.forRoot(
 	AdkModuleOptions.from({
 		defaultModel,
-		runtime: RuntimeOptions.from({ limits: RunLimits.of(16, 2) }),
+		runtime: RuntimeOptions.from({ limits: new RunLimits(16, 2) }),
 	}),
 );
 ```
@@ -696,7 +696,7 @@ Three levels declare them, and each replaces the one above it field by field: th
 @Agent({
 	name: "sales",
 	description: "Catalog, prices and quotes.",
-	limits: RunLimits.of(16),
+	limits: new RunLimits(16),
 })
 export class SalesAgent extends AdkAgent {}
 ```
@@ -975,7 +975,7 @@ export class ContractPricing extends PricingSource {
 	public async findPrice(context: SessionContext | undefined, model: ModelIdentity): Promise<ModelPrice | undefined> {
 		const agreed = this.rates[model.model];
 		if (agreed === undefined) return undefined;
-		return ModelPrice.of(TokenRate.fromUsdPerToken(agreed.in), TokenRate.fromUsdPerToken(agreed.out));
+		return new ModelPrice(TokenRate.fromUsdPerToken(agreed.in), TokenRate.fromUsdPerToken(agreed.out));
 	}
 }
 ```
@@ -1014,13 +1014,13 @@ That only produces a number when the provider reports usage, which today most do
 
 ## Without NestJS
 
-The runtime does not depend on the container. `AdkRuntimeHost` composes it from agents you built yourself, which is how the provider packages test against a real model:
+The runtime does not depend on the container. `AdkRuntime` composes it from agents you built yourself, which is how the provider packages test against a real model:
 
 ```ts
-const host = new AdkRuntimeHost();
-const started = await host.start([declaredAgent], storage, artifacts, clock, ids, runtimeOptions);
+const runtime = new AdkRuntime();
+const started = await runtime.start([declaredAgent], storage, artifacts, clock, ids, runtimeOptions);
 const result = await started.runtime.runner.ask(new AgentRunCommand(AgentName.from("support"), askInput));
-await host.stop();
+await runtime.stop();
 ```
 
 This is the low level surface: no decorators, no discovery, and you assemble the `AgentDefinition` yourself. Reach for it when you are embedding the runtime somewhere NestJS is not, and use the module everywhere else.
@@ -1187,7 +1187,7 @@ Writing a `SessionStorage` needs more than the names in its signatures, and the 
 | Symbol | What it is for |
 | --- | --- |
 | `StorageCodecs` | The four codecs as one thing: `journal`, `snapshot`, `head`, `checkpoint` |
-| `JournalCodec` | An event as a row and back, with `fingerprintOf` for idempotent append |
+| `JournalCodec` | An event as a row and back, with `calculateFingerprint` for idempotent append |
 | `SnapshotCodec`, `SessionHeadCodec`, `CheckpointCodec` | The other three collections a storage keeps |
 | `ModelMessageCodec` | One message of a compacted context, if you store blocks yourself |
 | `JournalRecord`, `SnapshotRecord`, `SessionHeadRecord`, `CheckpointRecord` | What each codec answers: plain values a column can hold |
@@ -1240,7 +1240,7 @@ Writing a `SessionStorage` needs more than the names in its signatures, and the 
 
 | Symbol | What it is for |
 | --- | --- |
-| `AdkRuntimeHost`, `StartedRuntime`, `RuntimeServices` | Composing the runtime without a container |
+| `AdkRuntime`, `StartedRuntime`, `RuntimeServices` | Composing the runtime without a container |
 | `AgentRunCommand` | One run, resolved, for that path |
 | `SessionService`, `CreateSessionInput` | `runtime.sessions`: opening a conversation and reading one, on that path |
 | `AgentDefinition`, `AgentDescription` | An agent as the runtime knows it, which you assemble yourself there |

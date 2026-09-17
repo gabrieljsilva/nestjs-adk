@@ -13,7 +13,7 @@ The shape mirrors what a NestJS application does with HTTP. A controller receive
 
 `AgentRunner` has three methods and no logic. It is the name a consumer holds, and a name that also decides ordering cannot change without changing what callers depend on.
 
-Under it, one class per use case: `AskAgent` for a question, `DecideApproval` for an answer to a held turn. They are separate because the two share a consumer and nothing else: one opens a session and one continues from a suspension, one journals a question and one journals a decision.
+Under it, one class per use case: `AskAgentUseCase` for a question, `DecideApprovalUseCase` for an answer to a held turn. They are separate because the two share a consumer and nothing else: one opens a session and one continues from a suspension, one journals a question and one journals a decision.
 
 ## One decision per class
 
@@ -44,7 +44,7 @@ The breaker travels there too, and it is the one mutable thing in the bundle. It
 
 ## Ordering is a decision, and it lives in the use case
 
-The order in `AskAgent` is the design, not an implementation detail:
+The order in `AskAgentUseCase` is the design, not an implementation detail:
 
 1. the run is registered before storage is touched, so a draining runtime never creates a session for a command it is about to refuse;
 2. the question is journaled before anything else can fail, so a run that dies opening a tool source leaves the question recorded and an ending recorded after it;
@@ -67,7 +67,7 @@ So `OpenedSession.isNew` is not "I created this in this call". It is **"this jou
 
 `RunJournal.opening` writes the metadata the command carried before the question itself, so a reader of the journal has the facts the turn ran under before it has the turn, and a run that fails loses the write together with the turn. `SessionCreated` and `UserMessageReceived` carry `command.actor?.id` and only the id: an actor's claims are the application's vocabulary, read by a policy at the moment of the call, and a copy of them frozen in a journal would be an authorization decision nobody revisits. See [[session-metadata]].
 
-What deliberately did **not** change is `ask`. A question naming a session that does not exist is still refused. Creating on an unknown id would read as convenience and cost the only signal that separates a stale identifier from a legitimate one, which is the same argument that keeps `InspectSession` refusing rather than answering empty.
+What deliberately did **not** change is `ask`. A question naming a session that does not exist is still refused. Creating on an unknown id would read as convenience and cost the only signal that separates a stale identifier from a legitimate one, which is the same argument that keeps `InspectSessionUseCase` refusing rather than answering empty.
 
 ## A run has one way to be stopped from outside
 

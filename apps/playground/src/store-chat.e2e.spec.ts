@@ -282,7 +282,7 @@ describe("the store, end to end", () => {
 			.withScript(BillingAgent, (script) => {
 				for (let turn = 0; turn < 5; turn += 1) script.mockToolCall("find_order", { orderId: "A-1042" });
 			})
-			.withRuntime({ limits: RunLimits.of(2) })
+			.withRuntime({ limits: new RunLimits(2) })
 			.boot();
 
 		await expect(bed.agent(BillingAgent).ask("check that order again, and again")).rejects.toBeInstanceOf(
@@ -308,7 +308,7 @@ describe("the store, end to end", () => {
 			})
 			.withScript(WarrantyAgent, (script) => script.mockText("not called"))
 			.withScript(BillingAgent, (script) => script.mockText("not called"))
-			.withRuntime({ limits: RunLimits.of(2) })
+			.withRuntime({ limits: new RunLimits(2) })
 			.boot();
 
 		const run = await bed.agent(SalesAgent).ask("compare every PS5 game you have");
@@ -332,7 +332,7 @@ describe("the store, end to end", () => {
 			await using bed = await AdkTestBedBuilder.from(Test.createTestingModule({ imports: [AppModule] }))
 				.overriding(StoreDatabase, new StoreDatabase(connection))
 				.overriding(SessionStorage, new SqliteSessionStorage(connection))
-				.withModelFor(ConciergeAgent, model)
+				.withAgentModel(ConciergeAgent, model)
 				.withScript(SalesAgent, (script) => script.mockText("not called"))
 				.withScript(WarrantyAgent, (script) => script.mockText("not called"))
 				.withScript(BillingAgent, (script) => script.mockText("not called"))
@@ -345,9 +345,9 @@ describe("the store, end to end", () => {
 			await expect(asking).rejects.toThrow();
 			expect(model.answeredEverything).toBe(false);
 			// The strings a consumer reads off a published event, which is all an application has.
-			expect(bed.events.countOf("run.cancelled")).toBe(1);
-			expect(bed.events.countOf("run.completed")).toBe(0);
-			expect(bed.events.countOf("run.failed")).toBe(0);
+			expect(bed.events.countByType("run.cancelled")).toBe(1);
+			expect(bed.events.countByType("run.completed")).toBe(0);
+			expect(bed.events.countByType("run.failed")).toBe(0);
 		});
 
 		it("answers the whole thing when nobody gives up", async () => {
@@ -356,7 +356,7 @@ describe("the store, end to end", () => {
 			await using bed = await AdkTestBedBuilder.from(Test.createTestingModule({ imports: [AppModule] }))
 				.overriding(StoreDatabase, new StoreDatabase(connection))
 				.overriding(SessionStorage, new SqliteSessionStorage(connection))
-				.withModelFor(ConciergeAgent, model)
+				.withAgentModel(ConciergeAgent, model)
 				.withScript(SalesAgent, (script) => script.mockText("not called"))
 				.withScript(WarrantyAgent, (script) => script.mockText("not called"))
 				.withScript(BillingAgent, (script) => script.mockText("not called"))

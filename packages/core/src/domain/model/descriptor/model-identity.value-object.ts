@@ -1,12 +1,11 @@
 /** Which provider and which model answered, for logs, pricing and diagnostics. */
 export class ModelIdentity {
-	private constructor(
-		public readonly provider: string,
-		public readonly model: string,
-	) {}
+	public readonly provider: string;
+	public readonly model: string;
 
-	public static of(provider: string, model: string): ModelIdentity {
-		return new ModelIdentity(provider.trim(), model.trim());
+	public constructor(provider: string, model: string) {
+		this.provider = provider.trim();
+		this.model = model.trim();
 	}
 
 	public equals(other: ModelIdentity): boolean {

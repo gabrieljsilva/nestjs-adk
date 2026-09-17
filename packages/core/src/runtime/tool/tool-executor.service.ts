@@ -129,13 +129,13 @@ export class ToolExecutor {
 		breaker.recordSuccess(tool.name);
 		const produced = answered instanceof ToolOutput ? answered.data : answered;
 		const media = answered instanceof ToolOutput ? answered.media : [];
-		const text = this.textOf(produced);
+		const text = this.formatText(produced);
 		// A tool that exists to bring content back into the context must not have it taken out again.
 		const offloaded = tool.internal ? OffloadedContent.inline(text) : await this.offloader.offload(command.context, text);
 		return ToolOutcome.succeeded(
 			invocation.callId,
 			tool.name,
-			this.recordOf(produced),
+			this.buildRecord(produced),
 			offloaded.text,
 			offloaded.reference,
 			await this.stored(command, media),
@@ -168,13 +168,13 @@ export class ToolExecutor {
 	}
 
 	/** What the model reads: text stays text, and anything else is rendered the one way it can be. */
-	private textOf(produced: unknown): string {
+	private formatText(produced: unknown): string {
 		if (produced === undefined || produced === null) return "";
 		return typeof produced === "string" ? produced : CanonicalJson.stringify(produced);
 	}
 
 	/** What the journal keeps: always a record, so a scalar result is named rather than lost. */
-	private recordOf(produced: unknown): Record<string, unknown> {
+	private buildRecord(produced: unknown): Record<string, unknown> {
 		if (produced === undefined || produced === null) return {};
 		if (typeof produced !== "object" || Array.isArray(produced)) return { [SCALAR_FIELD]: produced };
 		return { ...produced };

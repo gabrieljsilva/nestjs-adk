@@ -30,7 +30,7 @@ function toolOf(name: string, effect: ToolEffect, internal = false): ToolDefinit
 	return new ToolDefinition(name, "does something", new AnySchema(), effect, new SilentHandler(), internal);
 }
 
-const catalog = ToolCatalog.of([
+const catalog = new ToolCatalog([
 	toolOf("lookup_order", ToolEffect.READ),
 	toolOf("refund_order", ToolEffect.WRITE),
 	toolOf("read_artifact", ToolEffect.READ, true),

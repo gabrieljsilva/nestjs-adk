@@ -23,7 +23,7 @@ export class ApprovalGate {
 	/** The whole turn as the journal will hold it, with an effect on each held call. */
 	public screen(catalog: ToolCatalog, calls: readonly ToolCall[], actor?: Actor): readonly PendingCall[] {
 		return calls.map(
-			(call) => new PendingCall(call.callId, call.toolName, call.args, this.effectOf(catalog, call, actor)),
+			(call) => new PendingCall(call.callId, call.toolName, call.args, this.findRequiredEffect(catalog, call, actor)),
 		);
 	}
 
@@ -36,7 +36,7 @@ export class ApprovalGate {
 	 * A call to something that is not in the catalog is not held either, because there is no
 	 * effect to hold it for and the executor will answer the model that it does not exist.
 	 */
-	private effectOf(catalog: ToolCatalog, call: ToolCall, actor?: Actor): string | undefined {
+	private findRequiredEffect(catalog: ToolCatalog, call: ToolCall, actor?: Actor): string | undefined {
 		if (!catalog.has(call.toolName)) return undefined;
 		const tool = catalog.findOrFail(call.toolName);
 		if (tool.internal) return undefined;

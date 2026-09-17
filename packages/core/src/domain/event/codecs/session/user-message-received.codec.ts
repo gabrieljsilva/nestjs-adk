@@ -12,7 +12,7 @@ const SCHEMA_VERSION = 5;
 /** Codec for the message the user sent into the session, with what came attached to it. */
 export class UserMessageReceivedCodec extends SessionEventCodec<UserMessageReceived> {
 	public readonly type = UserMessageReceived.TYPE;
-	public readonly schemaVersion = EventSchemaVersion.of(SCHEMA_VERSION);
+	public readonly schemaVersion = new EventSchemaVersion(SCHEMA_VERSION);
 
 	private readonly attachments = new AttachmentReferenceCodec();
 

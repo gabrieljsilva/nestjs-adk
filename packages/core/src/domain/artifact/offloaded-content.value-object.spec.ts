@@ -5,10 +5,10 @@ import { ArtifactContent } from "./artifact-content.value-object";
 import { ArtifactReference } from "./artifact-reference.value-object";
 import { OffloadedContent } from "./offloaded-content.value-object";
 
-const reference = ArtifactReference.of(
+const reference = ArtifactReference.fromContent(
 	ArtifactId.from("a-1"),
 	SessionId.from("s-1"),
-	ArtifactContent.of("a very long report"),
+	new ArtifactContent("a very long report"),
 );
 
 describe("OffloadedContent", () => {

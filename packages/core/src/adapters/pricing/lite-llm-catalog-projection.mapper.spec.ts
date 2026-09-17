@@ -42,8 +42,8 @@ describe("LiteLlmCatalogProjection", () => {
 
 		expect(price?.bands).toHaveLength(1);
 		expect(price?.bands[0]?.aboveTokens).toBe(200_000);
-		expect(price?.ratesFor(300_000).input.toUsdPerToken()).toBe(2.5e-6);
-		expect(price?.ratesFor(1_000).input.toUsdPerToken()).toBe(1.25e-6);
+		expect(price?.resolveRates(300_000).input.toUsdPerToken()).toBe(2.5e-6);
+		expect(price?.resolveRates(1_000).input.toUsdPerToken()).toBe(1.25e-6);
 	});
 
 	/** An embedding answers a vector, so the table omits the output rate instead of publishing zero. */
@@ -80,7 +80,7 @@ describe("LiteLlmCatalogProjection", () => {
 			.get("tiered");
 
 		expect(price?.bands).toEqual([]);
-		expect(price?.ratesFor(500_000).input.toUsdPerToken()).toBe(1e-7);
+		expect(price?.resolveRates(500_000).input.toUsdPerToken()).toBe(1e-7);
 	});
 
 	it("drops an unreadable entry one at a time and keeps the rest of the table", () => {

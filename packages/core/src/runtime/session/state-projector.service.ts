@@ -53,7 +53,7 @@ export class StateProjector {
 			return state.withLastPrompt(event.measurement);
 		}
 		if (event instanceof AgentRunSuspended) {
-			return state.awaiting(PendingTurn.of(event.correlation.runId, event.calls));
+			return state.awaiting(new PendingTurn(event.correlation.runId, event.calls));
 		}
 		if (event instanceof ToolApprovalGranted) return state.decided(event.callId, "granted");
 		if (event instanceof ToolApprovalDenied) return state.decided(event.callId, "denied", event.reason);

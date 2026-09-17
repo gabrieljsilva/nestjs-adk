@@ -12,41 +12,41 @@ const running = SessionState.initial();
 
 function awaitingApproval(): SessionState {
 	const call = new PendingCall(ToolCallId.from("call-1"), "wire_money", { amount: 1 }, "write");
-	return SessionState.initial().awaiting(PendingTurn.of(AgentRunId.from("run-1"), [call]));
+	return SessionState.initial().awaiting(new PendingTurn(AgentRunId.from("run-1"), [call]));
 }
 
 describe("RevisionBucketSnapshotPolicy", () => {
 	it("waits for the full threshold before the first snapshot", () => {
 		const policy = RevisionBucketSnapshotPolicy.everyFiftyEvents();
 
-		expect(policy.shouldSnapshot(SessionRevision.of(48), SessionRevision.of(49), running)).toBe(false);
-		expect(policy.shouldSnapshot(SessionRevision.of(49), SessionRevision.of(50), running)).toBe(true);
+		expect(policy.shouldSnapshot(new SessionRevision(48), new SessionRevision(49), running)).toBe(false);
+		expect(policy.shouldSnapshot(new SessionRevision(49), new SessionRevision(50), running)).toBe(true);
 	});
 
 	it("counts from where the last threshold fell, not from the previous commit", () => {
 		const policy = RevisionBucketSnapshotPolicy.everyFiftyEvents();
 
-		expect(policy.shouldSnapshot(SessionRevision.of(51), SessionRevision.of(60), running)).toBe(false);
-		expect(policy.shouldSnapshot(SessionRevision.of(99), SessionRevision.of(100), running)).toBe(true);
+		expect(policy.shouldSnapshot(new SessionRevision(51), new SessionRevision(60), running)).toBe(false);
+		expect(policy.shouldSnapshot(new SessionRevision(99), new SessionRevision(100), running)).toBe(true);
 	});
 
 	it("takes a batch that jumps over the threshold in one commit", () => {
 		const policy = RevisionBucketSnapshotPolicy.everyFiftyEvents();
 
-		expect(policy.shouldSnapshot(SessionRevision.of(40), SessionRevision.of(70), running)).toBe(true);
+		expect(policy.shouldSnapshot(new SessionRevision(40), new SessionRevision(70), running)).toBe(true);
 	});
 
 	it("always snapshots a turn waiting for approval, whatever the distance", () => {
 		const policy = RevisionBucketSnapshotPolicy.everyFiftyEvents();
 
-		expect(policy.shouldSnapshot(SessionRevision.initial(), SessionRevision.of(1), awaitingApproval())).toBe(true);
+		expect(policy.shouldSnapshot(SessionRevision.initial(), new SessionRevision(1), awaitingApproval())).toBe(true);
 	});
 
 	it("accepts a configured threshold", () => {
 		const policy = RevisionBucketSnapshotPolicy.every(3);
 
-		expect(policy.shouldSnapshot(SessionRevision.of(1), SessionRevision.of(2), running)).toBe(false);
-		expect(policy.shouldSnapshot(SessionRevision.of(2), SessionRevision.of(3), running)).toBe(true);
+		expect(policy.shouldSnapshot(new SessionRevision(1), new SessionRevision(2), running)).toBe(false);
+		expect(policy.shouldSnapshot(new SessionRevision(2), new SessionRevision(3), running)).toBe(true);
 	});
 
 	it("never accepts a threshold below one event", () => {

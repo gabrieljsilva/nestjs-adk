@@ -61,14 +61,14 @@ class ThrowingHandler extends ToolHandler {
 }
 
 function refundOf(handler: ToolHandler, effect: ToolEffect = ToolEffect.WRITE): ToolDefinition {
-	const schema = ZodToolSchema.of(z.object({ orderId: z.string() }));
+	const schema = ZodToolSchema.fromSchema(z.object({ orderId: z.string() }));
 	return new ToolDefinition("refund", "Refunds an order", schema, effect, handler);
 }
 
-function commandOf(tool: ToolDefinition, args: unknown, approved = false, actor?: Actor): ToolExecutionCommand {
+function buildCommand(tool: ToolDefinition, args: unknown, approved = false, actor?: Actor): ToolExecutionCommand {
 	return new ToolExecutionCommand(
 		RunContextFixture.run(SESSION, { agent: SUPPORT, runId: RUN.value, actor }),
-		ToolCatalog.of([tool]),
+		new ToolCatalog([tool]),
 		new ToolInvocation(CALL, tool.name, args),
 		approved,
 	);
@@ -103,7 +103,7 @@ describe("ToolExecutor", () => {
 		const handler = new RecordingHandler({ status: "refunded" });
 
 		const outcome = await executorOf().execute(
-			commandOf(refundOf(handler), { orderId: "42" }),
+			buildCommand(refundOf(handler), { orderId: "42" }),
 			new ToolBreaker(RunLimits.unbounded()),
 		);
 
@@ -117,7 +117,7 @@ describe("ToolExecutor", () => {
 		const handler = new RecordingHandler();
 
 		await executorOf().execute(
-			commandOf(refundOf(handler), { orderId: "42", pleaseAlsoDelete: true }),
+			buildCommand(refundOf(handler), { orderId: "42", pleaseAlsoDelete: true }),
 			new ToolBreaker(RunLimits.unbounded()),
 		);
 
@@ -128,7 +128,7 @@ describe("ToolExecutor", () => {
 		const handler = new RecordingHandler();
 
 		const outcome = await executorOf().execute(
-			commandOf(refundOf(handler), { orderId: 42 }),
+			buildCommand(refundOf(handler), { orderId: 42 }),
 			new ToolBreaker(RunLimits.unbounded()),
 		);
 
@@ -142,16 +142,16 @@ describe("ToolExecutor", () => {
 		const breaker = new ToolBreaker(RunLimits.unbounded());
 		const tool = refundOf(new RecordingHandler());
 
-		await executor.execute(commandOf(tool, {}), breaker);
+		await executor.execute(buildCommand(tool, {}), breaker);
 
-		await expect(executor.execute(commandOf(tool, {}), breaker)).rejects.toBeInstanceOf(ToolInvalidArgsError);
+		await expect(executor.execute(buildCommand(tool, {}), breaker)).rejects.toBeInstanceOf(ToolInvalidArgsError);
 	});
 
 	it("tells the model a tool failed instead of ending the run on the first failure", async () => {
 		const handler = new ThrowingHandler();
 
 		const outcome = await executorOf().execute(
-			commandOf(refundOf(handler), { orderId: "42" }),
+			buildCommand(refundOf(handler), { orderId: "42" }),
 			new ToolBreaker(RunLimits.unbounded()),
 		);
 
@@ -161,12 +161,12 @@ describe("ToolExecutor", () => {
 
 	it("ends the run when the same tool keeps failing", async () => {
 		const executor = executorOf();
-		const breaker = new ToolBreaker(RunLimits.of(undefined, 2));
+		const breaker = new ToolBreaker(new RunLimits(undefined, 2));
 		const tool = refundOf(new ThrowingHandler());
 
-		await executor.execute(commandOf(tool, { orderId: "42" }), breaker);
+		await executor.execute(buildCommand(tool, { orderId: "42" }), breaker);
 
-		await expect(executor.execute(commandOf(tool, { orderId: "42" }), breaker)).rejects.toBeInstanceOf(
+		await expect(executor.execute(buildCommand(tool, { orderId: "42" }), breaker)).rejects.toBeInstanceOf(
 			ToolRepeatedFailureError,
 		);
 	});
@@ -174,7 +174,7 @@ describe("ToolExecutor", () => {
 	it("tells the model when it asked for a tool that does not exist", async () => {
 		const command = new ToolExecutionCommand(
 			RunContextFixture.run(SESSION, { agent: SUPPORT, runId: RUN.value }),
-			ToolCatalog.of([refundOf(new RecordingHandler())]),
+			new ToolCatalog([refundOf(new RecordingHandler())]),
 			new ToolInvocation(CALL, "refunds", { orderId: "42" }),
 		);
 
@@ -189,7 +189,7 @@ describe("ToolExecutor", () => {
 		const executor = executorOf(EffectApprovalPolicy.from(ToolEffect.WRITE));
 
 		const error = await executor
-			.execute(commandOf(refundOf(handler), { orderId: "42" }), new ToolBreaker(RunLimits.unbounded()))
+			.execute(buildCommand(refundOf(handler), { orderId: "42" }), new ToolBreaker(RunLimits.unbounded()))
 			.catch((reason) => reason);
 
 		expect(error).toBeInstanceOf(ToolApprovalRequiredError);
@@ -201,7 +201,7 @@ describe("ToolExecutor", () => {
 		const executor = executorOf(EffectApprovalPolicy.from(ToolEffect.WRITE));
 
 		const outcome = await executor.execute(
-			commandOf(refundOf(handler), { orderId: "42" }, true),
+			buildCommand(refundOf(handler), { orderId: "42" }, true),
 			new ToolBreaker(RunLimits.unbounded()),
 		);
 
@@ -214,7 +214,7 @@ describe("ToolExecutor", () => {
 		const executor = executorOf(EffectApprovalPolicy.never(), CharacterCountOffloadPolicy.above(10));
 
 		const outcome = await executor.execute(
-			commandOf(refundOf(handler), { orderId: "42" }),
+			buildCommand(refundOf(handler), { orderId: "42" }),
 			new ToolBreaker(RunLimits.unbounded()),
 		);
 
@@ -227,7 +227,7 @@ describe("ToolExecutor", () => {
 		const handler = new RecordingHandler(42);
 
 		const outcome = await executorOf().execute(
-			commandOf(refundOf(handler), { orderId: "42" }),
+			buildCommand(refundOf(handler), { orderId: "42" }),
 			new ToolBreaker(RunLimits.unbounded()),
 		);
 
@@ -239,7 +239,7 @@ describe("ToolExecutor", () => {
 		const handler = new RecordingHandler("the order was refunded");
 
 		const outcome = await executorOf().execute(
-			commandOf(refundOf(handler), { orderId: "42" }),
+			buildCommand(refundOf(handler), { orderId: "42" }),
 			new ToolBreaker(RunLimits.unbounded()),
 		);
 
@@ -250,7 +250,7 @@ describe("ToolExecutor", () => {
 		const handler = new RecordingHandler();
 
 		const outcome = await executorOf().execute(
-			commandOf(refundOf(handler), { orderId: "42" }),
+			buildCommand(refundOf(handler), { orderId: "42" }),
 			new ToolBreaker(RunLimits.unbounded()),
 		);
 
@@ -263,7 +263,7 @@ describe("ToolExecutor", () => {
 		const handler = new RecordingHandler(null);
 
 		const outcome = await executorOf().execute(
-			commandOf(refundOf(handler), { orderId: "42" }),
+			buildCommand(refundOf(handler), { orderId: "42" }),
 			new ToolBreaker(RunLimits.unbounded()),
 		);
 
@@ -273,8 +273,8 @@ describe("ToolExecutor", () => {
 	});
 
 	it("counts every call to something that does not exist together, so inventing names still ends the run", async () => {
-		const breaker = new ToolBreaker(RunLimits.of(undefined, 2));
-		const catalog = ToolCatalog.of([refundOf(new RecordingHandler())]);
+		const breaker = new ToolBreaker(new RunLimits(undefined, 2));
+		const catalog = new ToolCatalog([refundOf(new RecordingHandler())]);
 		const missing = (name: string): ToolExecutionCommand =>
 			new ToolExecutionCommand(
 				RunContextFixture.run(SESSION, { agent: SUPPORT, runId: RUN.value }),
@@ -299,7 +299,7 @@ describe("ToolExecutor", () => {
 		);
 
 		const outcome = await executorOf(EffectApprovalPolicy.from(ToolEffect.READ)).execute(
-			commandOf(internal, { orderId: "42" }),
+			buildCommand(internal, { orderId: "42" }),
 			new ToolBreaker(RunLimits.unbounded()),
 		);
 
@@ -320,7 +320,7 @@ describe("ToolExecutor", () => {
 		);
 
 		const outcome = await executorOf(EffectApprovalPolicy.never(), CharacterCountOffloadPolicy.above(10)).execute(
-			commandOf(internal, { orderId: "42" }),
+			buildCommand(internal, { orderId: "42" }),
 			new ToolBreaker(RunLimits.unbounded()),
 		);
 
@@ -330,10 +330,10 @@ describe("ToolExecutor", () => {
 
 	it("hands the tool who the call runs on behalf of", async () => {
 		const handler = new RecordingHandler();
-		const actor = Actor.of("u-1", { role: "owner" });
+		const actor = Actor.fromId("u-1", { role: "owner" });
 
 		await executorOf().execute(
-			commandOf(refundOf(handler), { orderId: "A-1" }, false, actor),
+			buildCommand(refundOf(handler), { orderId: "A-1" }, false, actor),
 			new ToolBreaker(RunLimits.unbounded()),
 		);
 
@@ -343,7 +343,10 @@ describe("ToolExecutor", () => {
 	it("carries no actor when the caller declared none", async () => {
 		const handler = new RecordingHandler();
 
-		await executorOf().execute(commandOf(refundOf(handler), { orderId: "A-1" }), new ToolBreaker(RunLimits.unbounded()));
+		await executorOf().execute(
+			buildCommand(refundOf(handler), { orderId: "A-1" }),
+			new ToolBreaker(RunLimits.unbounded()),
+		);
 
 		expect(handler.lastContext?.actor).toBeUndefined();
 	});
@@ -353,7 +356,7 @@ describe("ToolExecutor", () => {
 		const breaker = new ToolBreaker(RunLimits.unbounded());
 
 		const outcome = await guardedExecutorOf().execute(
-			commandOf(refundOf(handler), { orderId: "A-1" }, false, Actor.of("u-2", { role: "member" })),
+			buildCommand(refundOf(handler), { orderId: "A-1" }, false, Actor.fromId("u-2", { role: "member" })),
 			breaker,
 		);
 
@@ -367,7 +370,7 @@ describe("ToolExecutor", () => {
 		const handler = new RecordingHandler({ status: "refunded" });
 
 		const outcome = await guardedExecutorOf().execute(
-			commandOf(refundOf(handler), { orderId: "A-1" }, false, Actor.of("u-1", { role: "owner" })),
+			buildCommand(refundOf(handler), { orderId: "A-1" }, false, Actor.fromId("u-1", { role: "owner" })),
 			new ToolBreaker(RunLimits.unbounded()),
 		);
 
@@ -385,14 +388,14 @@ describe("ToolExecutor", () => {
 		const executor = executorOf(new OwnersRunFree());
 
 		const owner = await executor.execute(
-			commandOf(refundOf(handler), { orderId: "A-1" }, false, Actor.of("u-1", { role: "owner" })),
+			buildCommand(refundOf(handler), { orderId: "A-1" }, false, Actor.fromId("u-1", { role: "owner" })),
 			new ToolBreaker(RunLimits.unbounded()),
 		);
 		expect(owner.failed).toBe(false);
 
 		await expect(
 			executor.execute(
-				commandOf(refundOf(handler), { orderId: "A-1" }, false, Actor.of("u-2", { role: "member" })),
+				buildCommand(refundOf(handler), { orderId: "A-1" }, false, Actor.fromId("u-2", { role: "member" })),
 				new ToolBreaker(RunLimits.unbounded()),
 			),
 		).rejects.toThrow(ToolApprovalRequiredError);
@@ -402,7 +405,12 @@ describe("ToolExecutor", () => {
 		const handler = new RecordingHandler();
 
 		const outcome = await guardedExecutorOf(EffectApprovalPolicy.destructiveOnly()).execute(
-			commandOf(refundOf(handler, ToolEffect.DESTRUCTIVE), { orderId: "A-1" }, false, Actor.of("u-2", { role: "member" })),
+			buildCommand(
+				refundOf(handler, ToolEffect.DESTRUCTIVE),
+				{ orderId: "A-1" },
+				false,
+				Actor.fromId("u-2", { role: "member" }),
+			),
 			new ToolBreaker(RunLimits.unbounded()),
 		);
 
@@ -412,9 +420,9 @@ describe("ToolExecutor", () => {
 
 	it("ends the run when the model keeps asking for what it was refused", async () => {
 		const handler = new RecordingHandler();
-		const breaker = new ToolBreaker(RunLimits.of(undefined, 2));
+		const breaker = new ToolBreaker(new RunLimits(undefined, 2));
 		const executor = guardedExecutorOf();
-		const command = commandOf(refundOf(handler), { orderId: "A-1" }, false, Actor.of("u-2", { role: "member" }));
+		const command = buildCommand(refundOf(handler), { orderId: "A-1" }, false, Actor.fromId("u-2", { role: "member" }));
 
 		await executor.execute(command, breaker);
 		await expect(executor.execute(command, breaker)).rejects.toThrow(ToolRepeatedFailureError);

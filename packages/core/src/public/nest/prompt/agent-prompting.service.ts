@@ -25,13 +25,13 @@ export class AgentPrompting {
 
 	/** Interpolates a template this agent already has, from wherever it got it. */
 	public render(template: string, vars?: Record<string, unknown>): string {
-		return PromptTemplate.of(template).render(vars);
+		return new PromptTemplate(template).render(vars);
 	}
 
 	/** The template under this name, interpolated, or `undefined` when the source has none. */
 	public async renderFromFile(path: string, vars?: Record<string, unknown>): Promise<string | undefined> {
 		const template = await this.source.load(path);
-		return template === undefined ? undefined : PromptTemplate.of(template, path).render(vars);
+		return template === undefined ? undefined : new PromptTemplate(template, path).render(vars);
 	}
 
 	/**

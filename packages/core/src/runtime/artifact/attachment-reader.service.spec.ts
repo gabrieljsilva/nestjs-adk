@@ -49,7 +49,7 @@ function storageOf(): CountingArtifactStorage {
 }
 
 async function put(storage: InMemoryArtifactStorage, context: SessionContext = CTX): Promise<AttachmentReference> {
-	return AttachmentReference.artifact((await storage.put(context, ArtifactContent.of(PIXEL, "image/png"))).id);
+	return AttachmentReference.artifact((await storage.put(context, new ArtifactContent(PIXEL, "image/png"))).id);
 }
 
 function read(reader: AttachmentReader, references: readonly AttachmentReference[], context: SessionContext = CTX) {
@@ -154,7 +154,7 @@ describe("AttachmentReader", () => {
 		const storage = storageOf();
 		const reader = new AttachmentReader(storage);
 		const first = await put(storage);
-		const second = AttachmentReference.artifact((await storage.put(CTX, ArtifactContent.of("aGk=", "image/jpeg"))).id);
+		const second = AttachmentReference.artifact((await storage.put(CTX, new ArtifactContent("aGk=", "image/jpeg"))).id);
 
 		const resolved = await read(reader, [second, first]);
 

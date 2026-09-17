@@ -31,7 +31,7 @@ function session(id = "s-1"): Session {
 	return Session.start(SessionId.from(id), AGENT, NOW);
 }
 
-function headerOf(id: string): EventHeader {
+function buildHeader(id: string): EventHeader {
 	return new EventHeader(
 		EventId.from(id),
 		NOW,
@@ -40,20 +40,20 @@ function headerOf(id: string): EventHeader {
 }
 
 function event(id: string): SessionCreated {
-	return new SessionCreated(headerOf(id), AGENT, undefined);
+	return new SessionCreated(buildHeader(id), AGENT, undefined);
 }
 
 function append(sessionId: string, expected: number, ...ids: string[]): AppendEventsCommand {
 	return new AppendEventsCommand(
 		SessionId.from(sessionId),
-		SessionRevision.of(expected),
-		SessionEventBatch.of(ids.map(event)),
+		new SessionRevision(expected),
+		new SessionEventBatch(ids.map(event)),
 	);
 }
 
 async function collect(storage: InMemorySessionStorage, id: string, after = 0): Promise<number[]> {
 	const revisions: number[] = [];
-	for await (const stored of storage.readEvents(ctx(id), SessionRevision.of(after))) {
+	for await (const stored of storage.readEvents(ctx(id), new SessionRevision(after))) {
 		revisions.push(stored.revision.value);
 	}
 	return revisions;
@@ -125,8 +125,8 @@ describe("InMemorySessionStorage", () => {
 
 		const divergent = new AppendEventsCommand(
 			SessionId.from("s-1"),
-			SessionRevision.of(1),
-			SessionEventBatch.of([new SessionCreated(headerOf("e-1"), AgentName.from("billing"), undefined)]),
+			new SessionRevision(1),
+			new SessionEventBatch([new SessionCreated(buildHeader("e-1"), AgentName.from("billing"), undefined)]),
 		);
 
 		await expect(storage.append(ctx(), divergent)).rejects.toBeInstanceOf(JournalCorruptedError);

@@ -12,9 +12,9 @@ import { SessionContext } from "../../domain/run/session-context.value-object";
 import { CostCalculator } from "./cost-calculator.service";
 import { RunCostReporter } from "./run-cost-reporter.service";
 
-const LUNA = ModelIdentity.of("openai", "gpt-5.6-luna");
-const FLASH = ModelIdentity.of("google", "gemini-3.5-flash-lite");
-const PRICE = ModelPrice.of(TokenRate.fromUsdPerToken(1e-7), TokenRate.fromUsdPerToken(4e-7));
+const LUNA = new ModelIdentity("openai", "gpt-5.6-luna");
+const FLASH = new ModelIdentity("google", "gemini-3.5-flash-lite");
+const PRICE = new ModelPrice(TokenRate.fromUsdPerToken(1e-7), TokenRate.fromUsdPerToken(4e-7));
 
 class CatalogOf extends PricingSource {
 	public readonly asked: string[] = [];
@@ -45,8 +45,8 @@ const CTX = SessionContext.fromSessionId(SessionId.from("s-1"));
 describe("RunCostReporter", () => {
 	it("adds up every call a model served into one entry", async () => {
 		const cost = await reporterOn(new CatalogOf({ [LUNA.toString()]: PRICE })).report(CTX, [
-			new BilledCall(LUNA, ModelUsage.of(40, 12)),
-			new BilledCall(LUNA, ModelUsage.of(60, 8)),
+			new BilledCall(LUNA, ModelUsage.fromReport(40, 12)),
+			new BilledCall(LUNA, ModelUsage.fromReport(60, 8)),
 		]);
 
 		expect(cost.byModel).toHaveLength(1);
@@ -60,8 +60,8 @@ describe("RunCostReporter", () => {
 		const source = new CatalogOf({ [LUNA.toString()]: PRICE, [FLASH.toString()]: PRICE });
 
 		const cost = await reporterOn(source).report(CTX, [
-			new BilledCall(LUNA, ModelUsage.of(10, 0)),
-			new BilledCall(FLASH, ModelUsage.of(10, 0)),
+			new BilledCall(LUNA, ModelUsage.fromReport(10, 0)),
+			new BilledCall(FLASH, ModelUsage.fromReport(10, 0)),
 		]);
 
 		expect(cost.byModel.map((model) => model.model.toString())).toEqual([LUNA.toString(), FLASH.toString()]);
@@ -73,9 +73,9 @@ describe("RunCostReporter", () => {
 		const source = new CatalogOf({ [LUNA.toString()]: PRICE });
 
 		await reporterOn(source).report(CTX, [
-			new BilledCall(LUNA, ModelUsage.of(1, 1)),
-			new BilledCall(LUNA, ModelUsage.of(1, 1)),
-			new BilledCall(LUNA, ModelUsage.of(1, 1)),
+			new BilledCall(LUNA, ModelUsage.fromReport(1, 1)),
+			new BilledCall(LUNA, ModelUsage.fromReport(1, 1)),
+			new BilledCall(LUNA, ModelUsage.fromReport(1, 1)),
 		]);
 
 		expect(source.asked).toEqual([LUNA.toString()]);
@@ -85,8 +85,8 @@ describe("RunCostReporter", () => {
 		const notices = new CollectedNotices();
 
 		const cost = await reporterOn(new CatalogOf({ [LUNA.toString()]: PRICE }), notices).report(CTX, [
-			new BilledCall(LUNA, ModelUsage.of(40, 12)),
-			new BilledCall(FLASH, ModelUsage.of(1_000_000, 1_000_000)),
+			new BilledCall(LUNA, ModelUsage.fromReport(40, 12)),
+			new BilledCall(FLASH, ModelUsage.fromReport(1_000_000, 1_000_000)),
 		]);
 
 		expect(cost.total.pico).toBe(8_800_000n);
@@ -101,7 +101,7 @@ describe("RunCostReporter", () => {
 	it("answers zero with a warning when no source was declared", async () => {
 		const notices = new CollectedNotices();
 
-		const cost = await reporterOn(undefined, notices).report(CTX, [new BilledCall(LUNA, ModelUsage.of(40, 12))]);
+		const cost = await reporterOn(undefined, notices).report(CTX, [new BilledCall(LUNA, ModelUsage.fromReport(40, 12))]);
 
 		expect(cost.total.isZero).toBe(true);
 		expect(cost.byModel).toEqual([]);
@@ -131,7 +131,7 @@ describe("RunCostReporter", () => {
 			}
 		})();
 
-		const cost = await reporterOn(source, notices).report(CTX, [new BilledCall(LUNA, ModelUsage.of(40, 12))]);
+		const cost = await reporterOn(source, notices).report(CTX, [new BilledCall(LUNA, ModelUsage.fromReport(40, 12))]);
 
 		expect(cost.total.isZero).toBe(true);
 		expect(cost.unpriced).toHaveLength(1);
@@ -146,8 +146,8 @@ describe("RunCostReporter", () => {
 		})();
 
 		const cost = await reporterOn(new CatalogOf({ [LUNA.toString()]: PRICE }), notices).report(CTX, [
-			new BilledCall(LUNA, ModelUsage.of(40, 12)),
-			new BilledCall(FLASH, ModelUsage.of(10, 0)),
+			new BilledCall(LUNA, ModelUsage.fromReport(40, 12)),
+			new BilledCall(FLASH, ModelUsage.fromReport(10, 0)),
 		]);
 
 		expect(cost.total.pico).toBe(8_800_000n);
@@ -167,7 +167,7 @@ describe("RunCostReporter", () => {
 	});
 
 	it("prices without a sink declared", async () => {
-		const cost = await reporterOn(new CatalogOf({})).report(CTX, [new BilledCall(LUNA, ModelUsage.of(40, 12))]);
+		const cost = await reporterOn(new CatalogOf({})).report(CTX, [new BilledCall(LUNA, ModelUsage.fromReport(40, 12))]);
 
 		expect(cost.isComplete).toBe(false);
 	});
@@ -180,8 +180,8 @@ describe("RunCostReporter", () => {
 		})();
 
 		await reporterOn(source).report(CTX, [
-			new BilledCall(LUNA, ModelUsage.of(1, 1)),
-			new BilledCall(LUNA, ModelUsage.of(1, 1)),
+			new BilledCall(LUNA, ModelUsage.fromReport(1, 1)),
+			new BilledCall(LUNA, ModelUsage.fromReport(1, 1)),
 		]);
 
 		expect(priceOf).toHaveBeenCalledTimes(1);
