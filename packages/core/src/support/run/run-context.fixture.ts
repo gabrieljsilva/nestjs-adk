@@ -1,15 +1,15 @@
-import { AgentRunId } from "../../common/identity/agent-run-id";
-import { CorrelationId } from "../../common/identity/correlation-id";
-import { SessionId } from "../../common/identity/session-id";
-import { Instant } from "../../common/time/instant";
-import { AgentName } from "../../domain/agent/agent-name";
-import { RunContext } from "../../domain/run/run-context";
-import { SessionContext } from "../../domain/run/session-context";
-import type { SessionMetadata } from "../../domain/session/metadata/session-metadata";
-import { AgentRun } from "../../domain/session/run/agent-run";
-import { Session } from "../../domain/session/session";
-import { SessionState } from "../../domain/session/state/session-state";
-import type { Actor } from "../../domain/tool/access/actor";
+import { AgentRunId } from "../../common/identity/agent-run-id.value-object";
+import { CorrelationId } from "../../common/identity/correlation-id.value-object";
+import { SessionId } from "../../common/identity/session-id.value-object";
+import { Instant } from "../../common/time/instant.value-object";
+import { AgentName } from "../../domain/agent/agent-name.value-object";
+import { RunContext } from "../../domain/run/run-context.value-object";
+import { SessionContext } from "../../domain/run/session-context.value-object";
+import type { SessionMetadata } from "../../domain/session/metadata/session-metadata.value-object";
+import { AgentRun } from "../../domain/session/run/agent-run.entity";
+import { Session } from "../../domain/session/session.entity";
+import { SessionState } from "../../domain/session/state/session-state.value-object";
+import type { Actor } from "../../domain/tool/access/actor.value-object";
 
 const START = Instant.fromIso("2026-01-01T00:00:00.000Z");
 

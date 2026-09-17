@@ -1,7 +1,7 @@
-import { SessionMetadataDeleted } from "../../catalog/metadata/session-metadata-deleted";
-import type { EventHeader } from "../../event-header";
-import { EventSchemaVersion } from "../../event-schema-version";
-import { SessionEventCodec } from "../../session-event-codec";
+import { SessionMetadataDeleted } from "../../catalog/metadata/session-metadata-deleted.event";
+import type { EventHeader } from "../../event-header.value-object";
+import { EventSchemaVersion } from "../../event-schema-version.value-object";
+import { SessionEventCodec } from "../../session-event.codec";
 
 /** Codec for the fact that one metadata key was forgotten. */
 export class SessionMetadataDeletedCodec extends SessionEventCodec<SessionMetadataDeleted> {

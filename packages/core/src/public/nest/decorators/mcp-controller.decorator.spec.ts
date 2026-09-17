@@ -1,7 +1,7 @@
 import "reflect-metadata";
 import { INJECTABLE_WATERMARK } from "@nestjs/common/constants";
 import { describe, expect, it } from "vitest";
-import { MCP_CONTROLLER_METADATA } from "../../../adapters/nest/metadata/metadata-keys";
+import { MCP_CONTROLLER_METADATA } from "../../../adapters/nest/metadata/metadata-keys.token";
 import { McpController } from "./mcp-controller.decorator";
 
 class LookupTool {}

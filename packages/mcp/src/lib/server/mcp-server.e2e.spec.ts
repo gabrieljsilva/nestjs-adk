@@ -23,8 +23,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { ToolCallingModel } from "../../../../core/src/support/nest/tool-calling-model.fixture";
 import { McpUnauthorizedError } from "./errors/mcp-unauthorized.error";
-import { McpActorResolver } from "./mcp-actor-resolver";
-import type { McpRequest } from "./mcp-request";
+import { McpActorResolver } from "./mcp-actor-resolver.contract";
+import type { McpRequest } from "./mcp-request.value-object";
 import { McpServerModule } from "./mcp-server.module";
 
 const CHALLENGE = 'Bearer resource_metadata="http://api.test/.well-known/oauth-protected-resource"';

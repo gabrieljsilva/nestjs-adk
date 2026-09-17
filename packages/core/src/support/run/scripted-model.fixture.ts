@@ -1,11 +1,11 @@
-import { ModelCapabilities } from "../../domain/model/descriptor/model-capabilities";
-import { ModelContextWindow } from "../../domain/model/descriptor/model-context-window";
-import { ModelDescriptor } from "../../domain/model/descriptor/model-descriptor";
-import { ModelIdentity } from "../../domain/model/descriptor/model-identity";
+import { ModelCapabilities } from "../../domain/model/descriptor/model-capabilities.value-object";
+import { ModelContextWindow } from "../../domain/model/descriptor/model-context-window.value-object";
+import { ModelDescriptor } from "../../domain/model/descriptor/model-descriptor.value-object";
+import { ModelIdentity } from "../../domain/model/descriptor/model-identity.value-object";
 import { ModelCallFailedError } from "../../domain/model/errors/model-call-failed.error";
-import { RateLimitedFailure } from "../../domain/model/failures/rate-limited-failure";
-import { LlmModel } from "../../domain/model/llm-model";
-import { ModelChunk } from "../../domain/model/streaming/model-chunk";
+import { RateLimitedFailure } from "../../domain/model/failures/rate-limited-failure.value-object";
+import { LlmModel } from "../../domain/model/llm-model.contract";
+import { ModelChunk } from "../../domain/model/streaming/model-chunk.value-object";
 
 /** Answers a script, or fails the way an adapter would have classified it. */
 export class ScriptedModel extends LlmModel {

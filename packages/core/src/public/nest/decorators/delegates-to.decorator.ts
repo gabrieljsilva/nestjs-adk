@@ -1,5 +1,5 @@
-import { DELEGATES_TO_METADATA } from "../../../adapters/nest/metadata/metadata-keys";
-import type { AgentTarget } from "../agent/agent-target";
+import { DELEGATES_TO_METADATA } from "../../../adapters/nest/metadata/metadata-keys.token";
+import type { AgentTarget } from "../agent/agent-target.value-object";
 
 /**
  * Declares which agents this one may hand a single task to, keeping the conversation.

@@ -40,9 +40,9 @@ Do not use `process`, `manage`, `do` or `handle`. Use `handle` only when the cla
 
 ```ts
 // avoid
-ZodToolSchema.declarationOf(schema);   // packages/core/src/adapters/schema/zod-tool-schema.ts:75
-PricingSource.priceOf(model);          // packages/core/src/contracts/pricing/pricing-source.ts:30
-RunJournal.reasonOf(error);            // packages/core/src/runtime/run/run-journal.ts:229
+ZodToolSchema.declarationOf(schema);   // packages/core/src/adapters/schema/zod-tool-schema.adapter.ts:75
+PricingSource.priceOf(model);          // packages/core/src/contracts/pricing/pricing-source.contract.ts:30
+RunJournal.reasonOf(error);            // packages/core/src/runtime/run/journal/run-journal.service.ts:229
 
 // prefer
 ZodToolSchema.buildDeclaration(schema);
@@ -70,7 +70,7 @@ A name that says less than the body is renamed, not documented. See [[comments-a
 
 ```ts
 // avoid
-ToolCallNotice.of(call, tool);     // packages/core/src/domain/tool/tool-call-notice.ts:26
+ToolCallNotice.of(call, tool);     // packages/core/src/domain/tool/notice/tool-call.notice.ts:26
 
 // prefer
 ToolCallNotice.fromCall(call, tool);

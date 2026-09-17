@@ -1,11 +1,11 @@
-import { ArtifactId } from "../../../../common/identity/artifact-id";
-import { ToolCallId } from "../../../../common/identity/tool-call-id";
-import type { AttachmentReference } from "../../../model/attachment/attachment-reference";
-import { ToolResultProduced } from "../../catalog/tool/tool-result-produced";
+import { ArtifactId } from "../../../../common/identity/artifact-id.value-object";
+import { ToolCallId } from "../../../../common/identity/tool-call-id.value-object";
+import type { AttachmentReference } from "../../../model/attachment/attachment-reference.value-object";
+import { ToolResultProduced } from "../../catalog/tool/tool-result-produced.event";
 import { InvalidEventPayloadError } from "../../errors/invalid-event-payload.error";
-import type { EventHeader } from "../../event-header";
-import { EventSchemaVersion } from "../../event-schema-version";
-import { SessionEventCodec } from "../../session-event-codec";
+import type { EventHeader } from "../../event-header.value-object";
+import { EventSchemaVersion } from "../../event-schema-version.value-object";
+import { SessionEventCodec } from "../../session-event.codec";
 import { AttachmentReferenceCodec } from "../attachment-reference.codec";
 
 /** The version that started recording an external attachment, resolved by the application. */

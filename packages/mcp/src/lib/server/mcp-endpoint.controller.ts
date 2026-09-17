@@ -1,9 +1,9 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { Body, Controller, Delete, Get, Post, Req, Res } from "@nestjs/common";
 import { McpUnauthorizedError } from "./errors/mcp-unauthorized.error";
-import { McpActorResolver } from "./mcp-actor-resolver";
-import { McpRequest } from "./mcp-request";
-import { McpServerHost } from "./mcp-server-host";
+import { McpActorResolver } from "./mcp-actor-resolver.contract";
+import { McpRequest } from "./mcp-request.value-object";
+import { McpServerHost } from "./mcp-server-host.service";
 
 const UNAUTHORIZED = 401;
 

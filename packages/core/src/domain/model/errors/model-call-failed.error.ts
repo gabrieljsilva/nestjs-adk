@@ -1,5 +1,5 @@
 import { AdkError } from "../../../common/errors/adk.error";
-import type { ModelFailure } from "../failures/model-failure";
+import type { ModelFailure } from "../failures/model-failure.value-object";
 
 /**
  * The bridge between a failure that was decided and an error that is thrown.

@@ -14,7 +14,7 @@ The call direction is fixed: Edge calls a UseCase, a UseCase calls Services, a S
 
 I/O and the public API. An edge converts input into a command, calls one use case, and converts the result into a public shape. It holds no logic: no loop, no branch on domain state, no arithmetic.
 
-Suffix: `Handle`, `Module`, `Agent`, `Tool`, or a decorator. `AgentHandle` (`packages/core/src/public/nest/agent-handle.ts`), `AdkModule`, `AdkAgent` and the `read_artifact` tool are the edges today.
+Suffix: `Handle`, `Module`, `Agent`, `Tool`, or a decorator. `AgentHandle` (`packages/core/src/public/nest/agent/agent-handle.edge.ts`), `AdkModule`, `AdkAgent` and the `read_artifact` tool are the edges today.
 
 ## UseCase
 
@@ -49,10 +49,10 @@ The mapping from today's names to the target, verified against `packages/core/sr
 | Layer | Today | Becomes |
 | --- | --- | --- |
 | Edge | `AgentHandle`, `AdkModule`, `AdkAgent`, `read_artifact` | Same names. `AdkAgent` stops mirroring `AgentHandle` method by method and exposes the handle |
-| Edge | `AdkRuntimeHost` (`packages/core/src/public/adk-runtime-host.ts`) | `AdkRuntime`: it imports nothing from Nest |
+| Edge | `AdkRuntimeHost` (`packages/core/src/public/adk-runtime-host.edge.ts`) | `AdkRuntime`: it imports nothing from Nest |
 | UseCase | `AskAgent`, `DecideApproval`, `DelegateAgent` (`packages/core/src/runtime/run/`) | `AskAgentUseCase`, `DecideApprovalUseCase`, `DelegateAgentUseCase` |
-| UseCase | `AgentSwitch` (`packages/core/src/runtime/transfer/agent-switch.ts`) | `TransferSessionUseCase` |
-| UseCase | `AdkComposer` (`packages/core/src/public/nest/adk-composer.ts`) | `ComposeRuntimeUseCase` |
+| UseCase | `AgentSwitch` (`packages/core/src/runtime/transfer/agent-switch.use-case.ts`) | `TransferSessionUseCase` |
+| UseCase | `AdkComposer` (`packages/core/src/public/nest/module/adk-composer.use-case.ts`) | `ComposeRuntimeUseCase` |
 | Service | `SessionManager` | `SessionService` |
 | Service | `ContextProjector`, with `TurnLoop` behind it | `ContextService`; `TurnLoop` stays a collaborator |
 | Service | `ToolExecutor` | `ToolService`, keeping the executor as a collaborator |

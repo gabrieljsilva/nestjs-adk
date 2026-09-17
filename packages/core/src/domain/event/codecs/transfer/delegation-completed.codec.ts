@@ -1,9 +1,9 @@
-import { AgentRunId } from "../../../../common/identity/agent-run-id";
-import { CorrelationId } from "../../../../common/identity/correlation-id";
-import { DelegationCompleted } from "../../catalog/transfer/delegation-completed";
-import type { EventHeader } from "../../event-header";
-import { EventSchemaVersion } from "../../event-schema-version";
-import { SessionEventCodec } from "../../session-event-codec";
+import { AgentRunId } from "../../../../common/identity/agent-run-id.value-object";
+import { CorrelationId } from "../../../../common/identity/correlation-id.value-object";
+import { DelegationCompleted } from "../../catalog/transfer/delegation-completed.event";
+import type { EventHeader } from "../../event-header.value-object";
+import { EventSchemaVersion } from "../../event-schema-version.value-object";
+import { SessionEventCodec } from "../../session-event.codec";
 
 /** Codec for the closing of a delegation, with the outcome the child run reported. */
 export class DelegationCompletedCodec extends SessionEventCodec<DelegationCompleted> {

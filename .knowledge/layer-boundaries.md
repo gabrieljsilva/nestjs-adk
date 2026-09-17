@@ -50,7 +50,6 @@ Mechanical code may exist at lower levels, but it stays behind a declarative ser
 The folders exist and hold the right things. What is missing is inside them.
 
 - The six folders are layer-first (`domain/session`, `runtime/session`, `adapters/storage`), so a reader looking for one concept opens three trees. The grouping by concept is a later move, and the module-first tree is a decision still open.
-- Nothing in the file names says which layer a class is in. `AskAgent` and `SessionManager` sit in the same folder and are a use case and a service. See [[file-categories]].
 - The responsibilities are not separated yet inside the Runtime folder: use cases still contain loops, branches and arithmetic that belong in the services under them. That is the move [[layered-responsibilities]] describes, and it is what drops the large constructors [[component-heuristics]] flags.
 
-Nothing asserts the dependency rules above. `packages/core/src/package-boundaries.spec.ts` walks the tree and asserts only that the core imports no sibling package; the rule that Runtime never imports an Adapter is still a review question. The same tree walk is what the category spec of [[file-categories]] will reuse.
+Nothing asserts the dependency rules above. `packages/core/src/package-boundaries.spec.ts` walks the tree and asserts only that the core imports no sibling package; the rule that Runtime never imports an Adapter is still a review question. The same tree walk is what the category spec of [[file-categories]] reuses.

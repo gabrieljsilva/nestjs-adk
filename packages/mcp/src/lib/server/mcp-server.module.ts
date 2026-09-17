@@ -1,13 +1,13 @@
 import { AdkRuntimeHost } from "@nestjs-adk/core";
 import { type DynamicModule, Module } from "@nestjs/common";
 import { PATH_METADATA } from "@nestjs/common/constants";
-import { McpActorResolver } from "./mcp-actor-resolver";
+import { McpActorResolver } from "./mcp-actor-resolver.contract";
 import { McpEndpointController } from "./mcp-endpoint.controller";
-import { McpServerHost } from "./mcp-server-host";
-import { McpServerInfo } from "./mcp-server-info";
-import type { McpServerOptions } from "./mcp-server-options";
-import { McpToolService } from "./mcp-tool-service";
-import { RuntimeMcpExposure } from "./runtime-mcp-exposure";
+import { McpServerHost } from "./mcp-server-host.service";
+import { McpServerInfo } from "./mcp-server-info.value-object";
+import type { McpServerOptions } from "./mcp-server.options";
+import { McpToolService } from "./mcp-tool.service";
+import { RuntimeMcpExposure } from "./runtime-mcp-exposure.adapter";
 
 const DEFAULT_PATH = "/mcp";
 

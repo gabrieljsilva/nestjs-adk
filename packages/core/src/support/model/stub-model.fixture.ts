@@ -1,11 +1,11 @@
-import type { ContextWindow } from "../../domain/model/descriptor/context-window";
-import { ModelCapabilities } from "../../domain/model/descriptor/model-capabilities";
-import { ModelContextWindow } from "../../domain/model/descriptor/model-context-window";
-import { ModelDescriptor } from "../../domain/model/descriptor/model-descriptor";
-import { ModelIdentity } from "../../domain/model/descriptor/model-identity";
-import { LlmModel } from "../../domain/model/llm-model";
-import type { ModelRequest } from "../../domain/model/model-request";
-import { ModelChunk } from "../../domain/model/streaming/model-chunk";
+import type { ContextWindow } from "../../domain/model/descriptor/context-window.value-object";
+import { ModelCapabilities } from "../../domain/model/descriptor/model-capabilities.value-object";
+import { ModelContextWindow } from "../../domain/model/descriptor/model-context-window.value-object";
+import { ModelDescriptor } from "../../domain/model/descriptor/model-descriptor.value-object";
+import { ModelIdentity } from "../../domain/model/descriptor/model-identity.value-object";
+import { LlmModel } from "../../domain/model/llm-model.contract";
+import type { ModelRequest } from "../../domain/model/model-request.value-object";
+import { ModelChunk } from "../../domain/model/streaming/model-chunk.value-object";
 
 /**
  * A model that answers a script and nothing else.

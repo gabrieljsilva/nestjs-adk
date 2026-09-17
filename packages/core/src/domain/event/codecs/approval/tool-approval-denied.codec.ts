@@ -1,8 +1,8 @@
-import { ToolCallId } from "../../../../common/identity/tool-call-id";
-import { ToolApprovalDenied } from "../../catalog/approval/tool-approval-denied";
-import type { EventHeader } from "../../event-header";
-import { EventSchemaVersion } from "../../event-schema-version";
-import { SessionEventCodec } from "../../session-event-codec";
+import { ToolCallId } from "../../../../common/identity/tool-call-id.value-object";
+import { ToolApprovalDenied } from "../../catalog/approval/tool-approval-denied.event";
+import type { EventHeader } from "../../event-header.value-object";
+import { EventSchemaVersion } from "../../event-schema-version.value-object";
+import { SessionEventCodec } from "../../session-event.codec";
 
 /** Matches the event: version 3 is the one that names the actor who refused. */
 const SCHEMA_VERSION = 3;

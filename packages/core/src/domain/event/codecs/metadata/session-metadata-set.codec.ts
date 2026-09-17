@@ -1,9 +1,9 @@
-import { SessionMetadata } from "../../../session/metadata/session-metadata";
-import { SessionMetadataSet } from "../../catalog/metadata/session-metadata-set";
+import { SessionMetadata } from "../../../session/metadata/session-metadata.value-object";
+import { SessionMetadataSet } from "../../catalog/metadata/session-metadata-set.event";
 import { InvalidEventPayloadError } from "../../errors/invalid-event-payload.error";
-import type { EventHeader } from "../../event-header";
-import { EventSchemaVersion } from "../../event-schema-version";
-import { SessionEventCodec } from "../../session-event-codec";
+import type { EventHeader } from "../../event-header.value-object";
+import { EventSchemaVersion } from "../../event-schema-version.value-object";
+import { SessionEventCodec } from "../../session-event.codec";
 
 /**
  * Codec for one durable metadata write.

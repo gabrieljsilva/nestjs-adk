@@ -1,8 +1,8 @@
-import { ToolCallId } from "../../../../common/identity/tool-call-id";
-import { ToolCallRequested } from "../../catalog/tool/tool-call-requested";
-import type { EventHeader } from "../../event-header";
-import { EventSchemaVersion } from "../../event-schema-version";
-import { SessionEventCodec } from "../../session-event-codec";
+import { ToolCallId } from "../../../../common/identity/tool-call-id.value-object";
+import { ToolCallRequested } from "../../catalog/tool/tool-call-requested.event";
+import type { EventHeader } from "../../event-header.value-object";
+import { EventSchemaVersion } from "../../event-schema-version.value-object";
+import { SessionEventCodec } from "../../session-event.codec";
 
 /** Matches the event: version 2 is the one that carries a signature. */
 const SCHEMA_VERSION = 2;

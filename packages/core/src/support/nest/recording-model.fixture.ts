@@ -1,12 +1,12 @@
-import { ModelCapabilities } from "../../domain/model/descriptor/model-capabilities";
-import { ModelCapability } from "../../domain/model/descriptor/model-capability";
-import { ModelContextWindow } from "../../domain/model/descriptor/model-context-window";
-import { ModelDescriptor } from "../../domain/model/descriptor/model-descriptor";
-import { ModelIdentity } from "../../domain/model/descriptor/model-identity";
-import { LlmModel } from "../../domain/model/llm-model";
-import type { ModelRequest } from "../../domain/model/model-request";
-import { ModelChunk } from "../../domain/model/streaming/model-chunk";
-import { ModelUsage } from "../../domain/model/usage/model-usage";
+import { ModelCapabilities } from "../../domain/model/descriptor/model-capabilities.value-object";
+import { ModelCapability } from "../../domain/model/descriptor/model-capability.value-object";
+import { ModelContextWindow } from "../../domain/model/descriptor/model-context-window.value-object";
+import { ModelDescriptor } from "../../domain/model/descriptor/model-descriptor.value-object";
+import { ModelIdentity } from "../../domain/model/descriptor/model-identity.value-object";
+import { LlmModel } from "../../domain/model/llm-model.contract";
+import type { ModelRequest } from "../../domain/model/model-request.value-object";
+import { ModelChunk } from "../../domain/model/streaming/model-chunk.value-object";
+import { ModelUsage } from "../../domain/model/usage/model-usage.value-object";
 
 /**
  * Answers a fixed sentence and keeps every request it was given.

@@ -1,7 +1,7 @@
-import { AgentRunCancelled } from "../../catalog/run/agent-run-cancelled";
-import type { EventHeader } from "../../event-header";
-import { EventSchemaVersion } from "../../event-schema-version";
-import { SessionEventCodec } from "../../session-event-codec";
+import { AgentRunCancelled } from "../../catalog/run/agent-run-cancelled.event";
+import type { EventHeader } from "../../event-header.value-object";
+import { EventSchemaVersion } from "../../event-schema-version.value-object";
+import { SessionEventCodec } from "../../session-event.codec";
 
 /** Codec for the cancellation of an agent run. */
 export class AgentRunCancelledCodec extends SessionEventCodec<AgentRunCancelled> {

@@ -25,7 +25,7 @@ export default [
 	{
 		// Its own entry because importing it registers matchers: a subpath makes that a
 		// choice the suite makes, instead of a side effect of importing a scripted model.
-		input: "src/matchers.ts",
+		input: "src/matchers.support.ts",
 		output: [
 			{ file: "dist/matchers.cjs", format: "cjs", sourcemap: false },
 			{ file: "dist/matchers.mjs", format: "es", sourcemap: false },

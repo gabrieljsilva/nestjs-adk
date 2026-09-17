@@ -7,10 +7,10 @@ const SOURCE_ROOT = fileURLToPath(new URL(".", import.meta.url));
 
 /** The values that are one invocation: they hold a context because they die with it. */
 const ALLOWED = [
-	"runtime/run/scope/run-scope.ts",
-	"runtime/tool/tool-execution-command.ts",
-	"runtime/context/prepare-context-command.ts",
-	"runtime/model/model-run-command.ts",
+	"runtime/run/scope/run-scope.value-object.ts",
+	"runtime/tool/tool-execution.command.ts",
+	"runtime/context/prepare-context.command.ts",
+	"runtime/model/model-run.command.ts",
 ];
 
 /** A field declaration whose type is a context, in either the constructor or the body. */

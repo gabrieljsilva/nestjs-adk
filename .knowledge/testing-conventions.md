@@ -9,8 +9,8 @@ tags: [core, tests, typescript]
 Pair a production `.ts` file that ships behaviour with a unit test of the same basename and the `.spec.ts` suffix.
 
 ```text
-tool-call-result.ts
-tool-call-result.spec.ts
+tool-call-result.value-object.ts
+tool-call-result.value-object.spec.ts
 ```
 
 Behaviour is what a spec can exercise: a method, a getter, a constructor that computes rather than storing what it was handed. What that leaves out is the declaration, and a declaration has nothing to assert: a contract of abstract members, an event that is its own payload, a failure that is a name. A spec for one of those restates the file in a second file, and then two have to be kept in step to prove nothing. Writing one anyway is never wrong, and it is worth it the moment the class grows a decision.

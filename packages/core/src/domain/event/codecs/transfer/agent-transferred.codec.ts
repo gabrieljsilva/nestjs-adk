@@ -1,8 +1,8 @@
-import { AgentName } from "../../../agent/agent-name";
-import { AgentTransferred } from "../../catalog/transfer/agent-transferred";
-import type { EventHeader } from "../../event-header";
-import { EventSchemaVersion } from "../../event-schema-version";
-import { SessionEventCodec } from "../../session-event-codec";
+import { AgentName } from "../../../agent/agent-name.value-object";
+import { AgentTransferred } from "../../catalog/transfer/agent-transferred.event";
+import type { EventHeader } from "../../event-header.value-object";
+import { EventSchemaVersion } from "../../event-schema-version.value-object";
+import { SessionEventCodec } from "../../session-event.codec";
 
 /** Codec for the handover of the session from one agent to another. */
 export class AgentTransferredCodec extends SessionEventCodec<AgentTransferred> {

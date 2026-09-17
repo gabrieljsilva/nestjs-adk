@@ -1,8 +1,8 @@
 import { getDefaultEnvironment } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { McpDiscoveryError } from "./errors/mcp-discovery.error";
-import { EnvAuth } from "./mcp-auth";
-import { McpOAuth } from "./mcp-oauth";
-import { createTransport } from "./mcp-transport";
+import { EnvAuth } from "./mcp-auth.service";
+import { McpOAuth } from "./mcp-oauth.service";
+import { createTransport } from "./mcp-transport.factory";
 
 /** The SDK keeps the spawn options private; this is what would actually reach the child process. */
 function envOf(transport: unknown): Record<string, string> | undefined {

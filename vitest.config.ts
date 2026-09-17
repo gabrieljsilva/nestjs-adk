@@ -7,7 +7,7 @@ process.loadEnvFile(resolve(__dirname, ".env"));
 export default defineConfig({
 	resolve: {
 		alias: {
-			"@nestjs-adk/testing/matchers": resolve(__dirname, "packages/testing/src/matchers.ts"),
+			"@nestjs-adk/testing/matchers": resolve(__dirname, "packages/testing/src/matchers.support.ts"),
 			"@nestjs-adk/testing": resolve(__dirname, "packages/testing/src/index.ts"),
 			"@nestjs-adk/core": resolve(__dirname, "packages/core/src/index.ts"),
 			"@nestjs-adk/openai": resolve(__dirname, "packages/openai/src/index.ts"),

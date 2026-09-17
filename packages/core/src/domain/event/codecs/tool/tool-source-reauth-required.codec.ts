@@ -1,7 +1,7 @@
-import { ToolSourceReauthRequired } from "../../catalog/tool/tool-source-reauth-required";
-import type { EventHeader } from "../../event-header";
-import { EventSchemaVersion } from "../../event-schema-version";
-import { SessionEventCodec } from "../../session-event-codec";
+import { ToolSourceReauthRequired } from "../../catalog/tool/tool-source-reauth-required.event";
+import type { EventHeader } from "../../event-header.value-object";
+import { EventSchemaVersion } from "../../event-schema-version.value-object";
+import { SessionEventCodec } from "../../session-event.codec";
 
 /** Codec for a tool source that has to be authorized again. */
 export class ToolSourceReauthRequiredCodec extends SessionEventCodec<ToolSourceReauthRequired> {

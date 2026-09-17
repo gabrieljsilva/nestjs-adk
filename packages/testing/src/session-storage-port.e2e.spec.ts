@@ -21,7 +21,7 @@ import {
 	StoredSessionEvent,
 } from "@nestjs-adk/core";
 import { describe, expect, it } from "vitest";
-import { SessionStorageContractSuite } from "./session-storage-contract-suite";
+import { SessionStorageContractSuite } from "./session-storage-contract-suite.support";
 
 /** One journal row, which is a revision and the columns the codec wrote. */
 class Row {

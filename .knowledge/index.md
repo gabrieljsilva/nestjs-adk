@@ -21,7 +21,7 @@ A row marked `target` describes a decision the code has not reached yet. It is s
 | `convention` `target` | [[type-safety]] | TypeScript restrictions and class-based data contracts across architectural layers |
 | `convention` `target` | [[layer-boundaries]] | Which folder a symbol lives in, and the dependency direction between the six folders |
 | `convention` `target` | [[layered-responsibilities]] | What an edge, a use case, a service and a repository may each contain, and why dirty code moves inward |
-| `convention` `target` | [[file-categories]] | Why every file name ends with the category of what it holds, and the categories this lib has |
+| `convention` | [[file-categories]] | Why every file name ends with the category of what it holds, and the categories this lib has |
 | `convention` | [[component-heuristics]] | The four numbers that open a design question about a class, and why line count is not one of them |
 | `convention` `target` | [[testing-conventions]] | What earns a spec, what each level of test is responsible for, and where each one runs |
 | `convention` `target` | [[error-taxonomy]] | Ownership, declaration and propagation of errors, and how an adapter classifies a provider failure |

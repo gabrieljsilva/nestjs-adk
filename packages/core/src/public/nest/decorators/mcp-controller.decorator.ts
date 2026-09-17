@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { MCP_CONTROLLER_METADATA } from "../../../adapters/nest/metadata/metadata-keys";
+import { MCP_CONTROLLER_METADATA } from "../../../adapters/nest/metadata/metadata-keys.token";
 
 export interface McpControllerOptions {
 	/** Shared `@Tool` classes this controller publishes, or the names they declared. A class an agent also lists is the same tool, published once. */

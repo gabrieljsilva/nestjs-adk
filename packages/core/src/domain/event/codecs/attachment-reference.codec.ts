@@ -1,5 +1,5 @@
-import { ArtifactId } from "../../../common/identity/artifact-id";
-import { AttachmentReference } from "../../model/attachment/attachment-reference";
+import { ArtifactId } from "../../../common/identity/artifact-id.value-object";
+import { AttachmentReference } from "../../model/attachment/attachment-reference.value-object";
 
 /**
  * How an attachment is written into a payload, and read back out of one.

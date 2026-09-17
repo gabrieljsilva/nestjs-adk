@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { AgentId } from "../../../common/identity/agent-id";
-import { AgentRunId } from "../../../common/identity/agent-run-id";
-import { CorrelationId } from "../../../common/identity/correlation-id";
-import { EventId } from "../../../common/identity/event-id";
-import { Instant } from "../../../common/time/instant";
-import { SessionMetadataDeleted } from "../catalog/metadata/session-metadata-deleted";
-import { SessionMetadataSet } from "../catalog/metadata/session-metadata-set";
+import { AgentId } from "../../../common/identity/agent-id.value-object";
+import { AgentRunId } from "../../../common/identity/agent-run-id.value-object";
+import { CorrelationId } from "../../../common/identity/correlation-id.value-object";
+import { EventId } from "../../../common/identity/event-id.value-object";
+import { Instant } from "../../../common/time/instant.value-object";
+import { SessionMetadataDeleted } from "../catalog/metadata/session-metadata-deleted.event";
+import { SessionMetadataSet } from "../catalog/metadata/session-metadata-set.event";
 import { InvalidEventPayloadError } from "../errors/invalid-event-payload.error";
-import { EventCorrelation } from "../event-correlation";
-import { EventHeader } from "../event-header";
+import { EventCorrelation } from "../event-correlation.value-object";
+import { EventHeader } from "../event-header.value-object";
 import { SessionMetadataDeletedCodec } from "./metadata/session-metadata-deleted.codec";
 import { SessionMetadataSetCodec } from "./metadata/session-metadata-set.codec";
 

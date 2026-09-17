@@ -1,0 +1,181 @@
+import { describe, expect, it } from "vitest";
+import { AgentRunId } from "../../common/identity/agent-run-id.value-object";
+import { SessionId } from "../../common/identity/session-id.value-object";
+import { ToolSource } from "../../contracts/tool/tool-source.contract";
+import { ToolEffect } from "../../domain/tool/approval/tool-effect.value-object";
+import { ToolSourceAuthError } from "../../domain/tool/errors/tool-source-auth.error";
+import { ParsedArguments } from "../../domain/tool/invocation/parsed-arguments.value-object";
+import { ToolHandler } from "../../domain/tool/invocation/tool-handler.contract";
+import { ToolDefinition } from "../../domain/tool/tool-definition.value-object";
+import { ToolSchema } from "../../domain/tool/tool-schema.contract";
+import { ToolSourceScope } from "./tool-source-scope.service";
+
+const SESSION = SessionId.from("s-1");
+const RUN = AgentRunId.from("run-1");
+
+class AnySchema extends ToolSchema {
+	public declaration(): unknown {
+		return {};
+	}
+
+	public parse(): ParsedArguments {
+		return ParsedArguments.valid({});
+	}
+}
+
+class NoopHandler extends ToolHandler {
+	public async invoke(): Promise<unknown> {
+		return undefined;
+	}
+}
+
+class OpeningSource extends ToolSource {
+	public opens = 0;
+	public closes = 0;
+
+	public constructor(public readonly name: string) {
+		super();
+	}
+
+	public async open(): Promise<readonly ToolDefinition[]> {
+		this.opens += 1;
+		return [
+			new ToolDefinition(`${this.name}_tool`, "a remote tool", new AnySchema(), ToolEffect.READ, new NoopHandler()),
+		];
+	}
+
+	public async close(): Promise<void> {
+		this.closes += 1;
+	}
+}
+
+class RefusingSource extends ToolSource {
+	public readonly name = "refusing";
+	public closes = 0;
+
+	public async open(): Promise<readonly ToolDefinition[]> {
+		throw new ToolSourceAuthError(this.name, "the token expired");
+	}
+
+	public async close(): Promise<void> {
+		this.closes += 1;
+	}
+}
+
+describe("ToolSourceScope", () => {
+	it("offers everything the sources opened, in the order they were declared", async () => {
+		const scope = new ToolSourceScope([new OpeningSource("mcp"), new OpeningSource("catalog")]);
+
+		const tools = await scope.open(SESSION, RUN);
+
+		expect(tools.map((tool) => tool.name)).toEqual(["mcp_tool", "catalog_tool"]);
+	});
+
+	it("opens each source once per run", async () => {
+		const source = new OpeningSource("mcp");
+		const scope = new ToolSourceScope([source]);
+
+		await scope.open(SESSION, RUN);
+
+		expect(source.opens).toBe(1);
+	});
+
+	it("closes what it opened", async () => {
+		const source = new OpeningSource("mcp");
+		const scope = new ToolSourceScope([source]);
+		await scope.open(SESSION, RUN);
+
+		await scope.close(RUN);
+
+		expect(source.closes).toBe(1);
+	});
+
+	it("closes only once, however many times close is called", async () => {
+		const source = new OpeningSource("mcp");
+		const scope = new ToolSourceScope([source]);
+		await scope.open(SESSION, RUN);
+
+		await scope.close(RUN);
+		await scope.close(RUN);
+
+		expect(source.closes).toBe(1);
+	});
+
+	it("carries on with the tools that did open when one will not authorize", async () => {
+		const scope = new ToolSourceScope([new RefusingSource(), new OpeningSource("mcp")]);
+
+		const tools = await scope.open(SESSION, RUN);
+
+		expect(tools.map((tool) => tool.name)).toEqual(["mcp_tool"]);
+		expect(scope.unauthorized).toHaveLength(1);
+		expect(scope.unauthorized[0]?.source).toBe("refusing");
+	});
+
+	it("never closes a source that never opened", async () => {
+		const refusing = new RefusingSource();
+		const scope = new ToolSourceScope([refusing]);
+		await scope.open(SESSION, RUN);
+
+		await scope.close(RUN);
+
+		expect(refusing.closes).toBe(0);
+	});
+
+	it("lets a failure that is not about credentials stop the run", async () => {
+		class BrokenSource extends ToolSource {
+			public readonly name = "broken";
+
+			public async open(): Promise<readonly ToolDefinition[]> {
+				throw new TypeError("the adapter has a bug");
+			}
+
+			public async close(): Promise<void> {
+				return undefined;
+			}
+		}
+
+		await expect(new ToolSourceScope([new BrokenSource()]).open(SESSION, RUN)).rejects.toBeInstanceOf(TypeError);
+	});
+
+	it("opens the module's sources and the run's, module first", async () => {
+		const declared = new OpeningSource("mcp");
+		const perRun = new OpeningSource("user");
+		const scope = new ToolSourceScope([declared], [perRun]);
+
+		const tools = await scope.open(SESSION, RUN);
+
+		expect(tools.map((tool) => tool.name)).toEqual(["mcp_tool", "user_tool"]);
+	});
+
+	/** A run's source is a connection with somebody's credential: it closes with the run. */
+	it("closes a run's own source the same way it closes the module's", async () => {
+		const declared = new OpeningSource("mcp");
+		const perRun = new OpeningSource("user");
+		const scope = new ToolSourceScope([declared], [perRun]);
+		await scope.open(SESSION, RUN);
+
+		await scope.close(RUN);
+
+		expect([declared.closes, perRun.closes]).toEqual([1, 1]);
+	});
+
+	it("opens only the module's when a run declares none", async () => {
+		const declared = new OpeningSource("mcp");
+
+		expect((await new ToolSourceScope([declared]).open(SESSION, RUN)).map((tool) => tool.name)).toEqual(["mcp_tool"]);
+	});
+
+	it("closes the rest even when one source refuses to close", async () => {
+		class StuckSource extends OpeningSource {
+			public async close(): Promise<void> {
+				throw new Error("the socket is gone");
+			}
+		}
+		const healthy = new OpeningSource("mcp");
+		const scope = new ToolSourceScope([new StuckSource("stuck"), healthy]);
+		await scope.open(SESSION, RUN);
+
+		await expect(scope.close(RUN)).resolves.toBeUndefined();
+		expect(healthy.closes).toBe(1);
+	});
+});

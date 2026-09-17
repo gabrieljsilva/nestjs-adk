@@ -1,10 +1,10 @@
-import { AgentRunId } from "../../../../common/identity/agent-run-id";
-import { CorrelationId } from "../../../../common/identity/correlation-id";
-import { AgentName } from "../../../agent/agent-name";
-import { DelegationStarted } from "../../catalog/transfer/delegation-started";
-import type { EventHeader } from "../../event-header";
-import { EventSchemaVersion } from "../../event-schema-version";
-import { SessionEventCodec } from "../../session-event-codec";
+import { AgentRunId } from "../../../../common/identity/agent-run-id.value-object";
+import { CorrelationId } from "../../../../common/identity/correlation-id.value-object";
+import { AgentName } from "../../../agent/agent-name.value-object";
+import { DelegationStarted } from "../../catalog/transfer/delegation-started.event";
+import type { EventHeader } from "../../event-header.value-object";
+import { EventSchemaVersion } from "../../event-schema-version.value-object";
+import { SessionEventCodec } from "../../session-event.codec";
 
 /** Codec for the opening of a delegation towards a child run. */
 export class DelegationStartedCodec extends SessionEventCodec<DelegationStarted> {

@@ -1,10 +1,10 @@
-import { ToolCallId } from "../../../../common/identity/tool-call-id";
-import { type ApprovalDecision, PendingCall } from "../../../session/approval/pending-call";
-import { AgentRunSuspended } from "../../catalog/run/agent-run-suspended";
+import { ToolCallId } from "../../../../common/identity/tool-call-id.value-object";
+import { type ApprovalDecision, PendingCall } from "../../../session/approval/pending-call.value-object";
+import { AgentRunSuspended } from "../../catalog/run/agent-run-suspended.event";
 import { InvalidEventPayloadError } from "../../errors/invalid-event-payload.error";
-import type { EventHeader } from "../../event-header";
-import { EventSchemaVersion } from "../../event-schema-version";
-import { SessionEventCodec } from "../../session-event-codec";
+import type { EventHeader } from "../../event-header.value-object";
+import { EventSchemaVersion } from "../../event-schema-version.value-object";
+import { SessionEventCodec } from "../../session-event.codec";
 
 /** The version that started carrying the whole turn rather than one call of it. */
 const SCHEMA_VERSION = 2;

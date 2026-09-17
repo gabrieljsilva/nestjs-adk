@@ -1,10 +1,10 @@
-import { ModelIdentity } from "../../../model/descriptor/model-identity";
-import { ModelUsage } from "../../../model/usage/model-usage";
-import { PromptMeasurement } from "../../../model/usage/prompt-measurement";
-import { AssistantMessageProduced } from "../../catalog/session/assistant-message-produced";
-import type { EventHeader } from "../../event-header";
-import { EventSchemaVersion } from "../../event-schema-version";
-import { SessionEventCodec } from "../../session-event-codec";
+import { ModelIdentity } from "../../../model/descriptor/model-identity.value-object";
+import { ModelUsage } from "../../../model/usage/model-usage.value-object";
+import { PromptMeasurement } from "../../../model/usage/prompt-measurement.value-object";
+import { AssistantMessageProduced } from "../../catalog/session/assistant-message-produced.event";
+import type { EventHeader } from "../../event-header.value-object";
+import { EventSchemaVersion } from "../../event-schema-version.value-object";
+import { SessionEventCodec } from "../../session-event.codec";
 
 /** Codec for the assistant message a model produced during a run. */
 export class AssistantMessageProducedCodec extends SessionEventCodec<AssistantMessageProduced> {

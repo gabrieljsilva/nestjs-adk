@@ -38,7 +38,7 @@ describe("@nestjs-adk/testing subpaths", () => {
 	it("builds that subpath from its own entry", () => {
 		const rollup = read("rollup.config.mjs");
 
-		expect(rollup).toContain('input: "src/matchers.ts"');
+		expect(rollup).toContain('input: "src/matchers.support.ts"');
 		expect(rollup).toContain("dist/matchers.mjs");
 		expect(rollup).toContain("dist/matchers.cjs");
 	});
@@ -93,7 +93,7 @@ describe("@nestjs-adk/testing subpaths", () => {
 	 * monorepo and fail at an install, where the paths it reaches do not exist.
 	 */
 	it("writes the contract suite against the published core, like an adapter downstream", () => {
-		const suite = read("src/session-storage-contract-suite.ts");
+		const suite = read("src/session-storage-contract-suite.support.ts");
 
 		expect(suite).toContain('from "@nestjs-adk/core"');
 		expect(suite).not.toMatch(/from "\.\.\/\.\./);

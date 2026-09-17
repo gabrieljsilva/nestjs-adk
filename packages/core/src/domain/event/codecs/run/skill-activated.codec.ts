@@ -1,10 +1,10 @@
-import { ContentDigest } from "../../../../common/digest/content-digest";
-import { ToolCallId } from "../../../../common/identity/tool-call-id";
-import { SkillActivated } from "../../catalog/run/skill-activated";
+import { ContentDigest } from "../../../../common/digest/content-digest.value-object";
+import { ToolCallId } from "../../../../common/identity/tool-call-id.value-object";
+import { SkillActivated } from "../../catalog/run/skill-activated.event";
 import { InvalidEventPayloadError } from "../../errors/invalid-event-payload.error";
-import type { EventHeader } from "../../event-header";
-import { EventSchemaVersion } from "../../event-schema-version";
-import { SessionEventCodec } from "../../session-event-codec";
+import type { EventHeader } from "../../event-header.value-object";
+import { EventSchemaVersion } from "../../event-schema-version.value-object";
+import { SessionEventCodec } from "../../session-event.codec";
 
 /** The version that started naming the call whose result carries the content. */
 const SCHEMA_VERSION = 2;

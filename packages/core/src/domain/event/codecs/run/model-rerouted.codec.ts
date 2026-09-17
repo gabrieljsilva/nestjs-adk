@@ -1,8 +1,8 @@
-import { ModelIdentity } from "../../../model/descriptor/model-identity";
-import { ModelRerouted } from "../../catalog/run/model-rerouted";
-import type { EventHeader } from "../../event-header";
-import { EventSchemaVersion } from "../../event-schema-version";
-import { SessionEventCodec } from "../../session-event-codec";
+import { ModelIdentity } from "../../../model/descriptor/model-identity.value-object";
+import { ModelRerouted } from "../../catalog/run/model-rerouted.event";
+import type { EventHeader } from "../../event-header.value-object";
+import { EventSchemaVersion } from "../../event-schema-version.value-object";
+import { SessionEventCodec } from "../../session-event.codec";
 
 /** Codec for the move from one model to another, keeping both identities side by side. */
 export class ModelReroutedCodec extends SessionEventCodec<ModelRerouted> {

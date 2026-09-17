@@ -1,8 +1,8 @@
-import { ToolCallId } from "../../../../common/identity/tool-call-id";
-import { ToolApprovalRequested } from "../../catalog/approval/tool-approval-requested";
-import type { EventHeader } from "../../event-header";
-import { EventSchemaVersion } from "../../event-schema-version";
-import { SessionEventCodec } from "../../session-event-codec";
+import { ToolCallId } from "../../../../common/identity/tool-call-id.value-object";
+import { ToolApprovalRequested } from "../../catalog/approval/tool-approval-requested.event";
+import type { EventHeader } from "../../event-header.value-object";
+import { EventSchemaVersion } from "../../event-schema-version.value-object";
+import { SessionEventCodec } from "../../session-event.codec";
 
 /** Codec for the pause that puts one tool call in front of a human. */
 export class ToolApprovalRequestedCodec extends SessionEventCodec<ToolApprovalRequested> {

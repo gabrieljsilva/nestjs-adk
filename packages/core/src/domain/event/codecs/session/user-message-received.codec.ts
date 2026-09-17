@@ -1,9 +1,9 @@
-import type { AttachmentReference } from "../../../model/attachment/attachment-reference";
-import { UserMessageReceived } from "../../catalog/session/user-message-received";
+import type { AttachmentReference } from "../../../model/attachment/attachment-reference.value-object";
+import { UserMessageReceived } from "../../catalog/session/user-message-received.event";
 import { InvalidEventPayloadError } from "../../errors/invalid-event-payload.error";
-import type { EventHeader } from "../../event-header";
-import { EventSchemaVersion } from "../../event-schema-version";
-import { SessionEventCodec } from "../../session-event-codec";
+import type { EventHeader } from "../../event-header.value-object";
+import { EventSchemaVersion } from "../../event-schema-version.value-object";
+import { SessionEventCodec } from "../../session-event.codec";
 import { AttachmentReferenceCodec } from "../attachment-reference.codec";
 
 /** Matches the event: version 5 is the one that names the actor the question was asked with. */

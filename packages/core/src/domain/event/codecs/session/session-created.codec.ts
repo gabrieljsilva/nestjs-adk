@@ -1,8 +1,8 @@
-import { AgentName } from "../../../agent/agent-name";
-import { SessionCreated } from "../../catalog/session/session-created";
-import type { EventHeader } from "../../event-header";
-import { EventSchemaVersion } from "../../event-schema-version";
-import { SessionEventCodec } from "../../session-event-codec";
+import { AgentName } from "../../../agent/agent-name.value-object";
+import { SessionCreated } from "../../catalog/session/session-created.event";
+import type { EventHeader } from "../../event-header.value-object";
+import { EventSchemaVersion } from "../../event-schema-version.value-object";
+import { SessionEventCodec } from "../../session-event.codec";
 
 /** Matches the event: version 2 is the one that names the actor rather than an owner. */
 const SCHEMA_VERSION = 2;

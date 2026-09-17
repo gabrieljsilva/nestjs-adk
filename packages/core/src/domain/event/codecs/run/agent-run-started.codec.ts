@@ -1,9 +1,9 @@
-import { AgentName } from "../../../agent/agent-name";
-import { ModelIdentity } from "../../../model/descriptor/model-identity";
-import { AgentRunStarted } from "../../catalog/run/agent-run-started";
-import type { EventHeader } from "../../event-header";
-import { EventSchemaVersion } from "../../event-schema-version";
-import { SessionEventCodec } from "../../session-event-codec";
+import { AgentName } from "../../../agent/agent-name.value-object";
+import { ModelIdentity } from "../../../model/descriptor/model-identity.value-object";
+import { AgentRunStarted } from "../../catalog/run/agent-run-started.event";
+import type { EventHeader } from "../../event-header.value-object";
+import { EventSchemaVersion } from "../../event-schema-version.value-object";
+import { SessionEventCodec } from "../../session-event.codec";
 
 /** Codec for the start of an agent run. */
 export class AgentRunStartedCodec extends SessionEventCodec<AgentRunStarted> {

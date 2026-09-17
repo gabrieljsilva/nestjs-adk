@@ -34,8 +34,8 @@ Everything else stays private to the module. A class that is not exported can be
 pricing/
   pricing.module.ts     # wiring
   pricing.service.ts    # the API of the module
-  cost-calculator.ts    # private
-  price-resolver.ts     # private
+  cost-calculator.service.ts   # private
+  price-resolver.service.ts    # private
 ```
 
 ## The internal container is invisible
@@ -66,7 +66,7 @@ A module never stores state in a static field, in a module level variable, or in
 
 ## A provider SDK is one adapter, never the foundation
 
-The same reasoning applies to a vendor SDK. The lib no longer depends on `@google/adk`: it owns the agentic loop itself, and a provider reaches it through the neutral model contract. `@nestjs-adk/google` is the Gemini adapter and holds every Gemini specific mapping (`packages/google/src/gemini-request-mapper.ts`, `gemini-failure-mapper.ts`, `gemini-stream-mapper.ts`). Nothing in the core knows a provider name.
+The same reasoning applies to a vendor SDK. The lib no longer depends on `@google/adk`: it owns the agentic loop itself, and a provider reaches it through the neutral model contract. `@nestjs-adk/google` is the Gemini adapter and holds every Gemini specific mapping (`packages/google/src/mapping/gemini-request.mapper.ts`, `gemini-failure.mapper.ts`, `gemini-stream.mapper.ts`). Nothing in the core knows a provider name.
 
 Keep it that way: a semantic that a second provider would also need belongs in the core, not in the adapter that discovered it. Model failover is in the core for that reason.
 

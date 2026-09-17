@@ -1,0 +1,76 @@
+import { InvalidStructuredOutputError } from "@nestjs-adk/core";
+import { describe, expect, it } from "vitest";
+import { ScriptedModel } from "../model/scripted-model.double";
+import { JudgeRubric } from "./judge-rubric.value-object";
+import { LlmJudge } from "./llm-judge.service";
+
+const RUBRIC = JudgeRubric.of("names the order id and says it shipped");
+
+function judgeAnswering(text: string): LlmJudge {
+	return new LlmJudge(new ScriptedModel().mockText(text));
+}
+
+describe("LlmJudge", () => {
+	it("passes an answer the judge scored above the threshold", async () => {
+		const verdict = await judgeAnswering('{"score":0.9,"reason":"it names 42 and says shipped"}').judge(
+			"order 42 has shipped",
+			RUBRIC,
+		);
+
+		expect(verdict.passed).toBe(true);
+		expect(verdict.score).toBe(0.9);
+		expect(verdict.reason).toContain("42");
+	});
+
+	it("fails an answer below the threshold, and keeps the reason for the failure message", async () => {
+		const verdict = await judgeAnswering('{"score":0.2,"reason":"it never says what happened to the order"}').judge(
+			"I looked into it",
+			RUBRIC,
+		);
+
+		expect(verdict.passed).toBe(false);
+		expect(verdict.reason).toContain("never says");
+	});
+
+	it("uses the threshold the rubric declared", async () => {
+		const strict = JudgeRubric.of("mentions the refund", 0.95);
+
+		const verdict = await judgeAnswering('{"score":0.9,"reason":"close"}').judge("refunded", strict);
+
+		expect(verdict.passed).toBe(false);
+	});
+
+	it("refuses a verdict it cannot read, instead of inventing one", async () => {
+		await expect(judgeAnswering("looks good to me").judge("order 42 shipped", RUBRIC)).rejects.toBeInstanceOf(
+			InvalidStructuredOutputError,
+		);
+	});
+
+	it("refuses a verdict with no score", async () => {
+		await expect(judgeAnswering('{"reason":"good"}').judge("order 42 shipped", RUBRIC)).rejects.toBeInstanceOf(
+			InvalidStructuredOutputError,
+		);
+	});
+
+	/**
+	 * The schema travels in the strict subset, because one provider enforces it.
+	 *
+	 * OpenAI answers 400 to a structured output schema that does not close the object, and
+	 * it names the field. Gemini accepts either shape, so the strict one is the only one
+	 * worth sending.
+	 */
+	it("asks for a closed object, which is the only shape every provider accepts", async () => {
+		const model = new ScriptedModel().mockText('{"score":1,"reason":"ok"}');
+
+		await new LlmJudge(model).judge("order 42 has shipped", RUBRIC);
+
+		expect(JSON.stringify(model.requests.at(0)?.outputSchema)).toContain('"additionalProperties":false');
+	});
+
+	it("survives a judge that scored without explaining", async () => {
+		const verdict = await judgeAnswering('{"score":1}').judge("order 42 shipped", RUBRIC);
+
+		expect(verdict.passed).toBe(true);
+		expect(verdict.reason).toBe("");
+	});
+});
