@@ -94,7 +94,7 @@ A cancelled run ends by throwing, and `RunJournal.terminal` reads the cancellati
 
 ## The loop has a ceiling nobody has to ask for
 
-`RunLimits.maxIterations` is fifty unless somebody says otherwise, and that is the module default in `RuntimeOptions`, overridden by the agent and then by the call the same way every other limit is.
+`RunLimits.maxIterations` is fifty unless somebody says otherwise, and that is the module default in `RuntimeOptions.limits`, overridden by the agent and then by the call the same way every other limit is.
 
 It used to be absent, which read as trust and behaved as a bill. A model looping on a tool it cannot satisfy is not an exotic failure, it is a Tuesday, and absence meant nobody found out until the invoice. Fifty is high enough that no honest agent reaches it and low enough that a loop is paid for once.
 

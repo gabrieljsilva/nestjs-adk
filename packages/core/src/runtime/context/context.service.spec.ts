@@ -110,7 +110,12 @@ describe("ContextService", () => {
 		const journal = new JournalFixture().user("hi").assistant("hello");
 		const manager = managerOf(await storageWith(journal, new InMemorySessionStorage()));
 
-		const prepared = await manager.prepare(new PrepareContextCommand(runOf(journal), new StubModel()));
+		const prepared = await manager.prepare(
+			new PrepareContextCommand({
+				context: runOf(journal),
+				model: new StubModel(),
+			}),
+		);
 
 		expect(prepared.request.messages.map((message) => message.text)).toEqual(["hi", "hello"]);
 		expect(prepared.compacted).toBe(false);
@@ -120,12 +125,12 @@ describe("ContextService", () => {
 	it("measures the size of the prompt in characters, and reports no size in tokens", async () => {
 		const journal = new JournalFixture().user("hi");
 		const manager = managerOf(await storageWith(journal, new InMemorySessionStorage()));
-		const command = new PrepareContextCommand(
-			runOf(journal),
-			new StubModel(),
-			[new ToolDeclaration("search", "finds things", {})],
-			PromptInstructions.from("be brief"),
-		);
+		const command = new PrepareContextCommand({
+			context: runOf(journal),
+			model: new StubModel(),
+			tools: [new ToolDeclaration("search", "finds things", {})],
+			runtimeInstructions: PromptInstructions.from("be brief"),
+		});
 
 		const prepared = await manager.prepare(command);
 
@@ -138,15 +143,12 @@ describe("ContextService", () => {
 		const journal = conversationOf(10);
 		const manager = managerOf(await storageWith(journal, new InMemorySessionStorage()));
 		const model = new StubModel(new ModelContextWindow(1000, 200));
-		const command = new PrepareContextCommand(
-			runOf(journal),
-			model,
-			[],
-			undefined,
-			undefined,
-			undefined,
-			await measured(journal, 900),
-		);
+		const command = new PrepareContextCommand({
+			context: runOf(journal),
+			model: model,
+			tools: [],
+			lastPrompt: await measured(journal, 900),
+		});
 
 		await expect(manager.prepare(command)).rejects.toBeInstanceOf(ContextBudgetExceededError);
 	});
@@ -156,7 +158,12 @@ describe("ContextService", () => {
 		const manager = managerOf(await storageWith(journal, new InMemorySessionStorage()));
 		const model = new StubModel(new ModelContextWindow(30, 10));
 
-		const prepared = await manager.prepare(new PrepareContextCommand(runOf(journal), model));
+		const prepared = await manager.prepare(
+			new PrepareContextCommand({
+				context: runOf(journal),
+				model: model,
+			}),
+		);
 
 		expect(prepared.budget.isMeasured).toBe(false);
 	});
@@ -164,15 +171,12 @@ describe("ContextService", () => {
 	it("reports how much of a known window is still free, once a call was measured", async () => {
 		const journal = new JournalFixture().user("hi");
 		const manager = managerOf(await storageWith(journal, new InMemorySessionStorage()));
-		const command = new PrepareContextCommand(
-			runOf(journal),
-			new StubModel(new ModelContextWindow(1000, 200)),
-			[],
-			undefined,
-			undefined,
-			undefined,
-			await measured(journal, 300),
-		);
+		const command = new PrepareContextCommand({
+			context: runOf(journal),
+			model: new StubModel(new ModelContextWindow(1000, 200)),
+			tools: [],
+			lastPrompt: await measured(journal, 300),
+		});
 
 		const prepared = await manager.prepare(command);
 
@@ -186,8 +190,18 @@ describe("ContextService", () => {
 		const manager = managerOf(await storageWith(journal, new InMemorySessionStorage()), new ContextWindowNotifier(sink));
 		const model = new StubModel(new UnknownContextWindow(), new ModelIdentity("acme", "windowless"));
 
-		await manager.prepare(new PrepareContextCommand(runOf(journal), model));
-		await manager.prepare(new PrepareContextCommand(runOf(journal), model));
+		await manager.prepare(
+			new PrepareContextCommand({
+				context: runOf(journal),
+				model: model,
+			}),
+		);
+		await manager.prepare(
+			new PrepareContextCommand({
+				context: runOf(journal),
+				model: model,
+			}),
+		);
 
 		expect(sink.notices).toHaveLength(1);
 	});
@@ -196,8 +210,18 @@ describe("ContextService", () => {
 		const journal = new JournalFixture().user("hi").toolCall("c-1", "search").toolResult("c-1", "search", { hits: 1 });
 		const manager = managerOf(await storageWith(journal, new InMemorySessionStorage()));
 
-		const first = await manager.prepare(new PrepareContextCommand(runOf(journal), new StubModel()));
-		const second = await manager.prepare(new PrepareContextCommand(runOf(journal), new StubModel()));
+		const first = await manager.prepare(
+			new PrepareContextCommand({
+				context: runOf(journal),
+				model: new StubModel(),
+			}),
+		);
+		const second = await manager.prepare(
+			new PrepareContextCommand({
+				context: runOf(journal),
+				model: new StubModel(),
+			}),
+		);
 
 		expect(first.request.messages.map((message) => message.text)).toEqual(
 			second.request.messages.map((message) => message.text),
@@ -209,17 +233,20 @@ describe("ContextService", () => {
 		const journal = conversationOf(10);
 		const storage = await storageWith(journal, new InMemorySessionStorage());
 		const manager = managerOf(storage);
-		const command = new PrepareContextCommand(
-			runOf(journal),
-			new StubModel(),
-			[],
-			undefined,
-			undefined,
-			new WindowShareCompactionPolicy({ maxShare: 0.9, targetShare: 0.7, keepRecentBlocks: 2 }),
-			await measured(journal, 1200),
-		);
+		const command = new PrepareContextCommand({
+			context: runOf(journal),
+			model: new StubModel(),
+			tools: [],
+			compaction: new WindowShareCompactionPolicy({ maxShare: 0.9, targetShare: 0.7, keepRecentBlocks: 2 }),
+			lastPrompt: await measured(journal, 1200),
+		});
 
-		const uncompacted = await manager.prepare(new PrepareContextCommand(runOf(journal), new StubModel()));
+		const uncompacted = await manager.prepare(
+			new PrepareContextCommand({
+				context: runOf(journal),
+				model: new StubModel(),
+			}),
+		);
 		const prepared = await manager.prepare(command);
 
 		expect(uncompacted.compacted).toBe(false);
@@ -235,16 +262,20 @@ describe("ContextService", () => {
 		const storage = await storageWith(journal, new InMemorySessionStorage());
 		const manager = managerOf(storage);
 		const prompt = PromptInstructions.from("be brief");
-		const plain = new PrepareContextCommand(runOf(journal), new StubModel(), [], undefined, prompt);
-		const compacting = new PrepareContextCommand(
-			runOf(journal),
-			new StubModel(),
-			[],
-			undefined,
-			prompt,
-			new WindowShareCompactionPolicy({ maxShare: 0.9, targetShare: 0.7, keepRecentBlocks: 2 }),
-			await measured(journal, 1200),
-		);
+		const plain = new PrepareContextCommand({
+			context: runOf(journal),
+			model: new StubModel(),
+			tools: [],
+			agentPrompt: prompt,
+		});
+		const compacting = new PrepareContextCommand({
+			context: runOf(journal),
+			model: new StubModel(),
+			tools: [],
+			agentPrompt: prompt,
+			compaction: new WindowShareCompactionPolicy({ maxShare: 0.9, targetShare: 0.7, keepRecentBlocks: 2 }),
+			lastPrompt: await measured(journal, 1200),
+		});
 
 		const before = await manager.prepare(plain);
 		const after = await manager.prepare(compacting);
@@ -257,18 +288,21 @@ describe("ContextService", () => {
 		const journal = conversationOf(10);
 		const storage = await storageWith(journal, new InMemorySessionStorage());
 		const manager = managerOf(storage);
-		const command = new PrepareContextCommand(
-			runOf(journal),
-			new StubModel(),
-			[],
-			undefined,
-			undefined,
-			new WindowShareCompactionPolicy({ maxShare: 0.9, targetShare: 0.7, keepRecentBlocks: 2 }),
-			await measured(journal, 1200),
-		);
+		const command = new PrepareContextCommand({
+			context: runOf(journal),
+			model: new StubModel(),
+			tools: [],
+			compaction: new WindowShareCompactionPolicy({ maxShare: 0.9, targetShare: 0.7, keepRecentBlocks: 2 }),
+			lastPrompt: await measured(journal, 1200),
+		});
 
 		const first = await manager.prepare(command);
-		const second = await manager.prepare(new PrepareContextCommand(runOf(journal), new StubModel()));
+		const second = await manager.prepare(
+			new PrepareContextCommand({
+				context: runOf(journal),
+				model: new StubModel(),
+			}),
+		);
 
 		expect(second.compacted).toBe(false);
 		expect(second.request.messages).toHaveLength(first.request.messages.length);
@@ -280,19 +314,22 @@ describe("ContextService", () => {
 		const storage = await storageWith(journal, new InMemorySessionStorage());
 		const manager = managerOf(storage);
 		await manager.prepare(
-			new PrepareContextCommand(
-				runOf(journal),
-				new StubModel(),
-				[],
-				undefined,
-				undefined,
-				new WindowShareCompactionPolicy({ maxShare: 0.9, targetShare: 0.7, keepRecentBlocks: 2 }),
-				await measured(journal, 1200),
-			),
+			new PrepareContextCommand({
+				context: runOf(journal),
+				model: new StubModel(),
+				tools: [],
+				compaction: new WindowShareCompactionPolicy({ maxShare: 0.9, targetShare: 0.7, keepRecentBlocks: 2 }),
+				lastPrompt: await measured(journal, 1200),
+			}),
 		);
 
 		const prepared = await manager.prepare(
-			new PrepareContextCommand(runOf(journal), new StubModel(), [], undefined, PromptInstructions.from("new")),
+			new PrepareContextCommand({
+				context: runOf(journal),
+				model: new StubModel(),
+				tools: [],
+				agentPrompt: PromptInstructions.from("new"),
+			}),
 		);
 
 		expect(prepared.request.messages).toHaveLength(20);
@@ -302,14 +339,26 @@ describe("ContextService", () => {
 		const journal = new JournalFixture().user("hi").assistant("hello");
 		const storage = await storageWith(journal, new InMemorySessionStorage());
 		const digest = new StablePrefixDigest().of(
-			(await managerOf(storage).prepare(new PrepareContextCommand(runOf(journal), new StubModel()))).projection,
+			(
+				await managerOf(storage).prepare(
+					new PrepareContextCommand({
+						context: runOf(journal),
+						model: new StubModel(),
+					}),
+				)
+			).projection,
 		);
 		await storage.saveCheckpoint(
 			ctxOf(journal),
 			new ContextCheckpoint(journal.sessionId, new SessionRevision(2), "oldest-first", 99, digest, []),
 		);
 
-		const prepared = await managerOf(storage).prepare(new PrepareContextCommand(runOf(journal), new StubModel()));
+		const prepared = await managerOf(storage).prepare(
+			new PrepareContextCommand({
+				context: runOf(journal),
+				model: new StubModel(),
+			}),
+		);
 
 		expect(prepared.request.messages).toHaveLength(2);
 	});
@@ -329,7 +378,12 @@ describe("ContextService", () => {
 			),
 		);
 
-		const prepared = await managerOf(storage).prepare(new PrepareContextCommand(runOf(journal), new StubModel()));
+		const prepared = await managerOf(storage).prepare(
+			new PrepareContextCommand({
+				context: runOf(journal),
+				model: new StubModel(),
+			}),
+		);
 
 		expect(prepared.request.messages).toHaveLength(2);
 	});
@@ -340,15 +394,13 @@ describe("ContextService", () => {
 		const manager = managerOf(storage);
 
 		const prepared = await manager.prepare(
-			new PrepareContextCommand(
-				runOf(journal),
-				new StubModel(),
-				[],
-				undefined,
-				undefined,
-				new WindowShareCompactionPolicy({ maxShare: 0.9, targetShare: 0.7, keepRecentBlocks: 2 }),
-				await measured(journal, 1200),
-			),
+			new PrepareContextCommand({
+				context: runOf(journal),
+				model: new StubModel(),
+				tools: [],
+				compaction: new WindowShareCompactionPolicy({ maxShare: 0.9, targetShare: 0.7, keepRecentBlocks: 2 }),
+				lastPrompt: await measured(journal, 1200),
+			}),
 		);
 
 		expect(prepared.compacted).toBe(true);
@@ -361,15 +413,13 @@ describe("ContextService", () => {
 		const before = await collect(storage, journal);
 
 		await manager.prepare(
-			new PrepareContextCommand(
-				runOf(journal),
-				new StubModel(),
-				[],
-				undefined,
-				undefined,
-				new WindowShareCompactionPolicy({ maxShare: 0.9, targetShare: 0.7, keepRecentBlocks: 2 }),
-				await measured(journal, 1200),
-			),
+			new PrepareContextCommand({
+				context: runOf(journal),
+				model: new StubModel(),
+				tools: [],
+				compaction: new WindowShareCompactionPolicy({ maxShare: 0.9, targetShare: 0.7, keepRecentBlocks: 2 }),
+				lastPrompt: await measured(journal, 1200),
+			}),
 		);
 
 		expect(await collect(storage, journal)).toEqual(before);

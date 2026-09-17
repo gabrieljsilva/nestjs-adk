@@ -11,7 +11,7 @@ Declare one pricing source in the module and `AgentResult.cost` is filled on eve
 AdkModule.forRoot(
 	AdkModuleOptions.from({
 		defaultModel,
-		runtime: RuntimeOptions.from({ pricing: new LiteLLMPricingSource() }),
+		runtime: RuntimeOptions.from({ cost: { pricing: new LiteLLMPricingSource() } }),
 	}),
 );
 

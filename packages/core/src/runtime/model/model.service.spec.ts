@@ -38,7 +38,10 @@ function serviceOf(model: LlmModel): ModelService {
 }
 
 function askingWithImage(): AskInput {
-	return AskInput.with("what is this?", [MediaPart.image("image/png", PIXEL)]);
+	return new AskInput({
+		message: "what is this?",
+		attachments: [MediaPart.image("image/png", PIXEL)],
+	});
 }
 
 describe("ModelService", () => {

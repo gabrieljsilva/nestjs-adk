@@ -18,19 +18,40 @@ import type { RunContext } from "../../domain/run/run-context.value-object";
  * an absolute size in the whole pipeline, so without it a context has a size in
  * characters and none in tokens, and nothing is refused on guesswork.
  */
+/** Everything the preparation takes, named rather than ordered. */
+export interface PrepareContextParams {
+	/** Where this call is being prepared, handed on to the projector and the strategy. */
+	context: RunContext;
+	model: LlmModel;
+	tools?: readonly ToolDeclaration[];
+	runtimeInstructions?: PromptInstructions;
+	agentPrompt?: PromptInstructions;
+	compaction?: AdkCompactionPolicy;
+	lastPrompt?: PromptMeasurement;
+	/** The shape the agent answers in, carried through so the projection can ask for it. */
+	outputSchema?: object;
+}
+
 export class PrepareContextCommand {
-	public constructor(
-		/** Where this call is being prepared, handed on to the projector and the strategy. */
-		public readonly context: RunContext,
-		public readonly model: LlmModel,
-		public readonly tools: readonly ToolDeclaration[] = [],
-		public readonly runtimeInstructions?: PromptInstructions,
-		public readonly agentPrompt?: PromptInstructions,
-		public readonly compaction?: AdkCompactionPolicy,
-		public readonly lastPrompt?: PromptMeasurement,
-		/** The shape the agent answers in, carried through so the projection can ask for it. */
-		public readonly outputSchema?: object,
-	) {}
+	public readonly context: RunContext;
+	public readonly model: LlmModel;
+	public readonly tools: readonly ToolDeclaration[];
+	public readonly runtimeInstructions?: PromptInstructions;
+	public readonly agentPrompt?: PromptInstructions;
+	public readonly compaction?: AdkCompactionPolicy;
+	public readonly lastPrompt?: PromptMeasurement;
+	public readonly outputSchema?: object;
+
+	public constructor(params: PrepareContextParams) {
+		this.context = params.context;
+		this.model = params.model;
+		this.tools = params.tools ?? [];
+		this.runtimeInstructions = params.runtimeInstructions;
+		this.agentPrompt = params.agentPrompt;
+		this.compaction = params.compaction;
+		this.lastPrompt = params.lastPrompt;
+		this.outputSchema = params.outputSchema;
+	}
 
 	public get sessionId(): SessionId {
 		return this.context.sessionId;

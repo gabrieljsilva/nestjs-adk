@@ -117,4 +117,6 @@ Two readings settle the cases the table left open, and new code follows them:
 - `read` extracts a value out of a payload, a metadata object or an error, even when the extraction can answer nothing (`readDataUrl`, `readFailover`). `find` stays for a lookup in a collection or a store (`findReplay`, `findRequiredEffect`).
 - `resolve` is for normalizing a union or asking a collaborator what a reference becomes this time (`resolveSession`, `resolveCompaction`, `resolveModel`).
 
-What is left is outside the countdown and outside this lib's production surface: helper functions local to a spec still read `contextOf`, `agentOf`, `toolFor`, and `apps/playground` keeps `of` factories on its own domain classes, which is the application's convention rather than the lib's. Two statics also name no source yet: `AskInput.with` and `ToolOutput.with`, both of which phase 6 turns into input objects.
+`AskInput.with` and `ToolOutput.with` were the last two statics naming no source. Phase 6B removed both rather than renaming them: each only assembled values the caller already held, which the rule above says is a constructor. `AskInput` now takes an `AskInputParams` object and keeps `fromMessage`, which does name its source; `ToolOutput` is a public constructor and nothing else.
+
+What is left is outside the countdown and outside this lib's production surface: helper functions local to a spec still read `contextOf`, `agentOf`, `toolFor`, and `apps/playground` keeps `of` factories on its own domain classes, which is the application's convention rather than the lib's.

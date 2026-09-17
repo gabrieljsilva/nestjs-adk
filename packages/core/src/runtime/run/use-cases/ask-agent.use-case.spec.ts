@@ -30,7 +30,12 @@ beforeEach(() => {
 
 describe("AskAgentUseCase", () => {
 	it("answers with the text the model produced, on a session it created", async () => {
-		const result = await harness.asking.execute(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
+		const result = await harness.asking.execute(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("hi"),
+			}),
+		);
 
 		expect(result.text).toBe("hello");
 		expect(result.status.equals(AgentRunStatus.COMPLETED)).toBe(true);
@@ -38,7 +43,12 @@ describe("AskAgentUseCase", () => {
 	});
 
 	it("journals the question before the answer, and the answer with the end of the run", async () => {
-		const result = await harness.asking.execute(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
+		const result = await harness.asking.execute(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("hi"),
+			}),
+		);
 
 		const types = (await harness.readJournal(result.sessionId)).map((event) => event.type);
 		expect(types).toEqual([
@@ -51,7 +61,12 @@ describe("AskAgentUseCase", () => {
 	});
 
 	it("correlates every event of the run to the same run id", async () => {
-		const result = await harness.asking.execute(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
+		const result = await harness.asking.execute(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("hi"),
+			}),
+		);
 
 		const runIds = (await harness.readJournal(result.sessionId)).map((event) => event.correlation.runId.value);
 		expect(new Set(runIds).size).toBe(1);
@@ -59,10 +74,18 @@ describe("AskAgentUseCase", () => {
 	});
 
 	it("continues an existing session instead of starting a second one", async () => {
-		const first = await harness.asking.execute(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
+		const first = await harness.asking.execute(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("hi"),
+			}),
+		);
 
 		const second = await harness.asking.execute(
-			new AgentRunCommand(SUPPORT, AskInput.fromMessage("again", first.sessionId)),
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("again", first.sessionId),
+			}),
 		);
 
 		expect(second.sessionId.value).toBe(first.sessionId.value);
@@ -71,9 +94,19 @@ describe("AskAgentUseCase", () => {
 	});
 
 	it("shows the model the conversation the journal recorded", async () => {
-		const first = await harness.asking.execute(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
+		const first = await harness.asking.execute(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("hi"),
+			}),
+		);
 
-		await harness.asking.execute(new AgentRunCommand(SUPPORT, AskInput.fromMessage("again", first.sessionId)));
+		await harness.asking.execute(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("again", first.sessionId),
+			}),
+		);
 
 		const said = (await harness.readJournal(first.sessionId))
 			.filter((event): event is UserMessageReceived => event instanceof UserMessageReceived)
@@ -90,7 +123,12 @@ describe("AskAgentUseCase", () => {
 			]),
 		);
 
-		const result = await measured.asking.execute(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
+		const result = await measured.asking.execute(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("hi"),
+			}),
+		);
 
 		const answer = (await measured.readJournal(result.sessionId)).find(
 			(event): event is AssistantMessageProduced => event instanceof AssistantMessageProduced,
@@ -100,7 +138,12 @@ describe("AskAgentUseCase", () => {
 	});
 
 	it("records no measurement when the provider reported nothing", async () => {
-		const result = await harness.asking.execute(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
+		const result = await harness.asking.execute(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("hi"),
+			}),
+		);
 
 		const answer = (await harness.readJournal(result.sessionId)).find(
 			(event): event is AssistantMessageProduced => event instanceof AssistantMessageProduced,
@@ -116,7 +159,12 @@ describe("AskAgentUseCase", () => {
 			NativeStackFixture.buildDefinition(primary, new SequentialFailoverPolicy([fallback])),
 		);
 
-		const result = await rerouted.asking.execute(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
+		const result = await rerouted.asking.execute(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("hi"),
+			}),
+		);
 
 		const journal = await rerouted.readJournal(result.sessionId);
 		const at = journal.findIndex((event) => event instanceof ModelRerouted);
@@ -132,7 +180,12 @@ describe("AskAgentUseCase", () => {
 		const failing = new NativeStackFixture(new ScriptedModel("primary", [], true));
 
 		const error = await failing.asking
-			.execute(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")))
+			.execute(
+				new AgentRunCommand({
+					agent: SUPPORT,
+					input: AskInput.fromMessage("hi"),
+				}),
+			)
 			.catch((reason) => reason);
 
 		expect(error).toBeInstanceOf(Error);
@@ -145,23 +198,45 @@ describe("AskAgentUseCase", () => {
 	});
 
 	it("leaves no run active, however the command settled", async () => {
-		await harness.asking.execute(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
+		await harness.asking.execute(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("hi"),
+			}),
+		);
 		expect(harness.tracker.isEmpty).toBe(true);
 
 		const failing = new NativeStackFixture(new ScriptedModel("primary", [], true));
-		await failing.asking.execute(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi"))).catch(() => undefined);
+		await failing.asking
+			.execute(
+				new AgentRunCommand({
+					agent: SUPPORT,
+					input: AskInput.fromMessage("hi"),
+				}),
+			)
+			.catch(() => undefined);
 
 		expect(failing.tracker.isEmpty).toBe(true);
 	});
 
 	it("refuses a session that no longer accepts commands", async () => {
-		const first = await harness.asking.execute(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
+		const first = await harness.asking.execute(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("hi"),
+			}),
+		);
 		const stored = await harness.storage.findOrFail(SessionContext.fromSessionId(first.sessionId));
 		await harness.storage.delete(SessionContext.fromSessionId(first.sessionId));
 		await harness.storage.create(SessionContext.fromSessionId(first.sessionId), stored.withStatus(SessionStatus.CLOSED));
 
 		const error = await harness.asking
-			.execute(new AgentRunCommand(SUPPORT, AskInput.fromMessage("again", first.sessionId)))
+			.execute(
+				new AgentRunCommand({
+					agent: SUPPORT,
+					input: AskInput.fromMessage("again", first.sessionId),
+				}),
+			)
 			.catch((reason) => reason);
 
 		expect(error).toBeInstanceOf(SessionClosedError);
@@ -169,7 +244,12 @@ describe("AskAgentUseCase", () => {
 
 	it("refuses an agent the catalog does not know", async () => {
 		const error = await harness.asking
-			.execute(new AgentRunCommand(AgentName.from("billing"), AskInput.fromMessage("hi")))
+			.execute(
+				new AgentRunCommand({
+					agent: AgentName.from("billing"),
+					input: AskInput.fromMessage("hi"),
+				}),
+			)
 			.catch((reason) => reason);
 
 		expect(error).toBeInstanceOf(Error);

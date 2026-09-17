@@ -21,7 +21,7 @@ import type { AdkModuleOptions } from "./adk-module.options";
  *     return AdkModuleOptions.from({
  *       defaultModel: this.model,
  *       storage: this.storage,
- *       runtime: RuntimeOptions.from({ pricing: this.pricing }),
+ *       runtime: RuntimeOptions.from({ cost: { pricing: this.pricing } }),
  *     });
  *   }
  * }

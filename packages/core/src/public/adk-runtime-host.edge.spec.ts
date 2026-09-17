@@ -14,7 +14,11 @@ import { HostNotStartedError } from "./errors/host-not-started.error";
 function declared(name: string): DeclaredAgent {
 	const agent = AgentName.from(name);
 	return new DeclaredAgent(
-		new AgentDefinition(agent, AgentDescription.from(`${name} agent`, name), new ScriptedModel("primary")),
+		new AgentDefinition({
+			name: agent,
+			description: AgentDescription.from(`${name} agent`, name),
+			model: new ScriptedModel("primary"),
+		}),
 		`${name}Provider`,
 	);
 }

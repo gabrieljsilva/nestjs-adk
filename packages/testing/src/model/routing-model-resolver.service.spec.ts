@@ -6,7 +6,11 @@ import { ScriptedModel } from "./scripted-model.double";
 const DECLARED = new ScriptedModel("declared");
 
 function buildDefinition(name: string, model: LlmModel = DECLARED): AgentDefinition {
-	return new AgentDefinition(AgentName.from(name), AgentDescription.from("An agent.", name), model);
+	return new AgentDefinition({
+		name: AgentName.from(name),
+		description: AgentDescription.from("An agent.", name),
+		model: model,
+	});
 }
 
 class AlwaysResolver extends ModelResolver {

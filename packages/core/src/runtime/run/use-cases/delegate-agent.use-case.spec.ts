@@ -12,7 +12,12 @@ const SUPPORT = NativeStackFixture.AGENT;
 describe("DelegateAgentUseCase", () => {
 	it("refuses a delegation the asking agent never declared, without touching the session", async () => {
 		const stack = new NativeStackFixture(new ScriptedModel("primary"));
-		const started = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
+		const started = await stack.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("hi"),
+			}),
+		);
 		const before = (await stack.readJournal(started.sessionId)).length;
 
 		await expect(
@@ -24,7 +29,12 @@ describe("DelegateAgentUseCase", () => {
 
 	it("answers on the session that already existed, keeping its id", async () => {
 		const stack = new NativeStackFixture(new ScriptedModel("primary"));
-		const started = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
+		const started = await stack.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("hi"),
+			}),
+		);
 
 		await expect(
 			stack.runner.delegate(new DelegateInput(started.sessionId, SUPPORT, AgentName.from("nobody"), "do it")),

@@ -184,10 +184,21 @@ export { SystemClock } from "./common/time/system-clock.adapter";
 export { RandomIdGenerator } from "./public/nest/random-id-generator.adapter";
 export { RuntimeOptions } from "./runtime/composition/runtime.options";
 export type { RuntimeOptionsPatch } from "./runtime/composition/runtime.options";
+export { ContextOptions } from "./runtime/composition/context.options";
+export type { ContextOptionsPatch } from "./runtime/composition/context.options";
+export { CostOptions } from "./runtime/composition/cost.options";
+export type { CostOptionsPatch } from "./runtime/composition/cost.options";
+export { ToolingOptions } from "./runtime/composition/tooling.options";
+export type { ToolingOptionsPatch } from "./runtime/composition/tooling.options";
+export { LifecycleOptions } from "./runtime/composition/lifecycle.options";
+export type { LifecycleOptionsPatch } from "./runtime/composition/lifecycle.options";
+export { ModelOptions } from "./runtime/composition/model.options";
+export type { ModelOptionsPatch } from "./runtime/composition/model.options";
 export { RuntimeServices } from "./runtime/composition/runtime-services.value-object";
 export { ShutdownOptions } from "./runtime/lifecycle/shutdown.options";
 export { Clock } from "./common/time/clock.contract";
 export { Instant } from "./common/time/instant.value-object";
+export { Duration } from "./common/time/duration.value-object";
 export { IdGenerator } from "./common/identity/id-generator.contract";
 
 // tools
@@ -314,6 +325,10 @@ export { OldestFirstCompactionStrategy } from "./runtime/context/oldest-first-co
 
 // failover
 export { AgentFailoverPolicy } from "./domain/agent/agent-failover.policy";
+export { ModelRetryPolicy } from "./domain/agent/model-retry.policy";
+export { BackoffRetryPolicy } from "./domain/agent/backoff-retry.policy";
+export { NoRetryPolicy } from "./domain/agent/no-retry.policy";
+export { RetryAttempt } from "./domain/agent/retry-attempt.value-object";
 export { SequentialFailoverPolicy } from "./domain/agent/sequential-failover.policy";
 export { FailoverContext } from "./domain/agent/failover-context.value-object";
 export { ModelReroute } from "./domain/agent/model-reroute.value-object";

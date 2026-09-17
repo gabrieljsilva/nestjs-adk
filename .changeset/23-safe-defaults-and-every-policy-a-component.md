@@ -6,7 +6,7 @@
 
 Safe defaults out of the box, and every policy the runtime consults is now a component you can replace.
 
-A destructive tool waits for a person unless you say otherwise: `RuntimeOptions.approvals` defaults to `EffectApprovalPolicy.destructiveOnly()` instead of `never()`. The trade is not symmetric. The cost of this default being wrong is a run that waits for a click; the cost of the old one being wrong is a refund nobody agreed to. Say `EffectApprovalPolicy.never()` to run everything unattended.
+A destructive tool waits for a person unless you say otherwise: `RuntimeOptions.tools.approvals` defaults to `EffectApprovalPolicy.destructiveOnly()` instead of `never()`. The trade is not symmetric. The cost of this default being wrong is a run that waits for a click; the cost of the old one being wrong is a refund nobody agreed to. Say `EffectApprovalPolicy.never()` to run everything unattended.
 
 A run stops after fifty iterations unless you say otherwise. `RunLimits.maxIterations` was absent by default, which read as trust and behaved as a bill: a model looping on a tool it cannot satisfy spent money until somebody noticed. `RunLimits.unbounded()` takes the ceiling off, and it is a declaration rather than a field left out.
 

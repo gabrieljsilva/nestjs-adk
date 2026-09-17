@@ -78,13 +78,15 @@ export const storeOptions = AdkModuleOptions.from({
 	defaultModel: geminiFlashLite,
 	storage: new SqliteSessionStorage(storeConnection),
 	runtime: RuntimeOptions.from({
-		approvals: EffectApprovalPolicy.from(ToolEffect.DESTRUCTIVE),
-		summarizer: new StoreSummarizer(geminiFlashLite),
-		compaction: COMPACTION,
-		pricing: new LiteLLMPricingSource(),
+		tools: { approvals: EffectApprovalPolicy.from(ToolEffect.DESTRUCTIVE) },
+		context: {
+			summarizer: new StoreSummarizer(geminiFlashLite),
+			compaction: COMPACTION,
+			// A question names an upload by id; the vault is asked again on every projection.
+			attachments: new InlineAttachmentResolver(async (externalId) => uploadsVault.find(externalId)),
+		},
+		cost: { pricing: new LiteLLMPricingSource() },
 		limits: STORE_LIMITS,
-		// A question names an upload by id; the vault is asked again on every projection.
-		attachments: new InlineAttachmentResolver(async (externalId) => uploadsVault.find(externalId)),
 	}),
 });
 

@@ -51,8 +51,8 @@ describe("the store, end to end", () => {
 
 		expect(bed.get(ConciergeAgent).agentName.value).toBe("concierge");
 		expect(bed.get(SalesAgent).agentName.value).toBe("sales");
-		expect(registry.get("warranty").name.value).toBe("warranty");
-		expect(registry.get("billing").name.value).toBe("billing");
+		expect(registry.open("warranty").name.value).toBe("warranty");
+		expect(registry.open("billing").name.value).toBe("billing");
 	});
 
 	it("runs a tool through the use case and SQLite", async () => {
@@ -434,8 +434,10 @@ describe("the store, on a conversation too long to send", () => {
 			.withScript(WarrantyAgent, (script) => script.mockText("not called"))
 			.withScript(BillingAgent, (script) => script.mockText("not called"))
 			.withRuntime({
-				compaction: new WindowShareCompactionPolicy({ maxShare: 0.02, targetShare: 0.018, keepRecentBlocks: 4 }),
-				summarizer: new NamingSummarizer(),
+				context: {
+					compaction: new WindowShareCompactionPolicy({ maxShare: 0.02, targetShare: 0.018, keepRecentBlocks: 4 }),
+					summarizer: new NamingSummarizer(),
+				},
 			})
 			.boot();
 		const scripted = bed.script(ConciergeAgent);
@@ -464,8 +466,10 @@ describe("the store, on a conversation too long to send", () => {
 			.withScript(WarrantyAgent, (script) => script.mockText("not called"))
 			.withScript(BillingAgent, (script) => script.mockText("not called"))
 			.withRuntime({
-				compaction: new WindowShareCompactionPolicy({ maxShare: 0.02, targetShare: 0.018, keepRecentBlocks: 4 }),
-				summarizer: new NamingSummarizer(),
+				context: {
+					compaction: new WindowShareCompactionPolicy({ maxShare: 0.02, targetShare: 0.018, keepRecentBlocks: 4 }),
+					summarizer: new NamingSummarizer(),
+				},
 			})
 			.boot();
 		const scripted = bed.script(ConciergeAgent);
@@ -495,8 +499,10 @@ describe("the store, on a conversation too long to send", () => {
 			.withScript(WarrantyAgent, (script) => script.mockText("not called"))
 			.withScript(BillingAgent, (script) => script.mockText("not called"))
 			.withRuntime({
-				compaction: new WindowShareCompactionPolicy({ maxShare: 0.02, targetShare: 0.018, keepRecentBlocks: 4 }),
-				summarizer: new NamingSummarizer(),
+				context: {
+					compaction: new WindowShareCompactionPolicy({ maxShare: 0.02, targetShare: 0.018, keepRecentBlocks: 4 }),
+					summarizer: new NamingSummarizer(),
+				},
 			})
 			.boot();
 		const scripted = bed.script(ConciergeAgent);
@@ -523,8 +529,10 @@ describe("the store, on a conversation too long to send", () => {
 			.withScript(WarrantyAgent, (script) => script.mockText("not called"))
 			.withScript(BillingAgent, (script) => script.mockText("not called"))
 			.withRuntime({
-				compaction: new WindowShareCompactionPolicy({ maxShare: 0.02, targetShare: 0.018, keepRecentBlocks: 4 }),
-				summarizer: new NamingSummarizer(),
+				context: {
+					compaction: new WindowShareCompactionPolicy({ maxShare: 0.02, targetShare: 0.018, keepRecentBlocks: 4 }),
+					summarizer: new NamingSummarizer(),
+				},
 			})
 			.boot();
 		const scripted = bed.script(ConciergeAgent);

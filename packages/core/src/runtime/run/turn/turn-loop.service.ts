@@ -165,28 +165,28 @@ export class TurnLoop extends DelegatedTurnLoop {
 		// A measurement another provider produced says nothing about this one's window.
 		const measured = state.lastPrompt?.takenBy(scope.model.descriptor().identity);
 		return this.context.prepare(
-			new PrepareContextCommand(
-				scope.context,
-				scope.model,
-				scope.catalog.declarations(),
-				undefined,
-				scope.skills.instructions(scope.instructions),
-				scope.compaction,
-				measured,
-				scope.definition.outputSchema,
-			),
+			new PrepareContextCommand({
+				context: scope.context,
+				model: scope.model,
+				tools: scope.catalog.declarations(),
+				agentPrompt: scope.skills.instructions(scope.instructions),
+				compaction: scope.compaction,
+				lastPrompt: measured,
+				outputSchema: scope.definition.outputSchema,
+			}),
 		);
 	}
 
 	private buildCommand(scope: RunScope, prepared: PreparedModelContext): ModelRunCommand {
-		return new ModelRunCommand(
-			scope.context,
-			scope.run.id,
-			scope.agent,
-			scope.model,
-			prepared.request,
-			scope.definition.failover,
-			scope.signal,
-		);
+		return new ModelRunCommand({
+			context: scope.context,
+			runId: scope.run.id,
+			agent: scope.agent,
+			model: scope.model,
+			request: prepared.request,
+			retry: scope.definition.retry,
+			failover: scope.definition.failover,
+			signal: scope.signal,
+		});
 	}
 }

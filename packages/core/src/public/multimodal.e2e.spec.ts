@@ -127,7 +127,7 @@ class ChartingModel extends LlmModel {
 /** Answers data and the picture of it, which is what `ToolOutput` exists for. */
 class ChartHandler extends ToolHandler {
 	public async invoke(): Promise<unknown> {
-		return ToolOutput.with({ rendered: true }, [imageOf()]);
+		return new ToolOutput({ rendered: true }, [imageOf()]);
 	}
 }
 
@@ -146,14 +146,14 @@ function agentOf(
 	policies: AgentExecutionPolicies = new AgentExecutionPolicies(),
 	tools: readonly ToolDefinition[] = [],
 ): DeclaredAgent {
-	const definition = new AgentDefinition(
-		SUPPORT,
-		AgentDescription.from("support agent", SUPPORT.value),
-		model,
-		PromptInstructions.from("Be brief."),
-		policies,
-		tools,
-	);
+	const definition = new AgentDefinition({
+		name: SUPPORT,
+		description: AgentDescription.from("support agent", SUPPORT.value),
+		model: model,
+		instructions: PromptInstructions.from("Be brief."),
+		policies: policies,
+		tools: tools,
+	});
 	return new DeclaredAgent(definition, "SupportAgent");
 }
 
@@ -228,7 +228,15 @@ describe("a question with an image in it", () => {
 		const artifacts = new InMemoryArtifactStorage(new SequenceIdGenerator("a"));
 		const runtime = await host.start([agentOf(model)], storage, artifacts, new FakeClock(), new SequenceIdGenerator());
 
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.with("what is this?", [imageOf()])));
+		const result = await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: new AskInput({
+					message: "what is this?",
+					attachments: [imageOf()],
+				}),
+			}),
+		);
 
 		expect(model.lastUserMessage?.hasMedia).toBe(true);
 		expect(model.lastUserMessage?.media[0]?.base64).toBe(PIXEL);
@@ -249,7 +257,15 @@ describe("a question with an image in it", () => {
 			new SequenceIdGenerator(),
 		);
 
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.with("look", [imageOf()])));
+		const result = await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: new AskInput({
+					message: "look",
+					attachments: [imageOf()],
+				}),
+			}),
+		);
 		const [message] = await messagesOf(storage, result.sessionId);
 		const id = message?.attachments[0];
 		if (id === undefined) throw new Error("expected an attachment id");
@@ -267,9 +283,27 @@ describe("a question with an image in it", () => {
 			new SequenceIdGenerator(),
 		);
 
-		const first = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.with("what is this?", [imageOf()])));
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("and its colour?", first.sessionId)));
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("are you sure?", first.sessionId)));
+		const first = await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: new AskInput({
+					message: "what is this?",
+					attachments: [imageOf()],
+				}),
+			}),
+		);
+		await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("and its colour?", first.sessionId),
+			}),
+		);
+		await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("are you sure?", first.sessionId),
+			}),
+		);
 
 		const shown = model.requests[2]?.messages.filter((message): message is UserMessage => message instanceof UserMessage);
 		expect(shown?.[0]?.media[0]?.base64).toBe(PIXEL);
@@ -289,7 +323,15 @@ describe("a question with an image in it", () => {
 		);
 
 		await expect(
-			runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.with("what is this?", [imageOf()]))),
+			runtime.runner.ask(
+				new AgentRunCommand({
+					agent: SUPPORT,
+					input: new AskInput({
+						message: "what is this?",
+						attachments: [imageOf()],
+					}),
+				}),
+			),
 		).rejects.toBeInstanceOf(UnsupportedCapabilityError);
 
 		expect(blind.requests).toHaveLength(0);
@@ -309,7 +351,15 @@ describe("a question with an image in it", () => {
 			new SequenceIdGenerator(),
 		);
 
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.with("what is this?", [imageOf()])));
+		const result = await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: new AskInput({
+					message: "what is this?",
+					attachments: [imageOf()],
+				}),
+			}),
+		);
 
 		expect(result.text).toBe("answer 1");
 		expect(blind.lastUserMessage?.hasMedia).toBe(false);
@@ -334,7 +384,15 @@ describe("a question with an image in it", () => {
 		);
 
 		await expect(
-			runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.with("what is this?", [imageOf()]))),
+			runtime.runner.ask(
+				new AgentRunCommand({
+					agent: SUPPORT,
+					input: new AskInput({
+						message: "what is this?",
+						attachments: [imageOf()],
+					}),
+				}),
+			),
 		).rejects.toBeInstanceOf(AttachmentNotStoredError);
 
 		expect(await eventCountOf(storage, SessionId.from("id-1"))).toBe(0);
@@ -352,7 +410,12 @@ describe("a tool that answers with an image", () => {
 			new SequenceIdGenerator(),
 		);
 
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("chart my sales")));
+		await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("chart my sales"),
+			}),
+		);
 
 		const messages = model.requests[1]?.messages ?? [];
 		const at = messages.findIndex((message) => message instanceof ToolResultMessage);
@@ -377,7 +440,12 @@ describe("a tool that answers with an image", () => {
 			new SequenceIdGenerator(),
 		);
 
-		const answer = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("chart my sales")));
+		const answer = await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("chart my sales"),
+			}),
+		);
 		const [produced] = await resultsOf(storage, answer.sessionId);
 		const id = produced?.attachments[0];
 		if (id === undefined) throw new Error("expected the tool result to name an attachment");

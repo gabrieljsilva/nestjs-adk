@@ -37,7 +37,11 @@ function hostWith(...names: readonly string[]): StartedRuntime {
 		names.map((name) => {
 			const agent = AgentName.from(name);
 			return new DeclaredAgent(
-				new AgentDefinition(agent, AgentDescription.from(`${name} agent`, name), model),
+				new AgentDefinition({
+					name: agent,
+					description: AgentDescription.from(`${name} agent`, name),
+					model: model,
+				}),
 				`${name}Provider`,
 			);
 		}),
@@ -67,7 +71,7 @@ describe("AgentBinder", () => {
 
 		new AgentBinder(registry).bind([provider(SupportAgent, instance, "support")]);
 
-		expect(instance.agentName).toBe(registry.get("support").name);
+		expect(instance.agentName).toBe(registry.open("support").name);
 	});
 
 	it("skips a provider that is not an agent class", () => {

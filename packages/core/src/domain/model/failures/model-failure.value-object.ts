@@ -1,3 +1,5 @@
+import type { Duration } from "../../../common/time/duration.value-object";
+
 /**
  * Why a model call failed, in terms a policy can decide on.
  *
@@ -21,6 +23,18 @@ export abstract class ModelFailure {
 	/** True when trying the same model again could plausibly succeed. */
 	public get isTransient(): boolean {
 		return false;
+	}
+
+	/**
+	 * How long the provider asked to be left alone, when it said so.
+	 *
+	 * It is declared here rather than only on the rate limited failure because a 503 with a
+	 * `Retry-After` is the same instruction, and a retry policy that had to ask which class
+	 * it was holding would be doing the `instanceof` this taxonomy exists to avoid. Absent
+	 * means the provider said nothing, which is the usual case and not a zero.
+	 */
+	public get retryAfter(): Duration | undefined {
+		return undefined;
 	}
 
 	/**

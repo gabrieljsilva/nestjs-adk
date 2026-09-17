@@ -1,3 +1,4 @@
+import { FixedClock } from "../../testing/fixed-clock";
 import "@nestjs-adk/testing/matchers";
 import { AdkAgent, Clock, Instant, SessionStorage, SqliteConnection, SqliteSessionStorage } from "@nestjs-adk/core";
 import { AdkTestBedBuilder, ScriptedModel } from "@nestjs-adk/testing";
@@ -14,7 +15,7 @@ describe("BillingAgent", () => {
 			.overrideProvider(StoreDatabase)
 			.useValue(new StoreDatabase())
 			.overrideProvider(Clock)
-			.useValue({ now: () => Instant.fromIso("2026-08-05T12:00:00.000Z") })
+			.useValue(FixedClock.at("2026-08-05T12:00:00.000Z"))
 			.compile();
 		module.get(StoreSeed).apply();
 		const agent = module.get(BillingAgent);
@@ -26,7 +27,7 @@ describe("BillingAgent", () => {
 			.overrideProvider(StoreDatabase)
 			.useValue(new StoreDatabase())
 			.overrideProvider(Clock)
-			.useValue({ now: () => Instant.fromIso("2026-08-05T12:00:00.000Z") })
+			.useValue(FixedClock.at("2026-08-05T12:00:00.000Z"))
 			.compile();
 		module.get(StoreSeed).apply();
 		const agent = module.get(BillingAgent);
@@ -46,7 +47,7 @@ describe("BillingAgent", () => {
 			.overrideProvider(StoreDatabase)
 			.useValue(new StoreDatabase())
 			.overrideProvider(Clock)
-			.useValue({ now: () => Instant.fromIso("2026-08-05T12:00:00.000Z") })
+			.useValue(FixedClock.at("2026-08-05T12:00:00.000Z"))
 			.compile();
 		module.get(StoreSeed).apply();
 		const agent = module.get(BillingAgent);
@@ -58,7 +59,7 @@ describe("BillingAgent", () => {
 			.overrideProvider(StoreDatabase)
 			.useValue(new StoreDatabase())
 			.overrideProvider(Clock)
-			.useValue({ now: () => Instant.fromIso("2026-08-05T12:00:00.000Z") })
+			.useValue(FixedClock.at("2026-08-05T12:00:00.000Z"))
 			.compile();
 		module.get(StoreSeed).apply();
 		const agent = module.get(BillingAgent);
@@ -71,7 +72,7 @@ describe("BillingAgent", () => {
 			.overrideProvider(StoreDatabase)
 			.useValue(new StoreDatabase())
 			.overrideProvider(Clock)
-			.useValue({ now: () => Instant.fromIso("2026-08-05T12:00:00.000Z") })
+			.useValue(FixedClock.at("2026-08-05T12:00:00.000Z"))
 			.compile();
 		module.get(StoreSeed).apply();
 		const agent = module.get(BillingAgent);

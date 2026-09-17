@@ -9,7 +9,7 @@ A tool that reads a person's data needs to know which person, and the run never 
 
 ## An access policy, asked on every path
 
-`AdkAccessPolicy.decide(tool, invocation, actor)` is asked before every invocation, after the arguments were parsed and before any approval is requested, so nobody approves a call the actor could not make. A refusal reaches the model as the tool's result, with the policy's reason. Declare it on `RuntimeOptions.access`; without one, `OpenAccessPolicy` grants everything, which is what an application that wrote none meant.
+`AdkAccessPolicy.decide(tool, invocation, actor)` is asked before every invocation, after the arguments were parsed and before any approval is requested, so nobody approves a call the actor could not make. A refusal reaches the model as the tool's result, with the policy's reason. Declare it on `RuntimeOptions.tools.access`; without one, `OpenAccessPolicy` grants everything, which is what an application that wrote none meant.
 
 ## What a class publishes
 

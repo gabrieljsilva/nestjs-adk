@@ -1,4 +1,5 @@
 import type { AgentFailoverPolicy } from "../../../domain/agent/agent-failover.policy";
+import type { ModelRetryPolicy } from "../../../domain/agent/model-retry.policy";
 import type { AdkCompactionPolicy } from "../../../domain/context/adk-compaction.policy";
 import type { LlmModel } from "../../../domain/model/llm-model.contract";
 import type { RunLimits } from "../../../domain/session/run/run-limits.value-object";
@@ -32,6 +33,18 @@ export interface AgentOptions {
 	 * policy decides for itself. Without either, the first failure ends the run.
 	 */
 	failover?: readonly LlmModel[] | AgentFailoverPolicy;
+	/**
+	 * Whether a failed call is tried again on the same model, before failover is consulted.
+	 *
+	 * Retrying and rerouting answer different questions. A 429 carrying a `Retry-After` is the
+	 * provider saying when, and walking the failover chain over it pays a call per model to be
+	 * told the same thing; a refused request is the opposite, and no wait makes it acceptable.
+	 *
+	 * Without one the runtime's policy answers, which is `BackoffRetryPolicy` unless the module
+	 * declared otherwise. `false` is this agent refusing to repeat a call at all, which is what
+	 * an agent whose model call has already had an effect somewhere says.
+	 */
+	retry?: ModelRetryPolicy | false;
 	/**
 	 * When this agent's context is too long, and how much of it survives.
 	 *

@@ -22,6 +22,7 @@ Everything else is an optional capability or policy attached to this core. The a
 
 A policy is attached to the agent, never to its model:
 
-- **Failover:** which model replaces the primary one after a failure. It is declared as an ordered queue of models, or as a callback that receives the failure and the attempts so far and returns the next model. Returning nothing ends the attempts.
+- **Retry:** whether the same model is asked again after a failure, and after how long. It is consulted before failover, it only ever answers about the model that just failed, and returning nothing ends the attempts on it. `BackoffRetryPolicy` answers for an agent that declared none; `retry: false` is an agent refusing to repeat a call at all.
+- **Failover:** which model replaces the primary one once the retries are spent. It is declared as an ordered queue of models, or as a callback that receives the failure and the attempts so far and returns the next model. Returning nothing ends the attempts.
 
 The runtime keeps attempts and failures inside the run, applies the policy and emits an observable event on every switch. The model performs inference and knows nothing about fallbacks, agents or execution chains. See [[llm-model]].

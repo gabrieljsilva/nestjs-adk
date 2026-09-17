@@ -17,13 +17,12 @@ const LEGAL = AgentName.from("legal");
 
 function agent(name: AgentName, transfer: AgentTransferPolicy = AgentTransferPolicy.none()): AgentDefinition {
 	const model: LlmModel = new ScriptedModel("primary");
-	return new AgentDefinition(
-		name,
-		AgentDescription.from(`${name.value} agent`, name.value),
-		model,
-		undefined,
-		new AgentExecutionPolicies(undefined, undefined, undefined, transfer),
-	);
+	return new AgentDefinition({
+		name: name,
+		description: AgentDescription.from(`${name.value} agent`, name.value),
+		model: model,
+		policies: new AgentExecutionPolicies(undefined, undefined, undefined, transfer),
+	});
 }
 
 function gateOver(...definitions: readonly AgentDefinition[]): TransferGate {

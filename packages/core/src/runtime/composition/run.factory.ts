@@ -14,6 +14,7 @@ import { EventPublisher } from "../event/event-publisher.service";
 import { ActiveRunTracker } from "../lifecycle/active-run-tracker.service";
 import { RuntimeLifecycle } from "../lifecycle/runtime-lifecycle.service";
 import { CatalogModelResolver } from "../model/catalog-model-resolver.adapter";
+import { ModelRunner } from "../model/model-runner.service";
 import { ModelService } from "../model/model.service";
 import { AgentRunFactory } from "../run/agent-run.factory";
 import { AgentRunner } from "../run/agent-runner.service";
@@ -58,23 +59,32 @@ export class RunComposer {
 		options: RuntimeOptions,
 	): ComposedRun {
 		const tracker = new ActiveRunTracker();
-		const lifecycle = new RuntimeLifecycle(tracker, options.shutdown, clock);
-		const offloader = new ArtifactOffloader(artifacts, options.offload);
+		const lifecycle = new RuntimeLifecycle(tracker, options.lifecycle.shutdown, clock);
+		const offloader = new ArtifactOffloader(artifacts, options.context.offload);
 		const attachments = new AttachmentStore(artifacts);
 		const readArtifact = ReadArtifactTool.forStorage(artifacts);
-		const models = new ModelService(options.models ?? new CatalogModelResolver());
-		const events = new EventPublisher(options.consumers, options.consumerNotices, undefined, undefined, options.redactor);
-		const sessions = new SessionRepository(storage, undefined, events, undefined, options.snapshots);
+		const models = new ModelService(
+			options.model.resolver ?? new CatalogModelResolver(),
+			new ModelRunner(clock, options.model.retry),
+		);
+		const events = new EventPublisher(
+			options.lifecycle.consumers,
+			options.lifecycle.consumerNotices,
+			undefined,
+			undefined,
+			options.lifecycle.redactor,
+		);
+		const sessions = new SessionRepository(storage, undefined, events, undefined, options.lifecycle.snapshots);
 		const runs = new AgentRunFactory(ids, clock, tracker, lifecycle);
 		const journal = new RunJournal(new RunEventFactory(ids, clock));
-		const scopes = new RunScopeFactory([readArtifact], options.limits, options.compaction);
+		const scopes = new RunScopeFactory([readArtifact], options.limits, options.context.compaction);
 		const settler = new RunSettler(sessions, journal);
 		const results = new RunResultFactory(
-			new RunCostReporter(new CostCalculator(), options.pricing, options.pricingNotices),
+			new RunCostReporter(new CostCalculator(), options.cost.pricing, options.cost.pricingNotices),
 		);
-		const gate = new ToolGate(options.access);
-		const tools = new ToolService(sessions, journal, options.sources);
-		const turns = new TurnExecutor(new ToolExecutor(offloader, options.approvals, attachments, gate), journal);
+		const gate = new ToolGate(options.tools.access);
+		const tools = new ToolService(sessions, journal, options.tools.sources);
+		const turns = new TurnExecutor(new ToolExecutor(offloader, options.tools.approvals, attachments, gate), journal);
 		const delegations = new DelegationRunner(catalog, models, runs, scopes, journal, sessions);
 		const loop = new TurnLoop(
 			context,
@@ -82,7 +92,7 @@ export class RunComposer {
 			sessions,
 			journal,
 			turns,
-			new ApprovalGate(options.approvals),
+			new ApprovalGate(options.tools.approvals),
 			new TransferSessionUseCase(catalog, models, scopes),
 			delegations,
 		);

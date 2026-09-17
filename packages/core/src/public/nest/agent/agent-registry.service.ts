@@ -23,7 +23,7 @@ export class AgentRegistry {
 		return this.runtime.catalog.names;
 	}
 
-	public get(name: string): AgentHandle {
+	public open(name: string): AgentHandle {
 		const agent = this.runtime.catalog.findOrFail(AgentName.from(name)).name;
 		const existing = this.handles.get(agent.value);
 		if (existing !== undefined) return existing;

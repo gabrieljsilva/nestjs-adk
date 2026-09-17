@@ -49,7 +49,7 @@ The payload size is still available as `encodedBytes`, which is what limits are 
 
 ## Validation happens where the image arrives
 
-`MediaPart.image` refuses an unsupported type, base64 an encoder would not have written, and a data URL whose type disagrees with the declared one. `MediaLimits` holds three ceilings, and the third one only exists where the whole list does: a set of images that each fit can still overflow one request, so `AskInput.with` applies the total.
+`MediaPart.image` refuses an unsupported type, base64 an encoder would not have written, and a data URL whose type disagrees with the declared one. `MediaLimits` holds three ceilings, and the third one only exists where the whole list does: a set of images that each fit can still overflow one request, so the `AskInput` constructor applies the total.
 
 All of it fails before the call, because every one of these reaches the provider as a rejected request that was already paid for.
 

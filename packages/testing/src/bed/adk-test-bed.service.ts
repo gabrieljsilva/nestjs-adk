@@ -45,7 +45,7 @@ export class AdkTestBed {
 		const name = AdkTestBed.readName(agent);
 		const existing = this.agents.get(name);
 		if (existing !== undefined) return existing;
-		const handle = new TestAgent(this.module.get(AgentRegistry).get(name), this.recorder, this.scripts.get(name));
+		const handle = new TestAgent(this.module.get(AgentRegistry).open(name), this.recorder, this.scripts.get(name));
 		this.agents.set(name, handle);
 		return handle;
 	}

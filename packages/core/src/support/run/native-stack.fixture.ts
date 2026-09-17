@@ -180,15 +180,14 @@ export class NativeStackFixture {
 		tools: readonly ToolDefinition[] = [],
 		skills: readonly SkillDefinition[] = [],
 	): AgentDefinition {
-		return new AgentDefinition(
-			NativeStackFixture.AGENT,
-			AgentDescription.from("Support agent", NativeStackFixture.AGENT.value),
-			model,
-			undefined,
-			new AgentExecutionPolicies(failover),
-			tools,
-			skills,
-		);
+		return new AgentDefinition({
+			name: NativeStackFixture.AGENT,
+			description: AgentDescription.from("Support agent", NativeStackFixture.AGENT.value),
+			model: model,
+			policies: new AgentExecutionPolicies(failover),
+			tools: tools,
+			skills: skills,
+		});
 	}
 
 	public async readJournal(sessionId: SessionId): Promise<SessionEvent[]> {

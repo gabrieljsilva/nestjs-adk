@@ -111,7 +111,7 @@ export function storeModule() {
 			AdkModule.forRoot(
 				AdkModuleOptions.from({
 					defaultModel: new ScriptedModel("module-default"),
-					runtime: RuntimeOptions.from({ approvals: EffectApprovalPolicy.from(ToolEffect.DESTRUCTIVE) }),
+					runtime: RuntimeOptions.from({ tools: { approvals: EffectApprovalPolicy.from(ToolEffect.DESTRUCTIVE) } }),
 				}),
 			),
 			StoreFeatureModule,
@@ -133,7 +133,7 @@ export function asyncStoreModule() {
 				useFactory: () =>
 					AdkModuleOptions.from({
 						defaultModel: new ScriptedModel("module-default"),
-						runtime: RuntimeOptions.from({ approvals: EffectApprovalPolicy.from(ToolEffect.DESTRUCTIVE) }),
+						runtime: RuntimeOptions.from({ tools: { approvals: EffectApprovalPolicy.from(ToolEffect.DESTRUCTIVE) } }),
 					}),
 			}),
 			StoreFeatureModule,

@@ -79,17 +79,15 @@ describe("@nestjs-adk/mcp over the native runtime", () => {
 	});
 
 	async function bootWith(model: LlmModel, ...sources: readonly AdkMcpServer[]): Promise<TestingModule> {
-		const runtime = new RuntimeOptions(
-			ShutdownOptions.waitIndefinitely(),
-			RunLimits.unbounded(),
-			[],
-			undefined,
-			undefined,
-			[...sources],
-		);
+		const runtime = RuntimeOptions.from({ limits: RunLimits.unbounded(), tools: { sources: [...sources] } });
 		app = await Test.createTestingModule({
 			imports: [
-				AdkModule.forRoot(new AdkModuleOptions(model, undefined, undefined, undefined, undefined, runtime)),
+				AdkModule.forRoot(
+					new AdkModuleOptions({
+						defaultModel: model,
+						runtime: runtime,
+					}),
+				),
 				FeatureModule,
 			],
 		}).compile();
@@ -101,7 +99,7 @@ describe("@nestjs-adk/mcp over the native runtime", () => {
 		const model = new ScriptedModel();
 		const booted = await bootWith(model, fixtureServer("clickup"));
 
-		await booted.get(AgentRegistry).get("connected").ask("hi");
+		await booted.get(AgentRegistry).open("connected").ask("hi");
 
 		const names = model.requests[0]?.tools.map((tool) => tool.name) ?? [];
 		expect(names).toContain("mcp__clickup__echo");
@@ -112,7 +110,7 @@ describe("@nestjs-adk/mcp over the native runtime", () => {
 		const model = new ScriptedModel({ tool: "mcp__clickup__echo", args: { message: "hi" } });
 		const booted = await bootWith(model, fixtureServer("clickup"));
 
-		await booted.get(AgentRegistry).get("connected").ask("echo hi");
+		await booted.get(AgentRegistry).open("connected").ask("echo hi");
 
 		const results = model.requests[1]?.messages.filter((message) => message instanceof ToolResultMessage) ?? [];
 		expect(JSON.stringify(results[0]?.output)).toContain("echo:hi");
@@ -122,7 +120,7 @@ describe("@nestjs-adk/mcp over the native runtime", () => {
 		const model = new ScriptedModel();
 		const booted = await bootWith(model, fixtureServer("clickup", { tools: ["echo"] }));
 
-		await booted.get(AgentRegistry).get("connected").ask("hi");
+		await booted.get(AgentRegistry).open("connected").ask("hi");
 
 		const names = model.requests[0]?.tools.map((tool) => tool.name) ?? [];
 		expect(names).toContain("mcp__clickup__echo");
@@ -133,7 +131,7 @@ describe("@nestjs-adk/mcp over the native runtime", () => {
 		const model = new ScriptedModel();
 		const booted = await bootWith(model, fixtureServer("clickup"));
 
-		await booted.get(AgentRegistry).get("connected").ask("hi");
+		await booted.get(AgentRegistry).open("connected").ask("hi");
 
 		const echo = model.requests[0]?.tools.find((tool) => tool.name === "mcp__clickup__echo");
 		const schema = Object(echo?.parameters);
@@ -145,7 +143,7 @@ describe("@nestjs-adk/mcp over the native runtime", () => {
 		const model = new ScriptedModel({ tool: "mcp__clickup__boom", args: {} });
 		const booted = await bootWith(model, fixtureServer("clickup"));
 
-		const result = await booted.get(AgentRegistry).get("connected").ask("boom");
+		const result = await booted.get(AgentRegistry).open("connected").ask("boom");
 
 		expect(result.text).toBe("done");
 		const results = model.requests[1]?.messages.filter((message) => message instanceof ToolResultMessage) ?? [];
@@ -156,7 +154,7 @@ describe("@nestjs-adk/mcp over the native runtime", () => {
 		const model = new ScriptedModel();
 		const booted = await bootWith(model, fixtureServer("pessoal"), fixtureServer("empresa"));
 
-		await booted.get(AgentRegistry).get("connected").ask("hi");
+		await booted.get(AgentRegistry).open("connected").ask("hi");
 
 		const names = model.requests[0]?.tools.map((tool) => tool.name) ?? [];
 		expect(names).toContain("mcp__pessoal__echo");
@@ -167,7 +165,7 @@ describe("@nestjs-adk/mcp over the native runtime", () => {
 		const model = new ScriptedModel({ tool: "mcp__github__whoami", args: {} });
 		const booted = await bootWith(model, fixtureServer("github", { auth: new EnvAuth({ FIXTURE_TOKEN: "secret" }) }));
 
-		await booted.get(AgentRegistry).get("connected").ask("who am i");
+		await booted.get(AgentRegistry).open("connected").ask("who am i");
 
 		const results = model.requests[1]?.messages.filter((message) => message instanceof ToolResultMessage) ?? [];
 		expect(JSON.stringify(results[0]?.output)).toContain("secret");
@@ -182,7 +180,7 @@ describe("@nestjs-adk/mcp over the native runtime", () => {
 		});
 		const booted = await bootWith(model, broken, fixtureServer("ok"));
 
-		const result = await booted.get(AgentRegistry).get("connected").ask("hi");
+		const result = await booted.get(AgentRegistry).open("connected").ask("hi");
 
 		expect(result.text).toBe("done");
 		const names = model.requests[0]?.tools.map((tool) => tool.name) ?? [];

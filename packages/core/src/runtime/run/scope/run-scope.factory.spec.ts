@@ -119,45 +119,42 @@ class FailingPrompt extends PromptBuilder {
 }
 
 function prompted(text: string): AgentDefinition {
-	return new AgentDefinition(
-		NativeStackFixture.AGENT,
-		AgentDescription.from("Support agent", NativeStackFixture.AGENT.value),
-		model,
-		PromptInstructions.from(text),
-	);
+	return new AgentDefinition({
+		name: NativeStackFixture.AGENT,
+		description: AgentDescription.from("Support agent", NativeStackFixture.AGENT.value),
+		model: model,
+		instructions: PromptInstructions.from(text),
+	});
 }
 
 function building(builder: PromptBuilder): AgentDefinition {
-	return new AgentDefinition(
-		NativeStackFixture.AGENT,
-		AgentDescription.from("Support agent", NativeStackFixture.AGENT.value),
-		model,
-		undefined,
-		AgentExecutionPolicies.none(),
-		[],
-		[],
-		builder,
-	);
+	return new AgentDefinition({
+		name: NativeStackFixture.AGENT,
+		description: AgentDescription.from("Support agent", NativeStackFixture.AGENT.value),
+		model: model,
+		policies: AgentExecutionPolicies.none(),
+		tools: [],
+		skills: [],
+		promptBuilder: builder,
+	});
 }
 
 function compacting(policy: AdkCompactionPolicy | false): AgentDefinition {
-	return new AgentDefinition(
-		NativeStackFixture.AGENT,
-		AgentDescription.from("Support agent", NativeStackFixture.AGENT.value),
-		model,
-		undefined,
-		new AgentExecutionPolicies(undefined, policy),
-	);
+	return new AgentDefinition({
+		name: NativeStackFixture.AGENT,
+		description: AgentDescription.from("Support agent", NativeStackFixture.AGENT.value),
+		model: model,
+		policies: new AgentExecutionPolicies(undefined, policy),
+	});
 }
 
 function bounded(limits: RunLimits): AgentDefinition {
-	return new AgentDefinition(
-		NativeStackFixture.AGENT,
-		AgentDescription.from("Support agent", NativeStackFixture.AGENT.value),
-		model,
-		undefined,
-		new AgentExecutionPolicies(undefined, undefined, limits),
-	);
+	return new AgentDefinition({
+		name: NativeStackFixture.AGENT,
+		description: AgentDescription.from("Support agent", NativeStackFixture.AGENT.value),
+		model: model,
+		policies: new AgentExecutionPolicies(undefined, undefined, limits),
+	});
 }
 
 describe("RunScopeFactory", () => {

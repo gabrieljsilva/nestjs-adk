@@ -80,7 +80,13 @@ describe("An agent that answers data", () => {
 
 		app = await Test.createTestingModule({
 			imports: [
-				AdkModule.forRoot(new AdkModuleOptions(model, undefined, undefined, new FakeClock(), new SequenceIdGenerator())),
+				AdkModule.forRoot(
+					new AdkModuleOptions({
+						defaultModel: model,
+						clock: new FakeClock(),
+						ids: new SequenceIdGenerator(),
+					}),
+				),
 				FeatureModule,
 			],
 		}).compile();
@@ -94,7 +100,7 @@ describe("An agent that answers data", () => {
 		const model = new RecordingModel('{"title":"a name"}');
 		const booted = await bootWith(model);
 
-		await booted.get(AgentRegistry).get("titler").ask("name this");
+		await booted.get(AgentRegistry).open("titler").ask("name this");
 
 		expect(model.requests.at(0)?.outputSchema).toBe(TITLE_SCHEMA);
 	});
@@ -103,7 +109,7 @@ describe("An agent that answers data", () => {
 		const model = new RecordingModel("a sentence");
 		const booted = await bootWith(model);
 
-		await booted.get(AgentRegistry).get("talker").ask("say something");
+		await booted.get(AgentRegistry).open("talker").ask("say something");
 
 		expect(model.requests.at(0)?.wantsStructuredOutput).toBe(false);
 	});
@@ -111,7 +117,7 @@ describe("An agent that answers data", () => {
 	it("answers with the parsed value beside the text, so nobody parses it twice", async () => {
 		const booted = await bootWith(new AnsweringModel('{"title":"Migração do checkout"}'));
 
-		const result = await booted.get(AgentRegistry).get("titler").ask("name this");
+		const result = await booted.get(AgentRegistry).open("titler").ask("name this");
 
 		expect(result.output).toEqual({ title: "Migração do checkout" });
 		expect(result.text).toBe('{"title":"Migração do checkout"}');
@@ -120,7 +126,7 @@ describe("An agent that answers data", () => {
 	it("leaves the output absent for an agent that answered prose", async () => {
 		const booted = await bootWith(new RecordingModel("a sentence"));
 
-		const result = await booted.get(AgentRegistry).get("talker").ask("say something");
+		const result = await booted.get(AgentRegistry).open("talker").ask("say something");
 
 		expect(result.output).toBeUndefined();
 	});
@@ -128,7 +134,7 @@ describe("An agent that answers data", () => {
 	it("keeps asking for the shape on the turns that follow the first", async () => {
 		const model = new RecordingModel('{"title":"a name"}');
 		const booted = await bootWith(model);
-		const titler = booted.get(AgentRegistry).get("titler");
+		const titler = booted.get(AgentRegistry).open("titler");
 
 		const first = await titler.ask("name this");
 		await titler.ask("name it again", { sessionId: first.sessionId });
@@ -139,7 +145,7 @@ describe("An agent that answers data", () => {
 	it("fails the run against a model that cannot answer data, rather than answering unchecked prose", async () => {
 		const booted = await bootWith(new ProseOnlyModel("a sentence"));
 
-		await expect(booted.get(AgentRegistry).get("titler").ask("name this")).rejects.toThrow(UnsupportedCapabilityError);
+		await expect(booted.get(AgentRegistry).open("titler").ask("name this")).rejects.toThrow(UnsupportedCapabilityError);
 	});
 
 	it("refuses to boot an agent whose declared shape is not an object", async () => {
@@ -153,7 +159,14 @@ describe("An agent that answers data", () => {
 		// when the teardown closes it, and the failure would be reported from there instead.
 		await expect(
 			Test.createTestingModule({
-				imports: [AdkModule.forRoot(new AdkModuleOptions(new RecordingModel())), BrokenModule],
+				imports: [
+					AdkModule.forRoot(
+						new AdkModuleOptions({
+							defaultModel: new RecordingModel(),
+						}),
+					),
+					BrokenModule,
+				],
 			})
 				.compile()
 				.then((module) => module.init()),

@@ -28,6 +28,12 @@ These optional features belong to the model:
 
 Resilience is not one of them. Deciding whether to attempt the same model again, or to replace it with another one, requires knowledge the model does not have: how many attempts the current request already made and which models already failed. That knowledge belongs to the run, so retry and failover are policies of the agent. See [[agent]].
 
+Retry and failover are two components and not one, because they answer different questions about the same failure. `ModelRetryPolicy` asks whether *this* model is worth asking again and after how long; `AgentFailoverPolicy` asks which model to ask instead. `ModelRunner` asks them in that order: a provider that answered `Retry-After: 4` said when, not never, and walking a chain over it pays a call per model to be told the same thing. Conversely no wait makes a refused request acceptable, so an `isInvalidRequest` failure is never retried and goes straight to the chain.
+
+The shipped `BackoffRetryPolicy` honours a `Retry-After` the adapter read off the provider's headers into the failure, and otherwise backs off exponentially with full jitter under a ceiling. Attempts are bounded and counted per model, so a fresh provider starts with its own budget. The waiting is `Clock.sleep`, which is why a spec asserts the delay a policy asked for rather than waiting for it.
+
+The module's default lives in `RuntimeOptions.model.retry`, beside the resolver, because both are about the provider call and nothing else. Failover stays the agent's alone: the list of models a chain may reach is not something a module can guess.
+
 Token usage is a fact reported by a model response. Cost is calculated separately by a `PricingSource` from the model identity and usage.
 
 The model never builds prompts, executes tools, persists sessions, manages state, controls HITL or owns the agent loop. It only performs inference. The runtime invokes it and coordinates everything around it.
@@ -41,7 +47,10 @@ flowchart LR
     Model -.-> Config[Generation Config]
     Model -.-> Capabilities[Capabilities]
 
+    Agent -.-> Retry[Retry Policy]
+    Retry -.->|asks again| Model
     Agent -.-> Failover[Failover Policy]
+    Retry -.->|out of attempts| Failover
     Failover -.->|selects the next| Model
 
     Generate --> Response[Model Response]

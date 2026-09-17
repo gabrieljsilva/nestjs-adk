@@ -39,11 +39,11 @@ const SUPPORT = AgentName.from("support");
 const MISSING = SessionId.from("nobody");
 
 function catalogOf(): AgentCatalog {
-	const definition = new AgentDefinition(
-		SUPPORT,
-		AgentDescription.from("answers customers", "support"),
-		new StubModel(new ModelContextWindow(1000, 200)),
-	);
+	const definition = new AgentDefinition({
+		name: SUPPORT,
+		description: AgentDescription.from("answers customers", "support"),
+		model: new StubModel(new ModelContextWindow(1000, 200)),
+	});
 	return new AgentCatalog([new DeclaredAgent(definition, "SupportAgent")]);
 }
 

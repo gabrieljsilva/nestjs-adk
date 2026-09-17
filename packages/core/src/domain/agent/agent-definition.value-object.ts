@@ -12,6 +12,37 @@ import type { AgentFailoverPolicy } from "./agent-failover.policy";
 import type { AgentName } from "./agent-name.value-object";
 import type { AgentTransferPolicy } from "./agent-transfer.policy";
 import { MissingAgentModelError } from "./errors/missing-agent-model.error";
+import type { ModelRetryPolicy } from "./model-retry.policy";
+
+/** Everything one agent is, named rather than ordered. */
+export interface AgentDefinitionInput {
+	name: AgentName;
+	description: AgentDescription;
+	/** Required after resolution: an agent with no model is refused here rather than at the first question. */
+	model: LlmModel | undefined;
+	instructions?: PromptInstructions;
+	policies?: AgentExecutionPolicies;
+	tools?: readonly ToolDefinition[];
+	skills?: readonly SkillDefinition[];
+	/**
+	 * Builds the prompt once per run, for an agent whose instruction depends on data.
+	 *
+	 * It is the alternative to `instructions` and never a second one alongside it: an agent
+	 * that declared both is refused where the two declarations are read, so anything holding
+	 * a definition can treat a builder as the whole answer.
+	 */
+	promptBuilder?: PromptBuilder;
+	/**
+	 * The shape this agent answers in, as a JSON schema the provider is told to enforce.
+	 *
+	 * It lives here and not on a call because it is what the agent *is*, not how one run
+	 * behaves: an agent that answers data answers data to a transfer, to a delegation and to
+	 * the turn that follows an approval, and each of those builds its scope without the
+	 * command that started the run. A per-call schema would be silently absent in exactly
+	 * those three places.
+	 */
+	outputSchema?: object;
+}
 
 /**
  * The resolved shape of one agent: name, description and exactly one primary model.
@@ -23,45 +54,35 @@ import { MissingAgentModelError } from "./errors/missing-agent-model.error";
  * which of the two objects a rule happens to live on.
  */
 export class AgentDefinition {
+	public readonly name: AgentName;
+	public readonly description: AgentDescription;
 	public readonly model: LlmModel;
+	public readonly instructions?: PromptInstructions;
+	public readonly policies: AgentExecutionPolicies;
 	public readonly tools: readonly ToolDefinition[];
 	public readonly skills: readonly SkillDefinition[];
+	public readonly promptBuilder?: PromptBuilder;
+	public readonly outputSchema?: object;
 
-	public constructor(
-		public readonly name: AgentName,
-		public readonly description: AgentDescription,
-		model: LlmModel | undefined,
-		public readonly instructions?: PromptInstructions,
-		public readonly policies: AgentExecutionPolicies = AgentExecutionPolicies.none(),
-		tools: readonly ToolDefinition[] = [],
-		skills: readonly SkillDefinition[] = [],
-		/**
-		 * Builds the prompt once per run, for an agent whose instruction depends on data.
-		 *
-		 * It is the alternative to `instructions` and never a second one alongside it: an agent
-		 * that declared both is refused where the two declarations are read, so anything holding
-		 * a definition can treat a builder as the whole answer.
-		 */
-		public readonly promptBuilder?: PromptBuilder,
-		/**
-		 * The shape this agent answers in, as a JSON schema the provider is told to enforce.
-		 *
-		 * It lives here and not on a call because it is what the agent *is*, not how one run
-		 * behaves: an agent that answers data answers data to a transfer, to a delegation and to
-		 * the turn that follows an approval, and each of those builds its scope without the
-		 * command that started the run. A per-call schema would be silently absent in exactly
-		 * those three places.
-		 */
-		public readonly outputSchema?: object,
-	) {
-		if (model === undefined) throw new MissingAgentModelError(name.value);
-		this.model = model;
-		this.tools = [...tools];
-		this.skills = [...skills];
+	public constructor(input: AgentDefinitionInput) {
+		if (input.model === undefined) throw new MissingAgentModelError(input.name.value);
+		this.name = input.name;
+		this.description = input.description;
+		this.model = input.model;
+		this.instructions = input.instructions;
+		this.policies = input.policies ?? AgentExecutionPolicies.none();
+		this.tools = [...(input.tools ?? [])];
+		this.skills = [...(input.skills ?? [])];
+		this.promptBuilder = input.promptBuilder;
+		this.outputSchema = input.outputSchema;
 	}
 
 	public get failover(): AgentFailoverPolicy | undefined {
 		return this.policies.failover;
+	}
+
+	public get retry(): ModelRetryPolicy | undefined {
+		return this.policies.retry;
 	}
 
 	public get compaction(): AdkCompactionPolicy | false | undefined {

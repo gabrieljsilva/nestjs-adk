@@ -60,6 +60,10 @@ export const ADK_EVENT_CONSUMERS = Symbol.for("adk:event-consumers");
  * token. It exists because the options are a value the module was constructed with:
  * without it, replacing one runtime field from outside means rebuilding all of them, and
  * a field added later goes silently missing from every copy.
+ *
+ * The patch is nested the way `RuntimeOptions` is, and a group named partially keeps the
+ * fields of that group it did not mention: `{ cost: { pricing } }` replaces the pricing
+ * source and leaves the notice sink beside it alone.
  */
 export const ADK_RUNTIME_PATCH = Symbol.for("adk:runtime-patch");
 
@@ -222,7 +226,7 @@ export class AdkModule implements OnModuleInit, OnApplicationShutdown {
 			},
 			{
 				provide: ModelResolver,
-				useFactory: (declared: AdkModuleOptions) => declared.runtime?.models ?? new CatalogModelResolver(),
+				useFactory: (declared: AdkModuleOptions) => declared.runtime?.model.resolver ?? new CatalogModelResolver(),
 				inject: [ADK_OPTIONS],
 			},
 			AdkRuntime,

@@ -19,7 +19,7 @@ Releasing works the same way. A turn is decided when no held call is still await
 
 ## Destructive waits unless the application says otherwise
 
-`RuntimeOptions.approvals` is `EffectApprovalPolicy.destructiveOnly()` when nobody declared one, so a tool that deletes, sends or charges stops in front of a person out of the box.
+`RuntimeOptions.tools.approvals` is `EffectApprovalPolicy.destructiveOnly()` when nobody declared one, so a tool that deletes, sends or charges stops in front of a person out of the box.
 
 The default was `never()`, and the trade is not symmetric: the cost of this default being wrong is a run that waits for a click nobody expected, and the cost of the other one being wrong is an effect nobody agreed to and cannot undo. An application that means to run everything unattended writes `EffectApprovalPolicy.never()`, which is one line and shows up in a review.
 

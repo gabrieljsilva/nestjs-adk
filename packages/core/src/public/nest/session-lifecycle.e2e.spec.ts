@@ -63,13 +63,12 @@ describe("a conversation the application opens itself", () => {
 		app = await Test.createTestingModule({
 			imports: [
 				AdkModule.forRoot(
-					new AdkModuleOptions(
-						new RecordingModel("hello there"),
-						storage,
-						undefined,
-						new FakeClock(),
-						new SequenceIdGenerator(),
-					),
+					new AdkModuleOptions({
+						defaultModel: new RecordingModel("hello there"),
+						storage: storage,
+						clock: new FakeClock(),
+						ids: new SequenceIdGenerator(),
+					}),
 				),
 				FeatureModule,
 			],

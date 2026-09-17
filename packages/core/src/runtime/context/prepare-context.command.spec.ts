@@ -14,14 +14,20 @@ const RUN = RunContextFixture.run(SESSION);
 
 describe("PrepareContextCommand", () => {
 	it("carries the session and the model that will read the context", () => {
-		const command = new PrepareContextCommand(RUN, model);
+		const command = new PrepareContextCommand({
+			context: RUN,
+			model: model,
+		});
 
 		expect(command.sessionId).toBe(SESSION);
 		expect(command.model).toBe(model);
 	});
 
 	it("offers no tools and no prompts unless it was given them", () => {
-		const command = new PrepareContextCommand(RUN, model);
+		const command = new PrepareContextCommand({
+			context: RUN,
+			model: model,
+		});
 
 		expect(command.tools).toEqual([]);
 		expect(command.runtimeInstructions).toBeUndefined();
@@ -29,18 +35,23 @@ describe("PrepareContextCommand", () => {
 	});
 
 	it("compacts nothing unless a policy was declared", () => {
-		expect(new PrepareContextCommand(RUN, model).compaction).toBeUndefined();
+		expect(
+			new PrepareContextCommand({
+				context: RUN,
+				model: model,
+			}).compaction,
+		).toBeUndefined();
 	});
 
 	it("carries tools, prompts and the policy when they were declared", () => {
-		const command = new PrepareContextCommand(
-			RUN,
-			model,
-			[new ToolDeclaration("search", "finds things", {})],
-			PromptInstructions.from("runtime"),
-			PromptInstructions.from("agent"),
-			new WindowShareCompactionPolicy({ maxShare: 0.9, targetShare: 0.7, keepRecentBlocks: 2 }),
-		);
+		const command = new PrepareContextCommand({
+			context: RUN,
+			model: model,
+			tools: [new ToolDeclaration("search", "finds things", {})],
+			runtimeInstructions: PromptInstructions.from("runtime"),
+			agentPrompt: PromptInstructions.from("agent"),
+			compaction: new WindowShareCompactionPolicy({ maxShare: 0.9, targetShare: 0.7, keepRecentBlocks: 2 }),
+		});
 
 		expect(command.tools).toHaveLength(1);
 		expect(command.runtimeInstructions?.text).toBe("runtime");

@@ -104,7 +104,13 @@ describe("AdkModule over the native runtime", () => {
 
 		const builder = Test.createTestingModule({
 			imports: [
-				AdkModule.forRoot(new AdkModuleOptions(model, undefined, undefined, new FakeClock(), new SequenceIdGenerator())),
+				AdkModule.forRoot(
+					new AdkModuleOptions({
+						defaultModel: model,
+						clock: new FakeClock(),
+						ids: new SequenceIdGenerator(),
+					}),
+				),
 				FeatureModule,
 			],
 		});
@@ -118,7 +124,7 @@ describe("AdkModule over the native runtime", () => {
 	it("answers a question through an agent the application declared", async () => {
 		const booted = await bootWith(new RecordingModel("hello there"));
 
-		const result = await booted.get(AgentRegistry).get("support").ask("hi");
+		const result = await booted.get(AgentRegistry).open("support").ask("hi");
 
 		expect(result.text).toBe("hello there");
 		expect(result.status.name).toBe("completed");
@@ -128,7 +134,7 @@ describe("AdkModule over the native runtime", () => {
 		const model = new RecordingModel();
 		const booted = await bootWith(model);
 
-		await booted.get(AgentRegistry).get("support").ask("hi");
+		await booted.get(AgentRegistry).open("support").ask("hi");
 
 		const offered = model.requests[0]?.tools.map((tool: { name: string }) => tool.name) ?? [];
 		expect(offered).toContain("lookup_order");
@@ -140,7 +146,7 @@ describe("AdkModule over the native runtime", () => {
 		const model = new RecordingModel();
 		const booted = await bootWith(model);
 
-		await booted.get(AgentRegistry).get("support").ask("hi");
+		await booted.get(AgentRegistry).open("support").ask("hi");
 
 		expect(model.requests[0]?.instructions?.text).toContain("Answer in a friendly tone.");
 	});
@@ -150,19 +156,19 @@ describe("AdkModule over the native runtime", () => {
 		const registry = booted.get(AgentRegistry);
 
 		expect(registry.names).toEqual(expect.arrayContaining(["support", "billing"]));
-		expect(() => registry.get("nobody")).toThrow();
+		expect(() => registry.open("nobody")).toThrow();
 	});
 
 	it("hands back the same handle twice for the same agent", async () => {
 		const booted = await bootWith(new RecordingModel());
 		const registry = booted.get(AgentRegistry);
 
-		expect(registry.get("support")).toBe(registry.get("support"));
+		expect(registry.open("support")).toBe(registry.open("support"));
 	});
 
 	it("keeps a session between two questions to the same handle", async () => {
 		const booted = await bootWith(new RecordingModel());
-		const support = booted.get(AgentRegistry).get("support");
+		const support = booted.get(AgentRegistry).open("support");
 
 		const first = await support.ask("hi");
 		const second = await support.ask("again", first.sessionId);
@@ -182,7 +188,7 @@ describe("AdkModule over the native runtime", () => {
 		const model = new ToolCallingModel("lookup_order", { orderId: "A-1042" }, "it shipped");
 		const booted = await bootWith(model);
 
-		const result = await booted.get(AgentRegistry).get("support").ask("where is A-1042?");
+		const result = await booted.get(AgentRegistry).open("support").ask("where is A-1042?");
 
 		expect(JSON.stringify(model.requests.at(-1))).toContain("shipped");
 		expect(JSON.stringify(model.requests.at(-1))).not.toContain("undefined");
@@ -210,7 +216,7 @@ describe("AdkModule over the native runtime", () => {
 			builder.overrideProvider(ADK_EVENT_CONSUMERS).useValue([new Recorder()]),
 		);
 
-		await booted.get(AgentRegistry).get("support").ask("hi");
+		await booted.get(AgentRegistry).open("support").ask("hi");
 
 		expect(seen).toContain("run.assistant-message-produced");
 	});
@@ -232,10 +238,10 @@ describe("AdkModule over the native runtime", () => {
 				.overrideProvider(ADK_EVENT_CONSUMERS)
 				.useValue([new Recorder()])
 				.overrideProvider(ADK_RUNTIME_PATCH)
-				.useValue({ redactor: new FieldNameEventRedactor(["text"]) }),
+				.useValue({ lifecycle: { redactor: new FieldNameEventRedactor(["text"]) } }),
 		);
 
-		await booted.get(AgentRegistry).get("support").ask("hi");
+		await booted.get(AgentRegistry).open("support").ask("hi");
 
 		expect(payloads.some((payload) => payload.text === "[redacted]")).toBe(true);
 	});
@@ -252,8 +258,8 @@ describe("AdkModule over the native runtime", () => {
 		);
 		const registry = booted.get(AgentRegistry);
 
-		expect((await registry.get("support").ask("hi")).text).toBe("routed answer");
-		expect((await registry.get("billing").ask("hi")).text).toBe("default answer");
+		expect((await registry.open("support").ask("hi")).text).toBe("routed answer");
+		expect((await registry.open("billing").ask("hi")).text).toBe("default answer");
 	});
 
 	it("swaps the fallback model by token and leaves a declared model alone", async () => {
@@ -267,7 +273,14 @@ describe("AdkModule over the native runtime", () => {
 		class MixedModule {}
 
 		app = await Test.createTestingModule({
-			imports: [AdkModule.forRoot(new AdkModuleOptions(new RecordingModel("from the original default"))), MixedModule],
+			imports: [
+				AdkModule.forRoot(
+					new AdkModuleOptions({
+						defaultModel: new RecordingModel("from the original default"),
+					}),
+				),
+				MixedModule,
+			],
 		})
 			.overrideProvider(ADK_DEFAULT_MODEL)
 			.useValue(replacement)
@@ -275,8 +288,8 @@ describe("AdkModule over the native runtime", () => {
 		await app.init();
 		const registry = app.get(AgentRegistry);
 
-		expect((await registry.get("billing").ask("hi")).text).toBe("from the replacement");
-		expect((await registry.get("pinned").ask("hi")).text).toBe("from the declared model");
+		expect((await registry.open("billing").ask("hi")).text).toBe("from the replacement");
+		expect((await registry.open("pinned").ask("hi")).text).toBe("from the declared model");
 	});
 
 	/**
@@ -294,7 +307,7 @@ describe("AdkModule over the native runtime", () => {
 			builder.overrideProvider(LookupOrderTool).useValue({ execute: () => ({ status: "from the double" }) }),
 		);
 
-		const result = await booted.get(AgentRegistry).get("support").ask("where is A-1042?");
+		const result = await booted.get(AgentRegistry).open("support").ask("where is A-1042?");
 
 		expect(model.requests[0]?.tools.map((tool: { name: string }) => tool.name)).toContain("lookup_order");
 		expect(JSON.stringify(model.requests.at(-1))).toContain("from the double");
@@ -314,7 +327,7 @@ describe("AdkModule over the native runtime", () => {
 			builder.overrideProvider(LookupOrderTool).useClass(LookupOrderDouble),
 		);
 
-		await booted.get(AgentRegistry).get("support").ask("where is A-1042?");
+		await booted.get(AgentRegistry).open("support").ask("where is A-1042?");
 
 		expect(JSON.stringify(model.requests.at(-1))).toContain("from the class");
 	});
@@ -325,7 +338,7 @@ describe("AdkModule over the native runtime", () => {
 			builder.overrideProvider(LookupOrderTool).useFactory({ factory: () => ({ execute: () => ({ v: "made" }) }) }),
 		);
 
-		await booted.get(AgentRegistry).get("support").ask("where is A-1042?");
+		await booted.get(AgentRegistry).open("support").ask("where is A-1042?");
 
 		expect(JSON.stringify(model.requests.at(-1))).toContain("made");
 	});
@@ -361,12 +374,19 @@ describe("AdkModule over the native runtime", () => {
 
 		const model = new RecordingModel();
 		const builder = Test.createTestingModule({
-			imports: [AdkModule.forRoot(new AdkModuleOptions(model)), CycleModule],
+			imports: [
+				AdkModule.forRoot(
+					new AdkModuleOptions({
+						defaultModel: model,
+					}),
+				),
+				CycleModule,
+			],
 		});
 		app = await builder.compile();
 		await app.init();
 
-		await app.get(AgentRegistry).get("front").ask("hi");
+		await app.get(AgentRegistry).open("front").ask("hi");
 
 		const offered = model.requests[0]?.tools.map((tool: { name: string }) => tool.name) ?? [];
 		expect(offered).toContain("transfer_to_agent");
@@ -384,7 +404,7 @@ describe("AdkModule over the native runtime", () => {
 		const model = new ToolCallingModel("transfer_to_agent", { agentName: "billing" }, "billing has it now");
 		const booted = await bootWith(model);
 
-		const result = await booted.get(AgentRegistry).get("support").ask("who handles refunds?");
+		const result = await booted.get(AgentRegistry).open("support").ask("who handles refunds?");
 		const answering = model.requests.at(-1);
 
 		// Billing declares no tools and no prompt, so the turn after the handover proves who
@@ -407,11 +427,18 @@ describe("AdkModule over the native runtime", () => {
 
 		const model = new RecordingModel();
 		app = await Test.createTestingModule({
-			imports: [AdkModule.forRoot(new AdkModuleOptions(model)), DelegatingModule],
+			imports: [
+				AdkModule.forRoot(
+					new AdkModuleOptions({
+						defaultModel: model,
+					}),
+				),
+				DelegatingModule,
+			],
 		}).compile();
 		await app.init();
 
-		await app.get(AgentRegistry).get("asker").ask("hi");
+		await app.get(AgentRegistry).open("asker").ask("hi");
 
 		expect(model.requests[0]?.tools.map((tool: { name: string }) => tool.name)).toContain("delegate_to_agent");
 	});
@@ -435,7 +462,14 @@ describe("AdkModule over the native runtime", () => {
 
 		await expect(
 			Test.createTestingModule({
-				imports: [AdkModule.forRoot(new AdkModuleOptions(new RecordingModel())), DanglingModule],
+				imports: [
+					AdkModule.forRoot(
+						new AdkModuleOptions({
+							defaultModel: new RecordingModel(),
+						}),
+					),
+					DanglingModule,
+				],
 			})
 				.compile()
 				.then((module) => module.init()),
@@ -453,11 +487,18 @@ describe("AdkModule over the native runtime", () => {
 
 		const model = new RecordingModel();
 		app = await Test.createTestingModule({
-			imports: [AdkModule.forRoot(new AdkModuleOptions(model)), TokenModule],
+			imports: [
+				AdkModule.forRoot(
+					new AdkModuleOptions({
+						defaultModel: model,
+					}),
+				),
+				TokenModule,
+			],
 		}).compile();
 		await app.init();
 
-		await app.get(AgentRegistry).get("support").ask("hi");
+		await app.get(AgentRegistry).open("support").ask("hi");
 
 		expect(model.requests[0]?.tools.map((tool: { name: string }) => tool.name)).toContain("lookup_order");
 	});
@@ -472,7 +513,7 @@ describe("AdkModule over the native runtime", () => {
 	it("continues the conversation with the agent the session was transferred to", async () => {
 		const model = new ToolCallingModel("transfer_to_agent", { agentName: "billing" }, "billing has it now");
 		const booted = await bootWith(model);
-		const support = booted.get(AgentRegistry).get("support");
+		const support = booted.get(AgentRegistry).open("support");
 
 		const first = await support.ask("who handles refunds?");
 		await support.ask("and my order?", first.sessionId);
@@ -487,7 +528,7 @@ describe("AdkModule over the native runtime", () => {
 		const model = new RecordingModel();
 		const booted = await bootWith(model);
 
-		await booted.get(AgentRegistry).get("billing").ask("hi");
+		await booted.get(AgentRegistry).open("billing").ask("hi");
 
 		expect(model.requests[0]?.tools.map((tool: { name: string }) => tool.name)).not.toContain("lookup_order");
 	});
@@ -504,8 +545,8 @@ describe("AdkModule over the native runtime", () => {
 		const booted = await bootWith(model);
 		const registry = booted.get(AgentRegistry);
 
-		const first = await registry.get("support").ask("who handles refunds?");
-		const second = await registry.get("support").ask("and my order?", first.sessionId);
+		const first = await registry.open("support").ask("who handles refunds?");
+		const second = await registry.open("support").ask("and my order?", first.sessionId);
 
 		expect(second.status.name).toBe("completed");
 		expect(model.requests.at(-1)?.tools.map((tool: { name: string }) => tool.name)).not.toContain("transfer_to_agent");
@@ -523,7 +564,14 @@ describe("AdkModule over the native runtime", () => {
 
 		await expect(
 			Test.createTestingModule({
-				imports: [AdkModule.forRoot(new AdkModuleOptions(new RecordingModel())), BrokenModule],
+				imports: [
+					AdkModule.forRoot(
+						new AdkModuleOptions({
+							defaultModel: new RecordingModel(),
+						}),
+					),
+					BrokenModule,
+				],
 			})
 				.compile()
 				.then((module) => module.init()),
@@ -539,7 +587,14 @@ describe("AdkModule over the native runtime", () => {
 
 		await expect(
 			Test.createTestingModule({
-				imports: [AdkModule.forRoot(new AdkModuleOptions(new RecordingModel())), OrphanModule],
+				imports: [
+					AdkModule.forRoot(
+						new AdkModuleOptions({
+							defaultModel: new RecordingModel(),
+						}),
+					),
+					OrphanModule,
+				],
 			})
 				.compile()
 				.then((module) => module.init()),
@@ -555,7 +610,14 @@ describe("AdkModule over the native runtime", () => {
 
 		await expect(
 			Test.createTestingModule({
-				imports: [AdkModule.forRoot(new AdkModuleOptions(new RecordingModel())), ScopedModule],
+				imports: [
+					AdkModule.forRoot(
+						new AdkModuleOptions({
+							defaultModel: new RecordingModel(),
+						}),
+					),
+					ScopedModule,
+				],
 			})
 				.compile()
 				.then((module) => module.init()),
@@ -572,10 +634,10 @@ describe("AdkModule over the native runtime", () => {
 			}
 		}
 		const booted = await bootWith(new RecordingModel("hello"), (builder) =>
-			builder.overrideProvider(ADK_RUNTIME_PATCH).useValue({ pricing: new KnowsThePrimary() }),
+			builder.overrideProvider(ADK_RUNTIME_PATCH).useValue({ cost: { pricing: new KnowsThePrimary() } }),
 		);
 
-		const result = await booted.get(AgentRegistry).get("support").ask("hi");
+		const result = await booted.get(AgentRegistry).open("support").ask("hi");
 
 		// The recording model reports 50 in and 5 out on every turn.
 		expect(result.cost.total.toString()).toBe("0.000007");
@@ -585,7 +647,7 @@ describe("AdkModule over the native runtime", () => {
 	it("answers a zero cost that is marked as unpriced when no source was declared", async () => {
 		const booted = await bootWith(new RecordingModel("hello"));
 
-		const result = await booted.get(AgentRegistry).get("support").ask("hi");
+		const result = await booted.get(AgentRegistry).open("support").ask("hi");
 
 		expect(result.cost.total.isZero).toBe(true);
 		expect(result.cost.isComplete).toBe(false);

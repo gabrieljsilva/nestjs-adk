@@ -1,54 +1,29 @@
-import type { AttachmentResolver } from "../../contracts/context/attachment-resolver.contract";
-import type { CompactionStrategy } from "../../contracts/context/compaction-strategy.contract";
-import type { ContextNoticeSink } from "../../contracts/context/context-notice-sink.contract";
-import type { ContextSummarizer } from "../../contracts/context/context-summarizer.contract";
-import type { ConsumerFailureSink } from "../../contracts/events/consumer-failure-sink.contract";
-import type { SessionEventConsumer } from "../../contracts/events/session-event-consumer.contract";
-import type { ModelResolver } from "../../contracts/model/model-resolver.contract";
-import type { PricingNoticeSink } from "../../contracts/pricing/pricing-notice-sink.contract";
-import type { PricingSource } from "../../contracts/pricing/pricing-source.contract";
-import type { ToolSource } from "../../contracts/tool/tool-source.contract";
-import { CharacterCountOffloadPolicy } from "../../domain/artifact/character-count-offload.policy";
-import type { OffloadPolicy } from "../../domain/artifact/offload.policy";
-import type { AdkCompactionPolicy } from "../../domain/context/adk-compaction.policy";
 import { RunLimits } from "../../domain/session/run/run-limits.value-object";
-import type { AdkAccessPolicy } from "../../domain/tool/access/adk-access.policy";
-import { OpenAccessPolicy } from "../../domain/tool/access/open-access.policy";
-import type { AdkApprovalPolicy } from "../../domain/tool/approval/adk-approval.policy";
-import { EffectApprovalPolicy } from "../../domain/tool/approval/effect-approval.policy";
-import type { EventRedactor } from "../event/event-redactor.contract";
-import { FieldNameEventRedactor } from "../event/field-name-event-redactor.adapter";
-import { ShutdownOptions } from "../lifecycle/shutdown.options";
-import { RevisionBucketSnapshotPolicy } from "../session/snapshot/revision-bucket-snapshot.policy";
-import type { SnapshotPolicy } from "../session/snapshot/snapshot.policy";
+import { ContextOptions, type ContextOptionsPatch } from "./context.options";
+import { CostOptions, type CostOptionsPatch } from "./cost.options";
+import { LifecycleOptions, type LifecycleOptionsPatch } from "./lifecycle.options";
+import { ModelOptions, type ModelOptionsPatch } from "./model.options";
+import { ToolingOptions, type ToolingOptionsPatch } from "./tooling.options";
 
 /**
- * The fields a caller may name; one left out keeps whatever the options already hold.
+ * The fields a caller may name; one left out keeps whatever the options already hold, and
+ * a group named partially keeps the fields of that group it did not mention.
+ *
  * There is no way to clear a field through a patch: replacing is naming, clearing is
  * building fresh options.
  */
 export interface RuntimeOptionsPatch {
-	shutdown?: ShutdownOptions;
+	/** What a model reads: compaction, summarizing, attachments, offloading. */
+	context?: ContextOptionsPatch;
+	/** What a run costs and where an unpriced model is reported. */
+	cost?: CostOptionsPatch;
+	/** Which tools a run reaches, who may call them, which of them wait for a person. */
+	tools?: ToolingOptionsPatch;
+	/** What happens around a run: shutdown, snapshots, consumers, redaction. */
+	lifecycle?: LifecycleOptionsPatch;
+	/** Which model answers, and what a failed call does before failover. */
+	model?: ModelOptionsPatch;
 	limits?: RunLimits;
-	consumers?: readonly SessionEventConsumer[];
-	offload?: OffloadPolicy;
-	approvals?: AdkApprovalPolicy;
-	sources?: readonly ToolSource[];
-	snapshots?: SnapshotPolicy;
-	models?: ModelResolver;
-	summarizer?: ContextSummarizer;
-	contextNotices?: ContextNoticeSink;
-	consumerNotices?: ConsumerFailureSink;
-	compaction?: AdkCompactionPolicy | false;
-	/** How a context that grew too long becomes one that fits. Absent keeps the shipped strategy. */
-	compactionStrategy?: CompactionStrategy;
-	/** What is masked out of a payload before a consumer reads it. */
-	redactor?: EventRedactor;
-	pricing?: PricingSource;
-	pricingNotices?: PricingNoticeSink;
-	attachments?: AttachmentResolver;
-	/** Who may call which tool. Consulted on every invocation, by the agent loop and by an MCP server alike. */
-	access?: AdkAccessPolicy;
 }
 
 /**
@@ -58,48 +33,36 @@ export interface RuntimeOptionsPatch {
  * that declares none still gets a working runtime. The ones that are absent are absent
  * on purpose: without a summarizer compaction drops instead of summarizing, and without
  * a notice sink an unknown window is simply not reported anywhere.
+ *
+ * The fields are grouped by the question they answer rather than listed flat, and each
+ * group is a value object of its own with its own defaults. The grouping is what the
+ * composition reads: a composer is handed the group it needs and cannot reach the rest,
+ * which is the same boundary the folders draw, written in a type.
+ *
+ * ```ts
+ * RuntimeOptions.from({
+ *   context: { summarizer: new GeminiSummarizer() },
+ *   cost: { pricing: new LiteLLMPricingSource() },
+ *   tools: { approvals: EffectApprovalPolicy.never() },
+ * });
+ * ```
  */
 export class RuntimeOptions {
 	public constructor(
-		public readonly shutdown: ShutdownOptions = ShutdownOptions.waitIndefinitely(),
+		public readonly context: ContextOptions = new ContextOptions(),
+		public readonly cost: CostOptions = new CostOptions(),
+		public readonly tools: ToolingOptions = new ToolingOptions(),
+		public readonly lifecycle: LifecycleOptions = new LifecycleOptions(),
+		public readonly model: ModelOptions = new ModelOptions(),
 		/**
 		 * Fifty iterations unless the application says otherwise, and `RunLimits.unbounded()`
 		 * is how it says so. An agent, and then a call, may narrow or widen it from here.
+		 *
+		 * It is the one field outside a group, because it is the only one that is not a
+		 * component: every other answer here is a class somebody can replace, and this is a
+		 * number three levels resolve between them.
 		 */
 		public readonly limits: RunLimits = RunLimits.byDefault(),
-		public readonly consumers: readonly SessionEventConsumer[] = [],
-		public readonly offload: OffloadPolicy = CharacterCountOffloadPolicy.byDefault(),
-		/**
-		 * A tool declared destructive stops in front of a human unless the application says
-		 * otherwise, which is the safe half of the trade: the cost of the default being wrong is a
-		 * run that waits, and the cost the other way is an effect nobody agreed to.
-		 */
-		public readonly approvals: AdkApprovalPolicy = EffectApprovalPolicy.destructiveOnly(),
-		public readonly sources: readonly ToolSource[] = [],
-		public readonly snapshots: SnapshotPolicy = RevisionBucketSnapshotPolicy.everyFiftyEvents(),
-		public readonly models?: ModelResolver,
-		public readonly summarizer?: ContextSummarizer,
-		public readonly contextNotices?: ContextNoticeSink,
-		public readonly consumerNotices?: ConsumerFailureSink,
-		/**
-		 * What every agent that declared none runs under; one that declared its own keeps it.
-		 * Absent means the standard share of the window, and `false` means no conversation
-		 * running under this runtime is ever shortened.
-		 */
-		public readonly compaction?: AdkCompactionPolicy | false,
-		/** One source for the whole runtime. Without it every run answers a cost of zero and says so. */
-		public readonly pricing?: PricingSource,
-		public readonly pricingNotices?: PricingNoticeSink,
-		/** What an attachment becomes on each projection. Without it, stored bytes inline and links pass through. */
-		public readonly attachments?: AttachmentResolver,
-		public readonly access: AdkAccessPolicy = new OpenAccessPolicy(),
-		/**
-		 * Absent means the shipped strategy, which drops the oldest answered exchanges. It is
-		 * absent rather than built here because the shipped one needs the measurer and the
-		 * summarizer the runtime composes.
-		 */
-		public readonly compactionStrategy?: CompactionStrategy,
-		public readonly redactor: EventRedactor = new FieldNameEventRedactor(),
 	) {}
 
 	/** Options built from names instead of positions, with the same defaults as declaring none. */
@@ -110,29 +73,18 @@ export class RuntimeOptions {
 	/**
 	 * A copy with the named fields replaced and every other field kept.
 	 *
-	 * This is how three fields change without the other nine being restated: a caller that
-	 * copies positions breaks silently whenever a field is added, a patch never does.
+	 * A group is merged rather than replaced, so naming one field of `context` keeps the five
+	 * beside it. A caller that copies positions breaks silently whenever a field is added; a
+	 * patch never does.
 	 */
 	public with(patch: RuntimeOptionsPatch): RuntimeOptions {
 		return new RuntimeOptions(
-			patch.shutdown ?? this.shutdown,
+			this.context.with(patch.context ?? {}),
+			this.cost.with(patch.cost ?? {}),
+			this.tools.with(patch.tools ?? {}),
+			this.lifecycle.with(patch.lifecycle ?? {}),
+			this.model.with(patch.model ?? {}),
 			patch.limits ?? this.limits,
-			patch.consumers ?? this.consumers,
-			patch.offload ?? this.offload,
-			patch.approvals ?? this.approvals,
-			patch.sources ?? this.sources,
-			patch.snapshots ?? this.snapshots,
-			patch.models ?? this.models,
-			patch.summarizer ?? this.summarizer,
-			patch.contextNotices ?? this.contextNotices,
-			patch.consumerNotices ?? this.consumerNotices,
-			patch.compaction ?? this.compaction,
-			patch.pricing ?? this.pricing,
-			patch.pricingNotices ?? this.pricingNotices,
-			patch.attachments ?? this.attachments,
-			patch.access ?? this.access,
-			patch.compactionStrategy ?? this.compactionStrategy,
-			patch.redactor ?? this.redactor,
 		);
 	}
 }

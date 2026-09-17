@@ -6,6 +6,7 @@ import type { AgentFailoverPolicy } from "../../../domain/agent/agent-failover.p
 import { AgentName } from "../../../domain/agent/agent-name.value-object";
 import { AgentTransferPolicy } from "../../../domain/agent/agent-transfer.policy";
 import { DeclaredAgent } from "../../../domain/agent/declared-agent.value-object";
+import type { ModelRetryPolicy } from "../../../domain/agent/model-retry.policy";
 import type { AdkCompactionPolicy } from "../../../domain/context/adk-compaction.policy";
 import type { LlmModel } from "../../../domain/model/llm-model.contract";
 import type { PromptBuilder } from "../../../domain/prompt/prompt-builder.contract";
@@ -26,6 +27,8 @@ export interface DiscoveredProvider {
 	/** Set for an agent that builds its prompt per run, which is the alternative to `instructions`. */
 	readonly promptBuilder?: PromptBuilder;
 	readonly failover?: AgentFailoverPolicy;
+	/** Absent leaves the agent on the runtime's policy; `NoRetryPolicy` is how it refuses one. */
+	readonly retry?: ModelRetryPolicy;
 	/** Absent leaves the agent on the module's policy, which may itself be absent. */
 	readonly compaction?: AdkCompactionPolicy | false;
 	/** Absent leaves the agent on the module's ceiling, which may itself be absent. */
@@ -56,23 +59,24 @@ export class NestComponentDiscovery {
 	private toAgent(provider: DiscoveredProvider): DeclaredAgent {
 		const metadata = AgentMetadata.from(provider.metadata, provider.providerName);
 		const name = AgentName.from(metadata.name);
-		const definition = new AgentDefinition(
-			name,
-			AgentDescription.from(metadata.description, name.value),
-			provider.model,
-			provider.instructions,
-			new AgentExecutionPolicies(
+		const definition = new AgentDefinition({
+			name: name,
+			description: AgentDescription.from(metadata.description, name.value),
+			model: provider.model,
+			instructions: provider.instructions,
+			policies: new AgentExecutionPolicies(
 				provider.failover,
 				provider.compaction,
 				provider.limits,
 				this.readTransferPolicy(provider),
 				this.readDelegationPolicy(provider),
+				provider.retry,
 			),
-			provider.tools ?? [],
-			provider.skills ?? [],
-			provider.promptBuilder,
-			provider.outputSchema,
-		);
+			tools: provider.tools ?? [],
+			skills: provider.skills ?? [],
+			promptBuilder: provider.promptBuilder,
+			outputSchema: provider.outputSchema,
+		});
 		return new DeclaredAgent(definition, provider.providerName);
 	}
 

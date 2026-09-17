@@ -1,5 +1,6 @@
 import {
 	ContextExceededFailure,
+	Duration,
 	InvalidRequestFailure,
 	type ModelFailure,
 	RateLimitedFailure,
@@ -34,9 +35,9 @@ export class OpenAiFailureMapper {
 		if (code !== undefined && CONTEXT_CODES.has(code)) return new ContextExceededFailure(message, error);
 		if (code !== undefined && SAFETY_CODES.has(code)) return new SafetyBlockedFailure(message, error);
 		if (type !== undefined && SAFETY_CODES.has(type)) return new SafetyBlockedFailure(message, error);
-		if (status === 429) return new RateLimitedFailure(message, error);
+		if (status === 429) return new RateLimitedFailure(message, error, this.readRetryAfter(error));
 		if (status === 408 || this.isTimeout(error, code)) return new TimeoutFailure(message, error);
-		if (status !== undefined && status >= 500) return new UnavailableFailure(message, error);
+		if (status !== undefined && status >= 500) return new UnavailableFailure(message, error, this.readRetryAfter(error));
 		if (status === undefined && this.isConnection(error, code)) return new UnavailableFailure(message, error);
 		if (this.isClientError(status)) return new InvalidRequestFailure(message, error);
 		return new UnknownFailure(message, error);
@@ -85,5 +86,38 @@ export class OpenAiFailureMapper {
 		if (typeof error !== "object" || error === null) return undefined;
 		const value = Reflect.get(error, key);
 		return typeof value === "number" ? value : undefined;
+	}
+
+	/**
+	 * What `Retry-After` said, in whichever of its two forms the provider used.
+	 *
+	 * RFC 9110 allows a count of seconds or an HTTP date, and providers send both. A date is
+	 * turned into what is left of it now, so whoever waits is handed one kind of number. A
+	 * header that is neither is dropped rather than guessed: a wrong wait is worse than none,
+	 * since the policy has a backoff of its own to fall back on.
+	 */
+	private readRetryAfter(error: unknown): Duration | undefined {
+		const raw = this.readHeader(error, "retry-after");
+		if (raw === undefined) return undefined;
+		const seconds = Number(raw);
+		if (Number.isFinite(seconds) && seconds >= 0) return Duration.fromSeconds(seconds);
+		const at = Date.parse(raw);
+		if (Number.isNaN(at)) return undefined;
+		return Duration.fromMillis(Math.max(0, at - Date.now()));
+	}
+
+	/** The SDKs expose headers as a `Headers` instance, a plain record, or not at all. */
+	private readHeader(error: unknown, name: string): string | undefined {
+		if (typeof error !== "object" || error === null) return undefined;
+		const headers: unknown =
+			Reflect.get(error, "headers") ?? Reflect.get(Object(Reflect.get(error, "response")), "headers");
+		if (typeof headers !== "object" || headers === null) return undefined;
+		const get: unknown = Reflect.get(headers, "get");
+		if (typeof get === "function") {
+			const value: unknown = Reflect.apply(get, headers, [name]);
+			return typeof value === "string" ? value : undefined;
+		}
+		const direct = Reflect.get(headers, name) ?? Reflect.get(headers, name.toLowerCase());
+		return typeof direct === "string" ? direct : undefined;
 	}
 }

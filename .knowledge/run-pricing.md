@@ -29,4 +29,4 @@ The sink follows the same rule as every other notice sink in the runtime. It is 
 
 ## One source, no overrides
 
-There is one `PricingSource` for the whole module, declared in `RuntimeOptions`. There is deliberately no per agent and no per model override: a bill that can be overridden in three places is a bill nobody can explain. A consumer that needs negotiated rates, a persisted catalog or a different currency writes a source, which is why the port is public.
+There is one `PricingSource` for the whole module, declared in `RuntimeOptions.cost.pricing`. There is deliberately no per agent and no per model override: a bill that can be overridden in three places is a bill nobody can explain. A consumer that needs negotiated rates, a persisted catalog or a different currency writes a source, which is why the port is public.

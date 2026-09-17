@@ -20,7 +20,12 @@ function stackOf(): NativeStackFixture {
 describe("StreamAgentUseCase", () => {
 	it("yields the pieces and returns the same answer ask would have returned", async () => {
 		const stack = stackOf();
-		const turn = stack.runner.stream(new AgentRunCommand(NativeStackFixture.AGENT, AskInput.fromMessage("hi")));
+		const turn = stack.runner.stream(
+			new AgentRunCommand({
+				agent: NativeStackFixture.AGENT,
+				input: AskInput.fromMessage("hi"),
+			}),
+		);
 
 		const chunks: ModelChunk[] = [];
 		let step = await turn.next();
@@ -35,7 +40,12 @@ describe("StreamAgentUseCase", () => {
 
 	it("hands the run's own failure to whoever was watching", async () => {
 		const stack = new NativeStackFixture(new ScriptedModel("primary", [], true));
-		const turn = stack.runner.stream(new AgentRunCommand(NativeStackFixture.AGENT, AskInput.fromMessage("hi")));
+		const turn = stack.runner.stream(
+			new AgentRunCommand({
+				agent: NativeStackFixture.AGENT,
+				input: AskInput.fromMessage("hi"),
+			}),
+		);
 
 		await expect(
 			(async () => {
@@ -50,10 +60,20 @@ describe("StreamAgentUseCase", () => {
 		const streamed = stackOf();
 		const asked = stackOf();
 
-		const turn = streamed.runner.stream(new AgentRunCommand(NativeStackFixture.AGENT, AskInput.fromMessage("hi")));
+		const turn = streamed.runner.stream(
+			new AgentRunCommand({
+				agent: NativeStackFixture.AGENT,
+				input: AskInput.fromMessage("hi"),
+			}),
+		);
 		let step = await turn.next();
 		while (step.done !== true) step = await turn.next();
-		const result = await asked.runner.ask(new AgentRunCommand(NativeStackFixture.AGENT, AskInput.fromMessage("hi")));
+		const result = await asked.runner.ask(
+			new AgentRunCommand({
+				agent: NativeStackFixture.AGENT,
+				input: AskInput.fromMessage("hi"),
+			}),
+		);
 
 		const streamedTypes = (await streamed.readJournal(step.value.sessionId)).map((event) => event.type);
 		const askedTypes = (await asked.readJournal(result.sessionId)).map((event) => event.type);

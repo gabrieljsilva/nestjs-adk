@@ -122,9 +122,23 @@ export class AdkTestBedBuilder {
 		return this;
 	}
 
-	/** Replaces runtime fields by name: limits, compaction, summarizer, approvals. */
+	/**
+	 * Replaces runtime fields by name, group by group: `{ tools: { approvals } }`, `{ limits }`.
+	 *
+	 * Two calls merge one level down rather than overwriting, so a test that names a pricing
+	 * source and then an approval policy keeps both. Naming the same field twice keeps the
+	 * last, which is what a caller writing it twice meant.
+	 */
 	public withRuntime(patch: RuntimeOptionsPatch): this {
-		this.runtimePatch = { ...this.runtimePatch, ...patch };
+		this.runtimePatch = {
+			...this.runtimePatch,
+			...patch,
+			context: { ...this.runtimePatch.context, ...patch.context },
+			cost: { ...this.runtimePatch.cost, ...patch.cost },
+			tools: { ...this.runtimePatch.tools, ...patch.tools },
+			lifecycle: { ...this.runtimePatch.lifecycle, ...patch.lifecycle },
+			model: { ...this.runtimePatch.model, ...patch.model },
+		};
 		return this;
 	}
 
@@ -160,7 +174,7 @@ export class AdkTestBedBuilder {
 			// The declared resolver is read from the options rather than injected: a factory that
 			// overrides a token cannot also depend on it.
 			this.builder.overrideProvider(ModelResolver).useFactory({
-				factory: (declared: AdkModuleOptions) => this.resolverOver(declared.runtime?.models),
+				factory: (declared: AdkModuleOptions) => this.resolverOver(declared.runtime?.model.resolver),
 				inject: [ADK_OPTIONS],
 			});
 		}

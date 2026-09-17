@@ -3,6 +3,7 @@ import type { RunLimits } from "../session/run/run-limits.value-object";
 import { AgentDelegationPolicy } from "./agent-delegation.policy";
 import type { AgentFailoverPolicy } from "./agent-failover.policy";
 import { AgentTransferPolicy } from "./agent-transfer.policy";
+import type { ModelRetryPolicy } from "./model-retry.policy";
 
 /**
  * The rules an agent runs under, as one thing instead of four constructor slots.
@@ -24,6 +25,11 @@ export class AgentExecutionPolicies {
 		public readonly limits?: RunLimits,
 		public readonly transfer: AgentTransferPolicy = AgentTransferPolicy.none(),
 		public readonly delegation: AgentDelegationPolicy = AgentDelegationPolicy.none(),
+		/**
+		 * Whether a failed call is tried again on the same model, before failover is consulted.
+		 * Absent leaves the agent on the runtime's policy; `NoRetryPolicy` is how it refuses one.
+		 */
+		public readonly retry?: ModelRetryPolicy,
 	) {}
 
 	public static none(): AgentExecutionPolicies {
@@ -37,10 +43,10 @@ export class AgentExecutionPolicies {
 	}
 
 	public withTransfer(transfer: AgentTransferPolicy): AgentExecutionPolicies {
-		return new AgentExecutionPolicies(this.failover, this.compaction, this.limits, transfer, this.delegation);
+		return new AgentExecutionPolicies(this.failover, this.compaction, this.limits, transfer, this.delegation, this.retry);
 	}
 
 	public withDelegation(delegation: AgentDelegationPolicy): AgentExecutionPolicies {
-		return new AgentExecutionPolicies(this.failover, this.compaction, this.limits, this.transfer, delegation);
+		return new AgentExecutionPolicies(this.failover, this.compaction, this.limits, this.transfer, delegation, this.retry);
 	}
 }

@@ -46,7 +46,7 @@ The rule is that degrading is fine and degrading silently is not.
 
 An application that declares nothing is compacted at nine tenths of the window, down to seven tenths, keeping the four most recent blocks. That is `WindowShareCompactionPolicy`, and the default exists because the alternative was worse: before it, a conversation nobody had thought about grew until the window refused the call, and the failure arrived at the customer rather than at the developer. The shares match what Cline and Cursor do, and they are shares rather than counts because two hundred thousand tokens is comfortable in a window of a million and impossible in one of a hundred and twenty eight thousand.
 
-Three levels declare it, resolved in `RunScopeFactory.compactionFor`: the agent's `@Agent({ compaction })`, then `RuntimeOptions.compaction`, then the standard policy. `false` at either level turns compaction off, and it is a declaration rather than an absence: an agent that refuses compaction keeps refusing it under a runtime that declared a policy, and `??` is what keeps the three readable, since it falls through on `undefined` and never on `false`.
+Three levels declare it, resolved in `RunScopeFactory.compactionFor`: the agent's `@Agent({ compaction })`, then `RuntimeOptions.context.compaction`, then the standard policy. `false` at either level turns compaction off, and it is a declaration rather than an absence: an agent that refuses compaction keeps refusing it under a runtime that declared a policy, and `??` is what keeps the three readable, since it falls through on `undefined` and never on `false`.
 
 An agent that turned it off and outgrows its window gets `ContextBudgetExceededError`, which is the honest end. The alternative is dropping the beginning of a conversation somebody said to keep whole.
 
@@ -66,7 +66,7 @@ Compaction decides on the projection rather than the measurement, and targets a 
 
 ## The strategy is a component like the policy
 
-The policy answers whether and how much; `CompactionStrategy` answers how, and it is declared in `RuntimeOptions.compactionStrategy` rather than constructed inside the composition. `OldestFirstCompactionStrategy` is what ships, and it is built there rather than defaulted in the options because it needs the measurer and the summarizer the runtime composes.
+The policy answers whether and how much; `CompactionStrategy` answers how, and it is declared in `RuntimeOptions.context.compactionStrategy` rather than constructed inside the composition. `OldestFirstCompactionStrategy` is what ships, and it is built there rather than defaulted in the options because it needs the measurer and the summarizer the runtime composes.
 
 ## What compaction may not do
 

@@ -270,15 +270,15 @@ export class AgentHandle {
 	): Promise<AgentResult> {
 		const decided = AgentHandle.resolveDecision(options);
 		return this.runtime.runner.approve(
-			new ApproveInput(
-				AgentHandle.resolveSession(sessionId),
-				callId,
-				decided.by,
-				decided.sources,
-				decided.signal,
-				decided.actor,
-				decided.toolCalls,
-			),
+			new ApproveInput({
+				sessionId: AgentHandle.resolveSession(sessionId),
+				callId: callId,
+				approvedBy: decided.by,
+				sources: decided.sources,
+				signal: decided.signal,
+				actor: decided.actor,
+				toolCalls: decided.toolCalls,
+			}),
 		);
 	}
 
@@ -295,16 +295,16 @@ export class AgentHandle {
 	): Promise<AgentResult> {
 		const decided = AgentHandle.resolveDecision(options);
 		return this.runtime.runner.reject(
-			new RejectInput(
-				AgentHandle.resolveSession(sessionId),
-				callId,
-				reason,
-				decided.by,
-				decided.sources,
-				decided.signal,
-				decided.actor,
-				decided.toolCalls,
-			),
+			new RejectInput({
+				sessionId: AgentHandle.resolveSession(sessionId),
+				callId: callId,
+				reason: reason,
+				deniedBy: decided.by,
+				sources: decided.sources,
+				signal: decided.signal,
+				actor: decided.actor,
+				toolCalls: decided.toolCalls,
+			}),
 		);
 	}
 
@@ -329,24 +329,20 @@ export class AgentHandle {
 	private buildCommand(message: string, options?: AskOptions | SessionId | string): AgentRunCommand {
 		const asked = AgentHandle.resolveOptions(options);
 		const sessionId = asked.sessionId === undefined ? undefined : AgentHandle.resolveSession(asked.sessionId);
-		return new AgentRunCommand(
-			this.name,
-			AskInput.with(
-				message,
-				asked.media ?? [],
-				sessionId,
-				undefined,
-				asked.attachments ?? [],
-				SessionMetadata.fromRecord(asked.metadata ?? {}),
-			),
-			undefined,
-			undefined,
-			undefined,
-			asked.sources ?? [],
-			asked.signal,
-			asked.actor,
-			asked.toolCalls,
-		);
+		return new AgentRunCommand({
+			agent: this.name,
+			input: new AskInput({
+				message: message,
+				attachments: asked.media ?? [],
+				sessionId: sessionId,
+				references: asked.attachments ?? [],
+				metadata: SessionMetadata.fromRecord(asked.metadata ?? {}),
+			}),
+			sources: asked.sources ?? [],
+			signal: asked.signal,
+			actor: asked.actor,
+			toolCalls: asked.toolCalls,
+		});
 	}
 
 	/**

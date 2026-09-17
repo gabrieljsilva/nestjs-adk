@@ -89,28 +89,18 @@ class NamingSummarizer implements ContextSummarizer {
 }
 
 function agentOf(model: LlmModel, compaction: AdkCompactionPolicy): DeclaredAgent {
-	const definition = new AgentDefinition(
-		SUPPORT,
-		AgentDescription.from("Support agent", SUPPORT.value),
-		model,
-		PromptInstructions.from("Be brief."),
-		new AgentExecutionPolicies(undefined, compaction),
-	);
+	const definition = new AgentDefinition({
+		name: SUPPORT,
+		description: AgentDescription.from("Support agent", SUPPORT.value),
+		model: model,
+		instructions: PromptInstructions.from("Be brief."),
+		policies: new AgentExecutionPolicies(undefined, compaction),
+	});
 	return new DeclaredAgent(definition, "SupportAgent");
 }
 
 function optionsWith(summarizer: ContextSummarizer): RuntimeOptions {
-	return new RuntimeOptions(
-		ShutdownOptions.waitIndefinitely(),
-		RunLimits.unbounded(),
-		[],
-		undefined,
-		undefined,
-		[],
-		undefined,
-		undefined,
-		summarizer,
-	);
+	return RuntimeOptions.from({ limits: RunLimits.unbounded(), context: { summarizer } });
 }
 
 /** Shortens the way the shipped strategy does, and counts, which is the observable part. */
@@ -151,9 +141,24 @@ describe("auto compaction, against a scripted model", () => {
 			optionsWith(summarizer),
 		);
 
-		const first = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("one")));
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("two", first.sessionId)));
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("three", first.sessionId)));
+		const first = await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("one"),
+			}),
+		);
+		await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("two", first.sessionId),
+			}),
+		);
+		await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("three", first.sessionId),
+			}),
+		);
 
 		const last = model.requests.at(-1);
 		expect(summarizer.calls).toBeGreaterThan(0);
@@ -172,9 +177,24 @@ describe("auto compaction, against a scripted model", () => {
 			optionsWith(new NamingSummarizer()),
 		);
 
-		const first = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("one")));
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("two", first.sessionId)));
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("three", first.sessionId)));
+		const first = await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("one"),
+			}),
+		);
+		await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("two", first.sessionId),
+			}),
+		);
+		await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("three", first.sessionId),
+			}),
+		);
 
 		const said: string[] = [];
 		for await (const stored of storage.readEvents(
@@ -197,9 +217,24 @@ describe("auto compaction, against a scripted model", () => {
 			new SequenceIdGenerator(),
 		);
 
-		const first = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("one")));
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("two", first.sessionId)));
-		const third = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("three", first.sessionId)));
+		const first = await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("one"),
+			}),
+		);
+		await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("two", first.sessionId),
+			}),
+		);
+		const third = await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("three", first.sessionId),
+			}),
+		);
 
 		expect(third.status.name).toBe("completed");
 		expect(
@@ -220,12 +255,27 @@ describe("auto compaction, against a scripted model", () => {
 			new InMemoryArtifactStorage(new SequenceIdGenerator("a")),
 			new FakeClock(),
 			new SequenceIdGenerator(),
-			RuntimeOptions.from({ compactionStrategy }),
+			RuntimeOptions.from({ context: { compactionStrategy: compactionStrategy } }),
 		);
 
-		const first = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("one")));
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("two", first.sessionId)));
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("three", first.sessionId)));
+		const first = await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("one"),
+			}),
+		);
+		await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("two", first.sessionId),
+			}),
+		);
+		await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("three", first.sessionId),
+			}),
+		);
 
 		expect(compactionStrategy.calls).toBeGreaterThan(0);
 	});

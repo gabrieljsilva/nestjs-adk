@@ -11,7 +11,9 @@ import { ADK_OPTIONS, AdkModule } from "./adk.module";
 @Injectable()
 class BuiltOptions implements AdkOptionsFactory {
 	public createAdkOptions(): AdkModuleOptions {
-		return new AdkModuleOptions(new ScriptedModel("primary"));
+		return new AdkModuleOptions({
+			defaultModel: new ScriptedModel("primary"),
+		});
 	}
 }
 
@@ -27,19 +29,29 @@ function optionsProviderOf(providers: unknown[] | undefined): unknown {
 
 describe("AdkModule", () => {
 	it("is a global module, so an application injects the runtime without importing it again", () => {
-		const dynamic = AdkModule.forRoot(new AdkModuleOptions(new ScriptedModel("primary")));
+		const dynamic = AdkModule.forRoot(
+			new AdkModuleOptions({
+				defaultModel: new ScriptedModel("primary"),
+			}),
+		);
 
 		expect(dynamic.module).toBe(AdkModule);
 	});
 
 	it("exports what an application actually holds", () => {
-		const dynamic = AdkModule.forRoot(new AdkModuleOptions(new ScriptedModel("primary")));
+		const dynamic = AdkModule.forRoot(
+			new AdkModuleOptions({
+				defaultModel: new ScriptedModel("primary"),
+			}),
+		);
 
 		expect(dynamic.exports?.length).toBeGreaterThan(0);
 	});
 
 	it("keeps the options reachable under a token of their own", () => {
-		const options = new AdkModuleOptions(new ScriptedModel("primary"));
+		const options = new AdkModuleOptions({
+			defaultModel: new ScriptedModel("primary"),
+		});
 		const dynamic = AdkModule.forRoot(options);
 
 		const provided = optionsProviderOf(dynamic.providers);
@@ -48,7 +60,11 @@ describe("AdkModule", () => {
 
 	describe("forRootAsync", () => {
 		it("builds the same module, so nothing downstream can tell how the options arrived", () => {
-			const sync = AdkModule.forRoot(new AdkModuleOptions(new ScriptedModel("primary")));
+			const sync = AdkModule.forRoot(
+				new AdkModuleOptions({
+					defaultModel: new ScriptedModel("primary"),
+				}),
+			);
 			const async = AdkModule.forRootAsync({ imports: [OptionsModule], useClass: BuiltOptions });
 
 			expect(async.module).toBe(AdkModule);
@@ -69,7 +85,12 @@ describe("AdkModule", () => {
 		});
 
 		it("defaults the factory's dependencies to none rather than to undefined", () => {
-			const dynamic = AdkModule.forRootAsync({ useFactory: () => new AdkModuleOptions(new ScriptedModel("primary")) });
+			const dynamic = AdkModule.forRootAsync({
+				useFactory: () =>
+					new AdkModuleOptions({
+						defaultModel: new ScriptedModel("primary"),
+					}),
+			});
 
 			expect(Reflect.get(Object(optionsProviderOf(dynamic.providers)), "inject")).toEqual([]);
 		});
@@ -103,7 +124,10 @@ describe("AdkModule", () => {
 			expect(() =>
 				AdkModule.forRootAsync({
 					useClass: BuiltOptions,
-					useFactory: () => new AdkModuleOptions(new ScriptedModel("primary")),
+					useFactory: () =>
+						new AdkModuleOptions({
+							defaultModel: new ScriptedModel("primary"),
+						}),
 				}),
 			).toThrow(ConflictingAsyncOptionsError);
 		});

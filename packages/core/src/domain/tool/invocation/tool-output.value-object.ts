@@ -14,17 +14,13 @@ import type { MediaPart } from "../../model/messages/media-part.value-object";
  * almost any provider's wire format.
  */
 export class ToolOutput {
-	private constructor(
+	public readonly media: readonly MediaPart[];
+
+	public constructor(
 		public readonly data: unknown,
-		public readonly media: readonly MediaPart[],
-	) {}
-
-	public static fromData(data: unknown): ToolOutput {
-		return new ToolOutput(data, []);
-	}
-
-	public static with(data: unknown, media: readonly MediaPart[]): ToolOutput {
-		return new ToolOutput(data, [...media]);
+		media: readonly MediaPart[] = [],
+	) {
+		this.media = [...media];
 	}
 
 	public get hasMedia(): boolean {

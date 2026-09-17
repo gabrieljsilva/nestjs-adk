@@ -6,7 +6,9 @@ import { AdkModuleOptions } from "./adk-module.options";
 describe("AdkModuleOptions", () => {
 	it("needs only the model an agent falls back to", () => {
 		const model = new ScriptedModel("primary");
-		const options = new AdkModuleOptions(model);
+		const options = new AdkModuleOptions({
+			defaultModel: model,
+		});
 
 		expect(options.defaultModel).toBe(model);
 		expect(options.storage).toBeUndefined();
@@ -15,7 +17,10 @@ describe("AdkModuleOptions", () => {
 
 	it("carries the ports an application decided to replace", () => {
 		const storage = new InMemorySessionStorage();
-		const options = new AdkModuleOptions(new ScriptedModel("primary"), storage);
+		const options = new AdkModuleOptions({
+			defaultModel: new ScriptedModel("primary"),
+			storage: storage,
+		});
 
 		expect(options.storage).toBe(storage);
 	});

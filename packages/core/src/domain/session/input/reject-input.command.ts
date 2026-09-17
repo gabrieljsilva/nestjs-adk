@@ -10,20 +10,36 @@ import type { Actor } from "../../tool/access/actor.value-object";
  * It takes sources for the same reason an approval does: refusing one call still runs the
  * turn, and the other calls of that turn may have come from a source that has to be open.
  */
-export class RejectInput {
-	public readonly reason: string;
+export interface RejectParams {
+	sessionId: SessionId;
+	callId: ToolCallId;
+	reason: string;
+	deniedBy?: string;
+	sources?: readonly ToolSource[];
+	/** The stop button of the turn this decision releases, which is a run of its own. */
+	signal?: AbortSignal;
+	actor?: Actor;
+	toolCalls?: ToolCallObserver;
+}
 
-	public constructor(
-		public readonly sessionId: SessionId,
-		public readonly callId: ToolCallId,
-		reason: string,
-		public readonly deniedBy?: string,
-		public readonly sources: readonly ToolSource[] = [],
-		/** The stop button of the turn this decision releases, which is a run of its own. */
-		public readonly signal?: AbortSignal,
-		public readonly actor?: Actor,
-		public readonly toolCalls?: ToolCallObserver,
-	) {
-		this.reason = reason.trim();
+export class RejectInput {
+	public readonly sessionId: SessionId;
+	public readonly callId: ToolCallId;
+	public readonly reason: string;
+	public readonly deniedBy?: string;
+	public readonly sources: readonly ToolSource[];
+	public readonly signal?: AbortSignal;
+	public readonly actor?: Actor;
+	public readonly toolCalls?: ToolCallObserver;
+
+	public constructor(params: RejectParams) {
+		this.sessionId = params.sessionId;
+		this.callId = params.callId;
+		this.reason = params.reason.trim();
+		this.deniedBy = params.deniedBy;
+		this.sources = params.sources ?? [];
+		this.signal = params.signal;
+		this.actor = params.actor;
+		this.toolCalls = params.toolCalls;
 	}
 }

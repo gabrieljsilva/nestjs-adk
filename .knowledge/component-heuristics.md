@@ -20,3 +20,15 @@ Four measurements are alerts. An alert is a question to answer in review, not a 
 A file is long because of what it contains, and the two reasons that make it long are opposite. A 400 line class holding four responsibilities is a finding, and the finding is the four responsibilities. A 400 line codec that maps forty fields is one responsibility written out, and splitting it produces two files that are only ever read together.
 
 Measured on 2026-09-14: three files across all packages are over 300 lines. Length was not what the review found wrong with any of them.
+
+## Not every long constructor is the same finding
+
+Phase 6B swept the constructors over six parameters and converted exactly one kind: the ones taking **data the caller assembles**. A command, an options object or a definition is a list of values somebody writes out at the call site, so its parameters become a typed `*Params` or `*Input` object in the same file and the constructor takes one argument. `AgentDefinition`, `AskInput`, `AgentRunCommand`, `ModelRunCommand`, `PrepareContextCommand`, `ApproveInput`, `RejectInput` and `AdkModuleOptions` all went that way; `RuntimeOptions` went further and grouped its eighteen fields into five sub-objects.
+
+The ones left positional are left deliberately, and the alert is answered rather than silenced:
+
+- **Collaborator injection.** `AskAgentUseCase` (12), `ComposeRuntimeUseCase` (12), `DecideApprovalUseCase` (11), `TurnLoop` (9). Nobody writes these by hand outside the composition, and this file's first rule says to move the logic first: phase 6A did, and what is left is the graph. Wrapping the graph in an object renames the problem.
+- **Resolved bundles.** `RunScope` (11), `RuntimeServices` (13), `ComposedRun` (11). Being one bundle is the whole point of the class, see [[run-orchestration]]; an input object for a bundle is a bundle with one more layer.
+- **Stored shapes.** `JournalRecord` (9), `CheckpointRecord` (8). The parameters are the columns, in the order the codec writes them, and a record has no behaviour to protect.
+
+The test is the same one everywhere else in this file: would naming the arguments prevent a mistake somebody can actually make. At a call site written once, in a file whose job is to write it, it would not.

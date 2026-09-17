@@ -86,7 +86,13 @@ describe("how full a conversation's context is", () => {
 		app = await Test.createTestingModule({
 			imports: [
 				AdkModule.forRoot(
-					new AdkModuleOptions(model, storage, undefined, new FakeClock(), new SequenceIdGenerator(), runtime),
+					new AdkModuleOptions({
+						defaultModel: model,
+						storage: storage,
+						clock: new FakeClock(),
+						ids: new SequenceIdGenerator(),
+						runtime: runtime,
+					}),
 				),
 				FeatureModule,
 			],
@@ -172,7 +178,7 @@ describe("how full a conversation's context is", () => {
 	/** Half the window is passed on the sixth question, long before nine tenths would be. */
 	it("runs under the runtime policy rather than the standard one when one was declared", async () => {
 		const runtime = RuntimeOptions.from({
-			compaction: new WindowShareCompactionPolicy({ maxShare: 0.5, targetShare: 0.3 }),
+			context: { compaction: new WindowShareCompactionPolicy({ maxShare: 0.5, targetShare: 0.3 }) },
 		});
 		const agent = await support(new CountingModel(80), runtime);
 

@@ -114,7 +114,10 @@ async function boot(model: ToolCallingModel, path?: string): Promise<{ app: INes
 	@Module({
 		imports: [
 			AdkModule.forRoot(
-				AdkModuleOptions.from({ defaultModel: model, runtime: RuntimeOptions.from({ access: new MembersOnly() }) }),
+				AdkModuleOptions.from({
+					defaultModel: model,
+					runtime: RuntimeOptions.from({ tools: { access: new MembersOnly() } }),
+				}),
 			),
 			MeetingsModule,
 			McpServerModule.forRoot({

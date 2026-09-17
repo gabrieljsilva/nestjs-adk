@@ -77,7 +77,10 @@ async function boot(model: ToolCallingModel): Promise<TestingModule> {
 	app = await Test.createTestingModule({
 		imports: [
 			AdkModule.forRoot(
-				AdkModuleOptions.from({ defaultModel: model, runtime: RuntimeOptions.from({ access: new MembersOnly() }) }),
+				AdkModuleOptions.from({
+					defaultModel: model,
+					runtime: RuntimeOptions.from({ tools: { access: new MembersOnly() } }),
+				}),
 			),
 			MeetingsModule,
 		],

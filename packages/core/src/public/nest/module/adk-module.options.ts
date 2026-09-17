@@ -53,56 +53,56 @@ export type AdkModuleOptionsPatch = Partial<AdkModuleOptionsInput>;
  * of the token can tell the two apart.
  */
 export class AdkModuleOptions {
-	public constructor(
-		/** The model an agent that declared none answers on. */
-		public readonly defaultModel?: LlmModel,
-		public readonly storage?: SessionStorage,
-		public readonly artifacts?: ArtifactStorage,
-		public readonly clock?: Clock,
-		public readonly ids?: IdGenerator,
-		/** Everything the runtime itself takes: approval policy, limits, consumers, snapshots. */
-		public readonly runtime?: RuntimeOptions,
-		/** Reachable by injecting `Embedder`. Without one, only code that embeds ever notices. */
-		public readonly embedder?: Embedder,
-		/** Where the built in filesystem source looks for a prompt named without a path. */
-		public readonly prompts?: PromptFileOptions,
-		/**
-		 * Replaces the filesystem source entirely, for prompts that live somewhere else.
-		 *
-		 * Declaring this and `prompts` together is refused: `prompts` configures the source this
-		 * one replaces, so keeping both would leave a directory declared that nothing reads.
-		 */
-		public readonly promptSource?: PromptSource,
-	) {}
+	/** The model an agent that declared none answers on. */
+	public readonly defaultModel?: LlmModel;
+	public readonly storage?: SessionStorage;
+	public readonly artifacts?: ArtifactStorage;
+	public readonly clock?: Clock;
+	public readonly ids?: IdGenerator;
+	/** Everything the runtime itself takes: approval policy, limits, consumers, snapshots. */
+	public readonly runtime?: RuntimeOptions;
+	/** Reachable by injecting `Embedder`. Without one, only code that embeds ever notices. */
+	public readonly embedder?: Embedder;
+	/** Where the built in filesystem source looks for a prompt named without a path. */
+	public readonly prompts?: PromptFileOptions;
+	/**
+	 * Replaces the filesystem source entirely, for prompts that live somewhere else.
+	 *
+	 * Declaring this and `prompts` together is refused: `prompts` configures the source this
+	 * one replaces, so keeping both would leave a directory declared that nothing reads.
+	 */
+	public readonly promptSource?: PromptSource;
+
+	public constructor(input: AdkModuleOptionsInput = {}) {
+		this.defaultModel = input.defaultModel;
+		this.storage = input.storage;
+		this.artifacts = input.artifacts;
+		this.clock = input.clock;
+		this.ids = input.ids;
+		this.runtime = input.runtime;
+		this.embedder = input.embedder;
+		this.prompts = input.prompts;
+		this.promptSource = input.promptSource;
+	}
 
 	/** Options built from names instead of positions. */
 	public static from(input: AdkModuleOptionsInput): AdkModuleOptions {
-		return new AdkModuleOptions(
-			input.defaultModel,
-			input.storage,
-			input.artifacts,
-			input.clock,
-			input.ids,
-			input.runtime,
-			input.embedder,
-			input.prompts,
-			input.promptSource,
-		);
+		return new AdkModuleOptions(input);
 	}
 
 	/** A copy with the named fields replaced and every other field kept. */
 	public with(patch: AdkModuleOptionsPatch): AdkModuleOptions {
-		return new AdkModuleOptions(
-			patch.defaultModel ?? this.defaultModel,
-			patch.storage ?? this.storage,
-			patch.artifacts ?? this.artifacts,
-			patch.clock ?? this.clock,
-			patch.ids ?? this.ids,
-			patch.runtime ?? this.runtime,
-			patch.embedder ?? this.embedder,
-			patch.prompts ?? this.prompts,
-			patch.promptSource ?? this.promptSource,
-		);
+		return new AdkModuleOptions({
+			defaultModel: patch.defaultModel ?? this.defaultModel,
+			storage: patch.storage ?? this.storage,
+			artifacts: patch.artifacts ?? this.artifacts,
+			clock: patch.clock ?? this.clock,
+			ids: patch.ids ?? this.ids,
+			runtime: patch.runtime ?? this.runtime,
+			embedder: patch.embedder ?? this.embedder,
+			prompts: patch.prompts ?? this.prompts,
+			promptSource: patch.promptSource ?? this.promptSource,
+		});
 	}
 
 	/**

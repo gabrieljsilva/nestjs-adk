@@ -143,13 +143,13 @@ class ThrowingModel extends LlmModel {
 
 function agentOf(model: LlmModel, policies: AgentExecutionPolicies = new AgentExecutionPolicies()): DeclaredAgent {
 	return new DeclaredAgent(
-		new AgentDefinition(
-			SUPPORT,
-			AgentDescription.from("support agent", "support"),
-			model,
-			PromptInstructions.from("Be brief."),
-			policies,
-		),
+		new AgentDefinition({
+			name: SUPPORT,
+			description: AgentDescription.from("support agent", "support"),
+			model: model,
+			instructions: PromptInstructions.from("Be brief."),
+			policies: policies,
+		}),
 		"SupportAgent",
 	);
 }
@@ -171,7 +171,11 @@ const start = (model: LlmModel, options: RuntimeOptions = new RuntimeOptions()) 
 	);
 
 const askWith = (sources: readonly ToolSource[], message = "look it up") =>
-	new AgentRunCommand(SUPPORT, AskInput.fromMessage(message), undefined, undefined, undefined, sources);
+	new AgentRunCommand({
+		agent: SUPPORT,
+		input: AskInput.fromMessage(message),
+		sources: sources,
+	});
 
 describe("tool sources declared per run", () => {
 	/** AC-18: the run's sources are added to the module's rather than replacing them. */
@@ -191,7 +195,7 @@ describe("tool sources declared per run", () => {
 			}
 		})("run");
 		const model = new RemoteCallingModel();
-		const runtime = await start(model, RuntimeOptions.from({ sources: [declared] }));
+		const runtime = await start(model, RuntimeOptions.from({ tools: { sources: [declared] } }));
 
 		await runtime.runner.ask(askWith([perRun]));
 
@@ -228,7 +232,10 @@ describe("tool sources declared per run", () => {
 
 	it("answers anyway when a run's source will not authorize", async () => {
 		const expired = new ExpiredSource();
-		const runtime = await start(new RemoteCallingModel(), RuntimeOptions.from({ sources: [new CredentialSource("m")] }));
+		const runtime = await start(
+			new RemoteCallingModel(),
+			RuntimeOptions.from({ tools: { sources: [new CredentialSource("m")] } }),
+		);
 
 		const result = await runtime.runner.ask(askWith([expired]));
 
@@ -252,15 +259,18 @@ describe("tool sources declared per run", () => {
 	it("resumes a held call from a source the approval declared", async () => {
 		const runtime = await start(
 			new RemoteCallingModel(),
-			RuntimeOptions.from({ approvals: EffectApprovalPolicy.from(ToolEffect.WRITE) }),
+			RuntimeOptions.from({ tools: { approvals: EffectApprovalPolicy.from(ToolEffect.WRITE) } }),
 		);
 		const suspended = await runtime.runner.ask(askWith([new CredentialSource("alice", ToolEffect.WRITE)]));
 		expect(suspended.isAwaitingApproval).toBe(true);
 
 		const resumed = await runtime.runner.approve(
-			new ApproveInput(suspended.sessionId, ToolCallId.from("c-1"), "gabriel", [
-				new CredentialSource("alice", ToolEffect.WRITE),
-			]),
+			new ApproveInput({
+				sessionId: suspended.sessionId,
+				callId: ToolCallId.from("c-1"),
+				approvedBy: "gabriel",
+				sources: [new CredentialSource("alice", ToolEffect.WRITE)],
+			}),
 		);
 
 		expect(resumed.text).toBe("alice");
@@ -269,12 +279,19 @@ describe("tool sources declared per run", () => {
 	it("closes the approval's own source when the approval ends", async () => {
 		const runtime = await start(
 			new RemoteCallingModel(),
-			RuntimeOptions.from({ approvals: EffectApprovalPolicy.from(ToolEffect.WRITE) }),
+			RuntimeOptions.from({ tools: { approvals: EffectApprovalPolicy.from(ToolEffect.WRITE) } }),
 		);
 		const suspended = await runtime.runner.ask(askWith([new CredentialSource("alice", ToolEffect.WRITE)]));
 		const onApproval = new CredentialSource("alice", ToolEffect.WRITE);
 
-		await runtime.runner.approve(new ApproveInput(suspended.sessionId, ToolCallId.from("c-1"), "gabriel", [onApproval]));
+		await runtime.runner.approve(
+			new ApproveInput({
+				sessionId: suspended.sessionId,
+				callId: ToolCallId.from("c-1"),
+				approvedBy: "gabriel",
+				sources: [onApproval],
+			}),
+		);
 
 		expect(onApproval.closes).toBe(1);
 	});

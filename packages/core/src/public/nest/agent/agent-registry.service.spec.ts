@@ -16,7 +16,11 @@ function hostWith(...names: readonly string[]): StartedRuntime {
 		names.map((name) => {
 			const agent = AgentName.from(name);
 			return new DeclaredAgent(
-				new AgentDefinition(agent, AgentDescription.from(`${name} agent`, name), model),
+				new AgentDefinition({
+					name: agent,
+					description: AgentDescription.from(`${name} agent`, name),
+					model: model,
+				}),
 				`${name}Provider`,
 			);
 		}),
@@ -32,18 +36,18 @@ describe("AgentRegistry", () => {
 	it("hands back the same handle for the same agent", () => {
 		const registry = new AgentRegistry(hostWith("support"));
 
-		expect(registry.get("support")).toBe(registry.get("support"));
+		expect(registry.open("support")).toBe(registry.open("support"));
 	});
 
 	it("finds an agent however its name was written", () => {
 		const registry = new AgentRegistry(hostWith("support-agent"));
 
-		expect(registry.get("Support Agent").name.value).toBe("support-agent");
+		expect(registry.open("Support Agent").name.value).toBe("support-agent");
 	});
 
 	it("refuses a name nobody declared, saying which exist", () => {
 		const registry = new AgentRegistry(hostWith("support"));
 
-		expect(() => registry.get("nobody")).toThrow(AgentNotInCatalogError);
+		expect(() => registry.open("nobody")).toThrow(AgentNotInCatalogError);
 	});
 });

@@ -72,13 +72,13 @@ class SeeingModel extends LlmModel {
 }
 
 function agentOf(model: LlmModel): DeclaredAgent {
-	const definition = new AgentDefinition(
-		SUPPORT,
-		AgentDescription.from("support agent", SUPPORT.value),
-		model,
-		PromptInstructions.from("Be brief."),
-		new AgentExecutionPolicies(),
-	);
+	const definition = new AgentDefinition({
+		name: SUPPORT,
+		description: AgentDescription.from("support agent", SUPPORT.value),
+		model: model,
+		instructions: PromptInstructions.from("Be brief."),
+		policies: new AgentExecutionPolicies(),
+	});
 	return new DeclaredAgent(definition, "SupportAgent");
 }
 
@@ -91,7 +91,15 @@ async function messagesOf(storage: InMemorySessionStorage, sessionId: SessionId)
 }
 
 function askWith(references: readonly AttachmentReference[], sessionId?: SessionId): AgentRunCommand {
-	return new AgentRunCommand(SUPPORT, AskInput.with("what is this?", [], sessionId, undefined, references));
+	return new AgentRunCommand({
+		agent: SUPPORT,
+		input: new AskInput({
+			message: "what is this?",
+			attachments: [],
+			sessionId: sessionId,
+			references: references,
+		}),
+	});
 }
 
 const host = new AdkRuntime();
@@ -107,7 +115,7 @@ async function startedWith(model: LlmModel, resolver?: AttachmentResolver, stora
 		new InMemoryArtifactStorage(new SequenceIdGenerator("a")),
 		new FakeClock(),
 		new SequenceIdGenerator(),
-		RuntimeOptions.from({ attachments: resolver }),
+		RuntimeOptions.from({ context: { attachments: resolver } }),
 	);
 	return { runtime, storage };
 }
@@ -154,7 +162,12 @@ describe("a question naming a file the application owns", () => {
 		);
 
 		const first = await runtime.runner.ask(askWith([RECEIPT]));
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("and now?", first.sessionId)));
+		await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("and now?", first.sessionId),
+			}),
+		);
 
 		const shown = model.requests[1]?.messages.filter((message): message is UserMessage => message instanceof UserMessage);
 		expect(shown?.[0]?.media[0]?.url).toBe("https://files.example/upload-42?sig=2");
@@ -221,7 +234,12 @@ describe("a question naming a file the application owns", () => {
 		const { runtime } = await startedWith(model, recencyOnly);
 
 		const first = await runtime.runner.ask(askWith([RECEIPT]));
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("and now?", first.sessionId)));
+		await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("and now?", first.sessionId),
+			}),
+		);
 
 		const shown = model.requests[1]?.messages.filter((message): message is UserMessage => message instanceof UserMessage);
 		expect(shown?.[0]?.media ?? []).toHaveLength(0);

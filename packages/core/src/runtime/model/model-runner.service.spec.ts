@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { AgentRunId } from "../../common/identity/agent-run-id.value-object";
 import { ToolCallId } from "../../common/identity/tool-call-id.value-object";
+import { Duration } from "../../common/time/duration.value-object";
 import { AgentFailoverPolicy } from "../../domain/agent/agent-failover.policy";
 import { AgentName } from "../../domain/agent/agent-name.value-object";
+import { BackoffRetryPolicy } from "../../domain/agent/backoff-retry.policy";
 import { ModelsExhaustedError } from "../../domain/agent/errors/models-exhausted.error";
 import type { FailoverContext } from "../../domain/agent/failover-context.value-object";
+import { NoRetryPolicy } from "../../domain/agent/no-retry.policy";
 import { SequentialFailoverPolicy } from "../../domain/agent/sequential-failover.policy";
 import { ModelCapabilities } from "../../domain/model/descriptor/model-capabilities.value-object";
 import { ModelContextWindow } from "../../domain/model/descriptor/model-context-window.value-object";
@@ -12,6 +15,7 @@ import { ModelDescriptor } from "../../domain/model/descriptor/model-descriptor.
 import { ModelIdentity } from "../../domain/model/descriptor/model-identity.value-object";
 import { ModelCallFailedError } from "../../domain/model/errors/model-call-failed.error";
 import { UnsupportedCapabilityError } from "../../domain/model/errors/unsupported-capability.error";
+import { InvalidRequestFailure } from "../../domain/model/failures/invalid-request-failure.value-object";
 import type { ModelFailure } from "../../domain/model/failures/model-failure.value-object";
 import { RateLimitedFailure } from "../../domain/model/failures/rate-limited-failure.value-object";
 import { UnavailableFailure } from "../../domain/model/failures/unavailable-failure.value-object";
@@ -23,6 +27,7 @@ import { UserMessage } from "../../domain/model/messages/user-message.value-obje
 import { ModelRequest } from "../../domain/model/model-request.value-object";
 import { ModelChunk } from "../../domain/model/streaming/model-chunk.value-object";
 import { ModelUsage } from "../../domain/model/usage/model-usage.value-object";
+import { FakeClock } from "../../support/fake-clock.double";
 import { RunContextFixture } from "../../support/run/run-context.fixture";
 import { ModelRunCommand } from "./model-run.command";
 import { ModelRunner } from "./model-runner.service";
@@ -101,7 +106,14 @@ class RecordingPolicy extends AgentFailoverPolicy {
 }
 
 function buildCommand(model: LlmModel, failover?: AgentFailoverPolicy): ModelRunCommand {
-	return new ModelRunCommand(CONTEXT, RUN, AGENT, model, request, failover);
+	return new ModelRunCommand({
+		context: CONTEXT,
+		runId: RUN,
+		agent: AGENT,
+		model: model,
+		request: request,
+		failover: failover,
+	});
 }
 
 async function collect(runner: ModelRunner, command: ModelRunCommand): Promise<string[]> {
@@ -115,7 +127,12 @@ async function collect(runner: ModelRunner, command: ModelRunCommand): Promise<s
 	return texts;
 }
 
-const runner = new ModelRunner();
+/**
+ * Retries are off for the failover suite below, so each spec reads the chain rather than
+ * the three attempts a default policy would make on every link of it. The retry suite
+ * turns them back on and asserts them on their own.
+ */
+const runner = new ModelRunner(new FakeClock(), new NoRetryPolicy());
 
 const CONTEXT = RunContextFixture.run();
 
@@ -161,7 +178,14 @@ describe("ModelRunner", () => {
 		const fallback = new ScriptedModel("fallback", [ModelChunk.text("shipped"), ModelChunk.finish("stop")]);
 
 		await runner.run(
-			new ModelRunCommand(CONTEXT, RUN, AGENT, primary, inherited, new SequentialFailoverPolicy([fallback])),
+			new ModelRunCommand({
+				context: CONTEXT,
+				runId: RUN,
+				agent: AGENT,
+				model: primary,
+				request: inherited,
+				failover: new SequentialFailoverPolicy([fallback]),
+			}),
 		);
 
 		expect(fallback.requests.at(0)).toBe(inherited);
@@ -232,14 +256,14 @@ describe("ModelRunner", () => {
 		const primary = new ScriptedModel("primary");
 		const fallback = new ScriptedModel("fallback");
 
-		const command = new ModelRunCommand(
-			CONTEXT,
-			RUN,
-			AGENT,
-			primary,
-			withTools,
-			new SequentialFailoverPolicy([fallback]),
-		);
+		const command = new ModelRunCommand({
+			context: CONTEXT,
+			runId: RUN,
+			agent: AGENT,
+			model: primary,
+			request: withTools,
+			failover: new SequentialFailoverPolicy([fallback]),
+		});
 		const failure = await runner.run(command).catch((error) => error);
 
 		expect(failure).toBeInstanceOf(UnsupportedCapabilityError);
@@ -296,5 +320,116 @@ describe("ModelRunner", () => {
 		const texts = await collect(runner, buildCommand(primary, new SequentialFailoverPolicy([fallback])));
 
 		expect(texts.join("")).toBe("from the fallback");
+	});
+});
+
+/** Fails the first `failures` calls and then answers, which is what a busy provider does. */
+class FlakyModel extends LlmModel {
+	public calls = 0;
+
+	public constructor(
+		private readonly name: string,
+		private readonly failures: number,
+		private readonly failure: ModelFailure,
+		private readonly text = "ok",
+	) {
+		super();
+	}
+
+	public descriptor(): ModelDescriptor {
+		return new ModelDescriptor(
+			new ModelIdentity("acme", this.name),
+			new ModelContextWindow(1000, 100),
+			ModelCapabilities.none(),
+		);
+	}
+
+	public async *generate(): AsyncIterable<ModelChunk> {
+		this.calls += 1;
+		if (this.calls <= this.failures) throw new ModelCallFailedError(this.failure, this.name);
+		yield ModelChunk.text(this.text);
+		yield ModelChunk.finish("stop");
+	}
+}
+
+describe("ModelRunner retrying the same model", () => {
+	/** Every delay is asserted, never waited for: the clock advances instead of the process. */
+	function retrying(policy = new BackoffRetryPolicy(2, Duration.fromMillis(100), Duration.fromMillis(5000), () => 1)) {
+		const clock = new FakeClock();
+		return { clock, runner: new ModelRunner(clock, policy) };
+	}
+
+	it("asks the same model again after a transient failure, before any failover is consulted", async () => {
+		const primary = new FlakyModel("primary", 1, new RateLimitedFailure("slow down"), "second time lucky");
+		const fallback = new ScriptedModel("fallback", [ModelChunk.text("never"), ModelChunk.finish("stop")]);
+		const { runner: retryingRunner } = retrying();
+
+		const outcome = await retryingRunner.run(buildCommand(primary, new SequentialFailoverPolicy([fallback])));
+
+		expect(outcome.response.text).toBe("second time lucky");
+		expect(outcome.wasRerouted).toBe(false);
+		expect(primary.calls).toBe(2);
+		expect(fallback.calls).toBe(0);
+	});
+
+	it("waits exactly what the provider asked for when the failure carries a Retry-After", async () => {
+		const primary = new FlakyModel("primary", 1, new RateLimitedFailure("slow down", undefined, Duration.fromSeconds(3)));
+		const { clock, runner: retryingRunner } = retrying();
+
+		await retryingRunner.run(buildCommand(primary));
+
+		expect(clock.sleeps.map((slept) => slept.millis)).toEqual([3000]);
+	});
+
+	it("doubles the wait between its own attempts when the provider asked for nothing", async () => {
+		const primary = new ScriptedModel("primary", [], new RateLimitedFailure("slow down"));
+		const { clock, runner: retryingRunner } = retrying();
+
+		await retryingRunner.run(buildCommand(primary)).catch(() => undefined);
+
+		expect(clock.sleeps.map((slept) => slept.millis)).toEqual([100, 200]);
+	});
+
+	it("stops at the attempt ceiling and falls through to failover", async () => {
+		const primary = new ScriptedModel("primary", [], new RateLimitedFailure("slow down"));
+		const fallback = new ScriptedModel("fallback", [ModelChunk.text("rescued"), ModelChunk.finish("stop")]);
+		const { runner: retryingRunner } = retrying();
+
+		const outcome = await retryingRunner.run(buildCommand(primary, new SequentialFailoverPolicy([fallback])));
+
+		expect(outcome.response.text).toBe("rescued");
+		expect(primary.calls).toBe(3);
+		expect(outcome.reroutes).toHaveLength(1);
+	});
+
+	it("never retries a failure the same request would meet again", async () => {
+		const primary = new ScriptedModel("primary", [], new InvalidRequestFailure("bad schema"));
+		const { clock, runner: retryingRunner } = retrying();
+
+		await retryingRunner.run(buildCommand(primary)).catch(() => undefined);
+
+		expect(primary.calls).toBe(1);
+		expect(clock.sleeps).toHaveLength(0);
+	});
+
+	it("fails with the chain when neither the retries nor the failover have anything left", async () => {
+		const primary = new ScriptedModel("primary", [], new RateLimitedFailure("slow down"));
+		const { runner: retryingRunner } = retrying();
+
+		const failure = await retryingRunner.run(buildCommand(primary)).catch((error) => error);
+
+		expect(failure).toBeInstanceOf(ModelsExhaustedError);
+		expect(primary.calls).toBe(3);
+	});
+
+	it("counts attempts per model, so a fresh provider starts with its own budget", async () => {
+		const primary = new ScriptedModel("primary", [], new RateLimitedFailure("slow down"));
+		const second = new ScriptedModel("second", [], new UnavailableFailure("overloaded"));
+		const { runner: retryingRunner } = retrying();
+
+		await retryingRunner.run(buildCommand(primary, new SequentialFailoverPolicy([second]))).catch(() => undefined);
+
+		expect(primary.calls).toBe(3);
+		expect(second.calls).toBe(3);
 	});
 });

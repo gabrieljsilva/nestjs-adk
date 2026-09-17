@@ -92,7 +92,7 @@ describe("AdkModule.forRootAsync", () => {
 				AdkModuleOptions.from({ defaultModel: new RecordingModel("hello there"), storage }),
 		});
 
-		const result = await booted.get(AgentRegistry).get("support").ask("hi");
+		const result = await booted.get(AgentRegistry).open("support").ask("hi");
 
 		const storage = booted.get(VaultSessionStorage);
 		expect(booted.get(SessionStorage)).toBe(storage);
@@ -102,7 +102,7 @@ describe("AdkModule.forRootAsync", () => {
 	it("takes the options from a class whose dependencies NestJS resolved", async () => {
 		const booted = await bootWith({ imports: [InfraModule], useClass: VaultOptions });
 
-		const result = await booted.get(AgentRegistry).get("support").ask("hi");
+		const result = await booted.get(AgentRegistry).open("support").ask("hi");
 
 		expect(booted.get(VaultSessionStorage).created).toEqual([`sealed:${result.sessionId}`]);
 	});
@@ -117,7 +117,7 @@ describe("AdkModule.forRootAsync", () => {
 	it("borrows the instance another module already provides, instead of building a second", async () => {
 		const booted = await bootWith({ imports: [OptionsModule], useExisting: VaultOptions });
 
-		await booted.get(AgentRegistry).get("support").ask("hi");
+		await booted.get(AgentRegistry).open("support").ask("hi");
 
 		expect(VaultOptions.built).toBe(1);
 		expect(booted.get(SessionStorage)).toBe(booted.get(VaultSessionStorage));
@@ -133,7 +133,7 @@ describe("AdkModule.forRootAsync", () => {
 			},
 		});
 
-		const result = await booted.get(AgentRegistry).get("support").ask("hi");
+		const result = await booted.get(AgentRegistry).open("support").ask("hi");
 
 		expect(result.text).toBe("hello there");
 		expect(booted.get(VaultSessionStorage).created).toHaveLength(1);

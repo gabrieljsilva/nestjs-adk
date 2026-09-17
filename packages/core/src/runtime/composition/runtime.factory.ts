@@ -33,7 +33,7 @@ export class RuntimeFactory {
 		exposed: readonly ToolDefinition[] = [],
 	): Promise<RuntimeServices> {
 		try {
-			const context = new ContextComposer().compose(storage, artifacts, options);
+			const context = new ContextComposer().compose(storage, artifacts, options.context);
 			const run = new RunComposer().compose(catalog, storage, artifacts, clock, ids, context, options);
 			const sessions = new SessionComposer().compose(catalog, artifacts, clock, ids, context, run);
 

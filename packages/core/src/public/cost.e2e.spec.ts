@@ -159,13 +159,13 @@ function declaredAgent(
 	policies: AgentExecutionPolicies = new AgentExecutionPolicies(),
 ): DeclaredAgent {
 	return new DeclaredAgent(
-		new AgentDefinition(
-			name,
-			AgentDescription.from(`${name.value} agent`, name.value),
-			model,
-			PromptInstructions.from("Be brief."),
-			policies,
-		),
+		new AgentDefinition({
+			name: name,
+			description: AgentDescription.from(`${name.value} agent`, name.value),
+			model: model,
+			instructions: PromptInstructions.from("Be brief."),
+			policies: policies,
+		}),
 		`${name.value}Agent`,
 	);
 }
@@ -190,10 +190,15 @@ describe("what a run costs", () => {
 	it("prices the turns of one run and names the model that served them", async () => {
 		const runtime = await start(
 			[declaredAgent(SUPPORT, new AnsweringModel(PRIMARY))],
-			RuntimeOptions.from({ pricing: new KnownRates() }),
+			RuntimeOptions.from({ cost: { pricing: new KnownRates() } }),
 		);
 
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
+		const result = await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("hi"),
+			}),
+		);
 
 		expect(result.cost.total.toString()).toBe("0.0000088");
 		expect(result.cost.byModel).toHaveLength(1);
@@ -207,10 +212,15 @@ describe("what a run costs", () => {
 		const fallback = new AnsweringModel(FALLBACK);
 		const runtime = await start(
 			[declaredAgent(SUPPORT, new DownModel(), new AgentExecutionPolicies(new SequentialFailoverPolicy([fallback])))],
-			RuntimeOptions.from({ pricing: new KnownRates() }),
+			RuntimeOptions.from({ cost: { pricing: new KnownRates() } }),
 		);
 
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
+		const result = await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("hi"),
+			}),
+		);
 
 		expect(result.cost.byModel.map((cost) => cost.model.toString())).toEqual([FALLBACK.toString()]);
 		expect(result.cost.total.toString()).toBe("0.00000088");
@@ -224,10 +234,15 @@ describe("what a run costs", () => {
 				declaredAgent(SUPPORT, new DelegatingModel(), delegatesToResearcher()),
 				declaredAgent(RESEARCHER, new AnsweringModel(CHILD, ModelUsage.fromReport(30, 3))),
 			],
-			RuntimeOptions.from({ pricing: new KnownRates() }),
+			RuntimeOptions.from({ cost: { pricing: new KnownRates() } }),
 		);
 
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("look it up")));
+		const result = await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("look it up"),
+			}),
+		);
 
 		const byModel = new Map(result.cost.byModel.map((cost) => [cost.model.toString(), cost]));
 		expect([...byModel.keys()].sort()).toEqual([CHILD.toString(), PRIMARY.toString()].sort());
@@ -243,10 +258,15 @@ describe("what a run costs", () => {
 		const notices = new CollectedNotices();
 		const runtime = await start(
 			[declaredAgent(SUPPORT, new AnsweringModel(PRIMARY))],
-			RuntimeOptions.from({ pricingNotices: notices }),
+			RuntimeOptions.from({ cost: { pricingNotices: notices } }),
 		);
 
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
+		const result = await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("hi"),
+			}),
+		);
 
 		expect(result.text).toBe("done");
 		expect(result.cost.total.isZero).toBe(true);
@@ -259,10 +279,15 @@ describe("what a run costs", () => {
 		const notices = new CollectedNotices();
 		const runtime = await start(
 			[declaredAgent(SUPPORT, new AnsweringModel(PRIMARY))],
-			RuntimeOptions.from({ pricing: new KnownRates([CHILD]), pricingNotices: notices }),
+			RuntimeOptions.from({ cost: { pricing: new KnownRates([CHILD]), pricingNotices: notices } }),
 		);
 
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
+		const result = await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("hi"),
+			}),
+		);
 
 		expect(result.cost.total.isZero).toBe(true);
 		expect(result.cost.unpriced.map((model) => model.toString())).toEqual([PRIMARY.toString()]);
@@ -274,10 +299,15 @@ describe("what a run costs", () => {
 		const notices = new CollectedNotices();
 		const runtime = await start(
 			[declaredAgent(SUPPORT, new SilentAboutUsageModel())],
-			RuntimeOptions.from({ pricing: new KnownRates(), pricingNotices: notices }),
+			RuntimeOptions.from({ cost: { pricing: new KnownRates(), pricingNotices: notices } }),
 		);
 
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
+		const result = await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("hi"),
+			}),
+		);
 
 		expect(result.cost.isComplete).toBe(false);
 		expect(notices.reported[0]?.reason).toBe("no-usage");
@@ -290,10 +320,15 @@ describe("what a run costs", () => {
 				declaredAgent(SUPPORT, new DelegatingModel(), delegatesToResearcher()),
 				declaredAgent(RESEARCHER, new AnsweringModel(CHILD, ModelUsage.fromReport(30, 3))),
 			],
-			RuntimeOptions.from({ pricing: source }),
+			RuntimeOptions.from({ cost: { pricing: source } }),
 		);
 
-		await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("look it up")));
+		await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("look it up"),
+			}),
+		);
 
 		expect(source.asked.sort()).toEqual([CHILD.toString(), PRIMARY.toString()].sort());
 	});
@@ -309,15 +344,25 @@ describe("what a run costs", () => {
 				new InMemoryArtifactStorage(new SequenceIdGenerator("a")),
 				new FakeClock(),
 				new SequenceIdGenerator(),
-				RuntimeOptions.from({ pricing: source }),
+				RuntimeOptions.from({ cost: { pricing: source } }),
 			);
 
 		try {
 			const first = await startOn(new KnownRates([PRIMARY]), cheap);
 			const second = await startOn(new KnownRates([CHILD]), expensive);
 
-			const priced = await first.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
-			const unpriced = await second.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
+			const priced = await first.runner.ask(
+				new AgentRunCommand({
+					agent: SUPPORT,
+					input: AskInput.fromMessage("hi"),
+				}),
+			);
+			const unpriced = await second.runner.ask(
+				new AgentRunCommand({
+					agent: SUPPORT,
+					input: AskInput.fromMessage("hi"),
+				}),
+			);
 
 			expect(priced.cost.isComplete).toBe(true);
 			expect(unpriced.cost.isComplete).toBe(false);
@@ -331,11 +376,21 @@ describe("what a run costs", () => {
 	it("costs the same whether the turn was streamed or waited for", async () => {
 		const runtime = await start(
 			[declaredAgent(SUPPORT, new AnsweringModel(PRIMARY))],
-			RuntimeOptions.from({ pricing: new KnownRates() }),
+			RuntimeOptions.from({ cost: { pricing: new KnownRates() } }),
 		);
 
-		const waited = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
-		const streaming = runtime.runner.stream(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
+		const waited = await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("hi"),
+			}),
+		);
+		const streaming = runtime.runner.stream(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("hi"),
+			}),
+		);
 		let streamed = await streaming.next();
 		while (streamed.done !== true) streamed = await streaming.next();
 
@@ -347,10 +402,15 @@ describe("what a run costs", () => {
 	it("comes back as something an HTTP response can carry", async () => {
 		const runtime = await start(
 			[declaredAgent(SUPPORT, new AnsweringModel(PRIMARY))],
-			RuntimeOptions.from({ pricing: new KnownRates() }),
+			RuntimeOptions.from({ cost: { pricing: new KnownRates() } }),
 		);
 
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
+		const result = await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("hi"),
+			}),
+		);
 
 		expect(JSON.parse(JSON.stringify(result)).cost.total).toBe("0.0000088");
 	});
@@ -359,10 +419,15 @@ describe("what a run costs", () => {
 	it("stays exact past the largest total a float could hold", async () => {
 		const runtime = await start(
 			[declaredAgent(SUPPORT, new AnsweringModel(PRIMARY, ModelUsage.fromReport(100_000_000_000, 0)))],
-			RuntimeOptions.from({ pricing: new KnownRates() }),
+			RuntimeOptions.from({ cost: { pricing: new KnownRates() } }),
 		);
 
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
+		const result = await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("hi"),
+			}),
+		);
 
 		expect(result.cost.total.toString()).toBe("10000");
 		expect(result.cost.total.pico).toBe(10_000_000_000_000_000n);

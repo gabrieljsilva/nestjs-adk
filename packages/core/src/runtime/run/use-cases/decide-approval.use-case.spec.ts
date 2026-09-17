@@ -91,7 +91,12 @@ describe("DecideApprovalUseCase", () => {
 			toolOf("refund_order", refund, ToolEffect.WRITE),
 			toolOf("close_order", close, ToolEffect.WRITE),
 		]);
-		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund and close 42")));
+		const suspended = await stack.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("refund and close 42"),
+			}),
+		);
 		await stack.deciding.execute(suspended.sessionId, REFUND, "granted");
 		const observer = new LoggingObserver();
 
@@ -115,7 +120,12 @@ describe("DecideApprovalUseCase", () => {
 			toolOf("lookup_order", lookup, ToolEffect.READ),
 			toolOf("refund_order", refund, ToolEffect.WRITE),
 		]);
-		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund order 42")));
+		const suspended = await stack.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("refund order 42"),
+			}),
+		);
 
 		const resumed = await stack.deciding.execute(suspended.sessionId, CLOSE, "granted", { by: "gabriel" });
 
@@ -131,7 +141,12 @@ describe("DecideApprovalUseCase", () => {
 			toolOf("refund_order", refund, ToolEffect.WRITE),
 			toolOf("close_order", close, ToolEffect.WRITE),
 		]);
-		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund and close 42")));
+		const suspended = await stack.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("refund and close 42"),
+			}),
+		);
 
 		const half = await stack.deciding.execute(suspended.sessionId, REFUND, "granted");
 
@@ -145,7 +160,12 @@ describe("DecideApprovalUseCase", () => {
 			toolOf("refund_order", new CountingHandler(), ToolEffect.WRITE),
 			toolOf("close_order", new CountingHandler(), ToolEffect.WRITE),
 		]);
-		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund and close 42")));
+		const suspended = await stack.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("refund and close 42"),
+			}),
+		);
 
 		await stack.deciding.execute(suspended.sessionId, REFUND, "granted");
 
@@ -161,7 +181,12 @@ describe("DecideApprovalUseCase", () => {
 			toolOf("refund_order", refund, ToolEffect.WRITE),
 			toolOf("close_order", close, ToolEffect.WRITE),
 		]);
-		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund and close 42")));
+		const suspended = await stack.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("refund and close 42"),
+			}),
+		);
 		await stack.deciding.execute(suspended.sessionId, REFUND, "granted");
 
 		await stack.deciding.execute(suspended.sessionId, CLOSE, "denied", { by: "gabriel", reason: "the order stays open" });
@@ -182,7 +207,12 @@ describe("DecideApprovalUseCase", () => {
 			toolOf("lookup_order", new CountingHandler(), ToolEffect.READ),
 			toolOf("refund_order", refund, ToolEffect.WRITE),
 		]);
-		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund order 42")));
+		const suspended = await stack.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("refund order 42"),
+			}),
+		);
 		await stack.deciding.execute(suspended.sessionId, CLOSE, "granted");
 
 		const error = await stack.deciding.execute(suspended.sessionId, CLOSE, "granted").catch((reason) => reason);
@@ -196,7 +226,12 @@ describe("DecideApprovalUseCase", () => {
 			toolOf("lookup_order", new CountingHandler(), ToolEffect.READ),
 			toolOf("refund_order", new CountingHandler(), ToolEffect.WRITE),
 		]);
-		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund order 42")));
+		const suspended = await stack.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("refund order 42"),
+			}),
+		);
 
 		const error = await stack.deciding.execute(suspended.sessionId, REFUND, "granted").catch((reason) => reason);
 

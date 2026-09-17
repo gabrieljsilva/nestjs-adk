@@ -23,7 +23,7 @@ const docs = new AdkMcpServer({
 });
 
 AdkModule.forRoot(
-	AdkModuleOptions.from({ defaultModel, runtime: RuntimeOptions.from({ sources: [docs] }) }),
+	AdkModuleOptions.from({ defaultModel, runtime: RuntimeOptions.from({ tools: { sources: [docs] } }) }),
 );
 ```
 

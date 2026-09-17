@@ -105,4 +105,23 @@ describe("OpenAiFailureMapper", () => {
 		expect(mapper.toFailure("boom").message).toBe("boom");
 		expect(mapper.toFailure(undefined).message).toContain("without a message");
 	});
+
+	it("carries the Retry-After the provider sent, in whichever form it sent it", () => {
+		const seconds = mapper.toFailure({ status: 429, message: "slow down", headers: { "retry-after": "7" } });
+		const headers = new Headers({ "retry-after": "2" });
+		const instance = mapper.toFailure({ status: 503, message: "busy", response: { headers } });
+
+		expect(seconds.retryAfter?.millis).toBe(7000);
+		expect(instance.retryAfter?.millis).toBe(2000);
+	});
+
+	it("drops a Retry-After it cannot read rather than guessing one", () => {
+		const failure = mapper.toFailure({ status: 429, message: "slow down", headers: { "retry-after": "soon" } });
+
+		expect(failure.retryAfter).toBeUndefined();
+	});
+
+	it("answers no wait at all when the provider sent no header", () => {
+		expect(mapper.toFailure({ status: 429, message: "slow down" }).retryAfter).toBeUndefined();
+	});
 });

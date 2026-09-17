@@ -56,7 +56,7 @@ describe("AppModule", () => {
 	});
 
 	it("holds money in front of a human, and nothing else", () => {
-		expect(storeOptions.runtime?.approvals).toEqual(EffectApprovalPolicy.from(ToolEffect.DESTRUCTIVE));
+		expect(storeOptions.runtime?.tools.approvals).toEqual(EffectApprovalPolicy.from(ToolEffect.DESTRUCTIVE));
 	});
 
 	it("keeps the conversations in the same database as the store", () => {

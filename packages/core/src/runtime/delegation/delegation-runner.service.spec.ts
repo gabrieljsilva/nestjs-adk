@@ -67,13 +67,12 @@ class AnsweringLoop extends DelegatedTurnLoop {
 }
 
 function agent(name: AgentName, delegation: AgentDelegationPolicy = AgentDelegationPolicy.none()): AgentDefinition {
-	return new AgentDefinition(
-		name,
-		AgentDescription.from(`${name.value} agent`, name.value),
-		MODEL,
-		undefined,
-		new AgentExecutionPolicies(undefined, undefined, undefined, undefined, delegation),
-	);
+	return new AgentDefinition({
+		name: name,
+		description: AgentDescription.from(`${name.value} agent`, name.value),
+		model: MODEL,
+		policies: new AgentExecutionPolicies(undefined, undefined, undefined, undefined, delegation),
+	});
 }
 
 /** Answers a different model every call, which is what a resolver routing by load or cost does. */

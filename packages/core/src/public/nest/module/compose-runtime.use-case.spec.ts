@@ -99,7 +99,9 @@ beforeEach(() => {
 	composer = new ComposeRuntimeUseCase(
 		host,
 		registry,
-		new AdkModuleOptions(new ScriptedModel("primary")),
+		new AdkModuleOptions({
+			defaultModel: new ScriptedModel("primary"),
+		}),
 		new InMemorySessionStorage(),
 		new InMemoryArtifactStorage(new SequenceIdGenerator()),
 		new FakeClock(),
@@ -156,7 +158,9 @@ describe("ComposeRuntimeUseCase", () => {
 		const chosen = new ComposeRuntimeUseCase(
 			host,
 			registry,
-			new AdkModuleOptions(new ScriptedModel("primary")),
+			new AdkModuleOptions({
+				defaultModel: new ScriptedModel("primary"),
+			}),
 			new InMemorySessionStorage(),
 			new InMemoryArtifactStorage(new SequenceIdGenerator()),
 			new FakeClock(),
@@ -174,7 +178,9 @@ describe("ComposeRuntimeUseCase", () => {
 		const rebased = new ComposeRuntimeUseCase(
 			host,
 			registry,
-			new AdkModuleOptions(new ScriptedModel("primary")),
+			new AdkModuleOptions({
+				defaultModel: new ScriptedModel("primary"),
+			}),
 			new InMemorySessionStorage(),
 			new InMemoryArtifactStorage(new SequenceIdGenerator()),
 			new FakeClock(),

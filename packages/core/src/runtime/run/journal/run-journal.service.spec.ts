@@ -74,7 +74,10 @@ describe("RunJournal", () => {
 			startedRun(),
 			NativeStackFixture.AGENT,
 			MODEL,
-			new AgentRunCommand(NativeStackFixture.AGENT, AskInput.fromMessage("hi")),
+			new AgentRunCommand({
+				agent: NativeStackFixture.AGENT,
+				input: AskInput.fromMessage("hi"),
+			}),
 			openedSession(true),
 		);
 
@@ -91,16 +94,12 @@ describe("RunJournal", () => {
 			startedRun(),
 			NativeStackFixture.AGENT,
 			MODEL,
-			new AgentRunCommand(
-				NativeStackFixture.AGENT,
-				AskInput.fromMessage("first", SESSION),
-				undefined,
-				undefined,
-				undefined,
-				[],
-				undefined,
-				Actor.fromId("u-1", { role: "admin" }),
-			),
+			new AgentRunCommand({
+				agent: NativeStackFixture.AGENT,
+				input: AskInput.fromMessage("first", SESSION),
+				sources: [],
+				actor: Actor.fromId("u-1", { role: "admin" }),
+			}),
 			openedSession(true),
 		);
 
@@ -118,10 +117,16 @@ describe("RunJournal", () => {
 			startedRun(),
 			NativeStackFixture.AGENT,
 			MODEL,
-			new AgentRunCommand(
-				NativeStackFixture.AGENT,
-				AskInput.with("first", [], SESSION, undefined, [], SessionMetadata.fromRecord({ memberId: "gabriel" })),
-			),
+			new AgentRunCommand({
+				agent: NativeStackFixture.AGENT,
+				input: new AskInput({
+					message: "first",
+					attachments: [],
+					sessionId: SESSION,
+					references: [],
+					metadata: SessionMetadata.fromRecord({ memberId: "gabriel" }),
+				}),
+			}),
 			openedSession(false),
 		);
 
@@ -137,7 +142,10 @@ describe("RunJournal", () => {
 			startedRun(),
 			NativeStackFixture.AGENT,
 			MODEL,
-			new AgentRunCommand(NativeStackFixture.AGENT, AskInput.fromMessage("again", SESSION)),
+			new AgentRunCommand({
+				agent: NativeStackFixture.AGENT,
+				input: AskInput.fromMessage("again", SESSION),
+			}),
 			openedSession(false),
 		);
 

@@ -96,7 +96,12 @@ describe("TurnLoop", () => {
 	it("calls the tool the model asked for and goes back with the result", async () => {
 		const stack = stackOf(callsThenAnswers());
 
-		const result = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("where is order 42?")));
+		const result = await stack.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("where is order 42?"),
+			}),
+		);
 
 		expect(handler.calls).toBe(1);
 		expect(result.text).toBe("the order is shipped");
@@ -105,7 +110,12 @@ describe("TurnLoop", () => {
 	it("journals what the model asked for before the tool runs, and the result after it", async () => {
 		const stack = stackOf(callsThenAnswers());
 
-		const result = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("where is order 42?")));
+		const result = await stack.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("where is order 42?"),
+			}),
+		);
 
 		const types = (await stack.readJournal(result.sessionId)).map((event) => event.type);
 		expect(types.indexOf(ToolCallRequested.TYPE)).toBeLessThan(types.indexOf(ToolResultProduced.TYPE));
@@ -119,7 +129,13 @@ describe("TurnLoop", () => {
 		const stack = stackOf(forever);
 
 		const error = await stack.runner
-			.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("loop please"), new RunLimits(2)))
+			.ask(
+				new AgentRunCommand({
+					agent: SUPPORT,
+					input: AskInput.fromMessage("loop please"),
+					limits: new RunLimits(2),
+				}),
+			)
 			.catch((reason) => reason);
 
 		expect(error).toBeInstanceOf(AgentMaxIterationsError);
@@ -130,7 +146,12 @@ describe("TurnLoop", () => {
 		const stack = stackOf(silent);
 
 		const error = await stack.runner
-			.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")))
+			.ask(
+				new AgentRunCommand({
+					agent: SUPPORT,
+					input: AskInput.fromMessage("hi"),
+				}),
+			)
 			.catch((reason) => reason);
 
 		expect(error).toBeInstanceOf(EmptyModelResponseError);
@@ -139,7 +160,12 @@ describe("TurnLoop", () => {
 	it("suspends the turn before anything runs when a call has to be answered for", async () => {
 		const stack = stackOf(callsThenAnswers(), ToolEffect.WRITE, EffectApprovalPolicy.from(ToolEffect.WRITE));
 
-		const result = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund order 42")));
+		const result = await stack.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("refund order 42"),
+			}),
+		);
 
 		expect(result.status.equals(AgentRunStatus.SUSPENDED)).toBe(true);
 		expect(handler.calls).toBe(0);
@@ -154,17 +180,12 @@ describe("TurnLoop", () => {
 			const observer = new LoggingObserver();
 
 			await stack.runner.ask(
-				new AgentRunCommand(
-					SUPPORT,
-					AskInput.fromMessage("where is order 42?"),
-					undefined,
-					undefined,
-					undefined,
-					[],
-					undefined,
-					undefined,
-					observer,
-				),
+				new AgentRunCommand({
+					agent: SUPPORT,
+					input: AskInput.fromMessage("where is order 42?"),
+					sources: [],
+					toolCalls: observer,
+				}),
 			);
 
 			expect(observer.requests).toHaveLength(1);
@@ -189,17 +210,12 @@ describe("TurnLoop", () => {
 			const stack = stackOf(callsThenAnswers());
 
 			await stack.runner.ask(
-				new AgentRunCommand(
-					SUPPORT,
-					AskInput.fromMessage("where is order 42?"),
-					undefined,
-					undefined,
-					undefined,
-					[],
-					undefined,
-					undefined,
-					observer,
-				),
+				new AgentRunCommand({
+					agent: SUPPORT,
+					input: AskInput.fromMessage("where is order 42?"),
+					sources: [],
+					toolCalls: observer,
+				}),
 			);
 
 			expect(log).toEqual(["requested lookup_order", "ran lookup_order", "settled lookup_order"]);
@@ -210,17 +226,12 @@ describe("TurnLoop", () => {
 			const observer = new LoggingObserver();
 
 			const result = await stack.runner.ask(
-				new AgentRunCommand(
-					SUPPORT,
-					AskInput.fromMessage("refund order 42"),
-					undefined,
-					undefined,
-					undefined,
-					[],
-					undefined,
-					undefined,
-					observer,
-				),
+				new AgentRunCommand({
+					agent: SUPPORT,
+					input: AskInput.fromMessage("refund order 42"),
+					sources: [],
+					toolCalls: observer,
+				}),
 			);
 
 			expect(result.status.equals(AgentRunStatus.SUSPENDED)).toBe(true);
@@ -238,17 +249,12 @@ describe("TurnLoop", () => {
 			const observer = new LoggingObserver();
 
 			await stack.runner.ask(
-				new AgentRunCommand(
-					SUPPORT,
-					AskInput.fromMessage("do the thing"),
-					undefined,
-					undefined,
-					undefined,
-					[],
-					undefined,
-					undefined,
-					observer,
-				),
+				new AgentRunCommand({
+					agent: SUPPORT,
+					input: AskInput.fromMessage("do the thing"),
+					sources: [],
+					toolCalls: observer,
+				}),
 			);
 
 			expect(observer.requests[0]?.isKnown).toBe(false);
@@ -265,17 +271,12 @@ describe("TurnLoop", () => {
 
 			await expect(
 				stack.runner.ask(
-					new AgentRunCommand(
-						SUPPORT,
-						AskInput.fromMessage("where is order 42?"),
-						undefined,
-						undefined,
-						undefined,
-						[],
-						undefined,
-						undefined,
-						observer,
-					),
+					new AgentRunCommand({
+						agent: SUPPORT,
+						input: AskInput.fromMessage("where is order 42?"),
+						sources: [],
+						toolCalls: observer,
+					}),
 				),
 			).rejects.toThrow("the card could not be drawn");
 			expect(handler.calls).toBe(0);
@@ -285,7 +286,12 @@ describe("TurnLoop", () => {
 	it("carries the call the human has to answer for into the suspension", async () => {
 		const stack = stackOf(callsThenAnswers(), ToolEffect.WRITE, EffectApprovalPolicy.from(ToolEffect.WRITE));
 
-		const result = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund order 42")));
+		const result = await stack.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("refund order 42"),
+			}),
+		);
 
 		const suspended = (await stack.readJournal(result.sessionId)).find(
 			(event): event is AgentRunSuspended => event instanceof AgentRunSuspended,

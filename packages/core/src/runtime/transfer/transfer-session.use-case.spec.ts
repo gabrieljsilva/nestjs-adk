@@ -60,14 +60,13 @@ function toolNamed(name: string): ToolDefinition {
 }
 
 function agent(name: AgentName, model: LlmModel, tools: readonly ToolDefinition[]): AgentDefinition {
-	return new AgentDefinition(
-		name,
-		AgentDescription.from(`${name.value} agent`, name.value),
-		model,
-		undefined,
-		new AgentExecutionPolicies(undefined, undefined, undefined, AgentTransferPolicy.to([BILLING])),
-		tools,
-	);
+	return new AgentDefinition({
+		name: name,
+		description: AgentDescription.from(`${name.value} agent`, name.value),
+		model: model,
+		policies: new AgentExecutionPolicies(undefined, undefined, undefined, AgentTransferPolicy.to([BILLING])),
+		tools: tools,
+	});
 }
 
 /** Every agent answers on the model it declared, which is what the real resolver does by default. */

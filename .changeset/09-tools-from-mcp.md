@@ -50,7 +50,7 @@ AdkModule.forRoot(
 	AdkModuleOptions.from({
 		defaultModel,
 		runtime: RuntimeOptions.from({
-			sources: [new AdkMcpServer({ name: "github", transport, tools: ["create_issue"] })],
+			tools: { sources: [new AdkMcpServer({ name: "github", transport, tools: ["create_issue"] })] },
 		}),
 	}),
 );

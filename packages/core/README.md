@@ -62,7 +62,7 @@ export class ChatService {
 An agent that already extends something else is reached by name instead:
 
 ```ts
-const support = this.registry.get("support"); // AgentRegistry, injected
+const support = this.registry.open("support"); // AgentRegistry, injected
 ```
 
 That is the whole mental model: configure the module once, register classes as providers, inject the agent and call it.
@@ -95,7 +95,7 @@ export class AdkOptions implements AdkOptionsFactory {
 		return AdkModuleOptions.from({
 			defaultModel: flash,
 			storage: this.storage,
-			runtime: RuntimeOptions.from({ pricing: this.pricing }),
+			runtime: RuntimeOptions.from({ cost: { pricing: this.pricing } }),
 		});
 	}
 }
@@ -189,7 +189,7 @@ export class MembersOnly extends AdkAccessPolicy {
 	}
 }
 
-AdkModule.forRoot(AdkModuleOptions.from({ defaultModel, runtime: RuntimeOptions.from({ access: new MembersOnly() }) }));
+AdkModule.forRoot(AdkModuleOptions.from({ defaultModel, runtime: RuntimeOptions.from({ tools: { access: new MembersOnly() } }) }));
 ```
 
 The policy is asked before every invocation, after the arguments were parsed and before any approval is requested: nobody is asked to approve a call the actor could not make. A refusal reaches the model as the tool's answer, with the policy's reason, and the conversation goes on. Without a policy everything is granted, which is what an application that wrote none meant.
@@ -279,7 +279,7 @@ A source declared in the module belongs to the application and opens on every ru
 AdkModule.forRoot(
 	AdkModuleOptions.from({
 		defaultModel,
-		runtime: RuntimeOptions.from({ sources: [new CompanyCatalogSource()] }),
+		runtime: RuntimeOptions.from({ tools: { sources: [new CompanyCatalogSource()] } }),
 	}),
 );
 ```
@@ -491,7 +491,25 @@ const luna = new OpenAiModel("gpt-5.6-luna", { apiKey, body: { reasoning_effort:
 
 `OpenAiModel` covers every provider that speaks the OpenAI API, which includes OpenAI itself, OpenRouter, Ollama and many others, through its `baseUrl`. `GeminiModel` adds the Vertex options.
 
-To route by something the model cannot know (load, cost, a feature flag), implement `ModelResolver` and declare it as `runtime.models`. It is asked once per run, before the first turn, so one run never changes model halfway through by accident.
+To route by something the model cannot know (load, cost, a feature flag), implement `ModelResolver` and declare it as `runtime.model.resolver`. It is asked once per run, before the first turn, so one run never changes model halfway through by accident.
+
+### Retry, which is not failover
+
+Before any chain is walked, the same model is asked again. A 429 carrying a `Retry-After` is the provider saying *when*, not *never*, and spending the failover chain on it pays a call per model to be told the same thing.
+
+`BackoffRetryPolicy` is on without you declaring anything: two retries, exponential backoff with full jitter, capped at twenty seconds, and a `Retry-After` the provider sent wins over any calculation. Only a transient failure is retried, so a refused request, a safety block and a context overflow go straight to failover, where another model might take what this one would not.
+
+```ts
+runtime: RuntimeOptions.from({ model: { retry: new BackoffRetryPolicy(4) } });
+```
+
+An agent overrides it, and `false` is how one refuses to repeat a call at all:
+
+```ts
+@Agent({ name: "charger", description: "...", retry: false })
+```
+
+Retries exhausted, the failure falls through to `AgentFailoverPolicy` exactly as it did before, and each model in the chain gets its own attempt budget. The waiting goes through `Clock.sleep`, so a test on a `FakeClock` asserts the delay that was asked for instead of waiting for it.
 
 ### Failover
 
@@ -707,13 +725,13 @@ Replacing is not narrowing: an agent that declares `16` runs under `16` even whe
 
 Long conversations and big tool results both eat the window, and each has its own answer.
 
-A tool result above 20 thousand characters is stored as an artifact, and the model gets a short summary plus a `read_artifact` tool it can call when it really needs the whole thing. `runtime.offload` decides the threshold: `CharacterCountOffloadPolicy.byDefault()`, `above(n)` or `disabled()`. It is a port, so an application that decides by media type or by tool extends `OffloadPolicy` instead. `read_artifact` works on anything in `ArtifactStorage`, not only offloaded results, so an upload saved there can be pulled in on demand: text comes back as a normal result, binary comes back as media.
+A tool result above 20 thousand characters is stored as an artifact, and the model gets a short summary plus a `read_artifact` tool it can call when it really needs the whole thing. `runtime.context.offload` decides the threshold: `CharacterCountOffloadPolicy.byDefault()`, `above(n)` or `disabled()`. It is a port, so an application that decides by media type or by tool extends `OffloadPolicy` instead. `read_artifact` works on anything in `ArtifactStorage`, not only offloaded results, so an upload saved there can be pulled in on demand: text comes back as a normal result, binary comes back as media.
 
 For long histories there is compaction, and it is on without you declaring anything. Once a conversation passes nine tenths of the model's window it is shortened to seven tenths, oldest closed exchanges first, keeping the four most recent. Declare a `ContextSummarizer` and what leaves is replaced by a summary:
 
 ```ts
 runtime: RuntimeOptions.from({
-	summarizer: new StoreSummarizer(flash),
+	context: { summarizer: new StoreSummarizer(flash) },
 });
 ```
 
@@ -723,7 +741,7 @@ The thresholds are shares of the window and not token counts, because the same c
 
 ```ts
 runtime: RuntimeOptions.from({
-	compaction: new WindowShareCompactionPolicy({ maxShare: 0.8, targetShare: 0.5, keepRecentBlocks: 6 }),
+	context: { compaction: new WindowShareCompactionPolicy({ maxShare: 0.8, targetShare: 0.5, keepRecentBlocks: 6 }) },
 });
 ```
 
@@ -732,7 +750,7 @@ The ceiling is measured against what the provider reported, so a conversation no
 The policy decides *whether* and *how much*; `CompactionStrategy` decides *how*. The shipped one, `OldestFirstCompactionStrategy`, drops the oldest answered exchanges and summarizes what fell. An application with another idea declares it once:
 
 ```ts
-runtime: RuntimeOptions.from({ compactionStrategy: new MyStrategy() });
+runtime: RuntimeOptions.from({ context: { compactionStrategy: new MyStrategy() } });
 ```
 
 An agent may declare its own `compaction`, and like limits it replaces the module's rather than narrowing it. Here it is the whole policy that is replaced and not a field: two policies deciding how much to keep would be one of them shortening what the other just decided to hold on to.
@@ -790,7 +808,7 @@ The scale is ordered: `read` observes, `write` changes state the same API can un
 What pauses is policy, declared once for the runtime:
 
 ```ts
-runtime: RuntimeOptions.from({ approvals: EffectApprovalPolicy.from(ToolEffect.DESTRUCTIVE) });
+runtime: RuntimeOptions.from({ tools: { approvals: EffectApprovalPolicy.from(ToolEffect.DESTRUCTIVE) } });
 ```
 
 It reads as "from this level up, pause". `EffectApprovalPolicy.destructiveOnly()` is the default, so a tool declared `destructive` waits for a person unless the application says otherwise: the cost of that being wrong is a run that waits, and the cost the other way is an effect nobody agreed to. `EffectApprovalPolicy.never()` pauses nothing, and is how an application takes the gate off. Implement `AdkApprovalPolicy` when the decision needs more than the effect: `requires(tool, invocation, actor)` also receives who is asking, when the run was given an `actor`, which is how one person's reads run on their own while another's wait for a click.
@@ -890,7 +908,7 @@ export class RunAudit extends SessionEventConsumer {
 	}
 }
 
-runtime: RuntimeOptions.from({ consumers: [new RunAudit()] });
+runtime: RuntimeOptions.from({ lifecycle: { consumers: [new RunAudit()] } });
 ```
 
 A consumer gets a `SessionContext` and not a `RunContext`: publication happens after the commit, from a publisher that outlives every run, so the conversation and its metadata are the part that is still true. Events are the journal, so a consumer sees what was recorded rather than what was intended. A consumer that throws does not take the run with it, and `consumerNotices` is where those failures are reported. `contextNotices` does the same for a context whose size nobody could measure.
@@ -913,7 +931,7 @@ Declare one pricing source in the module and every run reports what it cost:
 AdkModule.forRoot(
 	AdkModuleOptions.from({
 		defaultModel,
-		runtime: RuntimeOptions.from({ pricing: new LiteLLMPricingSource() }),
+		runtime: RuntimeOptions.from({ cost: { pricing: new LiteLLMPricingSource() } }),
 	}),
 );
 ```
@@ -1063,7 +1081,8 @@ Everything the package exports, and nothing else: a name that is not here is not
 | `AdkModuleOptions`, `AdkModuleOptionsInput`, `AdkModuleOptionsPatch` | What the module takes: model, storage, artifacts, clock, ids, runtime, embedder, prompts |
 | `AdkModuleAsyncOptions`, `AdkOptionsFactory` | What `forRootAsync` takes: `imports` plus one of `useClass`, `useExisting` or `useFactory` |
 | `PromptFileOptions` | The `prompts` field: which directory the default source reads |
-| `RuntimeOptions`, `RuntimeOptionsPatch` | What the runtime takes: limits, approvals, consumers, sources, pricing, compaction, compactionStrategy, snapshots, redactor, shutdown |
+| `RuntimeOptions`, `RuntimeOptionsPatch` | What the runtime takes, in five groups plus `limits`: `context`, `cost`, `tools`, `lifecycle`, `model` |
+| `ContextOptions`, `CostOptions`, `ToolingOptions`, `LifecycleOptions`, `ModelOptions` | The five groups, each its own value object with its own defaults and `with` |
 | `ShutdownOptions` | How long a shutdown waits for runs in flight |
 | `SnapshotPolicy`, `RevisionBucketSnapshotPolicy` | When the journal is snapshotted, and the shipped answer |
 | `EventRedactor`, `FieldNameEventRedactor` | What is masked out of a payload before a consumer reads it, and the shipped answer |
@@ -1073,7 +1092,7 @@ Everything the package exports, and nothing else: a name that is not here is not
 
 | Symbol | What it is for |
 | --- | --- |
-| `Agent`, `AgentOptions` | The decorator that makes a class an agent: `name`, `description`, `prompt`, `tools`, `model`, `failover`, `compaction`, `limits` |
+| `Agent`, `AgentOptions` | The decorator that makes a class an agent: `name`, `description`, `prompt`, `tools`, `model`, `failover`, `retry`, `compaction`, `limits` |
 | `AdkAgent` | Extend it to inject the agent as itself and to override `prompt()` |
 | `Tool`, `ToolOptions`, `ToolDecorator`, `ToolClass` | The decorator, on a class or on an agent method |
 | `AdkTool` | Extend it for a shared tool, typed by its Zod schema |
@@ -1131,6 +1150,7 @@ Everything the package exports, and nothing else: a name that is not here is not
 | `ModelExecutor` | The one call site of a model, with failover applied |
 | `ModelFailure` and `RateLimitedFailure`, `TimeoutFailure`, `UnavailableFailure`, `ContextExceededFailure`, `SafetyBlockedFailure`, `InvalidRequestFailure`, `UnknownFailure` | A failure as data, for a policy to decide on |
 | `AgentFailoverPolicy`, `SequentialFailoverPolicy`, `FailoverContext`, `ModelReroute` | What to try next, and what happened when it was tried |
+| `ModelRetryPolicy`, `BackoffRetryPolicy`, `NoRetryPolicy`, `RetryAttempt` | Whether the *same* model is asked again first, and after how long |
 
 ### Attachments
 
@@ -1209,7 +1229,7 @@ Writing a `SessionStorage` needs more than the names in its signatures, and the 
 | `CompactionStrategy`, `ContextProjection` | How it is shortened, if you replace the default, and what it works on |
 | `ContextSummarizer` | What the removed turns are replaced by |
 | `ContextBlock` | The unit a summarizer is handed |
-| `ContextNoticeSink` via `RuntimeOptions.contextNotices` | Where an unmeasurable window is reported |
+| `ContextNoticeSink` via `RuntimeOptions.context.contextNotices` | Where an unmeasurable window is reported |
 | `ContextSnapshot`, `ContextSegment` | What `explain` answers, and its parts |
 | `PrefixComparator` | Compares two snapshots, which is how prefix stability is measured |
 | `RunObservers` | Plugging a chunk sink, a context capture and a tool call observer into one run |

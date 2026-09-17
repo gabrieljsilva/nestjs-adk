@@ -11,7 +11,10 @@ describe("ExplainAgentUseCase", () => {
 		const stack = new NativeStackFixture(new ScriptedModel("primary"));
 
 		const snapshots = await new ExplainAgentUseCase(stack.asking).execute(
-			new AgentRunCommand(NativeStackFixture.AGENT, AskInput.fromMessage("hi")),
+			new AgentRunCommand({
+				agent: NativeStackFixture.AGENT,
+				input: AskInput.fromMessage("hi"),
+			}),
 		);
 
 		expect(snapshots).toHaveLength(1);
@@ -23,7 +26,10 @@ describe("ExplainAgentUseCase", () => {
 		const stack = new NativeStackFixture(new ScriptedModel("primary"));
 
 		const snapshots = await new ExplainAgentUseCase(stack.asking).execute(
-			new AgentRunCommand(NativeStackFixture.AGENT, AskInput.fromMessage("where is order 42?")),
+			new AgentRunCommand({
+				agent: NativeStackFixture.AGENT,
+				input: AskInput.fromMessage("where is order 42?"),
+			}),
 		);
 
 		expect(snapshots[0]?.segment(ContextSegment.CONVERSATION)?.text).toContain("where is order 42?");
@@ -34,7 +40,10 @@ describe("ExplainAgentUseCase", () => {
 
 		await expect(
 			new ExplainAgentUseCase(stack.asking).execute(
-				new AgentRunCommand(NativeStackFixture.AGENT, AskInput.fromMessage("hi")),
+				new AgentRunCommand({
+					agent: NativeStackFixture.AGENT,
+					input: AskInput.fromMessage("hi"),
+				}),
 			),
 		).rejects.toThrow();
 	});
@@ -43,10 +52,18 @@ describe("ExplainAgentUseCase", () => {
 		const stack = new NativeStackFixture(new ScriptedModel("primary"));
 
 		await new ExplainAgentUseCase(stack.asking).execute(
-			new AgentRunCommand(NativeStackFixture.AGENT, AskInput.fromMessage("hi")),
+			new AgentRunCommand({
+				agent: NativeStackFixture.AGENT,
+				input: AskInput.fromMessage("hi"),
+			}),
 		);
 
-		const result = await stack.runner.ask(new AgentRunCommand(NativeStackFixture.AGENT, AskInput.fromMessage("again")));
+		const result = await stack.runner.ask(
+			new AgentRunCommand({
+				agent: NativeStackFixture.AGENT,
+				input: AskInput.fromMessage("again"),
+			}),
+		);
 		expect((await stack.readJournal(result.sessionId)).length).toBeGreaterThan(0);
 	});
 });

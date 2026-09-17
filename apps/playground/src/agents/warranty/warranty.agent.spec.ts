@@ -1,3 +1,4 @@
+import { FixedClock } from "../../testing/fixed-clock";
 import "@nestjs-adk/testing/matchers";
 import {
 	AdkAgent,
@@ -29,7 +30,7 @@ describe("WarrantyAgent", () => {
 			.overrideProvider(StoreDatabase)
 			.useValue(new StoreDatabase())
 			.overrideProvider(Clock)
-			.useValue({ now: () => Instant.fromIso("2026-08-05T12:00:00.000Z") })
+			.useValue(FixedClock.at("2026-08-05T12:00:00.000Z"))
 			.overrideProvider(IdGenerator)
 			.useValue({ next: () => String(++nextId) })
 			.compile();
@@ -44,7 +45,7 @@ describe("WarrantyAgent", () => {
 			.overrideProvider(StoreDatabase)
 			.useValue(new StoreDatabase())
 			.overrideProvider(Clock)
-			.useValue({ now: () => Instant.fromIso("2026-08-05T12:00:00.000Z") })
+			.useValue(FixedClock.at("2026-08-05T12:00:00.000Z"))
 			.overrideProvider(IdGenerator)
 			.useValue({ next: () => String(++nextId) })
 			.compile();
@@ -72,7 +73,7 @@ describe("WarrantyAgent", () => {
 			.overrideProvider(StoreDatabase)
 			.useValue(new StoreDatabase())
 			.overrideProvider(Clock)
-			.useValue({ now: () => Instant.fromIso("2026-08-05T12:00:00.000Z") })
+			.useValue(FixedClock.at("2026-08-05T12:00:00.000Z"))
 			.overrideProvider(IdGenerator)
 			.useValue({ next: () => String(++nextId) })
 			.compile();
@@ -98,7 +99,7 @@ describe("WarrantyAgent", () => {
 			.overrideProvider(StoreDatabase)
 			.useValue(new StoreDatabase())
 			.overrideProvider(Clock)
-			.useValue({ now: () => Instant.fromIso("2026-08-05T12:00:00.000Z") })
+			.useValue(FixedClock.at("2026-08-05T12:00:00.000Z"))
 			.overrideProvider(IdGenerator)
 			.useValue({ next: () => String(++nextId) })
 			.compile();
@@ -116,7 +117,7 @@ describe("WarrantyAgent", () => {
 			.overrideProvider(StoreDatabase)
 			.useValue(new StoreDatabase())
 			.overrideProvider(Clock)
-			.useValue({ now: () => Instant.fromIso("2026-08-05T12:00:00.000Z") })
+			.useValue(FixedClock.at("2026-08-05T12:00:00.000Z"))
 			.overrideProvider(IdGenerator)
 			.useValue({ next: () => String(++nextId) })
 			.compile();
@@ -141,7 +142,7 @@ describe("WarrantyAgent", () => {
 			.overrideProvider(StoreDatabase)
 			.useValue(new StoreDatabase())
 			.overrideProvider(Clock)
-			.useValue({ now: () => Instant.fromIso("2026-08-05T12:00:00.000Z") })
+			.useValue(FixedClock.at("2026-08-05T12:00:00.000Z"))
 			.overrideProvider(IdGenerator)
 			.useValue({ next: () => String(++nextId) })
 			.compile();

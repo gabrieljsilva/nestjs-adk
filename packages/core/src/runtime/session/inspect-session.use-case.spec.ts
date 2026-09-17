@@ -62,7 +62,12 @@ function suspendingStack(): NativeStackFixture {
 describe("InspectSessionUseCase", () => {
 	it("says what a suspended session is waiting on, to a caller that ran nothing", async () => {
 		const stack = suspendingStack();
-		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund order 42")));
+		const suspended = await stack.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("refund order 42"),
+			}),
+		);
 
 		const inspection = await new InspectSessionUseCase(stack.sessions).execute(suspended.sessionId);
 
@@ -73,7 +78,12 @@ describe("InspectSessionUseCase", () => {
 
 	it("answers the same to a reader that never saw the run, since it reads the journal", async () => {
 		const stack = suspendingStack();
-		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund order 42")));
+		const suspended = await stack.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("refund order 42"),
+			}),
+		);
 		const elsewhere = new SessionRepository(stack.storage);
 
 		const inspection = await new InspectSessionUseCase(elsewhere).execute(suspended.sessionId);
@@ -85,7 +95,12 @@ describe("InspectSessionUseCase", () => {
 
 	it("says nobody is waiting once the decision released the turn", async () => {
 		const stack = suspendingStack();
-		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund order 42")));
+		const suspended = await stack.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("refund order 42"),
+			}),
+		);
 		await stack.deciding.execute(suspended.sessionId, REFUND, "granted", { by: "gabriel" });
 
 		const inspection = await new InspectSessionUseCase(stack.sessions).execute(suspended.sessionId);
@@ -95,7 +110,12 @@ describe("InspectSessionUseCase", () => {
 
 	it("moves the revision as the journal moves, which is what tells one read from the next", async () => {
 		const stack = suspendingStack();
-		const suspended = await stack.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("refund order 42")));
+		const suspended = await stack.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("refund order 42"),
+			}),
+		);
 		const before = await new InspectSessionUseCase(stack.sessions).execute(suspended.sessionId);
 
 		await stack.deciding.execute(suspended.sessionId, REFUND, "granted");

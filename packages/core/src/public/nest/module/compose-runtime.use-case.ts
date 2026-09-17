@@ -62,8 +62,8 @@ export class ComposeRuntimeUseCase {
 	private declaredRuntime(): RuntimeOptions {
 		const patched = (this.options.runtime ?? new RuntimeOptions()).with(this.runtimePatch);
 		return patched.with({
-			models: this.models,
-			consumers: [...patched.consumers, ...this.extraConsumers],
+			model: { resolver: this.models },
+			lifecycle: { consumers: [...patched.lifecycle.consumers, ...this.extraConsumers] },
 		});
 	}
 }

@@ -33,11 +33,11 @@ const GEMINI = new ModelIdentity("google", "gemini-flash");
 const OTHER = new ModelIdentity("google", "gemini-pro");
 
 function catalogOf(window: ContextWindow = new ModelContextWindow(1000, 200)): AgentCatalog {
-	const definition = new AgentDefinition(
-		SUPPORT,
-		AgentDescription.from("answers customers", "support"),
-		new StubModel(window, GEMINI),
-	);
+	const definition = new AgentDefinition({
+		name: SUPPORT,
+		description: AgentDescription.from("answers customers", "support"),
+		model: new StubModel(window, GEMINI),
+	});
 	return new AgentCatalog([new DeclaredAgent(definition, "SupportAgent")]);
 }
 

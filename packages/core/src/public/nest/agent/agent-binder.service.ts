@@ -32,7 +32,7 @@ export class AgentBinder {
 		for (const provider of providers) {
 			const name = this.findName(provider);
 			if (name === undefined || !(provider.instance instanceof AdkAgent)) continue;
-			provider.instance.bindTo(this.registry.get(name), this.prompting);
+			provider.instance.bindTo(this.registry.open(name), this.prompting);
 			bound += 1;
 		}
 		return bound;

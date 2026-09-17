@@ -7,7 +7,7 @@ import { ContextWindowNotifier } from "../context/context-window-notifier.servic
 import { ContextService } from "../context/context.service";
 import { OldestFirstCompactionStrategy } from "../context/oldest-first-compaction.strategy";
 import { StablePrefixDigest } from "../context/stable-prefix-digest.service";
-import type { RuntimeOptions } from "./runtime.options";
+import type { ContextOptions } from "./context.options";
 
 /**
  * Builds the half of the runtime that turns a journal into what a model reads.
@@ -17,7 +17,7 @@ import type { RuntimeOptions } from "./runtime.options";
  * ends where the measurement says it never started.
  */
 export class ContextComposer {
-	public compose(storage: SessionStorage, artifacts: ArtifactStorage, options: RuntimeOptions): ContextService {
+	public compose(storage: SessionStorage, artifacts: ArtifactStorage, options: ContextOptions): ContextService {
 		const measurer = new ContextMeasurer();
 		return new ContextService(
 			storage,

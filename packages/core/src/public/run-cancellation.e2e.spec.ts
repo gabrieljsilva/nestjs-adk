@@ -67,13 +67,13 @@ class SlowModel extends LlmModel {
 
 function agentOf(model: LlmModel): DeclaredAgent {
 	return new DeclaredAgent(
-		new AgentDefinition(
-			SUPPORT,
-			AgentDescription.from("support agent", "support"),
-			model,
-			PromptInstructions.from("Be brief."),
-			new AgentExecutionPolicies(),
-		),
+		new AgentDefinition({
+			name: SUPPORT,
+			description: AgentDescription.from("support agent", "support"),
+			model: model,
+			instructions: PromptInstructions.from("Be brief."),
+			policies: new AgentExecutionPolicies(),
+		}),
 		"SupportAgent",
 	);
 }
@@ -105,15 +105,16 @@ async function readJournal(storage: InMemorySessionStorage, sessionId: SessionId
 }
 
 function askUnder(signal: AbortSignal, sessionId?: SessionId): AgentRunCommand {
-	return new AgentRunCommand(
-		SUPPORT,
-		AskInput.with("tell me a long story", [], sessionId),
-		undefined,
-		undefined,
-		undefined,
-		[],
-		signal,
-	);
+	return new AgentRunCommand({
+		agent: SUPPORT,
+		input: new AskInput({
+			message: "tell me a long story",
+			attachments: [],
+			sessionId: sessionId,
+		}),
+		sources: [],
+		signal: signal,
+	});
 }
 
 /**
@@ -141,7 +142,12 @@ describe("a run the caller aborts", () => {
 			}),
 		);
 
-		const answered = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
+		const answered = await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("hi"),
+			}),
+		);
 		stopping.pressed = true;
 		await runtime.runner.ask(askUnder(controller.signal, answered.sessionId)).catch(() => undefined);
 
@@ -169,7 +175,12 @@ describe("a run the caller aborts", () => {
 	it("answers normally when nobody aborts anything", async () => {
 		const { runtime } = await start(new SlowModel());
 
-		const result = await runtime.runner.ask(new AgentRunCommand(SUPPORT, AskInput.fromMessage("hi")));
+		const result = await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: AskInput.fromMessage("hi"),
+			}),
+		);
 
 		expect(result.text).toContain(`word-${WORDS - 1}`);
 	});

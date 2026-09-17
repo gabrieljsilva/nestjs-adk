@@ -55,6 +55,8 @@ The names landed on 2026-09-17, verified against `packages/core/src`:
 
 Phase 6A landed on 2026-09-17: the dirty code moved inward, and the constructors shrank behind it. `AskAgentUseCase` went from fourteen parameters to twelve, `ComposeRuntimeUseCase` from sixteen to twelve, and `RuntimeFactory.create` became three `compose` calls.
 
+Phase 6B then split what was left, and only where the parameters were data rather than collaborators. `RuntimeOptions` became five sub-objects the composers read one at a time, and the commands became input objects. Which constructors were deliberately left positional, and why, is in [[component-heuristics]].
+
 Two entries of the original mapping were corrected against the code rather than followed:
 
 - `SessionManager` could not become `SessionService`, because `SessionService` already existed as the module API that `RuntimeServices.sessions` hands out. `SessionManager` is what sits behind it, talking to `SessionStorage` and folding the journal, so it became `SessionRepository`.

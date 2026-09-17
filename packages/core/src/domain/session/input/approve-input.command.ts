@@ -12,15 +12,33 @@ import type { Actor } from "../../tool/access/actor.value-object";
  * connection the first run opened is long closed. A tool that came from a source is only
  * runnable now if the source is opened now.
  */
+export interface ApproveParams {
+	sessionId: SessionId;
+	callId: ToolCallId;
+	approvedBy?: string;
+	sources?: readonly ToolSource[];
+	/** The stop button of the turn this decision releases, which is a run of its own. */
+	signal?: AbortSignal;
+	actor?: Actor;
+	toolCalls?: ToolCallObserver;
+}
+
 export class ApproveInput {
-	public constructor(
-		public readonly sessionId: SessionId,
-		public readonly callId: ToolCallId,
-		public readonly approvedBy?: string,
-		public readonly sources: readonly ToolSource[] = [],
-		/** The stop button of the turn this decision releases, which is a run of its own. */
-		public readonly signal?: AbortSignal,
-		public readonly actor?: Actor,
-		public readonly toolCalls?: ToolCallObserver,
-	) {}
+	public readonly sessionId: SessionId;
+	public readonly callId: ToolCallId;
+	public readonly approvedBy?: string;
+	public readonly sources: readonly ToolSource[];
+	public readonly signal?: AbortSignal;
+	public readonly actor?: Actor;
+	public readonly toolCalls?: ToolCallObserver;
+
+	public constructor(params: ApproveParams) {
+		this.sessionId = params.sessionId;
+		this.callId = params.callId;
+		this.approvedBy = params.approvedBy;
+		this.sources = params.sources ?? [];
+		this.signal = params.signal;
+		this.actor = params.actor;
+		this.toolCalls = params.toolCalls;
+	}
 }

@@ -1,4 +1,6 @@
 import type { AgentFailoverPolicy } from "../../../domain/agent/agent-failover.policy";
+import type { ModelRetryPolicy } from "../../../domain/agent/model-retry.policy";
+import { NoRetryPolicy } from "../../../domain/agent/no-retry.policy";
 import { SequentialFailoverPolicy } from "../../../domain/agent/sequential-failover.policy";
 import type { AdkCompactionPolicy } from "../../../domain/context/adk-compaction.policy";
 import type { LlmModel } from "../../../domain/model/llm-model.contract";
@@ -67,6 +69,7 @@ export class NestAgentScanner {
 			metadata,
 			model: this.resolveModel(metadata, defaultModel, provider.name),
 			failover: this.readFailover(metadata, provider.name),
+			retry: this.readRetry(metadata, provider.name),
 			compaction: this.readCompaction(metadata, provider.name),
 			limits: this.readLimits(metadata, provider.name),
 			instructions: this.readInstructions(metadata, provider.name),
@@ -129,6 +132,25 @@ export class NestAgentScanner {
 			throw new InvalidAgentMetadataError(providerName, `failover entry ${wrong} is not a model.`);
 		}
 		return new SequentialFailoverPolicy(declared as LlmModel[]);
+	}
+
+	/**
+	 * A policy stays itself, and `false` becomes the one that never retries.
+	 *
+	 * `false` is carried through as a policy rather than dropped for the same reason as
+	 * compaction: dropped, it would hand the agent whatever the runtime decided, which is the
+	 * opposite of what it said.
+	 */
+	private readRetry(metadata: unknown, providerName: string): ModelRetryPolicy | undefined {
+		const declared = this.declaredField(metadata, "retry");
+		if (declared === undefined) return undefined;
+		if (declared === false) return new NoRetryPolicy();
+		if (this.isRetryPolicy(declared)) return declared;
+		throw new InvalidAgentMetadataError(providerName, "retry is neither a retry policy nor false.");
+	}
+
+	private isRetryPolicy(value: unknown): value is ModelRetryPolicy {
+		return typeof value === "object" && value !== null && typeof Reflect.get(value, "findDelay") === "function";
 	}
 
 	private isFailoverPolicy(value: unknown): value is AgentFailoverPolicy {

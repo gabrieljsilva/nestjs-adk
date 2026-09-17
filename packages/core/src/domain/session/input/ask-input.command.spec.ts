@@ -28,31 +28,56 @@ describe("AskInput", () => {
 	});
 
 	it("carries attachments in the order they were attached", () => {
-		const input = AskInput.with("look", [imageOf(), imageOf()]);
+		const input = new AskInput({
+			message: "look",
+			attachments: [imageOf(), imageOf()],
+		});
 
 		expect(input.hasAttachments).toBe(true);
 		expect(input.attachments).toHaveLength(2);
 	});
 
 	it("still requires words, because an image with nothing asked about it is a guess", () => {
-		expect(() => AskInput.with(" ", [imageOf()])).toThrow(EmptyMessageError);
+		expect(
+			() =>
+				new AskInput({
+					message: " ",
+					attachments: [imageOf()],
+				}),
+		).toThrow(EmptyMessageError);
 	});
 
 	it("refuses a set of attachments that only overflows together", () => {
 		const limits = new MediaLimits(1024, 1024, 20);
 
-		expect(() => AskInput.with("look", [imageOf(), imageOf()], undefined, limits)).toThrow(MediaTooLargeError);
+		expect(
+			() =>
+				new AskInput({
+					message: "look",
+					attachments: [imageOf(), imageOf()],
+					limits: limits,
+				}),
+		).toThrow(MediaTooLargeError);
 	});
 
 	it("takes the same set when it fits", () => {
 		const limits = new MediaLimits(1024, 1024, 24);
 
-		expect(AskInput.with("look", [imageOf(), imageOf()], undefined, limits).attachments).toHaveLength(2);
+		expect(
+			new AskInput({
+				message: "look",
+				attachments: [imageOf(), imageOf()],
+				limits: limits,
+			}).attachments,
+		).toHaveLength(2);
 	});
 
 	it("copies the list, so a caller cannot add to it afterwards", () => {
 		const attachments = [imageOf()];
-		const input = AskInput.with("look", attachments);
+		const input = new AskInput({
+			message: "look",
+			attachments: attachments,
+		});
 
 		attachments.push(imageOf());
 
@@ -61,7 +86,11 @@ describe("AskInput", () => {
 
 	it("carries references next to bytes, and either alone counts as attached", () => {
 		const reference = AttachmentReference.external("file-7", "image/png");
-		const input = AskInput.with("look", [], undefined, undefined, [reference]);
+		const input = new AskInput({
+			message: "look",
+			attachments: [],
+			references: [reference],
+		});
 
 		expect(input.hasAttachments).toBe(true);
 		expect(input.references).toEqual([reference]);
@@ -72,12 +101,23 @@ describe("AskInput", () => {
 		const limits = new MediaLimits(1024, 1024, 12);
 		const references = [AttachmentReference.external("file-7", "image/png")];
 
-		expect(AskInput.with("look", [imageOf()], undefined, limits, references).references).toHaveLength(1);
+		expect(
+			new AskInput({
+				message: "look",
+				attachments: [imageOf()],
+				limits: limits,
+				references: references,
+			}).references,
+		).toHaveLength(1);
 	});
 
 	it("copies the reference list, so a caller cannot add to it afterwards", () => {
 		const references = [AttachmentReference.external("file-7", "image/png")];
-		const input = AskInput.with("look", [], undefined, undefined, references);
+		const input = new AskInput({
+			message: "look",
+			attachments: [],
+			references: references,
+		});
 
 		references.push(AttachmentReference.external("file-8", "image/png"));
 

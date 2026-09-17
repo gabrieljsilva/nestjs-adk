@@ -145,7 +145,7 @@ describe("McpToolService", () => {
 			MEMBER,
 			McpCall.fromRequest(1),
 		);
-		const wrapped = await serviceOf(listMeetings(new RecordingHandler(() => ToolOutput.fromData({ n: 2 })))).call(
+		const wrapped = await serviceOf(listMeetings(new RecordingHandler(() => new ToolOutput({ n: 2 })))).call(
 			"list_meetings",
 			{ limit: 1 },
 			MEMBER,

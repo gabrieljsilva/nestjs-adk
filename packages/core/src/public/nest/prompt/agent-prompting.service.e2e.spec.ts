@@ -150,7 +150,7 @@ describe("an agent that builds its prompt per run", () => {
 
 		await booted
 			.get(AgentRegistry)
-			.get("support")
+			.open("support")
 			.ask("hi", { metadata: { memberId: "user-7" } });
 
 		expect(model.requests[0]?.instructions?.text).toContain("talking to Ana");
@@ -207,7 +207,7 @@ describe("an agent that builds its prompt per run", () => {
 		const model = new RecordingModel();
 		const booted = await bootWith(model);
 
-		const result = await booted.get(AgentRegistry).get("billing").ask("how much?");
+		const result = await booted.get(AgentRegistry).open("billing").ask("how much?");
 
 		expect(model.requests[0]?.instructions?.text).toBe(`You are billing, on session ${result.sessionId.value}.`);
 	});
@@ -216,7 +216,7 @@ describe("an agent that builds its prompt per run", () => {
 		const model = new RecordingModel();
 		const booted = await bootWith(model);
 
-		await booted.get(AgentRegistry).get("research").ask("what is it?");
+		await booted.get(AgentRegistry).open("research").ask("what is it?");
 
 		expect(model.requests[0]?.instructions?.text).toBe("You are the research desk. Answer with facts and nothing else.");
 	});
@@ -227,7 +227,7 @@ describe("an agent that builds its prompt per run", () => {
 
 		await booted
 			.get(AgentRegistry)
-			.get("support")
+			.open("support")
 			.ask("hi", { metadata: { memberId: "user-7" } });
 
 		const instructions = model.requests[0]?.instructions?.text ?? "";
@@ -238,7 +238,7 @@ describe("an agent that builds its prompt per run", () => {
 		const model = new RecordingModel();
 		const booted = await bootWith(model);
 
-		await booted.get(AgentRegistry).get("silent").ask("hi");
+		await booted.get(AgentRegistry).open("silent").ask("hi");
 
 		expect(model.requests[0]?.instructions).toBeUndefined();
 	});
@@ -247,7 +247,7 @@ describe("an agent that builds its prompt per run", () => {
 		const model = new RecordingModel();
 		const booted = await bootWith(model);
 
-		await booted.get(AgentRegistry).get("legacy").ask("hi");
+		await booted.get(AgentRegistry).open("legacy").ask("hi");
 
 		expect(model.requests[0]?.instructions?.text).toBe("You are the legacy desk.");
 	});
@@ -259,7 +259,7 @@ describe("an agent that builds its prompt per run", () => {
 
 			await booted
 				.get(AgentRegistry)
-				.get("support")
+				.open("support")
 				.ask("who charged me?", { metadata: { memberId: "user-7" } });
 
 			expect(model.requests[0]?.instructions?.text).toContain("talking to Ana");
@@ -272,7 +272,7 @@ describe("an agent that builds its prompt per run", () => {
 
 			await booted
 				.get(AgentRegistry)
-				.get("support")
+				.open("support")
 				.ask("is it recalled?", { metadata: { memberId: "user-7" } });
 
 			expect(model.requests[1]?.instructions?.text).toBe("You are the research desk. Answer with facts and nothing else.");
@@ -284,19 +284,19 @@ describe("an agent that builds its prompt per run", () => {
 		it("fails the run with what the agent threw", async () => {
 			const booted = await bootWith(new RecordingModel());
 
-			await expect(booted.get(AgentRegistry).get("broken").ask("hi")).rejects.toThrow("the customer repository is down");
+			await expect(booted.get(AgentRegistry).open("broken").ask("hi")).rejects.toThrow("the customer repository is down");
 		});
 
 		it("fails naming the file when the prompt is not where it was expected", async () => {
 			const booted = await bootWith(new RecordingModel());
 
-			await expect(booted.get(AgentRegistry).get("absent").ask("hi")).rejects.toBeInstanceOf(PromptNotFoundError);
+			await expect(booted.get(AgentRegistry).open("absent").ask("hi")).rejects.toBeInstanceOf(PromptNotFoundError);
 		});
 
 		it("fails naming the variable when the file requires one nobody filled", async () => {
 			const booted = await bootWith(new RecordingModel());
 
-			await expect(booted.get(AgentRegistry).get("incomplete").ask("hi")).rejects.toBeInstanceOf(
+			await expect(booted.get(AgentRegistry).open("incomplete").ask("hi")).rejects.toBeInstanceOf(
 				MissingPromptVariablesError,
 			);
 		});
@@ -305,7 +305,7 @@ describe("an agent that builds its prompt per run", () => {
 			const model = new RecordingModel();
 			const booted = await bootWith(model);
 
-			await expect(booted.get(AgentRegistry).get("broken").ask("hi")).rejects.toThrow();
+			await expect(booted.get(AgentRegistry).open("broken").ask("hi")).rejects.toThrow();
 
 			expect(model.requests).toEqual([]);
 		});
@@ -322,7 +322,7 @@ describe("an agent that builds its prompt per run", () => {
 			const model = new RecordingModel();
 			const booted = await bootWith(model, { prompts: undefined, promptSource: new InMemoryPrompts() });
 
-			await booted.get(AgentRegistry).get("research").ask("what is it?");
+			await booted.get(AgentRegistry).open("research").ask("what is it?");
 
 			expect(model.requests[0]?.instructions?.text).toBe("You are the research desk, served from memory.");
 		});
