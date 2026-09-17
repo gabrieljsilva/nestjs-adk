@@ -40,3 +40,12 @@ export { UnscriptedAgentError } from "./errors/unscripted-agent.error";
  * downstream is measured by exactly the cases the ones in the core answer.
  */
 export { SessionStorageContractSuite } from "./session-storage-contract-suite.support";
+
+/**
+ * The `ArtifactStorage` port contract, as cases any runner drives.
+ *
+ * It is here for the same reason the session one is: measuring an adapter is testing. Both
+ * shipped stores answer it, so an application writing its own is held to exactly the cases
+ * `InMemoryArtifactStorage` and `SqliteArtifactStorage` are held to.
+ */
+export { ArtifactStorageContractSuite } from "./artifact-storage-contract-suite.support";

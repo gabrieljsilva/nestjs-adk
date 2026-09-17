@@ -24,6 +24,13 @@ CREATE TABLE IF NOT EXISTS session_events (
 	PRIMARY KEY (session_id, revision)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS session_events_by_id ON session_events (session_id, event_id);
+CREATE TABLE IF NOT EXISTS session_artifacts (
+	session_id TEXT NOT NULL,
+	artifact_id TEXT NOT NULL,
+	media_type TEXT NOT NULL,
+	content TEXT NOT NULL,
+	PRIMARY KEY (session_id, artifact_id)
+);
 CREATE TABLE IF NOT EXISTS session_snapshots (
 	session_id TEXT PRIMARY KEY,
 	revision INTEGER NOT NULL,

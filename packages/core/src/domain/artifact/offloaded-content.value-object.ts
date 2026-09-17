@@ -1,4 +1,5 @@
 import type { ArtifactReference } from "./artifact-reference.value-object";
+import { OffloadDecision } from "./offload-decision.value-object";
 
 /**
  * What the model reads, and what it can ask for if the text is not enough.
@@ -12,14 +13,24 @@ export class OffloadedContent {
 	private constructor(
 		public readonly text: string,
 		public readonly reference?: ArtifactReference,
+		/** What the policy decided, which is what the placeholder was written from. */
+		public readonly decision: OffloadDecision = OffloadDecision.INLINE,
 	) {}
 
 	public static inline(text: string): OffloadedContent {
 		return new OffloadedContent(text);
 	}
 
-	public static offloaded(reference: ArtifactReference): OffloadedContent {
-		return new OffloadedContent(reference.toString(), reference);
+	/**
+	 * The decision travels only as far as the sentence it writes. What is durable is the
+	 * reference, and re-deciding later, under a policy that has since changed, would change
+	 * what a conversation already said about content nobody moved.
+	 */
+	public static offloaded(
+		reference: ArtifactReference,
+		decision: OffloadDecision = OffloadDecision.OPAQUE,
+	): OffloadedContent {
+		return new OffloadedContent(reference.toString(decision), reference, decision);
 	}
 
 	public get wasOffloaded(): boolean {

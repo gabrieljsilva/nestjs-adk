@@ -108,6 +108,7 @@ export { ModelResolver } from "./contracts/model/model-resolver.contract";
 export { InMemorySessionStorage } from "./adapters/storage/in-memory-session-storage.adapter";
 export { SqliteSessionStorage } from "./adapters/storage/sqlite/sqlite-session-storage.adapter";
 export { SqliteConnection } from "./adapters/storage/sqlite/sqlite-connection.adapter";
+export { SqliteArtifactStorage } from "./adapters/storage/sqlite/sqlite-artifact-storage.adapter";
 
 /**
  * What a session storage written outside this package moves between a row and the domain.
@@ -288,6 +289,8 @@ export { UnknownTransferTargetError } from "./runtime/catalog/errors/unknown-tra
 // artifacts
 export { ArtifactStorage } from "./contracts/storage/artifact-storage.contract";
 export { OffloadPolicy } from "./domain/artifact/offload.policy";
+export { OffloadDecision } from "./domain/artifact/offload-decision.value-object";
+export { ArtifactsNotDurable } from "./domain/artifact/artifacts-not-durable.notice";
 export { CharacterCountOffloadPolicy } from "./domain/artifact/character-count-offload.policy";
 export { ArtifactNotFoundError } from "./domain/artifact/errors/artifact-not-found.error";
 export { TamperedArtifactReferenceError } from "./domain/artifact/errors/tampered-artifact-reference.error";
@@ -412,6 +415,7 @@ export { ContextBudget } from "./domain/context/context-budget.value-object";
 export { ContextProjection } from "./domain/context/context-projection.value-object";
 export { ConsumerFailed } from "./domain/event/consumer-failed.notice";
 export { ContextNoticeSink } from "./contracts/context/context-notice-sink.contract";
+export type { ContextNotice } from "./contracts/context/context-notice-sink.contract";
 export { NoticeSink } from "./contracts/notice/notice-sink.contract";
 export { ContextWindowUnknown } from "./domain/context/context-window-unknown.value-object";
 export { MeteredEmbedding } from "./domain/embedding/metered-embedding.value-object";

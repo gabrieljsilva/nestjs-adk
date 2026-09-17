@@ -1,9 +1,11 @@
+import { InMemoryArtifactStorage } from "../adapters/storage/in-memory-artifact-storage.adapter";
 import type { IdGenerator } from "../common/identity/id-generator.contract";
 import type { Clock } from "../common/time/clock.contract";
 import type { ArtifactStorage } from "../contracts/storage/artifact-storage.contract";
 import type { SessionStorage } from "../contracts/storage/session-storage.contract";
 import { AgentDefinition } from "../domain/agent/agent-definition.value-object";
 import { DeclaredAgent } from "../domain/agent/declared-agent.value-object";
+import { ArtifactsNotDurable } from "../domain/artifact/artifacts-not-durable.notice";
 import type { ToolDefinition } from "../domain/tool/tool-definition.value-object";
 import { AgentCatalogBuilder } from "../runtime/catalog/agent-catalog-builder.factory";
 import type { RuntimeServices } from "../runtime/composition/runtime-services.value-object";
@@ -79,6 +81,8 @@ export class AdkRuntime implements StartedRuntime {
 		for (const agent of input.agents) builder.add(AdkRuntime.resolveAgent(agent));
 
 		const components = AdkRuntime.resolveComponents(input);
+		const options = input.options ?? new RuntimeOptions();
+		AdkRuntime.reportEphemeralArtifacts(components.artifacts, options);
 		this.components = components;
 		this.services = await this.factory.create(
 			builder.build(),
@@ -86,7 +90,7 @@ export class AdkRuntime implements StartedRuntime {
 			components.artifacts,
 			components.clock,
 			components.ids,
-			input.options ?? new RuntimeOptions(),
+			options,
 			input.exposed ?? [],
 		);
 		return this.services;
@@ -112,6 +116,25 @@ export class AdkRuntime implements StartedRuntime {
 		await this.services?.lifecycle.drain();
 		await this.services?.events.flush();
 		await this.factory.dispose();
+	}
+
+	/**
+	 * Offloading into a store that dies with the process, said once, where both entry points
+	 * pass and while somebody can still act on it.
+	 *
+	 * It travels through `ContextNoticeSink`, the sink that already carries facts about what a
+	 * model reads, and there is no logger behind it: a library that writes to stdout on behalf
+	 * of an application is a library that cannot be quiet. An application that declared no sink
+	 * hears nothing, which is the same trade every other notice makes.
+	 *
+	 * The context is absent because there is none. Nothing has been asked yet.
+	 */
+	private static reportEphemeralArtifacts(artifacts: ArtifactStorage, options: RuntimeOptions): void {
+		if (!options.context.offload.isEnabled || !(artifacts instanceof InMemoryArtifactStorage)) return;
+		options.context.contextNotices?.report(
+			undefined,
+			new ArtifactsNotDurable(artifacts.constructor.name, options.context.offload.thresholdCharacters),
+		);
 	}
 
 	/** An agent written by hand declares itself, so the name of the definition is the name of the declarer. */

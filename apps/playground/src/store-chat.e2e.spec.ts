@@ -24,6 +24,7 @@ import { SalesAgent } from "./agents/sales/sales.agent";
 import { WarrantyAgent } from "./agents/warranty/warranty.agent";
 import { AppModule } from "./app.module";
 import { Attachment } from "./chat/attachment";
+import { HeldCallBoard } from "./chat/held-call-board";
 import { InspectSessionUseCase } from "./chat/inspect-session.use-case";
 import { SendMessageUseCase } from "./chat/send-message.use-case";
 import { SlowAnswer } from "./chat/slow-answer.fixture";
@@ -111,6 +112,32 @@ describe("the store, end to end", () => {
 		expect(run).toAwaitApproval("issue_refund");
 		expect(run).not.toHaveRunTool("issue_refund");
 		expect(bed.get(OrderRepository).findById("A-1042")?.isRefunded).toBe(false);
+	});
+
+	it("tells the application which calls it is waiting on, and which ones simply ran", async () => {
+		const connection = new SqliteConnection();
+		await using bed = await AdkTestBedBuilder.from(Test.createTestingModule({ imports: [AppModule] }))
+			.overriding(StoreDatabase, new StoreDatabase(connection))
+			.overriding(SessionStorage, new SqliteSessionStorage(connection))
+			.withScript(ConciergeAgent, (script) => script.mockText("not called"))
+			.withScript(SalesAgent, (script) =>
+				script.mockToolCall("search_games", { term: "ps5" }).mockText("We have Elden Ring Nightreign for PS5."),
+			)
+			.withScript(WarrantyAgent, (script) => script.mockText("not called"))
+			.withScript(BillingAgent, (script) => script.mockToolCall("issue_refund", { orderId: "A-1042", amountBrl: 349 }))
+			.boot();
+
+		const refunds = new HeldCallBoard();
+		await bed.agent(BillingAgent).ask("refund order A-1042", { toolCalls: refunds });
+
+		const searches = new HeldCallBoard();
+		await bed.agent(SalesAgent).ask("which PS5 games do you have?", { toolCalls: searches });
+
+		expect(refunds.awaiting.map((call) => call.toolName)).toEqual(["issue_refund"]);
+		expect(refunds.awaiting[0]?.args).toEqual({ orderId: "A-1042", amountBrl: 349 });
+		expect(refunds.settledCalls).toEqual([]);
+		expect(searches.awaiting).toEqual([]);
+		expect(searches.settledCalls).toEqual(["search_games"]);
 	});
 
 	it("lets the money leave once a human said so, and records it", async () => {
@@ -424,7 +451,7 @@ describe("the store, end to end", () => {
  */
 describe("the store, on a conversation too long to send", () => {
 	it("sends the model a summary in place of the turns it dropped", async () => {
-		const detail = "detail ".repeat(60);
+		const detail = "detail ".repeat(200);
 		const connection = new SqliteConnection();
 		await using bed = await AdkTestBedBuilder.from(Test.createTestingModule({ imports: [AppModule] }))
 			.overriding(StoreDatabase, new StoreDatabase(connection))
@@ -456,7 +483,7 @@ describe("the store, on a conversation too long to send", () => {
 	});
 
 	it("stops sending the oldest turns once the summary stands for them", async () => {
-		const detail = "detail ".repeat(60);
+		const detail = "detail ".repeat(200);
 		const connection = new SqliteConnection();
 		await using bed = await AdkTestBedBuilder.from(Test.createTestingModule({ imports: [AppModule] }))
 			.overriding(StoreDatabase, new StoreDatabase(connection))
@@ -489,7 +516,7 @@ describe("the store, on a conversation too long to send", () => {
 	});
 
 	it("leaves every turn in the session, including the ones it stopped sending", async () => {
-		const detail = "detail ".repeat(60);
+		const detail = "detail ".repeat(200);
 		const connection = new SqliteConnection();
 		await using bed = await AdkTestBedBuilder.from(Test.createTestingModule({ imports: [AppModule] }))
 			.overriding(StoreDatabase, new StoreDatabase(connection))
@@ -524,7 +551,7 @@ describe("the store, on a conversation too long to send", () => {
 		await using bed = await AdkTestBedBuilder.from(Test.createTestingModule({ imports: [AppModule] }))
 			.overriding(StoreDatabase, new StoreDatabase(connection))
 			.overriding(SessionStorage, new SqliteSessionStorage(connection))
-			.withScript(ConciergeAgent, (script) => script.reportsPromptTokens(100))
+			.withScript(ConciergeAgent, (script) => script.reportsPromptTokens(1_500))
 			.withScript(SalesAgent, (script) => script.mockText("not called"))
 			.withScript(WarrantyAgent, (script) => script.mockText("not called"))
 			.withScript(BillingAgent, (script) => script.mockText("not called"))

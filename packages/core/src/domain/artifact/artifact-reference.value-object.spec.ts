@@ -3,6 +3,7 @@ import { ArtifactId } from "../../common/identity/artifact-id.value-object";
 import { SessionId } from "../../common/identity/session-id.value-object";
 import { ArtifactContent } from "./artifact-content.value-object";
 import { ArtifactReference } from "./artifact-reference.value-object";
+import { OffloadDecision } from "./offload-decision.value-object";
 
 const ID = ArtifactId.from("a-1");
 const SESSION = SessionId.from("s-1");
@@ -30,6 +31,15 @@ describe("ArtifactReference", () => {
 		);
 	});
 
+	it("offers the exploration tools only for content they can parse", () => {
+		const reference = ArtifactReference.fromContent(ID, SESSION, content);
+
+		expect(reference.toString(OffloadDecision.EXPLORABLE)).toContain("outline_artifact");
+		expect(reference.toString(OffloadDecision.EXPLORABLE)).toContain("query_artifact");
+		expect(reference.toString(OffloadDecision.OPAQUE)).not.toContain("outline_artifact");
+		expect(reference.toString(OffloadDecision.OPAQUE)).toContain("read_artifact");
+	});
+
 	it("refuses content that is not what it fingerprinted", () => {
 		expect(ArtifactReference.fromContent(ID, SESSION, content).matches(new ArtifactContent("a tampered report"))).toBe(
 			false,
@@ -38,7 +48,7 @@ describe("ArtifactReference", () => {
 
 	it("reads as a placeholder the model can act on", () => {
 		expect(ArtifactReference.fromContent(ID, SESSION, content).toString()).toBe(
-			"[artifact a-1, text/markdown, 18 characters]",
+			"[artifact a-1, text/markdown, 18 characters, read with read_artifact(artifactId, offset, limit)]",
 		);
 	});
 

@@ -3,6 +3,10 @@ import {
 	AgentDescription,
 	AgentName,
 	AgentRunStatus,
+	ArtifactsNotDurable,
+	CharacterCountOffloadPolicy,
+	type ContextNotice,
+	ContextNoticeSink,
 	LlmModel,
 	ModelCapabilities,
 	ModelCapability,
@@ -13,6 +17,8 @@ import {
 	type ModelRequest,
 	ModelUsage,
 	PromptInstructions,
+	type SessionContext,
+	SqliteArtifactStorage,
 	ToolCallDelta,
 	ToolDefinition,
 	ToolEffect,
@@ -83,6 +89,15 @@ function supportAgent(tools: readonly ToolDefinition[]): AgentDefinition {
 	});
 }
 
+/** Everything the runtime observed about what a model reads, kept so a test can read it back. */
+class RecordingNoticeSink extends ContextNoticeSink {
+	public readonly notices: ContextNotice[] = [];
+
+	public report(_context: SessionContext | undefined, notice: ContextNotice): void {
+		this.notices.push(notice);
+	}
+}
+
 describe("a runtime composed without a NestJS container", () => {
 	it("answers a question through the handle of the agent it was given", async () => {
 		const adk = await createAdkRuntime({ agents: [supportAgent([])] });
@@ -118,5 +133,44 @@ describe("a runtime composed without a NestJS container", () => {
 		await adk.stop();
 
 		expect(names).toEqual(["support"]);
+	});
+	it("says so when it is composed to offload into a store that dies with the process", async () => {
+		const notices = new RecordingNoticeSink();
+
+		const adk = await createAdkRuntime({
+			agents: [supportAgent([])],
+			runtime: { context: { contextNotices: notices } },
+		});
+		await adk.stop();
+
+		const notice = notices.notices.find((candidate) => candidate instanceof ArtifactsNotDurable);
+		expect(notice).toBeDefined();
+		expect(notice?.message).toContain("InMemoryArtifactStorage");
+		expect(notice?.thresholdCharacters).toBe(CharacterCountOffloadPolicy.DEFAULT_THRESHOLD);
+	});
+
+	it("says nothing when the artifacts are durable", async () => {
+		const notices = new RecordingNoticeSink();
+
+		const adk = await createAdkRuntime({
+			agents: [supportAgent([])],
+			artifacts: new SqliteArtifactStorage(),
+			runtime: { context: { contextNotices: notices } },
+		});
+		await adk.stop();
+
+		expect(notices.notices.filter((candidate) => candidate instanceof ArtifactsNotDurable)).toEqual([]);
+	});
+
+	it("says nothing when nothing is ever moved out, because then there is nothing to lose", async () => {
+		const notices = new RecordingNoticeSink();
+
+		const adk = await createAdkRuntime({
+			agents: [supportAgent([])],
+			runtime: { context: { contextNotices: notices, offload: CharacterCountOffloadPolicy.disabled() } },
+		});
+		await adk.stop();
+
+		expect(notices.notices.filter((candidate) => candidate instanceof ArtifactsNotDurable)).toEqual([]);
 	});
 });

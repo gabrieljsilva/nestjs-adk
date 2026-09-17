@@ -1,5 +1,6 @@
 import type { ModelResolver } from "../../contracts/model/model-resolver.contract";
 import type { ToolDefinition } from "../../domain/tool/tool-definition.value-object";
+import type { ArtifactExplorer } from "../artifact/artifact-explorer.service";
 import type { ArtifactOffloader } from "../artifact/artifact-offloader.service";
 import type { EventPublisher } from "../event/event-publisher.service";
 import type { ActiveRunTracker } from "../lifecycle/active-run-tracker.service";
@@ -30,5 +31,6 @@ export class ComposedRun {
 		public readonly offloader: ArtifactOffloader,
 		public readonly readArtifact: ToolDefinition,
 		public readonly gate: ToolGate,
+		public readonly explorer: ArtifactExplorer,
 	) {}
 }

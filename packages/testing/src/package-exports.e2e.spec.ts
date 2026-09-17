@@ -82,6 +82,7 @@ describe("@nestjs-adk/testing subpaths", () => {
 			"JudgeRubric",
 			"JudgeVerdict",
 			"SessionStorageContractSuite",
+			"ArtifactStorageContractSuite",
 		]) {
 			expect(barrel).toContain(`export { ${symbol} }`);
 		}

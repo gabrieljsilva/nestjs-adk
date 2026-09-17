@@ -49,4 +49,5 @@ A row marked `target` describes a decision the code has not reached yet. It is s
 | `pitfall` | [[money-precision]] | Why an amount is an integer count of pico dollars in a bigint, and where the single lossy step is allowed to be |
 | `pattern` | [[run-pricing]] | Where a call is collected, when it is priced, and why nothing about a bill can fail a run |
 | `pattern` | [[mcp-authorization]] | Where the OAuth flow is split, why a failed renewal is classified rather than reported, and what decides whether cleartext is allowed |
+| `pattern` | [[artifact-exploration]] | How content too large for a context is moved out, what the model can still ask about it, and what an in memory store takes with it |
 | `pattern` | [[storage-adapters]] | What a session storage written outside this package is given, why it is codecs and not parts, and how a fabricated event fails in silence |

@@ -2,6 +2,7 @@ import type { IdGenerator } from "../../common/identity/id-generator.contract";
 import type { Clock } from "../../common/time/clock.contract";
 import type { ArtifactStorage } from "../../contracts/storage/artifact-storage.contract";
 import type { SessionStorage } from "../../contracts/storage/session-storage.contract";
+import { ArtifactExplorer } from "../artifact/artifact-explorer.service";
 import { ArtifactOffloader } from "../artifact/artifact-offloader.service";
 import { AttachmentStore } from "../artifact/attachment-store.service";
 import { ReadArtifactTool } from "../artifact/read-artifact.tool";
@@ -62,7 +63,11 @@ export class RunComposer {
 		const lifecycle = new RuntimeLifecycle(tracker, options.lifecycle.shutdown, clock);
 		const offloader = new ArtifactOffloader(artifacts, options.context.offload);
 		const attachments = new AttachmentStore(artifacts);
-		const readArtifact = ReadArtifactTool.forStorage(artifacts);
+		const readArtifact = ReadArtifactTool.forStorage(artifacts, options.context.offload);
+		// Every tool the runtime offers over an artifact is budgeted by the same policy that put
+		// the artifact there, which is what keeps an answer about a placeholder from becoming one.
+		const explorer = new ArtifactExplorer(artifacts, options.context.offload);
+		const artifactTools = [readArtifact, ...explorer.getTools()];
 		const models = new ModelService(
 			options.model.resolver ?? new CatalogModelResolver(),
 			new ModelRunner(clock, options.model.retry),
@@ -77,7 +82,7 @@ export class RunComposer {
 		const sessions = new SessionRepository(storage, undefined, events, undefined, options.lifecycle.snapshots);
 		const runs = new AgentRunFactory(ids, clock, tracker, lifecycle);
 		const journal = new RunJournal(new RunEventFactory(ids, clock));
-		const scopes = new RunScopeFactory([readArtifact], options.limits, options.context.compaction);
+		const scopes = new RunScopeFactory(artifactTools, options.limits, options.context.compaction);
 		const settler = new RunSettler(sessions, journal);
 		const results = new RunResultFactory(
 			new RunCostReporter(new CostCalculator(), options.cost.pricing, options.cost.pricingNotices),
@@ -135,6 +140,7 @@ export class RunComposer {
 			offloader,
 			readArtifact,
 			gate,
+			explorer,
 		);
 	}
 }

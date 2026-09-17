@@ -638,6 +638,8 @@ AdkModule.forRoot(
 );
 ```
 
+Artifacts are the other half of a durable conversation, and they have their own port: see [Artifacts](#artifacts-and-asking-questions-of-one) for why an in memory artifact store and a durable journal together leave a conversation naming content nothing can resolve.
+
 The journal is the source of truth. Snapshots exist only to avoid replaying a long conversation from the first event, are always disposable, and are governed by `runtime.snapshots`, which is `RevisionBucketSnapshotPolicy.everyFiftyEvents()` unless the application extends `SnapshotPolicy` with a rule of its own. A port that cannot do everything says so through `StorageCapabilities` rather than failing halfway.
 
 ### Writing a storage of your own
@@ -725,7 +727,7 @@ Replacing is not narrowing: an agent that declares `16` runs under `16` even whe
 
 Long conversations and big tool results both eat the window, and each has its own answer.
 
-A tool result above 20 thousand characters is stored as an artifact, and the model gets a short summary plus a `read_artifact` tool it can call when it really needs the whole thing. `runtime.context.offload` decides the threshold: `CharacterCountOffloadPolicy.byDefault()`, `above(n)` or `disabled()`. It is a port, so an application that decides by media type or by tool extends `OffloadPolicy` instead. `read_artifact` works on anything in `ArtifactStorage`, not only offloaded results, so an upload saved there can be pulled in on demand: text comes back as a normal result, binary comes back as media.
+A tool result above 20 thousand characters is stored as an artifact, and the model gets a placeholder naming it plus the tools that reach it. `runtime.context.offload` decides the threshold: `CharacterCountOffloadPolicy.byDefault()`, `above(n)` or `disabled()`. It is a port, so an application that decides by media type or by tool extends `OffloadPolicy` instead. The section below is what the model does with the placeholder.
 
 For long histories there is compaction, and it is on without you declaring anything. Once a conversation passes nine tenths of the model's window it is shortened to seven tenths, oldest closed exchanges first, keeping the four most recent. Declare a `ContextSummarizer` and what leaves is replaced by a summary:
 
@@ -770,6 +772,76 @@ budget.projectedFreeTokens; // what is left of it
 It reads and never runs a turn. What it describes is the last call a provider actually counted, so a conversation nobody has asked anything in answers a window and no size, and so does one continued under a different model until that model answers once: a count taken by one provider divided by another one's window is a wrong number that looks right.
 
 This is the meter, not the decision. What compacts is the policy above, during a run, on the prompt about to be sent.
+
+## Artifacts, and asking questions of one
+
+A result the runtime moved out of the context is an artifact, and the placeholder the model reads says how to get at it:
+
+```text
+[artifact a-1, application/json, 40000 characters, read with read_artifact(artifactId, offset, limit), or explore with outline_artifact, search_artifact and query_artifact]
+```
+
+Four tools answer it, all of them owned by the runtime. They are `internal`, so no approval policy applies to them and a policy written for your tools cannot leave a model unable to read what it was told to read, and every one of them resolves an id inside the session that asked, so knowing an id is not enough to read one.
+
+| Tool | Arguments | Answers |
+| --- | --- | --- |
+| `read_artifact` | `artifactId`, `offset?`, `limit?` | a page of characters, the total length, and whether more remains |
+| `outline_artifact` | `artifactId`, `depth?` | for JSON, the keys, the types and the length of every array down to `depth` (2 by default); for text, the lines, characters, bytes and how it starts |
+| `search_artifact` | `artifactId`, `query`, `regex?`, `maxMatches?`, `context?` | where a string appears, with the line and the characters around each hit |
+| `query_artifact` | `artifactId`, `pointer` | the value at an RFC 6901 JSON Pointer such as `/orders/0/total`, or an outline of it when it is too large |
+
+Reading is paged, and the page nobody asked for is the offload threshold itself: exactly the largest answer the runtime was willing to leave in a context. A page past the end is empty rather than an error, which is how a model finds out where the content stops.
+
+Which tools a placeholder offers follows the policy, not the bytes. `OffloadPolicy.decide` answers `inline`, `opaque` or `explorable`, and the shipped one calls JSON and text explorable and everything else opaque, because offering tools over content they cannot parse is a call spent being told no.
+
+Every answer is budgeted at the offload threshold, so an answer about an artifact can never itself become one, and anything that was cut to fit says `truncated: true` rather than pretending it is complete.
+
+Two things these tools deliberately cannot do. `query_artifact` takes a JSON Pointer and only a pointer: JSONPath filters are an expression language, and an expression language whose source is a string the model wrote is code execution with extra steps. `search_artifact` is a literal string unless you pass `regex: true`, and a pattern then goes through a guard that refuses anything that could backtrack — a quantifier on a group that itself repeats or branches, a backreference, lookaround, a repetition over 100, or more than 200 characters. A refused pattern comes back as `{ refused: true, reason }` the model can correct, not as a failed run.
+
+Whatever comes back is still content somebody else wrote. See the note on tool results below: the library marks none of it.
+
+### Where the bytes live
+
+`ArtifactStorage` is the port, `InMemoryArtifactStorage` is the default and `SqliteArtifactStorage` is the durable one. Point it at the same file as the sessions:
+
+```ts
+const connection = new SqliteConnection("store.db");
+
+AdkModule.forRoot(
+	AdkModuleOptions.from({
+		defaultModel,
+		storage: new SqliteSessionStorage(connection),
+		artifacts: new SqliteArtifactStorage(connection),
+	}),
+);
+```
+
+The two belong together for a reason that is not tidiness. **A journal is durable and an in memory artifact store is not, so a conversation restored after a restart names artifacts nothing can resolve**, and the model is left reading a sentence about content it has no way to reach. The same is true the moment there are two processes: whichever one did not write the artifact cannot read it.
+
+So a runtime composed to offload into `InMemoryArtifactStorage` reports `ArtifactsNotDurable` through `ContextNoticeSink` at boot. It is a notice and not a refusal, because one process is a perfectly correct way to run a script, a test or a container, and there is no logger behind it: declare the sink and you hear it, declare nothing and the library stays quiet.
+
+```ts
+class StoreNotices extends ContextNoticeSink {
+	public report(context: SessionContext | undefined, notice: ContextNotice): void {
+		this.logger.warn(notice.message);
+	}
+}
+```
+
+The fix is one line either way: a durable store, or `offload: CharacterCountOffloadPolicy.disabled()`, which keeps large results in the prompt and pays for them there.
+
+Writing your own works like the session port, and is measured the same way:
+
+```ts
+import { ArtifactStorageContractSuite } from "@nestjs-adk/testing";
+
+const suite = new ArtifactStorageContractSuite();
+for (const contract of suite.cases(() => new S3ArtifactStorage(client))) {
+	it(contract.name, () => contract.run());
+}
+```
+
+It demands the two guarantees the port is written about: what comes out of `read` is byte for byte what went into `put`, verified against the digest the reference carries, and a session only ever reads its own, with anything else answered as absent rather than refused, because an id is guessable and a refusal confirms it exists. Both shipped stores answer the same cases.
 
 ## Transfer and delegation
 
@@ -1247,8 +1319,8 @@ Everything the package exports, and nothing else: a name that is not here is not
 | `RunContext`, `SessionContext` | Where a run is happening, and the conversation half of it that outlives one |
 | `SessionStorage`, `StorageCapabilities` | Where the journal lives, and what a port can do |
 | `InMemorySessionStorage`, `SqliteSessionStorage`, `SqliteConnection` | The two the library ships, both for development and tests |
-| `ArtifactStorage`, `InMemoryArtifactStorage` | Where a large result or an upload lives |
-| `OffloadPolicy`, `CharacterCountOffloadPolicy` | When a result becomes an artifact instead of a message, and the shipped answer |
+| `ArtifactStorage`, `InMemoryArtifactStorage`, `SqliteArtifactStorage` | Where a large result or an upload lives, in this process or on disk |
+| `OffloadPolicy`, `CharacterCountOffloadPolicy`, `OffloadDecision` | When a result becomes an artifact instead of a message, whether the model can still explore it, and the shipped answer |
 | `SessionEventConsumer`, `PublishedEvent` | Being told what happened, after it was committed |
 | `ConsumerFailureSink` | Where a consumer's own failure is reported |
 | `ChunkSink` | Watching the pieces of a turn as they arrive |
@@ -1257,7 +1329,7 @@ Everything the package exports, and nothing else: a name that is not here is not
 | `Clock`, `SystemClock`, `Instant`, `IdGenerator`, `RandomIdGenerator` | The two things a runtime cannot invent for itself |
 | `Secret` | A value that must not print itself in a log |
 
-Implementing `SessionStorage` or `ArtifactStorage` means naming what their methods pass around, so those types are public too: `AppendEventsCommand` and `AppendEventsResult` for an append, `StoredSessionEvent` for what comes back, `Session` and `SessionSnapshot` for the head of a conversation and its disposable summary, `ContextCheckpoint` for what compaction leaves behind, and `ArtifactId`, `ArtifactContent` and `ArtifactReference` for a stored artifact. `ConsumerFailed` and `ContextWindowUnknown` are what the two notice sinks receive.
+Implementing `SessionStorage` or `ArtifactStorage` means naming what their methods pass around, so those types are public too: `AppendEventsCommand` and `AppendEventsResult` for an append, `StoredSessionEvent` for what comes back, `Session` and `SessionSnapshot` for the head of a conversation and its disposable summary, `ContextCheckpoint` for what compaction leaves behind, and `ArtifactId`, `ArtifactContent` and `ArtifactReference` for a stored artifact. `ConsumerFailed`, `ContextWindowUnknown` and `ArtifactsNotDurable` are what the notice sinks receive; `ContextNotice` is the union `ContextNoticeSink` takes.
 
 Writing a `SessionStorage` needs more than the names in its signatures, and the rest is published here for the same reason `PromptFileCache` is: implementing a port is something an application does.
 
@@ -1274,7 +1346,7 @@ Writing a `SessionStorage` needs more than the names in its signatures, and the 
 | `SessionEventBatch`, `SessionEvent`, `SessionEventRegistry`, `SessionEventCodecs` | What an append carries, and the registry an application with its own upcasters hands over |
 | `ContractSuite`, `ContractCase` | A port contract as data, which is what `SessionStorageContractSuite` is built from |
 
-`SessionStorageContractSuite` itself is in `@nestjs-adk/testing`, next to the test bed.
+`SessionStorageContractSuite` and `ArtifactStorageContractSuite` are in `@nestjs-adk/testing`, next to the test bed.
 
 ### Context
 
