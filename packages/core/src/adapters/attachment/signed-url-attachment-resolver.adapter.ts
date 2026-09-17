@@ -5,25 +5,16 @@ import { MediaLimits } from "../../domain/model/descriptor/media-limits.value-ob
 import { MediaPart } from "../../domain/model/messages/media-part.value-object";
 import type { SessionContext } from "../../domain/run/session-context.value-object";
 
-/**
- * Mints a fresh address for one external attachment, or nothing when the file is gone.
- * The TTL only has to survive the turn being built, which is what makes a short one
- * finally correct: nothing durable ever holds the address.
- */
+/** Mints a fresh address for one external attachment, or nothing when the file is gone. */
 export type AttachmentUrlSigner = (externalId: string, request: AttachmentRequest) => Promise<string | undefined>;
 
 /**
- * Resolves an external attachment into a signed URL, minted again on every projection.
+ * Resolves an external attachment into a signed URL, minted again on every projection, so a
+ * short TTL is enough and nothing durable holds an address. It needs a provider that fetches
+ * URLs itself; one that does not is given a note instead.
  *
- * This is the production resolver for a store like S3: the journal keeps the id forever,
- * the address lives for minutes, and expiry stops mattering because nobody is ever handed
- * an old one. It only makes sense in front of a provider that fetches URLs itself, so a
- * model that does not is given a note instead of an address it would read as text.
- *
- * Two caveats worth knowing. The signer runs on every projection of every turn that can
- * see the attachment, so signing should be cheap, which for S3 it is: a local HMAC, no
- * network. And a compaction checkpoint persists already projected blocks, so a checkpointed
- * turn keeps the address it was projected with; prefer `InlineAttachmentResolver` when
+ * The signer runs for every turn that can see the attachment, so it must be cheap. A
+ * compaction checkpoint persists projected blocks, so prefer `InlineAttachmentResolver` when
  * checkpointed history must stay readable for longer than the TTL.
  */
 export class SignedUrlAttachmentResolver extends AttachmentResolver {

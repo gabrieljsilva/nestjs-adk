@@ -29,59 +29,39 @@ import type { AdkModuleAsyncOptions, AdkOptionsFactory } from "./adk-module-asyn
 import { AdkModuleOptions, type AdkModuleOptionsInput } from "./adk-module.options";
 import { ComposeRuntimeUseCase } from "./compose-runtime.use-case";
 
-/** The token an application injects to reach what the module built. */
+/** The token an application injects to reach the options the module was declared with. */
 export const ADK_OPTIONS = Symbol.for("adk:module-options");
 
 /**
- * The model every agent that declared none runs on.
- *
- * Overriding this token replaces only that fallback: an agent that declared its own model
- * in `@Agent` keeps it. A test that wants one agent on another model replaces the
- * `ModelResolver` instead.
+ * The model every agent that declared none runs on. Overriding this token replaces only that
+ * fallback; a test that wants one agent on another model replaces the `ModelResolver` instead.
  */
 export const ADK_DEFAULT_MODEL = Symbol.for("adk:default-model");
 
 /**
- * Consumers appended to the ones the application declared, never replacing them.
- *
- * The module provides an empty list; overriding the token plugs observers in without
- * rebuilding `RuntimeOptions`, which is how a test records events while the approval
- * policy and limits the application declared stay in force.
+ * Consumers appended to the ones the application declared, never replacing them. Overriding it
+ * plugs observers in without rebuilding `RuntimeOptions`, so the declared approval policy and
+ * limits stay in force.
  */
 export const ADK_EVENT_CONSUMERS = Symbol.for("adk:event-consumers");
 
 /**
- * Runtime fields replaced after the application declared them, by name.
- *
- * The module provides an empty patch, so nothing changes unless somebody overrides the
- * token. It exists because the options are a value the module was constructed with:
- * without it, replacing one runtime field from outside means rebuilding all of them, and
- * a field added later goes silently missing from every copy.
- *
- * The patch is nested the way `RuntimeOptions` is, and a group named partially keeps the
- * fields of that group it did not mention: `{ cost: { pricing } }` replaces the pricing
- * source and leaves the notice sink beside it alone.
+ * Runtime fields replaced after the application declared them, by name. The module provides an
+ * empty patch, and it is nested the way `RuntimeOptions` is: `{ cost: { pricing } }` leaves the
+ * notice sink beside it alone.
  */
 export const ADK_RUNTIME_PATCH = Symbol.for("adk:runtime-patch");
 
-/**
- * The one thing an application imports.
- *
- * It owns the runtime for the lifetime of the application: it discovers the agents,
- * composes the runtime once everything NestJS builds exists, and drains it on shutdown.
- * Everything it exposes is already resolved, so no consumer ever waits on a boot order.
- *
- * Composition happens in `onModuleInit` and not in a provider, and that is the whole of
- * the boot order. NestJS creates a prototype for every provider first and only then
- * constructs them, all modules at once, replacing what the prototype step left behind. A
- * provider that composed while that was happening would capture objects the container is
- * about to throw away: tools without their dependencies, agents that never receive a
- * handle. By the first lifecycle hook every static instance exists and is final, and an
- * imported module reaches its hook before the module that imported it, so an application
- * can already use an agent inside its own `onModuleInit`.
- */
 @Global()
 @Module({})
+/**
+ * The one thing an application imports. It discovers the agents, composes the runtime once
+ * everything NestJS builds exists, and drains it on shutdown, so nothing it exposes ever waits
+ * on a boot order.
+ *
+ * `forRoot` takes the options as a literal; `forRootAsync` builds the same object inside the
+ * container, for a port that is itself a provider.
+ */
 export class AdkModule implements OnModuleInit, OnApplicationShutdown {
 	public constructor(
 		private readonly discovery: DiscoveryService,
@@ -89,48 +69,18 @@ export class AdkModule implements OnModuleInit, OnApplicationShutdown {
 		private readonly host: AdkRuntime,
 	) {}
 
-	/**
-	 * The module, configured where it is imported.
-	 *
-	 * The literal is the form to write: `AdkModule.forRoot({ defaultModel })` is a working
-	 * runtime, and every port left out composes to the same default `createAdkRuntime` picks.
-	 * An `AdkModuleOptions` built elsewhere is accepted unchanged, because an application that
-	 * shares one object between its module and its tests already holds the class.
-	 */
 	public static forRoot(options: AdkModuleOptions | AdkModuleOptionsInput): DynamicModule {
 		return AdkModule.moduleWith([{ provide: ADK_OPTIONS, useValue: AdkModule.resolveOptions(options) }]);
 	}
 
-	/**
-	 * The same module, with its options built inside the container.
-	 *
-	 * An application whose ports are providers cannot name them in a value: a storage that
-	 * depends on a database client, an embedder that needs credentials and an approval policy
-	 * that reads the current tenant only exist once NestJS has built them. This is the entry
-	 * point for that, and it changes nothing else: every provider already reads the options
-	 * through `ADK_OPTIONS`, so composing them later composes the whole runtime later.
-	 *
-	 * ```ts
-	 * AdkModule.forRootAsync({ imports: [InfraModule], useClass: AdkOptions });
-	 * ```
-	 *
-	 * Prefer `useClass`. A factory's dependencies are an `inject` array TypeScript cannot
-	 * check against its parameters, and a class declares them in its constructor.
-	 *
-	 * Whatever the factory depends on has to be reachable through `imports`, and it may not
-	 * be one of the tokens this module itself provides: asking for `SessionStorage` to build
-	 * the options that decide what `SessionStorage` is, is a cycle NestJS will refuse.
-	 */
 	public static forRootAsync(options: AdkModuleAsyncOptions): DynamicModule {
 		return AdkModule.moduleWith(AdkModule.buildOptionsProviders(options), options.imports);
 	}
 
-	/** A literal is options that have not been built yet, and both entry points accept one. */
 	private static resolveOptions(declared: AdkModuleOptions | AdkModuleOptionsInput): AdkModuleOptions {
 		return declared instanceof AdkModuleOptions ? declared : AdkModuleOptions.from(declared);
 	}
 
-	/** One shape for both entry points, so the two can never drift on what the module exports. */
 	private static moduleWith(options: Provider[], imports: ModuleMetadata["imports"] = []): DynamicModule {
 		return {
 			module: AdkModule,
@@ -140,13 +90,6 @@ export class AdkModule implements OnModuleInit, OnApplicationShutdown {
 		};
 	}
 
-	/**
-	 * Whichever of the three forms was declared, as the provider behind `ADK_OPTIONS`.
-	 *
-	 * Both refusals happen here, which is while `app.module.ts` is being read rather than
-	 * during the boot it would otherwise poison. `useClass` is registered as a provider of
-	 * this module, which is what lets an application name a class it declared nowhere.
-	 */
 	private static buildOptionsProviders(declared: AdkModuleAsyncOptions): Provider[] {
 		const forms = AdkModule.declaredForms(declared);
 		const [only] = forms;
@@ -155,7 +98,6 @@ export class AdkModule implements OnModuleInit, OnApplicationShutdown {
 		return only.providers;
 	}
 
-	/** Every form the caller declared, named and already turned into providers. Exactly one is legal. */
 	private static declaredForms(declared: AdkModuleAsyncOptions): readonly DeclaredForm[] {
 		const forms: DeclaredForm[] = [];
 		const factory = declared.useFactory;
@@ -197,15 +139,6 @@ export class AdkModule implements OnModuleInit, OnApplicationShutdown {
 		await this.host.stop();
 	}
 
-	/**
-	 * Providers declare, they do not compose.
-	 *
-	 * Every factory here reads the options through `ADK_OPTIONS` rather than capturing them
-	 * in a closure, so overriding one token is enough: the others keep following whatever
-	 * the container says the options are. It is also what makes `forRootAsync` a change to
-	 * one provider rather than to the module, since none of these know when the options
-	 * arrived, only that the token answers.
-	 */
 	private static buildProviders(): Provider[] {
 		return [
 			{
@@ -298,13 +231,11 @@ export class AdkModule implements OnModuleInit, OnApplicationShutdown {
 	}
 }
 
-/** One way of naming where the options come from, already resolved into what it provides. */
 interface DeclaredForm {
 	readonly name: string;
 	readonly providers: Provider[];
 }
 
-/** Imported rather than declared: `DiscoveryService` comes from NestJS itself. */
 const DiscoveryModule: DynamicModule = {
 	module: class AdkDiscoveryModule {},
 	providers: [DiscoveryService],

@@ -1,7 +1,6 @@
 import { ParsedArguments } from "../../domain/tool/invocation/parsed-arguments.value-object";
 import { ToolSchema } from "../../domain/tool/tool-schema.contract";
 
-/** The JSON Schema types this checks, each with what satisfying it means. */
 const PRIMITIVES: Readonly<Record<string, (value: unknown) => boolean>> = {
 	string: (value) => typeof value === "string",
 	number: (value) => typeof value === "number",
@@ -9,19 +8,6 @@ const PRIMITIVES: Readonly<Record<string, (value: unknown) => boolean>> = {
 	boolean: (value) => typeof value === "boolean",
 };
 
-/**
- * Validates the arguments of a tool that arrived with JSON Schema rather than with zod.
- *
- * This is the shape a foreign tool comes in: MCP servers, OpenAPI descriptions and
- * anything else the application did not write. There is no validator here, and what this
- * does is bounded on purpose: the declared properties of the top level object, their
- * primitive types, their enums, and whether the required ones are there.
- *
- * That is the part a model gets wrong. It invents a field its author never described, it
- * sends the number as text, it picks a value outside the enum it was shown. Nested
- * objects, arrays, formats, bounds and `$ref` are not checked and the tool is left to
- * enforce them, which it has to do anyway for anything that did not come through here.
- */
 export class JsonSchemaToolSchema extends ToolSchema {
 	public constructor(private readonly schema: Readonly<Record<string, unknown>>) {
 		super();
@@ -50,7 +36,6 @@ export class JsonSchemaToolSchema extends ToolSchema {
 		return ParsedArguments.valid(pruned);
 	}
 
-	/** Absent properties mean the schema declared none, and pruning to nothing would empty every call. */
 	private declaredProperties(): ReadonlySet<string> | undefined {
 		const properties = this.propertySchemas();
 		return properties === undefined ? undefined : new Set(Object.keys(properties));
@@ -60,7 +45,6 @@ export class JsonSchemaToolSchema extends ToolSchema {
 		return this.readRecord(this.schema.properties);
 	}
 
-	/** A plain object or nothing: a schema that declared something else declared nothing usable. */
 	private readRecord(value: unknown): Record<string, unknown> | undefined {
 		if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
 		return { ...value };

@@ -18,25 +18,6 @@ const DESCRIPTION =
 	"Reading is paged by characters: `offset` says where to start and `limit` how much to take. " +
 	"The answer says the total length and whether anything is left after the page it gave you.";
 
-/**
- * The way back from a placeholder, one page at a time.
- *
- * Offloading is only honest if the model can undo it: a result the runtime moved out is a
- * result the model was told about and cannot read, and this is the way back. It is scoped
- * to the session that asks, resolves the id it was given rather than trusting a reference
- * the model could have rewritten, and verifies what it reads against what was stored.
- *
- * Reading is paged because the whole point of moving a result out was that it did not fit.
- * A tool that answers with all of it undoes the offload in one call, so the default page is
- * the offload threshold itself: exactly the largest answer the runtime was willing to leave
- * in a context. A page past the end is an empty page rather than an error, because "where
- * does it end" is a question the model asks by reading, and a model that has to guess an
- * offset to avoid a failure will guess.
- *
- * It enters the catalog of every run the runtime composes. A placeholder the model cannot
- * resolve is worse than the result it replaced, and that is what a tool built and never
- * offered would leave behind.
- */
 export class ReadArtifactTool {
 	public static readonly NAME = NAME;
 
@@ -58,7 +39,6 @@ export class ReadArtifactTool {
 	}
 }
 
-/** Accepts an id and a window over it: which session it is read under is never the model's to choose. */
 class ArtifactPageSchema extends ToolSchema {
 	public constructor(private readonly defaultLimit: number) {
 		super();
@@ -103,7 +83,6 @@ class ArtifactPageSchema extends ToolSchema {
 	}
 }
 
-/** Resolves the id inside the session that asked, so knowing an id is not enough to read one. */
 class ArtifactPageHandler extends ToolHandler {
 	public constructor(
 		private readonly artifacts: ArtifactLoader,
@@ -122,12 +101,10 @@ class ArtifactPageHandler extends ToolHandler {
 	}
 }
 
-/** Whether the model left the field out or wrote something that could be a count. */
 function isCount(value: unknown): boolean {
 	return value === undefined || value === null || readCount(value) !== undefined;
 }
 
-/** The count the model wrote, or nothing when it wrote something that is not one. */
 function readCount(value: unknown): number | undefined {
 	if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return undefined;
 	return Math.trunc(value);

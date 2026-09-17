@@ -6,14 +6,6 @@ import type { JournalCodec } from "../codec/journal/journal.codec";
 import { StoredRow } from "../codec/stored-row.record";
 import type { SqliteConnection } from "./sqlite-connection.adapter";
 
-/**
- * The journal itself: append only rows, read back in the order they were written.
- *
- * Events are stored encoded rather than as objects, and encoded by the same codec that is
- * published for adapters outside this package. That is what makes a row written by an
- * older build readable, and what keeps this table and a downstream one meaning the same
- * thing: the codec and its upcasters own the shape, not this table.
- */
 export class EventRepository {
 	public constructor(
 		private readonly connection: SqliteConnection,
@@ -48,7 +40,6 @@ export class EventRepository {
 			.map((row) => this.toStored(sessionId, new StoredRow(row)));
 	}
 
-	/** What is already written under these event ids, which is how a retry recognizes itself. */
 	public byIds(sessionId: SessionId, ids: readonly string[]): readonly StoredSessionEvent[] {
 		if (ids.length === 0) return [];
 		const placeholders = ids.map(() => "?").join(", ");
@@ -61,11 +52,6 @@ export class EventRepository {
 			.map((row) => this.toStored(sessionId, new StoredRow(row)));
 	}
 
-	/**
-	 * What each of these event ids was written as, verbatim.
-	 * Recognizing a retry means comparing content and not only ids: the same id carrying
-	 * something else is a journal disagreeing with itself, not a caller retrying.
-	 */
 	public writtenPayloads(sessionId: SessionId, ids: readonly string[]): ReadonlyMap<string, string> {
 		if (ids.length === 0) return new Map();
 		const placeholders = ids.map(() => "?").join(", ");
@@ -82,7 +68,6 @@ export class EventRepository {
 		return written;
 	}
 
-	/** The same fingerprint, taken from an event that has not been written yet. */
 	public calculateFingerprint(event: SessionEvent): string {
 		return this.codec.calculateFingerprint(event);
 	}

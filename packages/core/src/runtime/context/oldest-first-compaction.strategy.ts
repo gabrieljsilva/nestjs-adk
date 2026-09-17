@@ -7,25 +7,15 @@ import { UserMessage } from "../../domain/model/messages/user-message.value-obje
 import type { RunContext } from "../../domain/run/run-context.value-object";
 import type { ContextMeasurer } from "./context-measurer.service";
 
-/** Two rounds are enough: one to make room, one to make room for the summary itself. */
-const MAX_ROUNDS = 2;
+const MAX_COMPACTION_ROUNDS = 2;
 
 /**
- * Drops the oldest answered exchanges until the context fits, and never anything else.
+ * The compaction strategy a runtime uses unless the application declares another. It drops
+ * the oldest answered exchanges until the context fits and never anything else: a call still
+ * waiting for its result stays, and the most recent blocks are protected regardless of age.
  *
- * Open obligations stay: a call still waiting for its result is a promise the model
- * made, and dropping it would leave the run unable to explain itself. Closed blocks are
- * removed whole, so a call never survives without its result, and the most recent
- * blocks the decision asks to keep are protected regardless of age.
- *
- * The target is a size in characters, derived from the share the decision carries. That
- * keeps the loop local and synchronous while remaining anchored to the measurement the
- * policy decided on, which came from a provider.
- *
- * A summary costs room like anything else, so writing one reopens the question of
- * whether the result fits. The strategy answers it by dropping further and rewriting the
- * summary over everything that fell, and gives the summary up rather than the target if
- * the two cannot both be had.
+ * With a summarizer, what fell is replaced by a summary; the summary is given up rather than
+ * the target when the two cannot both be had.
  */
 export class OldestFirstCompactionStrategy extends CompactionStrategy {
 	public readonly name = "oldest-first";
@@ -48,7 +38,7 @@ export class OldestFirstCompactionStrategy extends CompactionStrategy {
 		const dropped: ContextBlock[] = [];
 		let summary: ContextBlock | undefined;
 
-		for (let round = 0; round < MAX_ROUNDS; round += 1) {
+		for (let round = 0; round < MAX_COMPACTION_ROUNDS; round += 1) {
 			this.dropUntilItFits(projection, kept, dropped, summary, decision, target);
 			if (this.summarizer === undefined || dropped.length === 0) break;
 			summary = await this.buildSummary(context, dropped);
@@ -61,7 +51,6 @@ export class OldestFirstCompactionStrategy extends CompactionStrategy {
 		return this.fits(summarized, target) ? summarized : this.assemble(projection, kept, undefined);
 	}
 
-	/** Removes the oldest removable block, one at a time, measuring what is left after each. */
 	private dropUntilItFits(
 		projection: ContextProjection,
 		kept: ContextBlock[],
@@ -87,7 +76,6 @@ export class OldestFirstCompactionStrategy extends CompactionStrategy {
 		return projection.withBlocks(summary === undefined ? kept : [summary, ...kept]);
 	}
 
-	/** A summarizer that fails costs the summary, never the compaction. */
 	private async buildSummary(context: RunContext, dropped: readonly ContextBlock[]): Promise<ContextBlock | undefined> {
 		if (this.summarizer === undefined) return undefined;
 		const first = dropped[0];

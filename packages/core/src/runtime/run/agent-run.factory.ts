@@ -10,16 +10,8 @@ import { RunCancellation } from "../lifecycle/run-cancellation.service";
 import type { RuntimeLifecycle } from "../lifecycle/runtime-lifecycle.service";
 import { StartedRun } from "./settle/started-run.value-object";
 
-/** What the journal records as the reason, which is not the same ending as a shutdown. */
 const CALLER_ABORTED = "the caller aborted the run";
 
-/**
- * Creates one run per command, without a container scope.
- *
- * Nothing per run lives in the container: the run and its cancellation are plain
- * objects handed to the caller, which is what keeps singleton agents free of any
- * state belonging to a request.
- */
 export class AgentRunFactory {
 	public constructor(
 		private readonly ids: IdGenerator,
@@ -43,14 +35,6 @@ export class AgentRunFactory {
 		return new StartedRun(run, cancellation);
 	}
 
-	/**
-	 * Opens the child run of a delegation, under the delegation's own correlation.
-	 *
-	 * The child's cancellation is derived from the parent's: a parent that is cancelled or
-	 * drained takes its children with it, because a child nobody is waiting for is work
-	 * somebody is still paying for. The reverse does not hold, since a child that failed is
-	 * an answer the parent still has to deal with.
-	 */
 	public delegate(parent: StartedRun, agent: AgentName, delegationId: CorrelationId): StartedRun {
 		this.lifecycle.assertAcceptsCommands();
 
@@ -64,7 +48,6 @@ export class AgentRunFactory {
 		return new StartedRun(run, cancellation);
 	}
 
-	/** Continues a run that was suspended, under a new id that points back at the old one. */
 	public resume(sessionId: SessionId, agent: AgentName, resumedRunId: AgentRunId, signal?: AbortSignal): StartedRun {
 		this.lifecycle.assertAcceptsCommands();
 
@@ -85,13 +68,6 @@ export class AgentRunFactory {
 		this.tracker.release(run.id);
 	}
 
-	/**
-	 * Runs the body and releases the run however it ends.
-	 *
-	 * A run has to leave the active set whichever way it settles, so a shutdown draining on
-	 * it is not waiting on something already over. Leaving the `finally` to each caller makes
-	 * that guarantee a discipline; here it is the only way to call the body at all.
-	 */
 	public async untilFinished<T>(started: StartedRun, body: () => Promise<T>): Promise<T> {
 		try {
 			return await body();
@@ -100,14 +76,6 @@ export class AgentRunFactory {
 		}
 	}
 
-	/**
-	 * The run's own cancellation, wired to the caller's signal when there is one.
-	 *
-	 * A signal that already aborted cancels the run before it does anything, because the
-	 * stop button is usually pressed while the answer is still being waited for, which is
-	 * before the run exists. This is the only way a caller ends a run: abandoning a stream
-	 * stops the reading and never the generating, so the provider bills the rest anyway.
-	 */
 	private buildCancellation(signal?: AbortSignal): RunCancellation {
 		const cancellation = new RunCancellation();
 		if (signal === undefined) return cancellation;

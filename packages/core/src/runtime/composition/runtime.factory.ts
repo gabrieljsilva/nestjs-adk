@@ -12,14 +12,6 @@ import { RuntimeServices } from "./runtime-services.value-object";
 import { RuntimeOptions } from "./runtime.options";
 import { SessionComposer } from "./session.factory";
 
-/**
- * Three composers and the order they run in: context, then runs, then the read half of
- * sessions. Nothing is resolved from a container here, and nothing ever was: every
- * component the consumer declared arrives already built, so a container would have been a
- * map from a class to the value it was handed.
- *
- * Disposal is idempotent, so closing an application twice is safe.
- */
 export class RuntimeFactory {
 	private disposed = false;
 
@@ -57,12 +49,6 @@ export class RuntimeFactory {
 		}
 	}
 
-	/**
-	 * Nothing composed here owns a resource of its own: what a run opens, a run closes, and
-	 * the runtime's own shutdown drains through `RuntimeLifecycle`. The method stays because
-	 * disposal is the public promise, and a composition that later holds something has one
-	 * place to release it from.
-	 */
 	public async dispose(): Promise<void> {
 		this.disposed = true;
 	}

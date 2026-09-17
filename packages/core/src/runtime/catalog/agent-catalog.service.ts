@@ -5,11 +5,6 @@ import { AgentNotInCatalogError } from "./errors/agent-not-in-catalog.error";
 import { UnknownDelegationTargetError } from "./errors/unknown-delegation-target.error";
 import { UnknownTransferTargetError } from "./errors/unknown-transfer-target.error";
 
-/**
- * Every agent the application declared, resolved once at boot and read only after.
- * There is no add, replace or remove: a catalog that could change under a running
- * command would let two turns of the same run see different agents.
- */
 export class AgentCatalog {
 	private readonly byName: ReadonlyMap<string, DeclaredAgent>;
 
@@ -37,7 +32,6 @@ export class AgentCatalog {
 		return entry.definition;
 	}
 
-	/** A declared edge that points at nothing is a boot problem, never a run time surprise. */
 	private assertEdgesResolve(): void {
 		for (const entry of this.byName.values()) {
 			const definition = entry.definition;

@@ -12,20 +12,10 @@ import { SqliteConnection } from "./sqlite-connection.adapter";
 
 /**
  * A durable artifact store on the SQLite that ships with Node, and the other half of
- * `SqliteSessionStorage`.
+ * `SqliteSessionStorage`. Give both the same `SqliteConnection`: a durable journal whose
+ * artifacts are gone comes back naming content nothing can resolve.
  *
- * The two go together for a reason that is not tidiness. The journal is durable, so a
- * placeholder written into a conversation outlives the process that wrote it; if the
- * artifact behind it does not, the conversation comes back naming content nothing can
- * resolve. Pointing both at one file is what makes a restart bring back the whole of what
- * was said, and it is why `SqliteConnection` is a constructor parameter here: the same
- * connection carries the sessions and their artifacts.
- *
- * It orchestrates one repository and owns the decisions the repository deliberately does
- * not: which session an artifact belongs to, and whether what came back is what was stored.
- * The digest is verified on every read against the reference the caller arrived with, which
- * catches both a reference rewritten on its way through a model and a row edited underneath
- * the store.
+ * The digest is verified on every read against the reference the caller arrived with.
  */
 export class SqliteArtifactStorage extends ArtifactStorage {
 	private readonly artifacts: ArtifactRepository;
@@ -38,7 +28,6 @@ export class SqliteArtifactStorage extends ArtifactStorage {
 		this.artifacts = new ArtifactRepository(connection);
 	}
 
-	/** Opens a database file, which is the same file the sessions belong in. */
 	public static at(location: string, ids: IdGenerator = new RandomIdGenerator()): SqliteArtifactStorage {
 		return new SqliteArtifactStorage(new SqliteConnection(location), ids);
 	}

@@ -2,20 +2,6 @@ import { PromptInstructions } from "../../domain/prompt/prompt-instructions.valu
 import { DuplicateSkillNameError } from "../../domain/skill/errors/duplicate-skill-name.error";
 import type { SkillDefinition } from "../../domain/skill/skill-definition.value-object";
 
-/**
- * The skills one agent has, split the two ways the prompt needs them.
- *
- * Always skills become part of the instruction, concatenated in the order they were
- * declared and never sorted: two runs of the same agent must produce the same bytes, and
- * any ordering that depends on anything but the declaration would not.
- *
- * A repeated name is refused rather than deduplicated. Silently keeping one of the two
- * would leave the instruction carrying both contents while a lookup found a single skill,
- * which is one catalog answering two ways.
- *
- * On-demand skills contribute only a name and a description, which is the catalog the
- * model chooses from. Their content stays out of the prompt until it is asked for.
- */
 export class SkillCatalog {
 	private readonly skills: readonly SkillDefinition[];
 	private readonly byName: ReadonlyMap<string, SkillDefinition>;
@@ -48,7 +34,6 @@ export class SkillCatalog {
 		return skill?.isAlways === false ? skill : undefined;
 	}
 
-	/** The agent prompt with every always skill after it, in declaration order. */
 	public instructions(base?: PromptInstructions): PromptInstructions | undefined {
 		const always = this.skills.filter((skill) => skill.isAlways);
 		if (always.length === 0) return base;
@@ -58,7 +43,6 @@ export class SkillCatalog {
 		);
 	}
 
-	/** What the model is shown about the skills it can load, and nothing about their content. */
 	public describe(): string {
 		return this.onDemand.map((skill) => `${skill.name}: ${skill.description}`).join("\n");
 	}

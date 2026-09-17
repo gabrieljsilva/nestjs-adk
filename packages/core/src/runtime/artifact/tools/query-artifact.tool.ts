@@ -18,18 +18,6 @@ const DESCRIPTION =
 
 const OUTLINE_DEPTH = 2;
 
-/**
- * One value, addressed rather than searched for.
- *
- * The query language is a JSON Pointer and nothing else, and the omission is the feature.
- * JSONPath filters are an expression language, and an expression language whose source is a
- * string the model wrote is evaluation of untrusted code inside the run. A pointer walks
- * names and indices: it cannot branch, match or compute, so a hostile one misses.
- *
- * A value that is itself too large comes back as its outline instead, with the pointer that
- * produced it, so the answer to "this is still too big" is another pointer rather than a
- * different tool.
- */
 export class QueryArtifactTool {
 	public static readonly NAME = NAME;
 

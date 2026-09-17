@@ -20,22 +20,10 @@ import type { DelegatedTurnLoop } from "./delegated-turn-loop.contract";
 import { DelegationSuspendedError } from "./errors/delegation-suspended.error";
 import { DelegationUnboundError } from "./errors/delegation-unbound.error";
 
-/** Three levels of "ask somebody else" is a tree nobody can read, and each level multiplies the bill. */
 const MAX_DEPTH = 3;
 
 const COMPLETED = "completed";
 
-/**
- * Runs one agent's question inside another agent's run.
- *
- * A delegation is a run, not a tool call: its own agent, model, tools, context and budget.
- * What makes it a delegation rather than a second conversation is that it happens inside
- * the parent's run, writes to the same journal, and hands its answer back as the result of
- * the call that asked for it.
- *
- * The active agent of the session never changes, which is the whole difference from a
- * transfer: whoever was answering is still answering, they just know one more thing.
- */
 export class DelegationRunner {
 	private loop?: DelegatedTurnLoop;
 
@@ -48,22 +36,10 @@ export class DelegationRunner {
 		private readonly sessions: SessionRepository,
 	) {}
 
-	/**
-	 * Closes the one cycle in the runtime graph: a delegation runs turns, and a turn may
-	 * delegate. The composition binds it once, right after the loop exists.
-	 */
 	public uses(loop: DelegatedTurnLoop): void {
 		this.loop = loop;
 	}
 
-	/**
-	 * Runs every delegation this turn asked for, and answers each by the call that asked.
-	 *
-	 * They run before the turn's other tools rather than in call order. A delegation commits
-	 * to the journal as it goes, and interleaving those commits with results the executor has
-	 * not returned yet would put the parent's answers in the journal before the questions
-	 * that produced them.
-	 */
 	public async runAll(
 		scope: RunScope,
 		opened: OpenedSession,
@@ -79,11 +55,6 @@ export class DelegationRunner {
 		return answers;
 	}
 
-	/**
-	 * Refusals happen before a child run exists. An undeclared target and a chain that is
-	 * already too deep both leave the journal untouched, because a delegation that never
-	 * started is not something that happened to the conversation.
-	 */
 	private async run(
 		scope: RunScope,
 		opened: OpenedSession,
@@ -94,16 +65,12 @@ export class DelegationRunner {
 		const target = this.resolveTarget(scope.definition, AgentName.from(agentName));
 		if (scope.run.depth >= MAX_DEPTH) throw new AgentMaxDelegationDepthError(scope.agent.value, MAX_DEPTH);
 
-		// Resolved once and carried: a resolver that answers by load, cost or time may answer
-		// twice differently, and journaling one model while another serves the turn makes the
-		// record of what happened disagree with what happened.
 		const model = this.models.resolve(target);
 		const child = this.runs.delegate(scope.started, target.name, scope.run.correlationId);
 		try {
 			const childProgress = await this.open(scope, child, opened, progress, target, model, task);
 			const childScope = await this.scopes.delegated(scope, child, target, model);
 			await this.loopOrFail().run(childScope, opened, childProgress);
-			// Before the suspension check: what the child spent was spent, whichever way it ended.
 			progress.charged(...childProgress.billed);
 			if (childProgress.isSuspended) {
 				throw new DelegationSuspendedError(scope.agent.value, target.name.value);
@@ -115,7 +82,6 @@ export class DelegationRunner {
 		}
 	}
 
-	/** Refuses a delegation nobody declared, before a run exists to record it. */
 	public assertDeclares(from: AgentDefinition, to: AgentName): void {
 		if (!from.delegation.allows(to)) {
 			throw new DelegationNotDeclaredError(from.name.value, to.value, from.delegation.names);
@@ -129,7 +95,6 @@ export class DelegationRunner {
 		return this.catalog.findOrFail(to);
 	}
 
-	/** The child's context begins here: the delegation is the parent's, the task is the child's. */
 	private async open(
 		scope: RunScope,
 		child: StartedRun,

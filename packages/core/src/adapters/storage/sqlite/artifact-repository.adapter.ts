@@ -4,18 +4,6 @@ import { ArtifactContent } from "../../../domain/artifact/artifact-content.value
 import { StoredRow } from "../codec/stored-row.record";
 import type { SqliteConnection } from "./sqlite-connection.adapter";
 
-/**
- * The rows an artifact is, keyed by the session first and the artifact second.
- *
- * The key is a pair rather than a concatenation, so no two sessions can be made to collide
- * by an id somebody chose, and a read scoped to the wrong session misses in the `WHERE`
- * rather than in a check above it.
- *
- * What is stored is text and a media type, which is the whole of `ArtifactContent`. The
- * digest is not a column: it is recomputed from the content on the way out and compared
- * against the reference the caller arrived with, so a row edited in the database is caught
- * by the same check that catches a rewritten reference.
- */
 export class ArtifactRepository {
 	public constructor(private readonly connection: SqliteConnection) {}
 

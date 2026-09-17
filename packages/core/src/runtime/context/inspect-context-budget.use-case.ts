@@ -4,20 +4,6 @@ import { ContextBudget } from "../../domain/context/context-budget.value-object"
 import type { AgentCatalog } from "../catalog/agent-catalog.service";
 import type { InspectSessionUseCase } from "../session/inspect-session.use-case";
 
-/**
- * How full a conversation's context is, without running a turn to find out.
- *
- * It answers about the last call that actually happened, which is the only call anybody
- * counted. Nothing here projects the next prompt: building one means resolving tools,
- * instructions and an agent's own `prompt()`, all of which belong to a run, and the
- * answer would describe a prefix no call ever sent.
- *
- * The window comes from the agent, because a window is a fact about a model and never
- * about a conversation. The measurement is only carried into it when the same model took
- * it: a count from another provider divided by this one's window is a wrong number that
- * looks right, so a conversation continued under a new model reads as unmeasured until
- * that model answers once.
- */
 export class InspectContextBudgetUseCase {
 	public constructor(
 		private readonly inspecting: InspectSessionUseCase,

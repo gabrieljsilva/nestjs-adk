@@ -19,48 +19,18 @@ import type { ToolCatalog } from "./tool-catalog.service";
 import type { ToolExecutionCommand } from "./tool-execution.command";
 import { ToolGate } from "./tool-gate.service";
 
-/** Where a result that is not an object goes, so the journal always holds a record. */
 const SCALAR_FIELD = "value";
 
-/**
- * The one name every call to something that does not exist is counted under.
- *
- * Counting those per name would not count at all: a model that answers a missing tool by
- * inventing a different missing tool starts a fresh streak every time, and the breaker
- * that exists to stop exactly that would never reach its limit.
- */
 const UNKNOWN_TOOL = "<unknown>";
 
-/**
- * Runs one tool call, from the arguments a model wrote to the result the model reads.
- *
- * The order is what makes it safe. Arguments are validated before anything is invoked,
- * so a call the schema refuses runs the tool zero times. Approval is asked before the
- * handler, because the point of asking is that the effect has not happened. And the
- * result is offloaded after it exists, because how large it is cannot be known before.
- *
- * What goes wrong is handed back to the model rather than thrown, on purpose: the model
- * asked for the call and can usually recover from being told it failed. The breaker is
- * what stops that from becoming a loop, and it is the only thing here that ends a run.
- */
 export class ToolExecutor {
 	public constructor(
 		private readonly offloader: ArtifactOffloader,
 		private readonly approvals: AdkApprovalPolicy = EffectApprovalPolicy.never(),
-		/** Where an image a tool produced is written; without one, a tool can only answer data. */
 		private readonly attachments: AttachmentStore = AttachmentStore.none(),
 		private readonly gate: ToolGate = new ToolGate(),
 	) {}
 
-	/**
-	 * Every call of a turn a human has to agree to.
-	 *
-	 * The run asks before it executes anything, so a turn that mixes a lookup with a
-	 * refund does not half happen: either the whole turn runs or none of it does, and
-	 * what a human is shown is a decision they can take without having to know what
-	 * already ran alongside it. All of them, not the first: releasing a turn on one answer
-	 * would run the calls nobody had answered for yet.
-	 */
 	public allHeld(
 		catalog: ToolCatalog,
 		invocations: readonly ToolInvocation[],
@@ -99,7 +69,6 @@ export class ToolExecutor {
 		return this.invoke(command, tool, admission.values, breaker);
 	}
 
-	/** A tool the runtime owns answers to no policy: nothing an application wrote declared it. */
 	private requiresApproval(tool: ToolDefinition, invocation: ToolInvocation, actor?: Actor): boolean {
 		return !tool.internal && this.approvals.requires(tool, invocation, actor);
 	}
@@ -130,7 +99,6 @@ export class ToolExecutor {
 		const produced = answered instanceof ToolOutput ? answered.data : answered;
 		const media = answered instanceof ToolOutput ? answered.media : [];
 		const text = this.formatText(produced);
-		// A tool that exists to bring content back into the context must not have it taken out again.
 		const offloaded = tool.internal ? OffloadedContent.inline(text) : await this.offloader.offload(command.context, text);
 		return ToolOutcome.succeeded(
 			invocation.callId,
@@ -142,13 +110,6 @@ export class ToolExecutor {
 		);
 	}
 
-	/**
-	 * Keeps what the tool produced even when its image could not be written.
-	 *
-	 * The effect already happened, so failing the call would tell the model to run a tool
-	 * that already ran, and that is how a refund happens twice. The data is the answer and
-	 * the image was the illustration: the answer survives without it.
-	 */
 	private async stored(
 		command: ToolExecutionCommand,
 		media: readonly MediaPart[],
@@ -161,19 +122,16 @@ export class ToolExecutor {
 		}
 	}
 
-	/** Counting the failure may end the run; when it does not, the model is told and tries again. */
 	private fail(command: ToolExecutionCommand, breaker: ToolBreaker, reason: string, counted?: string): ToolOutcome {
 		breaker.recordFailure(counted ?? command.invocation.toolName, reason);
 		return ToolOutcome.failed(command.invocation.callId, command.invocation.toolName, reason);
 	}
 
-	/** What the model reads: text stays text, and anything else is rendered the one way it can be. */
 	private formatText(produced: unknown): string {
 		if (produced === undefined || produced === null) return "";
 		return typeof produced === "string" ? produced : CanonicalJson.stringify(produced);
 	}
 
-	/** What the journal keeps: always a record, so a scalar result is named rather than lost. */
 	private buildRecord(produced: unknown): Record<string, unknown> {
 		if (produced === undefined || produced === null) return {};
 		if (typeof produced !== "object" || Array.isArray(produced)) return { [SCALAR_FIELD]: produced };

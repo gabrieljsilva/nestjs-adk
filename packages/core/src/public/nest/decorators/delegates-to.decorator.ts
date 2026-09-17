@@ -2,21 +2,12 @@ import { DELEGATES_TO_METADATA } from "../../../adapters/nest/metadata/metadata-
 import type { AgentTarget } from "../agent/agent-target.value-object";
 
 /**
- * Declares which agents this one may hand a single task to, keeping the conversation.
+ * Declares which agents this one may hand a single task to, keeping the conversation here. A
+ * transfer says somebody else owns the session from now on; a delegation asks one question and
+ * reads the answer.
  *
- * Delegation is not transfer. A transfer says somebody else owns the session from here on;
- * a delegation asks one question, reads the answer and carries on. Use this when a
- * specialist should produce something the asking agent still has to act on.
- *
- * Targets take the same three forms as `@TransfersTo`: the class, a function returning it
- * when the two agents reach each other, or a plain name. Every one of them has to be a
- * registered provider, which is checked at boot.
- *
- * ```ts
- * @Agent({ name: "support", description: "Answers first." })
- * @DelegatesTo(ResearcherAgent)
- * export class SupportAgent {}
- * ```
+ * Targets take the same three forms as `@TransfersTo`, and each has to be a registered
+ * provider, which is checked at boot.
  */
 export function DelegatesTo(...targets: AgentTarget[]): ClassDecorator {
 	return (target) => {

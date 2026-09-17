@@ -1,12 +1,6 @@
 import { AdkError } from "../../../common/errors/adk.error";
 
-/**
- * `forRootAsync` was given more than one way to build the options.
- *
- * Only one of them can answer, so the others are configuration nothing reads: a `useClass`
- * sitting next to a `useFactory` looks exactly like the class that is building the options
- * right up to the moment somebody changes it and nothing happens.
- */
+/** Raised at boot: `AdkModule.forRootAsync` was given more than one of `useFactory`, `useClass` and `useExisting`. */
 export class ConflictingAsyncOptionsError extends AdkError {
 	public readonly code = "CONFLICTING_ASYNC_OPTIONS";
 

@@ -1,10 +1,6 @@
 import type { AgentRunId } from "../../common/identity/agent-run-id.value-object";
 import type { RunCancellation } from "./run-cancellation.service";
 
-/**
- * The runs currently executing, and the handle that can stop each one.
- * Drain waits on this set; a run leaves it when it settles, however it settles.
- */
 export class ActiveRunTracker {
 	private readonly running = new Map<string, RunCancellation>();
 	private readonly waiters: Array<() => void> = [];
@@ -27,7 +23,6 @@ export class ActiveRunTracker {
 		for (const waiter of this.waiters.splice(0)) waiter();
 	}
 
-	/** Resolves as soon as no run is left, including when none was running to begin with. */
 	public async whenIdle(): Promise<void> {
 		if (this.isEmpty) return;
 		await new Promise<void>((resolve) => this.waiters.push(resolve));

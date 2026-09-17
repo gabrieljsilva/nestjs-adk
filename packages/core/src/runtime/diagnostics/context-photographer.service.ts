@@ -5,17 +5,6 @@ import { ContextSegment } from "../../domain/diagnostics/context-segment.value-o
 import { ContextSnapshot } from "../../domain/diagnostics/context-snapshot.value-object";
 import type { ModelIdentity } from "../../domain/model/descriptor/model-identity.value-object";
 
-/**
- * Turns a prepared context into the three strings a comparison can be run on.
- *
- * The serialization is canonical rather than pretty: two runs that sent the same thing
- * have to produce byte identical text, or every comparison reports a divergence that only
- * exists in how the object happened to be printed.
- *
- * The split matches what a provider caches on. Instructions and tool declarations are the
- * prefix, the conversation is what moves, and keeping them apart is what lets a report say
- * *where* two runs stopped agreeing instead of only that they did.
- */
 export class ContextPhotographer {
 	public of(agent: AgentName, model: ModelIdentity, projection: ContextProjection): ContextSnapshot {
 		return new ContextSnapshot(agent, model, [

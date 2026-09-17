@@ -20,18 +20,6 @@ const MAX_MATCHES = 100;
 const DEFAULT_CONTEXT = 80;
 const MAX_CONTEXT = 400;
 
-/**
- * Where a thing is, instead of everything the thing is in.
- *
- * A fixed string is the default and the regular expression is the exception, which is the
- * whole safety story: the common case has no engine behind it at all, and the uncommon one
- * goes through {@link RegexGuard} before anything compiles. A refused pattern comes back as
- * a refusal the model can read and correct, never as a failed run, because writing a
- * pattern the guard turns down is an ordinary mistake rather than a broken tool.
- *
- * Every match carries an offset, and the offset is the point: it is what the model hands to
- * `read_artifact` to read the part that matters instead of the document that contains it.
- */
 export class SearchArtifactTool {
 	public static readonly NAME = NAME;
 
@@ -135,7 +123,6 @@ class SearchHandler extends ToolHandler {
 	}
 }
 
-/** One hit: where it starts and how long it is, which is everything a next call needs. */
 class Match {
 	public constructor(
 		public readonly offset: number,
@@ -143,7 +130,6 @@ class Match {
 	) {}
 }
 
-/** `indexOf` in a loop, which is the search nobody can write a pathological input for. */
 function findByText(text: string, query: string): Match[] {
 	const found: Match[] = [];
 	let at = text.indexOf(query);

@@ -19,11 +19,11 @@ import type { SessionSnapshot } from "../../domain/session/state/session-snapsho
 import { SessionRecord } from "./session.record";
 
 /**
- * Reference storage, and the shape every durable adapter is measured against.
+ * Sessions kept in this process, which is the default storage and what every durable adapter is
+ * measured against. Nothing survives a restart.
  *
- * Appends to one session are serialized through a per session critical section, so a
- * race resolves by `expectedRevision` instead of by whichever caller happened to run
- * first. Different sessions never wait on each other.
+ * Appends to one session are serialized, so a race resolves by `expectedRevision` rather than by
+ * whichever caller ran first; different sessions never wait on each other.
  */
 export class InMemorySessionStorage extends SessionStorage {
 	private readonly records = new Map<string, SessionRecord>();
@@ -114,11 +114,6 @@ export class InMemorySessionStorage extends SessionStorage {
 		return new AppendEventsResult(committed, revision);
 	}
 
-	/**
-	 * A retry of a batch that already landed answers with what was written before.
-	 * Idempotency is keyed by event id; the same id carrying different content is not a
-	 * retry, it is corruption, and it stops the write.
-	 */
 	private findReplay(record: SessionRecord, command: AppendEventsCommand): AppendEventsResult | undefined {
 		const known = new Map(record.events.map((stored) => [stored.event.id.value, stored]));
 		const matches: StoredSessionEvent[] = [];
@@ -136,16 +131,10 @@ export class InMemorySessionStorage extends SessionStorage {
 		return matches.length === 0 ? undefined : new AppendEventsResult(matches, record.session.revision);
 	}
 
-	/**
-	 * What an event would be written as, which is the only definition of "the same event"
-	 * a durable adapter could ever check. Object identity would make every retry that
-	 * crossed a process boundary look like corruption.
-	 */
 	private calculateFingerprint(event: SessionEvent): string {
 		return `${event.type}:${JSON.stringify(this.registry.findCodecOrFail(event.type).encode(event))}`;
 	}
 
-	/** Serializes work on one session while leaving every other session free. */
 	private async withinSession<T>(sessionId: SessionId, work: () => T): Promise<T> {
 		const previous = this.locks.get(sessionId.value) ?? Promise.resolve();
 		let release = (): void => undefined;

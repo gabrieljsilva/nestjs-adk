@@ -1,4 +1,3 @@
-/** Where the runtime stands: taking commands, finishing what it has, or done. */
 export class RuntimeState {
 	public static readonly ACTIVE = new RuntimeState("active");
 	public static readonly DRAINING = new RuntimeState("draining");

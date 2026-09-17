@@ -9,13 +9,6 @@ import { OldestFirstCompactionStrategy } from "../context/oldest-first-compactio
 import { StablePrefixDigest } from "../context/stable-prefix-digest.service";
 import type { ContextOptions } from "./context.options";
 
-/**
- * Builds the half of the runtime that turns a journal into what a model reads.
- *
- * The measurer is shared with the compaction strategy on purpose: what decides that a
- * context is too large and what shrinks it have to count the same way, or a compaction
- * ends where the measurement says it never started.
- */
 export class ContextComposer {
 	public compose(storage: SessionStorage, artifacts: ArtifactStorage, options: ContextOptions): ContextService {
 		const measurer = new ContextMeasurer();

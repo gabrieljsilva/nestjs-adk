@@ -2,10 +2,8 @@ import { readFile } from "node:fs/promises";
 import { PromptFileUnreadableError } from "./errors/prompt-file-unreadable.error";
 import { PromptFileReader } from "./prompt-file-reader.contract";
 
-/** The two codes that mean there is nothing at that path, as opposed to something unreadable. */
-const ABSENT = new Set(["ENOENT", "ENOTDIR"]);
+const ABSENT_FILE_ERROR_CODES = new Set(["ENOENT", "ENOTDIR"]);
 
-/** Reads from the real filesystem, and tells an absence apart from a failure. */
 export class FsPromptFileReader extends PromptFileReader {
 	public async read(path: string): Promise<string | undefined> {
 		try {
@@ -19,6 +17,6 @@ export class FsPromptFileReader extends PromptFileReader {
 	private static isAbsent(cause: unknown): boolean {
 		if (typeof cause !== "object" || cause === null) return false;
 		const code = Reflect.get(cause, "code");
-		return typeof code === "string" && ABSENT.has(code);
+		return typeof code === "string" && ABSENT_FILE_ERROR_CODES.has(code);
 	}
 }

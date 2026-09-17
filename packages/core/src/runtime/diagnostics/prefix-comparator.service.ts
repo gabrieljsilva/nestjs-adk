@@ -2,17 +2,8 @@ import type { ContextSnapshot } from "../../domain/diagnostics/context-snapshot.
 import { PrefixDivergence } from "../../domain/diagnostics/prefix-divergence.value-object";
 import { PrefixReport } from "../../domain/diagnostics/prefix-report.value-object";
 
-/** Enough context after the split to spot a timestamp, not enough to be a wall of text. */
 const EXCERPT = 80;
 
-/**
- * Answers how much two runs sent the same way, and where they stopped.
- *
- * The question matters because a provider side cache matches on an exact opening: one
- * character of drift near the front, a timestamp in an instruction or a tool declared in a
- * different order, throws away the whole discount. A ratio alone would say something is
- * wrong; the divergence says which section and what was there.
- */
 export class PrefixComparator {
 	public compare(snapshots: readonly ContextSnapshot[]): PrefixReport {
 		const texts = snapshots.map((snapshot) => snapshot.text);
@@ -47,7 +38,6 @@ export class PrefixComparator {
 		);
 	}
 
-	/** Which section an absolute offset lands in; past the end belongs to the last one. */
 	private locate(snapshot: ContextSnapshot | undefined, offset: number): { segment: string; segmentOffset: number } {
 		let start = 0;
 		for (const segment of snapshot?.segments ?? []) {

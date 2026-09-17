@@ -1,16 +1,9 @@
 import { InvalidStoredRowError } from "./errors/invalid-stored-row.error";
 
 /**
- * Reads a row a driver handed back as loose data.
- *
- * A database returns values, not types: a column can be missing, null, or hold whatever
- * an older version of this code wrote there. Every read is checked here so nothing
- * untyped travels further, and a row that cannot be trusted says which column broke it
- * rather than failing three layers later as an undefined.
- *
- * Drivers disagree about JSON. SQLite hands back the text that was written, a driver with
- * a native json column hands back the parsed value, and both are accepted, because which
- * one a column arrives as is the adapter's business and never the codec's.
+ * One row a storage adapter read, with a typed accessor per column. Every accessor raises
+ * `InvalidStoredRowError` naming the column and what was expected, so a codec never has to
+ * narrow an `unknown` by hand.
  */
 export class StoredRow {
 	public constructor(private readonly row: unknown) {}

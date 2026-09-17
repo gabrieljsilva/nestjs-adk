@@ -1,6 +1,6 @@
 import { AdkError } from "../../../common/errors/adk.error";
 
-/** The class handed over was never decorated with `@Agent`, so it has no declaration to read. */
+/** The class was read as an agent and `@Agent` never touched it. */
 export class NotAnAgentClassError extends AdkError {
 	public readonly code = "NOT_AN_AGENT_CLASS";
 

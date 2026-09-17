@@ -5,24 +5,11 @@ import { ZodToolSchema } from "../../schema/zod-tool-schema.adapter";
 import { InvalidAgentMetadataError } from "../errors/invalid-agent-metadata.error";
 import { ToolMetadata } from "../metadata/tool-metadata.value-object";
 
-/**
- * Turns what NestJS built into what a run can call.
- *
- * A tool the consumer wrote is a class with a method and a zod schema; a tool the runtime
- * runs is a `ToolDefinition` with a derived JSON Schema and a handler. This is the one
- * place that crosses between them, so nothing in the runtime knows a decorator exists and
- * nothing the consumer wrote knows a `ToolDefinition` does.
- *
- * The instance is the one NestJS already constructed, dependencies included. Nothing here
- * resolves from a container: it is handed what it needs.
- */
 export class NestToolFactory {
-	/** A shared tool: its own provider, with `execute` as the entry point. */
 	public fromProvider(instance: object, metadata: unknown, providerName: string): ToolDefinition {
 		return this.buildDefinition(ToolMetadata.from(metadata, providerName), instance, "execute", providerName);
 	}
 
-	/** A tool declared on the agent itself, exclusive to it, with the method as the entry point. */
 	public fromMethod(agent: object, method: string, metadata: unknown, providerName: string): ToolDefinition {
 		return this.buildDefinition(ToolMetadata.from(metadata, providerName, method), agent, method, providerName);
 	}
@@ -42,11 +29,6 @@ export class NestToolFactory {
 	}
 }
 
-/**
- * Calls the method on the object NestJS built, with `this` intact.
- * That matters: a tool that reaches its own injected dependencies is the normal case, and
- * a detached function would lose them.
- */
 class BoundMethodHandler extends ToolHandler {
 	public constructor(
 		private readonly target: object,

@@ -6,16 +6,6 @@ import { INLINE_TOOLS_METADATA, MCP_CONTROLLER_METADATA } from "../metadata/meta
 import { SharedToolLookup } from "../shared-tool-lookup.service";
 import type { ScannedProvider } from "./scanned-provider.value-object";
 
-/**
- * Reads every `@McpController` out of the container and answers the tools they publish.
- *
- * A controller lists shared `@Tool` classes and declares `@Tool` methods of its own, exactly as
- * an agent does, and the two forms are built by the same factory the agents use: a class listed
- * by both an agent and a controller is one provider and one definition. What differs is the
- * check at the end. An agent's catalog is its own, but an MCP server has one flat list, so a
- * name published twice fails the boot naming both providers rather than letting the second
- * quietly replace the first.
- */
 export class NestControllerScanner {
 	public constructor(private readonly tools: NestToolFactory = new NestToolFactory()) {}
 

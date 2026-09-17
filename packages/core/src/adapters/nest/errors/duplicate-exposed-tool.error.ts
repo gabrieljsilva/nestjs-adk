@@ -1,5 +1,6 @@
 import { AdkError } from "../../../common/errors/adk.error";
 
+/** Raised at boot: two `@McpController` classes publish the same tool name, and an MCP server has one flat list. */
 export class DuplicateExposedToolError extends AdkError {
 	public readonly code = "NEST_DUPLICATE_EXPOSED_TOOL";
 

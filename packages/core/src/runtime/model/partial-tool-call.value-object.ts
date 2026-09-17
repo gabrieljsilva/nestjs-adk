@@ -1,13 +1,5 @@
 import type { ToolCallDelta } from "../../domain/model/streaming/tool-call-delta.value-object";
 
-/**
- * A tool call while it is still arriving.
- *
- * Providers disagree about how a call is streamed: some send the whole thing at once,
- * others open it with an id and a name and then trickle the arguments as fragments of
- * JSON. This accumulates either shape and stays immutable, so an aggregator holds a
- * value rather than a buffer someone else could still be writing to.
- */
 export class PartialToolCall {
 	public constructor(
 		public readonly argumentsText: string = "",
@@ -25,7 +17,6 @@ export class PartialToolCall {
 		);
 	}
 
-	/** The arguments as an object, or nothing when what arrived is not one. */
 	public parseArguments(): Record<string, unknown> | undefined {
 		const text = this.argumentsText.trim();
 		if (text.length === 0) return {};

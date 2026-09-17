@@ -8,18 +8,6 @@ import { DelegationRequest } from "./delegation-request.value-object";
 
 const NAME = "delegate_to_agent";
 
-/**
- * The tool a model calls to have somebody else answer one question for it.
- *
- * Unlike a transfer, the conversation stays where it is. The child agent answers the task
- * it was given, its answer arrives as this tool's result, and the agent that asked carries
- * on with it. That is why the task travels as an argument: the child is not reading this
- * conversation, so what it has to do must be said out loud.
- *
- * The handler is never reached. A delegation is a run, and a run is not something a tool
- * can start from inside itself, so the runtime recognizes the call and answers it with what
- * the child produced.
- */
 export class DelegateToAgentTool {
 	public static readonly NAME = NAME;
 
@@ -36,7 +24,6 @@ export class DelegateToAgentTool {
 		);
 	}
 
-	/** The agent and the task a call named, or nothing when it was not a delegation. */
 	public static requestIn(toolName: string, args: Record<string, unknown>): DelegationRequest | undefined {
 		if (toolName !== NAME) return undefined;
 		const agent = args.agentName;
@@ -46,7 +33,6 @@ export class DelegateToAgentTool {
 	}
 }
 
-/** Accepts only an agent this one declared a delegation to, and a task in words. */
 class DelegationTargetSchema extends ToolSchema {
 	public constructor(private readonly policy: AgentDelegationPolicy) {
 		super();
@@ -86,11 +72,6 @@ class DelegationTargetSchema extends ToolSchema {
 	}
 }
 
-/**
- * Refuses to be the one that answers.
- * Reaching it would mean the runtime failed to recognize a delegation and a model was
- * about to be told a task ran when no child run ever existed.
- */
 class UnreachableHandler extends ToolHandler {
 	public async invoke(): Promise<unknown> {
 		throw new Error("a delegation is run by the runtime, never by the tool handler");

@@ -42,13 +42,6 @@ import { TransferSessionUseCase } from "../transfer/transfer-session.use-case";
 import { ComposedRun } from "./composed-run.value-object";
 import type { RuntimeOptions } from "./runtime.options";
 
-/**
- * Builds everything a command touches: the journal it writes, the loop it runs and the
- * four use cases a caller can reach.
- *
- * It is one file rather than four because the pieces are one graph, and the graph has a
- * cycle in it that nothing can break by ordering alone.
- */
 export class RunComposer {
 	public compose(
 		catalog: AgentCatalog,
@@ -64,8 +57,6 @@ export class RunComposer {
 		const offloader = new ArtifactOffloader(artifacts, options.context.offload);
 		const attachments = new AttachmentStore(artifacts);
 		const readArtifact = ReadArtifactTool.forStorage(artifacts, options.context.offload);
-		// Every tool the runtime offers over an artifact is budgeted by the same policy that put
-		// the artifact there, which is what keeps an answer about a placeholder from becoming one.
 		const explorer = new ArtifactExplorer(artifacts, options.context.offload);
 		const artifactTools = [readArtifact, ...explorer.getTools()];
 		const models = new ModelService(
@@ -101,9 +92,6 @@ export class RunComposer {
 			new TransferSessionUseCase(catalog, models, scopes),
 			delegations,
 		);
-		// The one cycle in the graph: a loop runs turns, a turn delegates, a delegation runs turns.
-		// See `.knowledge/agent-delegation.md`; no construction order breaks it, so it is bound here
-		// rather than implied by a constructor that could never be satisfied.
 		delegations.uses(loop);
 
 		const asking = new AskAgentUseCase(

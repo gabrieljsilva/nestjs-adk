@@ -1,14 +1,6 @@
 import { AdkError } from "../../../common/errors/adk.error";
 
-/**
- * An agent lists a tool the container never registered as one.
- *
- * It fails at boot rather than composing an agent that is missing it, because a tool that
- * silently leaves the catalog is not visible anywhere: the model is simply never offered it,
- * answers without it, and the run that results looks like a bad answer instead of a wiring
- * mistake. Naming what was found is half the message, since the usual cause is a class that
- * is in `tools` but not in `providers`.
- */
+/** Raised at boot: a provider lists a tool no provider in the container declares with `@Tool`. */
 export class UnregisteredToolError extends AdkError {
 	public readonly code = "NEST_UNREGISTERED_TOOL";
 

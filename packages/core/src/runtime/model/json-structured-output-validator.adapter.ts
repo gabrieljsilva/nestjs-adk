@@ -2,14 +2,6 @@ import { StructuredOutputValidator } from "../../contracts/model/structured-outp
 import { InvalidStructuredOutputError } from "../../domain/model/errors/invalid-structured-output.error";
 import type { RunContext } from "../../domain/run/run-context.value-object";
 
-/**
- * The default: the answer has to be a JSON object, and nothing further is checked.
- *
- * Checking the schema itself needs a schema language, and the core does not pick one.
- * What this does guarantee is the part that fails most often in practice: a model that
- * wrapped its JSON in prose, truncated it, or answered a refusal in words fails here
- * with the answer attached, instead of reaching the caller as a shape nobody validated.
- */
 export class JsonStructuredOutputValidator extends StructuredOutputValidator {
 	public validate(_context: RunContext | undefined, _schema: unknown, answer: string): unknown {
 		const text = answer.trim();

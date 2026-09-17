@@ -13,21 +13,17 @@ import type { ToolCatalog } from "../tool/tool-catalog.service";
 import type { ToolGate } from "../tool/tool-gate.service";
 
 /**
- * What the composition hands back to the public layer.
+ * The resolved services a started runtime hands to the application: the agent catalog, the
+ * model resolver, the runner, sessions, events, lifecycle and the tool gate an MCP server
+ * admits calls with.
  *
- * This is the boundary of the private container: callers receive resolved services
- * and never the container itself, so no Wirely type reaches a public declaration.
- *
- * The limits travel with the services because they are the widest of the three levels:
- * the agent narrows them, the call narrows them again, and something has to carry the
- * first one from where it was declared to where a command is built.
+ * It carries the module level `limits`, which an agent and then a call may narrow further.
  */
 export class RuntimeServices {
 	public constructor(
 		public readonly catalog: AgentCatalog,
 		public readonly models: ModelResolver,
 		public readonly runner: AgentRunner,
-		/** The other half: opening a conversation and reading one, without running anything in it. */
 		public readonly sessions: SessionService,
 		public readonly runs: AgentRunFactory,
 		public readonly events: EventPublisher,
@@ -36,9 +32,7 @@ export class RuntimeServices {
 		public readonly lifecycle: RuntimeLifecycle,
 		public readonly tracker: ActiveRunTracker,
 		public readonly limits: RunLimits,
-		/** The door every tool call passes, held here so a server exposing tools admits them exactly as the loop does. */
 		public readonly gate: ToolGate,
-		/** What `@McpController` classes published, already checked for clashing names. */
 		public readonly exposed: ToolCatalog,
 	) {}
 }

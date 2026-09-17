@@ -6,16 +6,11 @@ import { SessionHeadCodec } from "./session-head/session-head.codec";
 import { SnapshotCodec } from "./snapshot/snapshot.codec";
 
 /**
- * One codec per collection a `SessionStorage` keeps, as one thing to hold.
+ * One codec per collection a `SessionStorage` keeps, as one thing to hold. A storage adapter
+ * moves rows and decides about revisions and races; what a row means is these codecs' business.
  *
- * An adapter implementing the port moves rows and decides about revisions, transactions
- * and races. What a row means is not its business, and every attempt to make it so ends
- * with the concrete event classes and the value objects behind them leaving this package,
- * where they can never be changed again.
- *
- * A registry can be handed in for an application that registered upcasters of its own:
- * without it, the storage holding that journal would read it through a registry that has
- * never heard of them.
+ * Pass an event registry when the application registered upcasters of its own, otherwise the
+ * journal is read through a registry that never heard of them.
  */
 export class StorageCodecs {
 	private constructor(
@@ -25,7 +20,6 @@ export class StorageCodecs {
 		public readonly checkpoint: CheckpointCodec,
 	) {}
 
-	/** A fresh set every call: two runtimes in one process must never share a registry. */
 	public static standard(registry: SessionEventRegistry = SessionEventCodecs.registry()): StorageCodecs {
 		return new StorageCodecs(
 			new JournalCodec(registry),

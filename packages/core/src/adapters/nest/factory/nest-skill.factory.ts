@@ -1,13 +1,6 @@
 import { SkillDefinition } from "../../../domain/skill/skill-definition.value-object";
 import { InvalidAgentMetadataError } from "../errors/invalid-agent-metadata.error";
 
-/**
- * Turns a `@Skill` the consumer wrote into the definition a run composes with.
- *
- * The content is read once, at boot, by calling the method the decorator sits on. A skill
- * is knowledge and not a query: reading it per turn would make the stable prefix depend on
- * when it was read, and a cached prefix that moves is a cache that never hits.
- */
 export class NestSkillFactory {
 	public fromMethod(agent: object, method: string, metadata: unknown, providerName: string): SkillDefinition {
 		if (typeof metadata !== "object" || metadata === null) {

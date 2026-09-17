@@ -1,12 +1,6 @@
 import { StoredRow } from "../stored-row.record";
 
-/**
- * A compacted prefix as a row.
- *
- * The key is stored next to the parts it is built from because that is what an upsert
- * keys on: writing the same checkpoint twice has to write it once, and a storage that
- * derived the key itself would be deciding what identity means for a domain object.
- */
+/** One stored compaction checkpoint, as the columns a storage adapter writes and reads back. */
 export class CheckpointRecord {
 	public constructor(
 		public readonly sessionId: string,
@@ -16,7 +10,6 @@ export class CheckpointRecord {
 		public readonly prefixDigestAlgorithm: string,
 		public readonly prefixDigestValue: string,
 		public readonly blocks: readonly unknown[],
-		/** Identity of the checkpoint: session, covered revision and strategy version. */
 		public readonly key: string,
 	) {}
 

@@ -3,7 +3,6 @@ import { PriceBand } from "../../domain/cost/price-band.value-object";
 import { TokenRate } from "../../domain/cost/token-rate.value-object";
 import { MalformedCatalogError } from "./errors/malformed-catalog.error";
 
-/** Bands are published one field per threshold, and the suffix is always a `k` count of tokens. */
 const BAND_FIELDS = {
 	input: /^input_cost_per_token_above_(\d+)k_tokens$/,
 	output: /^output_cost_per_token_above_(\d+)k_tokens$/,
@@ -14,28 +13,7 @@ const TOKENS_PER_K = 1000;
 
 type BandRates = { input?: TokenRate; output?: TokenRate; cacheRead?: TokenRate };
 
-/**
- * Turns the table LiteLLM publishes into prices, and drops whatever it cannot read.
- *
- * It is separate from the source because these are two different jobs: reading a foreign shape,
- * and deciding when to read it again. Keeping the projection alone makes it testable against a
- * literal, which is the only way to be sure about a table of 2988 entries nobody will review by
- * hand.
- *
- * What it deliberately ignores is as important as what it reads. The table prices images per
- * image, audio per second and characters per character, and it publishes service tiers as
- * suffixed fields (`_priority`, `_flex`, `_batches`). None of those is a per token rate for a
- * standard call, so a field has to match exactly to be used: a regex anchored at both ends is
- * what keeps a priority rate from being charged to somebody who did not ask for priority.
- */
 export class LiteLlmCatalogProjection {
-	/**
-	 * Every entry that yields a usable per token price, keyed exactly as the table keys it.
-	 *
-	 * Keys are not lowercased, because 300 of them are case sensitive model ids
-	 * (`anyscale/meta-llama/Llama-2-70b-chat-hf`), and folding them would make two models
-	 * collide on one price.
-	 */
 	public project(payload: unknown): Map<string, ModelPrice> {
 		if (payload === null || typeof payload !== "object" || Array.isArray(payload)) {
 			throw new MalformedCatalogError(payload === null ? "null" : Array.isArray(payload) ? "an array" : typeof payload);
@@ -49,7 +27,6 @@ export class LiteLlmCatalogProjection {
 		return prices;
 	}
 
-	/** One entry, or `undefined` when it says nothing usable about what a token costs. */
 	private readPrice(entry: unknown): ModelPrice | undefined {
 		if (entry === null || typeof entry !== "object" || Array.isArray(entry)) return undefined;
 		const fields = entry as Record<string, unknown>;
@@ -66,14 +43,6 @@ export class LiteLlmCatalogProjection {
 		});
 	}
 
-	/**
-	 * Zero output for the modes that produce no output tokens.
-	 *
-	 * An embedding answers a vector, so the table often omits its output rate rather than
-	 * publishing a zero. Reading that as no price would leave 4 embedding models unpriceable over
-	 * a field that could not have applied to them. For a chat entry the same omission stays fatal,
-	 * because there the missing half is half the bill.
-	 */
 	private outputlessRate(fields: Record<string, unknown>): TokenRate | undefined {
 		return fields.mode === "embedding" ? TokenRate.zero() : undefined;
 	}

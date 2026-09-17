@@ -4,29 +4,12 @@ import type { AgentPrompting } from "../prompt/agent-prompting.service";
 import { AdkAgent } from "./adk-agent.edge";
 import type { AgentRegistry } from "./agent-registry.service";
 
-/**
- * Hands each `AdkAgent` the handle for the agent it declared.
- *
- * It exists so an application can inject its own agent class and ask it something, instead
- * of injecting a registry and looking the name up. Nothing is created here: the instances
- * are the ones NestJS built, and the handles are the registry's own, so an agent reached
- * by class and the same agent reached by name are the same conversation.
- *
- * A class that does not extend `AdkAgent` is skipped rather than refused. Extending is one
- * way to use an agent and the registry is the other, and an application that picked the
- * second one is not missing anything.
- */
 export class AgentBinder {
 	public constructor(
 		private readonly registry: AgentRegistry,
-		/**
-		 * Shared by every agent, which is what makes the file cache worth having: two agents
-		 * reading the same template read it once.
-		 */
 		private readonly prompting?: AgentPrompting,
 	) {}
 
-	/** Answers how many were bound, which is what a caller can assert on. */
 	public bind(providers: readonly ScannedProvider[]): number {
 		let bound = 0;
 		for (const provider of providers) {

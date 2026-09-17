@@ -7,17 +7,6 @@ import type { SkillCatalog } from "./skill-catalog.service";
 
 const NAME = "activate_skill";
 
-/**
- * The tool that loads a skill the model decided it needs.
- *
- * The content arrives as this tool's result, in the place the conversation had reached,
- * and is never copied to the front of the prompt. That is what keeps the stable prefix
- * stable: a skill loaded halfway through a session must not invalidate the cache of
- * everything before it.
- *
- * Reading a skill changes nothing, so it is a read: no approval policy should ever stop
- * a model from finding out what it is supposed to know.
- */
 export class ActivateSkillTool {
 	public static readonly NAME = NAME;
 
@@ -34,7 +23,6 @@ export class ActivateSkillTool {
 	}
 }
 
-/** Accepts only the name of a skill this agent actually has. */
 class SkillNameSchema extends ToolSchema {
 	public constructor(private readonly catalog: SkillCatalog) {
 		super();

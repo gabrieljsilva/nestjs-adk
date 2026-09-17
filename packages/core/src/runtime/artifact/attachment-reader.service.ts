@@ -13,31 +13,8 @@ import { AttachmentCache } from "./attachment-cache.service";
 import { DefaultAttachmentResolver } from "./default-attachment-resolver.adapter";
 import { ResolvedAttachments } from "./resolved-attachments.value-object";
 
-/** What a projection built without artifact storage says when somebody asks it for bytes. */
 const ABSENT = "This projection was built without artifact storage.";
 
-/**
- * Brings attachments back so a message can be read as it was sent, asking the resolver
- * what each one becomes this time.
- *
- * Every reference goes through the resolver on every projection, because materialization
- * is a per-turn answer: bytes now, a fresh address now, a line of text, or nothing. What
- * the runtime can materialize on its own is offered to the resolver through the request,
- * and that is the only thing this cache ever holds. Resolver output is never cached: a
- * URL signed for this turn is wrong on the next one, and only the application knows the
- * TTL of what it minted.
- *
- * The journal is projected once per turn, so without a cache the image attached on the
- * first question would be fetched again on every question after it, for the whole life of
- * the conversation. What is cached is keyed by session and id, so nothing can read across
- * sessions, and the cache is bounded by bytes rather than by entries, because the thing
- * being held is measured in megabytes.
- *
- * A resolver that throws does not end the turn: the attachment was already answered when
- * it was sent, and refusing to project the session would make one missing image end every
- * turn that came after it. It projects as a note instead of silence, so the model is told
- * an attachment stood there.
- */
 export class AttachmentReader {
 	public constructor(
 		private readonly storage: ArtifactStorage,
@@ -45,23 +22,10 @@ export class AttachmentReader {
 		private readonly cache: AttachmentCache = new AttachmentCache(),
 	) {}
 
-	/**
-	 * A reader with nowhere to read from, for a caller that has no artifact storage.
-	 * It answers nothing rather than pretending, which is what a projection built outside a
-	 * runtime needs: the words are all it was ever going to get.
-	 */
 	public static none(): AttachmentReader {
 		return new AttachmentReader(new AbsentArtifactStorage(ABSENT));
 	}
 
-	/**
-	 * Drops everything cached for one conversation, because its bytes are gone.
-	 *
-	 * A cache keyed by session and id outlives the session unless somebody says so: after a
-	 * delete, an id reissued to the same session would read the previous session's image back
-	 * out of memory. The runtime calls this from the one place a session is deleted, and it is
-	 * public so an application deleting through the port itself can say the same thing.
-	 */
 	public forget(context: SessionContext): void {
 		this.cache.forget(context.sessionId);
 	}
@@ -96,7 +60,6 @@ export class AttachmentReader {
 		}
 	}
 
-	/** The runtime's own answer: stored bytes, a recorded address, nothing for an external id. */
 	private async materialize(context: SessionContext, reference: AttachmentReference): Promise<MediaPart | undefined> {
 		const url = reference.url;
 		if (url !== undefined) return this.linked(url, reference.mediaType);
@@ -111,12 +74,6 @@ export class AttachmentReader {
 		return part;
 	}
 
-	/**
-	 * A link that no longer passes validation is dropped, the same as an unreadable artifact.
-	 * A private host is not revalidated here, because this is a recorded fact being rebuilt;
-	 * everything else is checked against the default limits, so a type accepted at the
-	 * boundary under widened limits is dropped on replay rather than sent unvalidated.
-	 */
 	private linked(url: string, mediaType?: string): MediaPart | undefined {
 		if (mediaType === undefined) return undefined;
 		try {

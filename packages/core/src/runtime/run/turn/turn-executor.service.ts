@@ -16,23 +16,6 @@ import { TransferToAgentTool } from "../../transfer/transfer-to-agent.tool";
 import type { RunJournal } from "../journal/run-journal.service";
 import type { RunScope } from "../scope/run-scope.value-object";
 
-/**
- * Runs the calls of one turn, with the declared effect deciding what may overlap.
- *
- * A model that asked to look three orders up meant three independent questions, and
- * answering them one after another is latency nobody bought. A model that asked to refund
- * and then to close an order meant that order, and running those together is a bug with a
- * receipt. So consecutive reads run concurrently and anything that changes the world is a
- * barrier: it runs alone, after everything before it and before everything after it.
- *
- * Whatever the execution order, results are journaled in the order the model asked. The
- * conversation it reads back is the conversation it wrote, and a reader of the journal
- * cannot tell which calls happened to overlap.
- *
- * A call somebody refused produces the refusal as its result instead of running. The
- * model reads it like any other failure, which is what tells it the door was closed
- * rather than broken.
- */
 export class TurnExecutor {
 	public constructor(
 		private readonly tools: ToolExecutor,
@@ -57,7 +40,6 @@ export class TurnExecutor {
 		return new SessionEventBatch(events);
 	}
 
-	/** Everything one call produced, in the order a reader of the journal has to see it. */
 	private async runOne(
 		scope: RunScope,
 		call: PendingCall | undefined,
@@ -94,13 +76,6 @@ export class TurnExecutor {
 		await observer.settled(scope.context, new ToolResultNotice(outcome, scope.catalog.find(outcome.toolName)));
 	}
 
-	/**
-	 * The calls of the turn, split into what may run together.
-	 *
-	 * Consecutive is the point: reads that surround a write do not jump over it. Grouping
-	 * every read of the turn regardless of position would reorder a read that the model
-	 * asked for *after* a write, and reading before instead of after is a different answer.
-	 */
 	private buildGroups(
 		scope: RunScope,
 		calls: readonly PendingCall[],
@@ -123,14 +98,6 @@ export class TurnExecutor {
 		return groups;
 	}
 
-	/**
-	 * True when running this call next to another one cannot change what either of them does.
-	 *
-	 * A refusal and an answer a child run already produced are values, not effects. A tool
-	 * that declared itself a read changes nothing by contract. Everything else, including a
-	 * tool the catalog does not know, runs alone: a call whose effect nobody can name is not
-	 * a call to take chances with.
-	 */
 	private mayOverlap(scope: RunScope, call: PendingCall, delegated: ReadonlyMap<string, string>): boolean {
 		if (call.isDenied || delegated.has(call.callId.value)) return true;
 		const tool = scope.catalog.find(call.toolName);
@@ -146,24 +113,12 @@ export class TurnExecutor {
 		);
 	}
 
-	/**
-	 * The skill a successful activation loaded, if that is what the call was.
-	 * The activation is journaled next to the result it arrived as, which is what lets the
-	 * context keep the content where it landed rather than copy it to the front.
-	 */
 	private activatedBy(call: PendingCall, outcome: ToolOutcome, skills: SkillCatalog): SkillDefinition | undefined {
 		if (outcome.failed || call.toolName !== ActivateSkillTool.NAME) return undefined;
 		const name = call.args.skillName;
 		return typeof name === "string" ? skills.find(name) : undefined;
 	}
 
-	/**
-	 * The agent a successful handover named, if that is what the call was.
-	 *
-	 * The declared edge is checked again here even though the tool's schema already refused
-	 * anything else. The schema is what the model is held to; this is what the journal is
-	 * held to, and an event that moves a session is worth two answers to the same question.
-	 */
 	private transferredBy(call: PendingCall, outcome: ToolOutcome, scope: RunScope): AgentName | undefined {
 		if (outcome.failed) return undefined;
 		const declared = TransferToAgentTool.findTarget(call.toolName, call.args);

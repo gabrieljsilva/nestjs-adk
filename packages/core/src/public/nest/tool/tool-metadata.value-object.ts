@@ -3,13 +3,11 @@ import { TOOL_METADATA } from "../../../adapters/nest/metadata/metadata-keys.tok
 import { NotAToolClassError } from "../errors/not-a-tool-class.error";
 
 /**
- * What `@Tool` wrote on a class, read back without the container.
+ * What `@Tool` wrote on a class, read back without a container: the name the model calls, the
+ * description it reads, the schema that parses the input and the declared effect.
  *
- * A double that stands in for a tool needs the name the model calls, the description the
- * model reads and the schema that parses the input, and all three live in the decorator.
- * Reading them here is what lets a fake inherit the contract of the class it replaces
- * instead of restating it. The class it replaces is the one the container was given as a
- * token, which is what discovery reads too: see [[tool-doubles]].
+ * It is how a double stands in for a tool while inheriting its declaration. `findOrFail`
+ * raises `NotAToolClassError` for a class the decorator never touched.
  */
 export class ToolMetadata {
 	private constructor(

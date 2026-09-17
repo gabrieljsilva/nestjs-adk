@@ -12,18 +12,16 @@ export interface LifecycleOptionsPatch {
 	snapshots?: SnapshotPolicy;
 	consumers?: readonly SessionEventConsumer[];
 	consumerNotices?: ConsumerFailureSink;
-	/** What is masked out of a payload before a consumer reads it. */
 	redactor?: EventRedactor;
 }
 
 /**
  * What happens around a run rather than inside one: who is told about it, what they are
- * allowed to see, what is written down so a long conversation stays cheap to reopen, and
- * how long a shutdown waits for the runs still going.
+ * allowed to see, what is snapshotted so a long conversation stays cheap to reopen, and how
+ * long a shutdown waits for the runs still going.
  *
- * The redactor sits here rather than beside the consumers it protects because a snapshot
- * is written through the same door: what a consumer may not read is what a stored
- * projection may not hold either.
+ * The redactor guards both doors: what a consumer may not read is also kept out of a stored
+ * projection.
  */
 export class LifecycleOptions {
 	public constructor(
@@ -34,12 +32,10 @@ export class LifecycleOptions {
 		public readonly redactor: EventRedactor = new FieldNameEventRedactor(),
 	) {}
 
-	/** Options built from names instead of positions, with the same defaults as declaring none. */
 	public static from(patch: LifecycleOptionsPatch): LifecycleOptions {
 		return new LifecycleOptions().with(patch);
 	}
 
-	/** A copy with the named fields replaced and every other field kept. */
 	public with(patch: LifecycleOptionsPatch): LifecycleOptions {
 		return new LifecycleOptions(
 			patch.shutdown ?? this.shutdown,

@@ -1,14 +1,6 @@
 import { AGENT_METADATA } from "../../../adapters/nest/metadata/metadata-keys.token";
 import { NotAnAgentClassError } from "../errors/not-an-agent-class.error";
 
-/**
- * What `@Agent` wrote on a class, read back without the container.
- *
- * This is how something outside the module, a test bed being the usual caller, turns the
- * class an application passes around into the name the runtime knows the agent by. It
- * reads metadata only: whether the class is registered, composed or bound is not its
- * question.
- */
 export class AgentMetadata {
 	private constructor(
 		public readonly name: string,

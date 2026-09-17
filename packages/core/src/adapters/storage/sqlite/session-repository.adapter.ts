@@ -4,14 +4,6 @@ import type { SessionHeadCodec } from "../codec/session-head/session-head.codec"
 import { StoredRow } from "../codec/stored-row.record";
 import type { SqliteConnection } from "./sqlite-connection.adapter";
 
-/**
- * The heads of conversations, and nothing about what was said in them.
- *
- * It is a repository in the plain sense: rows in, domain objects out, and no decision of
- * its own. Whether an append is allowed, whether a revision is the expected one and what
- * to do about it belong to the storage that orchestrates these, because those are answers
- * about a session and not about a table.
- */
 export class SessionRepository {
 	public constructor(
 		private readonly connection: SqliteConnection,

@@ -1,11 +1,10 @@
 /**
- * Reading one file, as the only thing the filesystem source needs from the filesystem.
+ * How a prompt file is read from wherever prompts live. Implement it to serve prompts from
+ * something other than the file system.
  *
- * It exists so that caching, path resolution and absence can be proved without a disk: a
- * counting fake answers the same three cases a real directory does. The same seam is what a
- * bundler friendly reader would replace.
+ * Answering `undefined` means the file is absent, which is not an error; anything that stops
+ * a file that exists from being read is raised instead.
  */
 export abstract class PromptFileReader {
-	/** The file's text, or `undefined` when there is no file at that path. */
 	public abstract read(path: string): Promise<string | undefined>;
 }

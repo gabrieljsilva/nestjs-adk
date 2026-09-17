@@ -2,17 +2,6 @@ import type { ToolCallObserver } from "../../../contracts/tool/tool-call-observe
 import type { ContextCapture } from "../../diagnostics/context-capture.contract";
 import type { ChunkSink } from "../../stream/chunk-sink.contract";
 
-/**
- * Who is watching a run, if anybody is.
- *
- * All three are absent by default and none changes what the run does: the same journal,
- * the same answer, the same events. They travel together because they are the same kind
- * of thing, and one value keeps three more parameters off every signature the run passes
- * through.
- *
- * The verbs build one on top of another, because a caller usually wants two at once: a
- * streamed answer with its tool calls watched is `streaming(sink).watchingTools(observer)`.
- */
 export class RunObservers {
 	private constructor(
 		public readonly chunks?: ChunkSink,
@@ -36,7 +25,6 @@ export class RunObservers {
 		return new RunObservers(undefined, undefined, tools);
 	}
 
-	/** The same watchers plus this one; nothing to add hands the same value back. */
 	public watchingTools(tools?: ToolCallObserver): RunObservers {
 		if (tools === undefined) return this;
 		return new RunObservers(this.chunks, this.context, tools);

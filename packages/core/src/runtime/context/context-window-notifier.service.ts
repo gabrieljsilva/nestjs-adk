@@ -4,13 +4,6 @@ import type { ModelDescriptor } from "../../domain/model/descriptor/model-descri
 import type { SessionContext } from "../../domain/run/session-context.value-object";
 import { NoOpContextNoticeSink } from "./no-op-context-notice-sink.adapter";
 
-/**
- * Says once per model that its context window is unknown, and then stops saying it.
- *
- * What it remembers is instance state belonging to one runtime, not a static register:
- * two runtimes in the same process are two independent readers of the same fact, and a
- * test never has to undo what an earlier test reported.
- */
 export class ContextWindowNotifier {
 	private readonly reported = new Set<string>();
 

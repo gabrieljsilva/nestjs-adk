@@ -1,6 +1,5 @@
 import { AdkError } from "../../../common/errors/adk.error";
 
-/** Nothing in the catalog answers to this name. */
 export class AgentNotInCatalogError extends AdkError {
 	public readonly code = "CATALOG_AGENT_NOT_FOUND";
 

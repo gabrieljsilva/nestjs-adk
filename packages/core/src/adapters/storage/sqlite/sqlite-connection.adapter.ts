@@ -42,14 +42,8 @@ CREATE TABLE IF NOT EXISTS session_snapshots (
 `;
 
 /**
- * One SQLite database, opened once and shaped before anybody writes to it.
- *
- * The driver is `node:sqlite`, which ships with the runtime: a durable adapter that costs
- * a native dependency is a durable adapter most people will not install.
- *
- * Everything here is synchronous because the driver is. That is what makes a transaction
- * around an append actually atomic: no other work can interleave between the statements,
- * so optimistic concurrency is decided by the revision and never by scheduling.
+ * The open SQLite database the storage adapters write through. Built once and handed to both,
+ * so sessions and their artifacts live in one file. `dispose` closes it.
  */
 export class SqliteConnection {
 	private readonly database: DatabaseSync;
@@ -73,7 +67,6 @@ export class SqliteConnection {
 		return this.all(sql, ...parameters).at(0);
 	}
 
-	/** All or nothing: a batch that fails halfway leaves the journal exactly as it was. */
 	public transaction<T>(work: () => T): T {
 		this.database.exec("BEGIN IMMEDIATE");
 		try {
@@ -91,5 +84,4 @@ export class SqliteConnection {
 	}
 }
 
-/** What a statement accepts as a bound parameter, which is what SQLite itself stores. */
 export type SqliteValue = string | number | null;

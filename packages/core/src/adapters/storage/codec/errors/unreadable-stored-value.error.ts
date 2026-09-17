@@ -1,10 +1,6 @@
 import { AdkError } from "../../../../common/errors/adk.error";
 
-/**
- * A stored value no longer maps to anything this version of the code knows.
- * It usually means a row written by a newer build, which is worth saying out loud rather
- * than quietly restoring a session into a state that does not exist.
- */
+/** A stored column holds a value this build does not know, such as a status written by a newer one. */
 export class UnreadableStoredValueError extends AdkError {
 	public readonly code = "UNREADABLE_STORED_VALUE";
 

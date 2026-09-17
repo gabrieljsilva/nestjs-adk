@@ -18,39 +18,23 @@ import { AgentMetadata } from "../metadata/agent-metadata.value-object";
 import { DelegationMetadata } from "../metadata/delegation-metadata.value-object";
 import { TransferMetadata } from "../metadata/transfer-metadata.value-object";
 
-/** What the adapter needs from each provider NestJS already instantiated. */
 export interface DiscoveredProvider {
 	readonly providerName: string;
 	readonly metadata: unknown;
 	readonly model: LlmModel | undefined;
 	readonly instructions?: PromptInstructions;
-	/** Set for an agent that builds its prompt per run, which is the alternative to `instructions`. */
 	readonly promptBuilder?: PromptBuilder;
 	readonly failover?: AgentFailoverPolicy;
-	/** Absent leaves the agent on the runtime's policy; `NoRetryPolicy` is how it refuses one. */
 	readonly retry?: ModelRetryPolicy;
-	/** Absent leaves the agent on the module's policy, which may itself be absent. */
 	readonly compaction?: AdkCompactionPolicy | false;
-	/** Absent leaves the agent on the module's ceiling, which may itself be absent. */
 	readonly limits?: RunLimits;
-	/** The `@TransfersTo` payload, still unvalidated: reflect metadata is `unknown` by definition. */
 	readonly transfers?: unknown;
-	/** The `@DelegatesTo` payload, unvalidated for the same reason. */
 	readonly delegations?: unknown;
-	/** Already built: turning a decorated class into a tool belongs to whoever holds the container. */
 	readonly tools?: readonly ToolDefinition[];
 	readonly skills?: readonly SkillDefinition[];
-	/** The JSON schema this agent answers in, when it answers data instead of prose. */
 	readonly outputSchema?: object;
 }
 
-/**
- * Turns providers NestJS already built into agent definitions.
- *
- * NestJS constructs every component the consumer declared, dependencies included;
- * this only reads what was declared and validates it. Nothing here resolves from a
- * container at run time.
- */
 export class NestComponentDiscovery {
 	public discover(providers: readonly DiscoveredProvider[]): DeclaredAgent[] {
 		return providers.map((provider) => this.toAgent(provider));

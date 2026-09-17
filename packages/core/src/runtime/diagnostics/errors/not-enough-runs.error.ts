@@ -1,6 +1,5 @@
 import { AdkError } from "../../../common/errors/adk.error";
 
-/** Cache efficiency over a single run has no answer, because nothing warmed the cache yet. */
 export class NotEnoughRunsError extends AdkError {
 	public readonly code = "NOT_ENOUGH_RUNS";
 

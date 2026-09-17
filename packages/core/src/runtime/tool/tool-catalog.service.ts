@@ -2,13 +2,6 @@ import type { ToolDeclaration } from "../../domain/model/messages/tool-declarati
 import { ToolNotFoundError } from "../../domain/tool/errors/tool-not-found.error";
 import type { ToolDefinition } from "../../domain/tool/tool-definition.value-object";
 
-/**
- * The tools one agent offers, resolved once and read only after.
- *
- * Like the agent catalog, it cannot change: two turns of the same run seeing different
- * tools would let a model call something that was there when it decided and gone when
- * it asked. Order is the order they were declared, which is what the model reads.
- */
 export class ToolCatalog {
 	private readonly byName: ReadonlyMap<string, ToolDefinition>;
 
@@ -47,7 +40,6 @@ export class ToolCatalog {
 		return tool;
 	}
 
-	/** What the model is shown, in the order the agent declared. */
 	public declarations(): readonly ToolDeclaration[] {
 		return [...this.byName.values()].map((tool) => tool.toDeclaration());
 	}

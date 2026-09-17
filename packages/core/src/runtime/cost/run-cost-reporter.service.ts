@@ -9,19 +9,6 @@ import type { ModelIdentity } from "../../domain/model/descriptor/model-identity
 import type { SessionContext } from "../../domain/run/session-context.value-object";
 import type { CostCalculator } from "./cost-calculator.service";
 
-/**
- * Prices a run once it is over.
- *
- * It runs after the last turn rather than between turns, because asking a source for a price is
- * I/O and a turn loop that awaited it would pay for the catalog on the critical path. Each
- * model is asked about once, however many calls it served.
- *
- * Nothing here can fail a run. No source, a source that does not know the model, a source that
- * throws, a price with a hole in it, a provider that reported no tokens: every one of them ends
- * the same way, with the call named in `unpriced`, its tokens out of the total, and a notice for
- * whoever asked to hear about it. A cost is a report, and a report is never worth a
- * conversation.
- */
 export class RunCostReporter {
 	public constructor(
 		private readonly calculator: CostCalculator,
@@ -37,8 +24,6 @@ export class RunCostReporter {
 		}
 
 		const unpriced = new Map<string, ModelIdentity>();
-		// Usage first: a call the provider reported nothing for has no price, whatever a catalog
-		// says, and this is what keeps a source from being asked about a model it cannot help with.
 		const billable = calls.filter((call) => this.hasUsage(context, call, unpriced));
 		if (billable.length === 0) return RunCost.nothing([...unpriced.values()]);
 
@@ -71,7 +56,6 @@ export class RunCostReporter {
 		return false;
 	}
 
-	/** One question per model, because a loop of eight turns on one model is still one price. */
 	private async findPrices(
 		context: SessionContext | undefined,
 		calls: readonly BilledCall[],
@@ -85,7 +69,6 @@ export class RunCostReporter {
 		return prices;
 	}
 
-	/** A source that throws is a source that does not know: the run already happened either way. */
 	private async priceOrNothing(
 		context: SessionContext | undefined,
 		model: ModelIdentity,
@@ -103,12 +86,9 @@ export class RunCostReporter {
 		return [...seen.values()];
 	}
 
-	/** A sink is off the path of a decision, so one that throws does not take the run with it. */
 	private notice(context: SessionContext | undefined, call: BilledCall, reason: UnpricedReason): void {
 		try {
 			this.notices?.report(context, new ModelUnpriced(call.model, reason, call.usage.totalTokens));
-		} catch {
-			// A sink that cannot report is not a reason to lose the answer the run already produced.
-		}
+		} catch {}
 	}
 }

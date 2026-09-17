@@ -4,15 +4,11 @@ import type { StartedRuntime } from "../../adk-runtime.edge";
 import { AgentHandle } from "../../agent/agent-handle.edge";
 
 /**
- * Every agent the application declared, as handles it can hold.
+ * Every agent the application declared, as handles it can hold. Reach for it from a class that
+ * already extends something other than `AdkAgent`.
  *
- * A handle is created on demand and remembered, so two injections of the same agent are
- * the same object. Asking for an agent nobody declared fails here rather than at the first
- * question, with the catalog saying which names exist.
- *
- * It holds where the runtime lives rather than the runtime, because the container builds
- * this registry before the runtime exists. Used too early it says so, which is the same
- * answer an agent gives before the module has initialized.
+ * A handle is created on demand and remembered, so two injections of the same agent are the
+ * same object. Asking for a name nobody declared fails here, naming the ones that exist.
  */
 export class AgentRegistry {
 	private readonly handles = new Map<string, AgentHandle>();

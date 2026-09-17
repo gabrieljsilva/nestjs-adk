@@ -19,17 +19,6 @@ const DEFAULT_DEPTH = 2;
 const MAX_DEPTH = 6;
 const FIRST_LINES = 10;
 
-/**
- * What is in there, for a fraction of what reading it would cost.
- *
- * It is the first call of the three, and the reason the other two are usable: a model that
- * has been handed a placeholder knows an id, a media type and a length, which is not enough
- * to write a pointer or guess a search term. An outline is what turns that into a question.
- *
- * The depth is the model's to choose and the budget is not. An outline that grew past what
- * the runtime keeps in a context is answered at a shallower depth until it fits, so a
- * document nested twenty levels deep gives back its top rather than nothing at all.
- */
 export class OutlineArtifactTool {
 	public static readonly NAME = NAME;
 
@@ -104,7 +93,6 @@ class OutlineHandler extends ToolHandler {
 		return this.budget.fit({ ...frame, kind: "text", ...measureText(loaded.content.text) }, "firstLines");
 	}
 
-	/** The deepest outline that still fits, down to naming the root and nothing else. */
 	private fitDepth(value: unknown, depth: number): unknown {
 		for (let level = depth; level > 0; level -= 1) {
 			const built = this.outline.build(value, level);
@@ -113,7 +101,6 @@ class OutlineHandler extends ToolHandler {
 		return this.outline.build(value, 0);
 	}
 
-	/** Text is what everything that is not JSON is, which is why nothing throws here. */
 	private tryReadJson(loaded: LoadedArtifact): { isJson: boolean; value: unknown } {
 		try {
 			return { isJson: true, value: JSON.parse(loaded.content.text) };
@@ -128,7 +115,6 @@ function readDepth(value: unknown): number {
 	return Math.min(MAX_DEPTH, Math.trunc(value));
 }
 
-/** What an outline of text is: how much there is, and enough of the start to recognize it. */
 function measureText(text: string): Record<string, unknown> {
 	const lines = text.split("\n");
 	return {

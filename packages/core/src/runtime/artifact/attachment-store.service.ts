@@ -7,38 +7,13 @@ import type { SessionContext } from "../../domain/run/session-context.value-obje
 import { AbsentArtifactStorage } from "./absent-artifact-storage.adapter";
 import { AttachmentNotStoredError } from "./errors/attachment-not-stored.error";
 
-/**
- * Puts what was attached where it belongs, and answers with what the journal keeps.
- *
- * The journal records names. An image inlined into an event would be re read on every
- * rehydration, every status check and every projection, and a session would carry
- * megabytes of base64 through code that only wanted to know what was said. So bytes go to
- * artifact storage once and the event names them.
- *
- * A link is already a name. Nothing is written for it, because copying somebody else's URL
- * into storage would create a second copy of something this runtime does not own.
- *
- * A storage that refuses the write ends the command. There is no inline fallback here,
- * unlike an offloaded tool result: accepting the message without the image would record a
- * question about something nobody can look at any more.
- */
 export class AttachmentStore {
 	public constructor(private readonly storage: ArtifactStorage) {}
 
-	/**
-	 * A store with nowhere to write, for a caller assembled without artifact storage.
-	 * It refuses rather than pretending to have written, which is the difference between a
-	 * missing dependency and a lost image.
-	 */
 	public static none(): AttachmentStore {
 		return new AttachmentStore(new AbsentArtifactStorage("This runtime was assembled without artifact storage."));
 	}
 
-	/**
-	 * A reference the caller already holds is passed through untouched, after everything
-	 * that needed writing: it is already a name, and the only side that can turn it into
-	 * bytes is the application that minted it.
-	 */
 	public async store(
 		context: SessionContext,
 		attachments: readonly MediaPart[],

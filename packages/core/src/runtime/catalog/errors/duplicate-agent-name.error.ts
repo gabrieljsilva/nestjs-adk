@@ -1,6 +1,5 @@
 import { AdkError } from "../../../common/errors/adk.error";
 
-/** Two providers claim the same agent name, so a command could not be routed. */
 export class DuplicateAgentNameError extends AdkError {
 	public readonly code = "CATALOG_DUPLICATE_AGENT_NAME";
 

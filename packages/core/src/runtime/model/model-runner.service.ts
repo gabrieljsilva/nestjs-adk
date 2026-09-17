@@ -15,29 +15,9 @@ import { ModelExecutor } from "./model-executor.service";
 import { ModelRunOutcome } from "./model-run-outcome.value-object";
 import type { ModelRunCommand } from "./model-run.command";
 
-/**
- * Runs one turn, through as many attempts and as many models as the policies are willing
- * to offer.
- *
- * The two are asked in order, and the order is the design. Retry is asked first, and only
- * about the model that just failed: a provider that answered "in four seconds" is telling
- * the truth about itself and nothing about the next model in the chain. Failover is asked
- * only once retry has nothing left, so a chain is spent on a provider that is actually out
- * rather than on one that was busy for a moment.
- *
- * Neither happens after the first chunk. Once part of an answer has reached the caller,
- * starting again would mean a second beginning arriving after a first one, so a failure mid
- * stream propagates as it is: the caller has already seen what happened, and pretending
- * otherwise would corrupt the text.
- *
- * Only a classified failure is acted on. An error the adapter could not turn into a
- * `ModelFailure` is not a provider saying no, it is a bug, and running a bug again just
- * runs it twice.
- */
 export class ModelRunner {
 	public constructor(
 		private readonly clock: Clock = new SystemClock(),
-		/** What answers for an agent that declared no retry policy of its own. */
 		private readonly retry: ModelRetryPolicy = new BackoffRetryPolicy(),
 		private readonly executor: ModelExecutor = new ModelExecutor(),
 	) {}
@@ -86,7 +66,6 @@ export class ModelRunner {
 		}
 	}
 
-	/** Nothing once the run was cancelled: a stopped caller is not waiting to be asked again. */
 	private findDelay(
 		command: ModelRunCommand,
 		failure: ModelFailure,
@@ -98,7 +77,6 @@ export class ModelRunner {
 		return policy.findDelay(new RetryAttempt(failure, model.descriptor().identity, attempt));
 	}
 
-	/** No policy, or a policy that declines, both mean the chain is over. */
 	private async next(
 		command: ModelRunCommand,
 		current: LlmModel,

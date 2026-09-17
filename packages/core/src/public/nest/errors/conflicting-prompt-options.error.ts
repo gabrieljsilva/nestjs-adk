@@ -1,12 +1,6 @@
 import { AdkError } from "../../../common/errors/adk.error";
 
-/**
- * The module declared both a prompt source and a directory for the one it replaced.
- *
- * `prompts.dir` configures the filesystem source, and `promptSource` is what takes its
- * place. Together, one of them is a setting nothing reads, which looks exactly like a
- * configured directory until a prompt is not found where it was supposed to be.
- */
+/** Raised at boot: `prompts` configures the filesystem source that `promptSource` replaces, so declaring both leaves a directory nothing reads. */
 export class ConflictingPromptOptionsError extends AdkError {
 	public readonly code = "CONFLICTING_PROMPT_OPTIONS";
 

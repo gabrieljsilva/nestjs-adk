@@ -1,17 +1,6 @@
 import type { ModelChunk } from "../../domain/model/streaming/model-chunk.value-object";
 import { ChunkSink } from "./chunk-sink.contract";
 
-/**
- * The bridge between a run that pushes chunks and a caller that pulls them.
- *
- * A run has no idea anybody is watching: it emits and carries on. A caller iterating this
- * waits when there is nothing yet and drains what piled up while it was away, so a slow
- * reader never slows the run down and never loses a chunk either.
- *
- * Closing is what ends the iteration. A run that failed closes it too: the failure belongs
- * to whoever awaited the run, and a stream that hung waiting for a chunk that will never
- * arrive would hide it.
- */
 export class ChunkStream extends ChunkSink {
 	private readonly pending: ModelChunk[] = [];
 	private closed = false;

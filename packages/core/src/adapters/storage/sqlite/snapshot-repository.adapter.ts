@@ -4,12 +4,6 @@ import type { SnapshotCodec } from "../codec/snapshot/snapshot.codec";
 import { StoredRow } from "../codec/stored-row.record";
 import type { SqliteConnection } from "./sqlite-connection.adapter";
 
-/**
- * The one shortcut a session keeps, replaced every time a newer one is written.
- *
- * Only the latest matters: an older snapshot is strictly more work to use than the one
- * after it, so keeping a history of them would be paying storage to be slower.
- */
 export class SnapshotRepository {
 	public constructor(
 		private readonly connection: SqliteConnection,

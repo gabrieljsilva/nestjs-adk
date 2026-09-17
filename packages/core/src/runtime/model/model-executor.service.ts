@@ -11,22 +11,6 @@ import { JsonStructuredOutputValidator } from "./json-structured-output-validato
 import { MediaFit } from "./media-fit.service";
 import { ModelChunkAggregator } from "./model-chunk-aggregator.service";
 
-/**
- * Runs one model call and turns the stream into a turn.
- *
- * It executes the model it was given and nothing else: it does not choose a model, does
- * not retry and does not know a failover chain exists. That belongs to the run, which
- * knows things a single call cannot.
- *
- * `execute` is `stream` drained to the end, so the text of one is the concatenation of
- * the other by construction. Nobody has to keep the two in agreement, because there is
- * only one implementation of aggregation.
- *
- * Capabilities are checked before the request leaves. A model that never declared tools
- * fails saying so rather than answering prose to a call that expected an action. Media is
- * the exception and it is not checked: an image in history is fitted to whatever model is
- * serving this turn, because a routing decision must not end a conversation.
- */
 export class ModelExecutor {
 	public constructor(
 		private readonly validator: StructuredOutputValidator = new JsonStructuredOutputValidator(),

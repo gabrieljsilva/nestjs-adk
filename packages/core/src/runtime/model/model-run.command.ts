@@ -6,28 +6,17 @@ import type { LlmModel } from "../../domain/model/llm-model.contract";
 import type { ModelRequest } from "../../domain/model/model-request.value-object";
 import type { RunContext } from "../../domain/run/run-context.value-object";
 
-/** One turn to run, named rather than ordered. */
 export interface ModelRunInput {
-	/** Where this turn is happening, so a validator reads the same facts every other port reads. */
 	context: RunContext;
 	runId: AgentRunId;
 	agent: AgentName;
 	model: LlmModel;
 	request: ModelRequest;
-	/** Asked first, and only about the model that just failed. Absent leaves the runtime's own. */
 	retry?: ModelRetryPolicy;
 	failover?: AgentFailoverPolicy;
 	signal?: AbortSignal;
 }
 
-/**
- * One turn to run, with the model to start from, how many times it is worth asking that
- * model again, and the policy to fall back through once it is not.
- *
- * Without a failover policy there is no failover at all: the first failure the retries did
- * not absorb is the answer, which is the right default for an agent that never declared
- * what to do instead.
- */
 export class ModelRunCommand {
 	public readonly context: RunContext;
 	public readonly runId: AgentRunId;

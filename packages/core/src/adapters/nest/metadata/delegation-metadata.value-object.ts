@@ -1,11 +1,6 @@
 import { AgentTargets } from "../agent-targets.service";
 import { InvalidAgentMetadataError } from "../errors/invalid-agent-metadata.error";
 
-/**
- * The `@DelegatesTo` payload, resolved to names on the way in.
- * Same shape and same reasons as the transfer one: a name, a class or a function returning
- * one, and an absent decorator means an agent that delegates to nobody.
- */
 export class DelegationMetadata {
 	private constructor(public readonly targets: readonly string[]) {}
 

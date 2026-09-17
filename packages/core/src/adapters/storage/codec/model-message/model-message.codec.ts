@@ -9,17 +9,6 @@ import { UserMessage } from "../../../../domain/model/messages/user-message.valu
 import { UnreadableStoredValueError } from "../errors/unreadable-stored-value.error";
 import { StoredRow } from "../stored-row.record";
 
-/**
- * Turns one message of a context into a payload and back.
- *
- * The role is the discriminator and the subclass is what matters: provider adapters
- * translate by type, so a tool call read back as prose loses the id its result is tied to
- * and the signature the provider wants to see again.
- *
- * The limits are the ones an image is checked against on the way back. They are declared
- * rather than assumed because an application that widened them and then stored something
- * larger would otherwise be unable to read its own checkpoint.
- */
 export class ModelMessageCodec {
 	public constructor(private readonly limits: MediaLimits = MediaLimits.byDefault()) {}
 
@@ -74,7 +63,6 @@ export class ModelMessageCodec {
 		throw new UnreadableStoredValueError("role", role);
 	}
 
-	/** A link keeps being a link: fetching the bytes to store them would defeat the point of one. */
 	private encodeMedia(part: MediaPart): Record<string, unknown> {
 		if (part.isRemote) return { mediaType: part.mediaType, url: part.url };
 		return { mediaType: part.mediaType, base64: part.base64 };

@@ -1,6 +1,5 @@
 import { InvalidAgentMetadataError } from "../errors/invalid-agent-metadata.error";
 
-/** The `@McpController` payload, validated on the way in: only a list of tool classes, possibly empty. */
 export class McpControllerMetadata {
 	private constructor(public readonly tools: readonly unknown[]) {}
 

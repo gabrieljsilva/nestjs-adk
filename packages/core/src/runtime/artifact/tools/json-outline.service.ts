@@ -1,19 +1,5 @@
-/** How many entries of an object or an array are named before the rest is counted instead. */
 const MAX_ENTRIES = 40;
 
-/**
- * The shape of a JSON value, written small enough to read instead of the value.
- *
- * What a model needs before it asks for a value is what is in there and where: the keys of
- * an object, the length of an array, the type behind each name. Everything else is the
- * content, and the content is the thing that did not fit. So an outline names types and
- * counts and never a value, which is also what keeps it bounded: the size of an outline
- * follows the shape of the document rather than how much is in it.
- *
- * Depth is where it stops. Below the last level a container says what it is and how many
- * entries it holds, which is exactly enough for the model to point a pointer one level
- * deeper and ask again.
- */
 export class JsonOutline {
 	public build(value: unknown, depth: number): unknown {
 		if (Array.isArray(value)) return this.buildArray(value, depth);
@@ -36,7 +22,6 @@ export class JsonOutline {
 	}
 }
 
-/** A value with nothing inside it says what it is, and a string says how long it is. */
 function describeLeaf(value: unknown): string {
 	if (value === null) return "null";
 	if (typeof value === "string") return `string(${value.length} characters)`;

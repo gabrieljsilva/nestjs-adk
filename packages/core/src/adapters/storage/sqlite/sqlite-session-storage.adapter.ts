@@ -22,18 +22,12 @@ import { SnapshotRepository } from "./snapshot-repository.adapter";
 import { SqliteConnection } from "./sqlite-connection.adapter";
 
 /**
- * A durable session store on the SQLite that ships with Node.
+ * A durable session store on the SQLite that ships with Node. Pair it with
+ * `SqliteArtifactStorage` on the same connection so a restart brings back the whole conversation.
  *
- * It orchestrates repositories and owns every decision they deliberately do not: whether
- * an append is a retry, whether the revision is the one the caller expected, and what to
- * do when it is not. The repositories move rows; this is what makes those rows a journal.
- *
- * Atomicity and optimistic concurrency both come from one immediate transaction around the
- * append: the revision is read and written inside it, so two processes racing on the same
- * session resolve by `expectedRevision` and never by who happened to be scheduled first.
- *
- * Context checkpoints are not stored. They are an optimization for compaction, and the
- * capability says so rather than the adapter accepting one and losing it.
+ * One immediate transaction around an append gives both atomicity and optimistic concurrency, so
+ * two processes on the same session resolve by `expectedRevision`. Context checkpoints are not
+ * stored, and the capabilities say so.
  */
 export class SqliteSessionStorage extends SessionStorage {
 	private readonly sessions: SessionRepository;
@@ -45,15 +39,12 @@ export class SqliteSessionStorage extends SessionStorage {
 		registry: SessionEventRegistry = SessionEventCodecs.registry(),
 	) {
 		super();
-		// The same codecs an adapter outside this package is given, so a row here and a row
-		// downstream never drift into meaning two different things.
 		const codecs = StorageCodecs.standard(registry);
 		this.sessions = new SessionRepository(connection, codecs.head);
 		this.events = new EventRepository(connection, codecs.journal);
 		this.snapshots = new SnapshotRepository(connection, codecs.snapshot);
 	}
 
-	/** Opens a database file, or an in memory one when no path is given. */
 	public static at(location: string): SqliteSessionStorage {
 		return new SqliteSessionStorage(new SqliteConnection(location));
 	}
@@ -139,11 +130,6 @@ export class SqliteSessionStorage extends SessionStorage {
 		return new AppendEventsResult(committed, revision);
 	}
 
-	/**
-	 * A retry of a batch that already landed answers with what was written before.
-	 * Idempotency is keyed by event id; the same id carrying different content is not a
-	 * retry, it is corruption, and it stops the write.
-	 */
 	private findReplay(command: AppendEventsCommand): readonly StoredSessionEvent[] | undefined {
 		const ids = command.batch.events.map((event) => event.id.value);
 		const written = this.events.writtenPayloads(command.sessionId, ids);

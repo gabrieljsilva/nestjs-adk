@@ -8,13 +8,11 @@ import { TamperedArtifactReferenceError } from "../../domain/artifact/errors/tam
 import type { SessionContext } from "../../domain/run/session-context.value-object";
 
 /**
- * Reference artifact storage, and the shape every durable adapter is measured against.
+ * Artifact content kept in this process, the artifact half of the default storage. Nothing
+ * survives a restart.
  *
- * Content is kept under the session of the context first and the artifact second, so a read scoped to
- * the wrong session misses rather than matches, and no key concatenation can make two
- * different pairs collide into one. What comes back is checked against the digest the
- * caller arrived with, which catches a rewritten reference and a store that lost content
- * under an id it kept.
+ * Content is scoped to the session it was written under, and every read is checked against the
+ * digest the caller arrived with.
  */
 export class InMemoryArtifactStorage extends ArtifactStorage {
 	private readonly bySession = new Map<string, Map<string, ArtifactContent>>();

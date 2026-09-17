@@ -5,15 +5,6 @@ import type { ToolInvocation } from "../../domain/tool/invocation/tool-invocatio
 import type { ToolDefinition } from "../../domain/tool/tool-definition.value-object";
 import { ToolAdmission } from "./tool-admission.service";
 
-/**
- * The one door every tool call goes through before its handler runs: the arguments are parsed by
- * the tool's own schema, then the access policy is asked about this actor.
- *
- * It is a class of its own, rather than two lines inside the executor, because the executor is
- * not the only caller. An MCP server exposing the same tools admits a call through this same
- * gate, and that is what makes "an outside client cannot do what the agent could not" a property
- * of the code path instead of a discipline two modules have to keep in step.
- */
 export class ToolGate {
 	public constructor(private readonly access: AdkAccessPolicy = new OpenAccessPolicy()) {}
 

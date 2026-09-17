@@ -1,6 +1,6 @@
 import { StoredRow } from "../stored-row.record";
 
-/** A projected state as a row, with the checksum that decides whether it can be trusted. */
+/** One stored session snapshot, as the columns a storage adapter writes and reads back. */
 export class SnapshotRecord {
 	public constructor(
 		public readonly sessionId: string,

@@ -1,6 +1,6 @@
 import { AdkError } from "../../../common/errors/adk.error";
 
-/** The class handed over was never decorated with `@Tool`, so it has no declaration to read. */
+/** The class was read as a tool and `@Tool` never touched it. */
 export class NotAToolClassError extends AdkError {
 	public readonly code = "NOT_A_TOOL_CLASS";
 

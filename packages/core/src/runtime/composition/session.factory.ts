@@ -9,11 +9,6 @@ import { InspectSessionUseCase } from "../session/inspect-session.use-case";
 import { SessionService } from "../session/session.service";
 import type { ComposedRun } from "./composed-run.value-object";
 
-/**
- * Builds the read half of sessions: opening a conversation and looking at one, outside any
- * run. It needs the catalog because a context window belongs to a model, and a model
- * belongs to the agent the conversation is with.
- */
 export class SessionComposer {
 	public compose(
 		catalog: AgentCatalog,

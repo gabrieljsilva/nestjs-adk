@@ -13,24 +13,10 @@ import { FieldNameEventRedactor } from "./field-name-event-redactor.adapter";
 import { NoOpConsumerFailureSink } from "./no-op-consumer-failure-sink.adapter";
 import { SessionEventPublisher } from "./session-event-publisher.contract";
 
-/** Long enough for an exporter over a network, short enough that a hang is not a stall. */
 const DEFAULT_CONSUMER_TIMEOUT_MS = 5000;
 
-/** What a timeout is reported against, because it belongs to the batch rather than to one event. */
 const BATCH = "batch";
 
-/**
- * Fans committed events out to whoever is watching, after the fact and never before it.
- *
- * Only what the storage confirmed reaches a consumer, because this is called with the
- * committed envelopes and with nothing else: an append that failed produces no envelopes
- * and therefore no publication, and there is no code path here that could invent one.
- *
- * Consumers are isolated from each other and from the run. One that throws and one that
- * never returns are both dropped after a notice, and neither delays the others: they are
- * dispatched together rather than in a line, so a slow exporter costs its own timeout and
- * not everyone else's.
- */
 export class EventPublisher extends SessionEventPublisher {
 	private readonly consumers: readonly SessionEventConsumer[];
 
@@ -49,24 +35,17 @@ export class EventPublisher extends SessionEventPublisher {
 		return this.consumers.length > 0;
 	}
 
-	/** One event at a time, so every consumer sees a batch in the order the journal recorded it. */
 	public async publish(context: SessionContext, committed: readonly StoredSessionEvent[]): Promise<void> {
 		if (!this.hasConsumers) return;
 		const events = committed.map((stored) => PublishedEvent.durable(stored, this.buildPayload(stored.event)));
 		await this.deliver(context, events);
 	}
 
-	/** A fact that never reached the journal, and never will: a chunk, a notice, a progress step. */
 	public async emit(context: SessionContext, event: SessionEvent): Promise<void> {
 		if (!this.hasConsumers) return;
 		await this.deliver(context, [PublishedEvent.runtime(context.sessionId, event, this.buildPayload(event))]);
 	}
 
-	/**
-	 * Empties whatever the consumers were holding on purpose.
-	 * Shutdown is the last moment a batch can still leave, so this runs before dispose
-	 * and, like everything else here, lets one consumer fail without stopping the rest.
-	 */
 	public async flush(): Promise<void> {
 		await Promise.all(this.consumers.map((consumer) => this.flushOne(consumer)));
 	}
@@ -76,13 +55,6 @@ export class EventPublisher extends SessionEventPublisher {
 		await Promise.all(this.consumers.map((consumer) => this.consume(context, consumer, events)));
 	}
 
-	/**
-	 * One deadline for the whole batch, not one per event.
-	 *
-	 * A consumer that hangs costs its timeout once. Timing each event apart would multiply
-	 * that by the size of the batch, and a commit of ten events would hold the run for ten
-	 * timeouts before anybody found out the exporter was gone.
-	 */
 	private async consume(
 		context: SessionContext,
 		consumer: SessionEventConsumer,
@@ -103,7 +75,6 @@ export class EventPublisher extends SessionEventPublisher {
 		}
 	}
 
-	/** In order, and one event that fails does not cost the consumer the rest of the batch. */
 	private async deliverInOrder(
 		context: SessionContext,
 		consumer: SessionEventConsumer,
@@ -127,10 +98,6 @@ export class EventPublisher extends SessionEventPublisher {
 		}
 	}
 
-	/**
-	 * A sink that throws while being told about a failure would take the failure with it,
-	 * out through the publisher and into a commit the journal has already accepted.
-	 */
 	private report(
 		context: SessionContext | undefined,
 		consumer: SessionEventConsumer,

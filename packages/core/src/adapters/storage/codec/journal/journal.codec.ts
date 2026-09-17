@@ -10,22 +10,6 @@ import type { SessionEventRegistry } from "../../../../domain/event/session-even
 import type { SessionEvent } from "../../../../domain/event/session-event.event";
 import { JournalRecord } from "./journal.record";
 
-/**
- * Turns an event into a journal row and back.
- *
- * This is the whole reason a session storage can live outside this package. The registry
- * below encodes payloads, and a payload is not a row: writing one still means reading the
- * header off the event, and reading one back means rebuilding that header before any codec
- * can be asked for the event class. Doing that by hand needs the concrete event classes and
- * six identity types, so an adapter written that way could only ever be written in here.
- *
- * What comes back is the class the projectors decide on, which is the part that cannot be
- * approximated: a plain object with the right fields passes every `instanceof` in the
- * runtime without entering one, and the session rehydrates into silence rather than an
- * error. A payload older than this build walks the upcaster chain on the way through, so a
- * journal written months ago stays readable; one written by a newer build stops the read
- * instead of dropping the meaning it carries.
- */
 export class JournalCodec {
 	public constructor(private readonly registry: SessionEventRegistry = SessionEventCodecs.registry()) {}
 
@@ -43,21 +27,11 @@ export class JournalCodec {
 		);
 	}
 
-	/** Takes the record this codec wrote, or the row a driver handed the adapter back. */
 	public decode(values: unknown): SessionEvent {
 		const record = JournalRecord.from(values);
 		return this.registry.decode(record.type, record.schemaVersion, record.payload, this.buildHeader(record));
 	}
 
-	/**
-	 * What an event would be written as, which is the only definition of "the same event"
-	 * a durable adapter can check.
-	 *
-	 * An idempotent append has to tell a retry from an id that came back carrying something
-	 * else, and object identity cannot: a retry that crossed a process boundary is a
-	 * different instance of the same fact. An adapter fingerprinting its own way would
-	 * disagree with the ones this library ships about which writes are duplicates.
-	 */
 	public calculateFingerprint(event: SessionEvent): string {
 		return `${event.type}:${JSON.stringify(this.registry.findCodecOrFail(event.type).encode(event))}`;
 	}

@@ -16,29 +16,9 @@ import type { SessionContext } from "../../domain/run/session-context.value-obje
 import { AttachmentReader } from "../artifact/attachment-reader.service";
 import { ResolvedAttachments } from "../artifact/resolved-attachments.value-object";
 
-/**
- * Turns a journal into the causal blocks a model can read.
- *
- * Only conversational facts reach the model: a run that started, an agent that was
- * transferred to or an approval that was granted are history, not something the model
- * has to re read. A result closes the block its call opened, in the position the call
- * held, so the order the model sees is the order the journal recorded. Calls requested
- * back to back with nothing between them were one breath of the model, and they share one
- * block, results after all of them. A result whose call is missing stops the projection
- * instead of becoming an answer to nothing.
- *
- * A delegated run is invisible from outside itself: the parent reads the answer as the
- * result of the call it made, and never the conversation the child had to get there.
- *
- * An activated skill is not a block of its own. It marks the exchange its content
- * arrived in, which keeps the content where it landed and keeps compaction from
- * dropping it. A skill scoped to a run stops being marked once that run is over, so
- * knowledge loaded for one question does not quietly follow the session forever.
- */
 export class ContextProjector {
 	public constructor(private readonly attachments: AttachmentReader = AttachmentReader.none()) {}
 
-	/** The attachments of one conversation are no longer worth holding, because it is gone. */
 	public forgetAttachments(context: SessionContext): void {
 		this.attachments.forget(context);
 	}
@@ -60,7 +40,6 @@ export class ContextProjector {
 			if (event instanceof DelegationStarted) {
 				delegated.add(event.childRunId.value);
 				breath = undefined;
-				// A delegated run's context begins where its delegation did, not where the session did.
 				if (currentRun?.value === event.childRunId.value) {
 					blocks.length = 0;
 					pending.clear();
@@ -69,7 +48,6 @@ export class ContextProjector {
 				continue;
 			}
 			if (this.belongsToAnother(delegated, stored, currentRun)) continue;
-			// Anything conversational between two calls ends the breath; history does not.
 			if (!(event instanceof ToolCallRequested) && this.isConversational(event)) breath = undefined;
 			if (event instanceof UserMessageReceived) {
 				blocks.push(
@@ -77,8 +55,6 @@ export class ContextProjector {
 				);
 				continue;
 			}
-			// A turn that only asked for tools said nothing, and an empty message read back as
-			// conversation would teach the model that answering with silence is a turn.
 			if (event instanceof AssistantMessageProduced) {
 				if (event.text.length > 0) {
 					blocks.push(ContextBlock.conversation(new AssistantMessage(event.text), stored.revision));
@@ -108,13 +84,6 @@ export class ContextProjector {
 		return blocks;
 	}
 
-	/**
-	 * What the user said, with what they attached put back the way this turn reads it.
-	 *
-	 * The journal kept names, so the resolver is asked here and only here what each one
-	 * becomes. A message that attached nothing costs no read at all, which is almost every
-	 * message. A note stands in after the words, the way `MediaFit` writes its placeholder.
-	 */
 	private async said(
 		context: SessionContext,
 		stored: StoredSessionEvent,
@@ -143,18 +112,10 @@ export class ContextProjector {
 		);
 	}
 
-	/** True when the event belongs to the run being served, which is what a resolver may key on. */
 	private isCurrent(stored: StoredSessionEvent, currentRun?: AgentRunId): boolean {
 		return stored.event.correlation.runId.value === currentRun?.value;
 	}
 
-	/**
-	 * True when this event belongs to a delegated run that is not the one asking.
-	 *
-	 * What a child agent said to answer one task is not part of the conversation the parent
-	 * is having. The parent reads the answer as the result of the call it made, which is all
-	 * it asked for, and a sibling delegation is not part of a child's context either.
-	 */
 	private belongsToAnother(delegated: Set<string>, stored: StoredSessionEvent, currentRun?: AgentRunId): boolean {
 		const runId = stored.event.correlation.runId.value;
 		return delegated.has(runId) && runId !== currentRun?.value;
@@ -174,7 +135,6 @@ export class ContextProjector {
 		if (at === undefined || open === undefined) {
 			throw new OrphanToolResultError(event.callId.value, event.toolName);
 		}
-		// A note joins the output under a synthetic key, the way the offloader writes its placeholder.
 		const resolved = event.hasAttachments
 			? await this.attachments.read(
 					context,
@@ -195,7 +155,6 @@ export class ContextProjector {
 		pending.delete(event.callId.value);
 	}
 
-	/** The exchange the content arrived in becomes the skill, in the place it already held. */
 	private pin(
 		blocks: ContextBlock[],
 		positions: Map<string, number>,

@@ -23,14 +23,6 @@ import { SharedToolLookup } from "../shared-tool-lookup.service";
 import type { DiscoveredProvider } from "./nest-component-discovery.service";
 import { ScannedProvider } from "./scanned-provider.value-object";
 
-/**
- * Reads what the decorators wrote and hands back what discovery consumes.
- *
- * NestJS has already built everything by the time this runs, so nothing here constructs or
- * resolves: it walks instances it was given, reads their metadata, and turns the pieces
- * into definitions. Shared tools are matched to the agents that listed them, and tools and
- * skills declared on the agent itself are read off the agent.
- */
 export class NestAgentScanner {
 	public constructor(
 		private readonly tools: NestToolFactory = new NestToolFactory(),
@@ -47,7 +39,6 @@ export class NestAgentScanner {
 			.map((provider) => this.toDiscovered(provider, shared, defaultModel));
 	}
 
-	/** Tools with a provider of their own, keyed by the class an agent lists in `tools`. */
 	public sharedTools(providers: readonly ScannedProvider[]): Map<unknown, ToolDefinition> {
 		const tools = new Map<unknown, ToolDefinition>();
 		for (const provider of providers) {
@@ -81,14 +72,6 @@ export class NestAgentScanner {
 		};
 	}
 
-	/**
-	 * What the decorator wrote under this key, and nothing when it wrote nothing.
-	 *
-	 * The difference between the two is the whole rule for every optional field below. Absent
-	 * means the agent asked for the default and gets it. Present and wrong means the developer
-	 * declared something and would otherwise be handed the default anyway, believing they had
-	 * configured the agent, which is the failure this reader exists to make loud.
-	 */
 	private declaredField(metadata: unknown, key: string): unknown {
 		return typeof metadata === "object" && metadata !== null ? Reflect.get(metadata, key) : undefined;
 	}
@@ -111,12 +94,10 @@ export class NestAgentScanner {
 		);
 	}
 
-	/** An agent may hand the module a model instance, which is anything that can generate. */
 	private isModel(value: unknown): value is LlmModel {
 		return typeof value === "object" && value !== null && typeof Reflect.get(value, "generate") === "function";
 	}
 
-	/** A list of models becomes a sequential walk, and a policy stays itself. */
 	private readFailover(metadata: unknown, providerName: string): AgentFailoverPolicy | undefined {
 		const declared = this.declaredField(metadata, "failover");
 		if (declared === undefined) return undefined;
@@ -134,13 +115,6 @@ export class NestAgentScanner {
 		return new SequentialFailoverPolicy(declared as LlmModel[]);
 	}
 
-	/**
-	 * A policy stays itself, and `false` becomes the one that never retries.
-	 *
-	 * `false` is carried through as a policy rather than dropped for the same reason as
-	 * compaction: dropped, it would hand the agent whatever the runtime decided, which is the
-	 * opposite of what it said.
-	 */
 	private readRetry(metadata: unknown, providerName: string): ModelRetryPolicy | undefined {
 		const declared = this.declaredField(metadata, "retry");
 		if (declared === undefined) return undefined;
@@ -157,11 +131,6 @@ export class NestAgentScanner {
 		return typeof value === "object" && value !== null && typeof Reflect.get(value, "next") === "function";
 	}
 
-	/**
-	 * Absent means the module's policy answers for this agent, which may itself be absent.
-	 * `false` is carried through rather than dropped: it is this agent refusing compaction,
-	 * and dropping it would hand the agent whatever the module or the runtime decided.
-	 */
 	private readCompaction(metadata: unknown, providerName: string): AdkCompactionPolicy | false | undefined {
 		const declared = this.declaredField(metadata, "compaction");
 		if (declared === undefined) return undefined;
@@ -174,7 +143,6 @@ export class NestAgentScanner {
 		return typeof value === "object" && value !== null && typeof Reflect.get(value, "decide") === "function";
 	}
 
-	/** Absent means the agent runs under the module's ceiling, which may itself be absent. */
 	private readLimits(metadata: unknown, providerName: string): RunLimits | undefined {
 		const declared = this.declaredField(metadata, "limits");
 		if (declared === undefined) return undefined;
@@ -185,13 +153,6 @@ export class NestAgentScanner {
 		);
 	}
 
-	/**
-	 * Absent means this agent answers prose, which is what most agents do.
-	 *
-	 * The schema itself is not checked here beyond being an object: what a valid schema is belongs
-	 * to the provider, and the OpenAI adapter already refuses the ones strict mode rejects, naming
-	 * the field. Guessing at that here would fail requests over rules only the provider decides.
-	 */
 	private readOutputSchema(metadata: unknown, providerName: string): object | undefined {
 		const declared = this.declaredField(metadata, "outputSchema");
 		if (declared === undefined) return undefined;
@@ -206,13 +167,6 @@ export class NestAgentScanner {
 		throw new InvalidAgentMetadataError(providerName, "prompt is not a string.");
 	}
 
-	/**
-	 * A listed tool that resolves to nothing is a boot failure, not a shorter list.
-	 *
-	 * The lookup is by the token the agent wrote, so an overridden provider still answers here:
-	 * what does not answer is a tool nobody registered, and dropping it would hand the model an
-	 * agent quietly missing the one thing it was built to do.
-	 */
 	private declaredTools(
 		metadata: unknown,
 		shared: Map<unknown, ToolDefinition>,

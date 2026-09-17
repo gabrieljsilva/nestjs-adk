@@ -4,13 +4,6 @@ import { RuntimeNotAcceptingCommandsError } from "./errors/runtime-not-accepting
 import { RuntimeState } from "./runtime-state.value-object";
 import { ShutdownOptions } from "./shutdown.options";
 
-/**
- * The `active` to `draining` to `stopped` machine.
- *
- * Draining refuses new commands and waits for the ones already running. With a
- * timeout it aborts whatever is left when the time is up; without one it waits as
- * long as needed. Reaching `stopped` twice is a no op, so a second close is safe.
- */
 export class RuntimeLifecycle {
 	private state = RuntimeState.ACTIVE;
 
@@ -24,7 +17,6 @@ export class RuntimeLifecycle {
 		return this.state;
 	}
 
-	/** Throws when the runtime can no longer take work, and is the single place that decides it. */
 	public assertAcceptsCommands(): void {
 		if (this.state.acceptsCommands) return;
 		throw new RuntimeNotAcceptingCommandsError(this.state.name);
@@ -52,7 +44,6 @@ export class RuntimeLifecycle {
 	private elapse(milliseconds: number): Promise<void> {
 		return new Promise<void>((resolve) => {
 			const timer = setTimeout(resolve, milliseconds);
-			// The process must not be held open by a shutdown timer that already lost the race.
 			timer.unref?.();
 		});
 	}

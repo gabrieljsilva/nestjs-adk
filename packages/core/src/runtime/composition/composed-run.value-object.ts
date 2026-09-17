@@ -11,13 +11,6 @@ import type { RunJournal } from "../run/journal/run-journal.service";
 import type { SessionRepository } from "../session/session-repository.service";
 import type { ToolGate } from "../tool/tool-gate.service";
 
-/**
- * Everything the run half of the composition built, for the halves assembled after it.
- *
- * Sessions and the journal are in here because the read half of sessions writes metadata
- * under a run of its own, so the two halves cannot be built from nothing twice: one
- * `SessionRepository` per runtime is what keeps a snapshot and a projection agreeing.
- */
 export class ComposedRun {
 	public constructor(
 		public readonly runner: AgentRunner,

@@ -18,19 +18,6 @@ import type { SnapshotPolicy } from "./snapshot/snapshot.policy";
 import { StateChecksum } from "./snapshot/state-checksum.service";
 import { StateProjector } from "./state-projector.service";
 
-/**
- * The single door between a run and the durability of its session.
- *
- * Commit is the whole contract in one place: the storage appends atomically, only the
- * envelopes it confirmed are projected into state, and observers are told afterwards.
- * A publisher that throws does not undo a journal that is already committed.
- *
- * Rehydration prefers a snapshot but never depends on one. Anything wrong with it,
- * a foreign projector, a broken checksum, a revision beyond the head, falls back to a
- * full replay, and the snapshot is left alone rather than deleted. Writing one is the
- * mirror of that: it happens after the journal is already durable and never speaks up
- * when it fails, because a run must not end differently over a lost shortcut.
- */
 export class SessionRepository {
 	public constructor(
 		private readonly storage: SessionStorage,
@@ -40,19 +27,10 @@ export class SessionRepository {
 		private readonly snapshots: SnapshotPolicy = RevisionBucketSnapshotPolicy.everyFiftyEvents(),
 	) {}
 
-	/** A session exists before its first event, so the head is written on its own. */
 	public async create(context: SessionContext, session: Session): Promise<void> {
 		await this.storage.create(context, session);
 	}
 
-	/**
-	 * The head of a conversation, without the journal behind it.
-	 *
-	 * This is the cheap read, and it is deliberately not `rehydrate`: answering whether a
-	 * chat already has a conversation, or who owns it, is one row, while rehydrating replays
-	 * every event to project a state the caller never asked for.
-	 */
-	/** The journal of one conversation, gone. Nothing here decides whether it should be. */
 	public async delete(context: SessionContext): Promise<void> {
 		await this.storage.delete(context);
 	}
@@ -79,11 +57,6 @@ export class SessionRepository {
 		return projected;
 	}
 
-	/**
-	 * Tells the observers something the journal would not take.
-	 * It is the last resort of a run that ended and could not record it: the fact reaches
-	 * whoever is watching without ever claiming to be durable.
-	 */
 	public async announce(context: SessionContext, event: SessionEvent): Promise<void> {
 		try {
 			await this.publisher.emit(context, event);
@@ -124,13 +97,6 @@ export class SessionRepository {
 		);
 	}
 
-	/**
-	 * Writes the shortcut the next rehydration would rather read than rebuild.
-	 *
-	 * It is deliberately silent about failing. The journal is already committed at this
-	 * point, so a storage that refuses the snapshot costs a replay later and nothing else,
-	 * and turning that into a thrown error would end a run that actually succeeded.
-	 */
 	private async snapshot(
 		context: SessionContext,
 		before: SessionRevision,
@@ -156,7 +122,6 @@ export class SessionRepository {
 		}
 	}
 
-	/** Observation lives outside the transaction, so its failure never rewrites history. */
 	private async publish(context: SessionContext, result: AppendEventsResult): Promise<void> {
 		if (result.isEmpty) return;
 		await this.publisher.publish(context, result.committed);

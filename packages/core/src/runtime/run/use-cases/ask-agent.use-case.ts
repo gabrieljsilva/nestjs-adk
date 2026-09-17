@@ -22,16 +22,6 @@ import type { RunSettler } from "../settle/run-settler.service";
 import type { StartedRun } from "../settle/started-run.value-object";
 import type { TurnLoop } from "../turn/turn-loop.service";
 
-/**
- * One command, from the session it belongs to through to the fact that it ended.
- *
- * The order is the whole design. The run is registered before storage is touched, so a
- * draining runtime never creates a session for a command it is about to refuse. What the
- * user said is journaled before anything else can fail, so a run that dies opening a tool
- * source leaves the question recorded and an ending recorded after it. And the run leaves
- * the active set however it settles, so a shutdown draining on it is not waiting on
- * something already over.
- */
 export class AskAgentUseCase {
 	public constructor(
 		private readonly opener: SessionOpener,
@@ -58,7 +48,6 @@ export class AskAgentUseCase {
 		);
 	}
 
-	/** The question becomes durable here, and everything after it is recorded whatever happens. */
 	private async executeInSession(
 		command: AgentRunCommand,
 		entry: RunEntry,
@@ -66,13 +55,10 @@ export class AskAgentUseCase {
 		sources: ToolSourceScope,
 		observers: RunObservers,
 	): Promise<AgentResult> {
-		// Both edges are checked before the session is touched, so a handover nobody declared
-		// and a question nobody can look at leave no trace at all.
 		const handover = this.transfers.resolve(entry.agent, command.transferTo);
 		const model = this.models.resolve(handover.definition, command.model, command.input);
 
 		const opened = await this.opener.openEntry(command, entry);
-		// Built once, here, from the session as it was opened plus what the command carried.
 		const context = RunContext.fromOpenedSession(opened.session, opened.state, started.run, {
 			signal: started.cancellation.signal,
 			actor: command.actor,
@@ -100,7 +86,6 @@ export class AskAgentUseCase {
 		);
 	}
 
-	/** From here on the run has a journal entry, so every ending it can reach gets recorded. */
 	private async executeRecorded(
 		context: RunContext,
 		command: AgentRunCommand,

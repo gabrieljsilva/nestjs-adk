@@ -1,8 +1,3 @@
-/**
- * What the gate decided about one call: the parsed arguments when it may run, or the reason it may
- * not. `wasDenied` tells a refusal of access from arguments the schema rejected, because a model
- * can fix the second and only a person can fix the first.
- */
 export class ToolAdmission {
 	private constructor(
 		public readonly isAdmitted: boolean,

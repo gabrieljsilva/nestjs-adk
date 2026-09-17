@@ -31,33 +31,15 @@ import type { StartedRun } from "../settle/started-run.value-object";
 import type { TurnExecutor } from "../turn/turn-executor.service";
 import type { TurnLoop } from "../turn/turn-loop.service";
 
-/** What a decision carries besides the decision itself. */
 export interface ApprovalOptions {
-	/** Who agreed or refused, recorded in the journal next to the decision. */
 	by?: string;
-	/** Why it was refused, which is what the model is told. */
 	reason?: string;
-	/** Sources opened for this run alone, on top of the module's. */
 	sources?: readonly ToolSource[];
-	/** The stop button of the turn this decision releases, which is a run of its own. */
 	signal?: AbortSignal;
-	/** Who is deciding, and on whose behalf the released calls then run. */
 	actor?: Actor;
-	/** Told about every call of the released turn as it settles, and about the turns that follow. */
 	toolCalls?: ToolCallObserver;
 }
 
-/**
- * Records one decision, and runs the turn once every held call of it has one.
- *
- * A turn with two calls to answer for stays suspended after the first answer. Running
- * half of it would put an effect in the world that nobody finished agreeing to, and would
- * leave the other call in the journal with no result at all.
- *
- * The approved calls are executed here rather than handed back to the model, because what
- * a human agreed to was those calls with those arguments. Everything after them is an
- * ordinary turn: the model reads the results and decides what to do next.
- */
 export class DecideApprovalUseCase {
 	public constructor(
 		private readonly catalog: AgentCatalog,
@@ -129,7 +111,6 @@ export class DecideApprovalUseCase {
 		);
 	}
 
-	/** The turn runs when nobody is waiting on it anymore, and stays suspended until then. */
 	private async release(
 		context: RunContext,
 		definition: AgentDefinition,
@@ -153,7 +134,6 @@ export class DecideApprovalUseCase {
 		return await this.results.after(running.context, started, progress);
 	}
 
-	/** Somebody still has to answer, so this run ends the way the one before it did. */
 	private async staySuspended(
 		context: RunContext,
 		started: StartedRun,

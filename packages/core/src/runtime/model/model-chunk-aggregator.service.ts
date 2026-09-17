@@ -7,16 +7,6 @@ import type { ModelChunk } from "../../domain/model/streaming/model-chunk.value-
 import { ModelUsage } from "../../domain/model/usage/model-usage.value-object";
 import { PartialToolCall } from "./partial-tool-call.value-object";
 
-/**
- * Turns the increments of one turn into the turn.
- *
- * This is the only place aggregation happens, which is what keeps `ask` and `stream`
- * honest with each other: both read the same chunks, and the text of one is the
- * concatenation of the other by construction rather than by agreement.
- *
- * One instance serves one call. It holds the partial state of that call and nothing
- * else, so two calls never see each other's fragments.
- */
 export class ModelChunkAggregator {
 	private readonly text: string[] = [];
 	private readonly calls = new Map<number, PartialToolCall>();
@@ -45,7 +35,6 @@ export class ModelChunkAggregator {
 		);
 	}
 
-	/** The text as it stands, for anything that needs the answer before the turn ends. */
 	public get aggregatedText(): string {
 		return this.text.join("");
 	}

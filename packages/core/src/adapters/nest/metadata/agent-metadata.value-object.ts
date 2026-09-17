@@ -1,10 +1,5 @@
 import { InvalidAgentMetadataError } from "../errors/invalid-agent-metadata.error";
 
-/**
- * The decorator payload, validated on the way in.
- * Reflect metadata is `unknown` by definition, so it is checked here and never
- * travels further as a loose record.
- */
 export class AgentMetadata {
 	private constructor(
 		public readonly name: string,

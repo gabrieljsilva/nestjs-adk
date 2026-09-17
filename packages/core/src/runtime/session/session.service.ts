@@ -12,18 +12,6 @@ import type { CreateSessionUseCase } from "./create-session.use-case";
 import type { InspectSessionUseCase } from "./inspect-session.use-case";
 import type { SessionRepository } from "./session-repository.service";
 
-/**
- * What an application calls to work with a conversation rather than to run one.
- *
- * Six verbs: open one, look at where one stands, read how full its context is, and find
- * one by identifier with absence either answered or refused. It is to sessions what
- * `AgentRunner` is to runs, and for the same reason: the name a consumer holds must not
- * also be the class that decides how any of it happens.
- *
- * The two lookups answer the head and nothing else, so telling whether a chat already has
- * a conversation costs one row. `inspect` and `budget` are the ones that project, because
- * where a conversation stands can only be known by reading what happened in it.
- */
 export class SessionService {
 	public constructor(
 		private readonly creating: CreateSessionUseCase,
@@ -34,17 +22,14 @@ export class SessionService {
 		private readonly context: ContextService,
 	) {}
 
-	/** Opens a conversation the application names, or names one itself when it does not. */
 	public async create(agent: AgentName, input: CreateSessionInput): Promise<Session> {
 		return this.creating.execute(agent, input);
 	}
 
-	/** Where a conversation stands, for a caller that is not running anything. */
 	public async inspect(sessionId: SessionId): Promise<SessionInspection> {
 		return this.inspecting.execute(sessionId);
 	}
 
-	/** How much of the agent's window the conversation's last call took, for a caller drawing a meter. */
 	public async budget(agent: AgentName, sessionId: SessionId): Promise<ContextBudget> {
 		return this.budgeting.execute(agent, sessionId);
 	}
@@ -57,14 +42,6 @@ export class SessionService {
 		return this.sessions.findOrFail(SessionContext.fromSessionId(sessionId));
 	}
 
-	/**
-	 * Everything the conversation left behind: its journal, its artifacts and what the runtime
-	 * was still holding in memory about it.
-	 *
-	 * The last of the three is why this exists rather than the application calling two ports
-	 * itself. `AttachmentReader` caches bytes by session and id, and a cache nobody told about
-	 * the delete would answer a later read with an image from a conversation that is gone.
-	 */
 	public async delete(sessionId: SessionId): Promise<void> {
 		const context = SessionContext.fromSessionId(sessionId);
 		await this.sessions.delete(context);

@@ -5,78 +5,31 @@ import { AgentNotBoundError } from "../../errors/agent-not-bound.error";
 import type { AgentPrompting } from "../prompt/agent-prompting.service";
 
 /**
- * An agent an application can inject as itself.
+ * An agent an application can inject as itself: the class carries the verbs of `AgentHandle`,
+ * so a service asks NestJS for it by type and calls `ask` on it.
  *
- * `@Agent` already makes the class a provider, so a service can ask NestJS for it by type.
- * What extending this adds is the verbs: the class answers `ask` the way a handle does,
- * and the service that injected it never learns that a registry exists.
- *
- * ```ts
- * @Agent({ name: "support", description: "...", prompt: "..." })
- * export class SupportAgent extends AdkAgent {}
- *
- * export class ChatService {
- *   public constructor(private readonly support: SupportAgent) {}
- *   public reply(message: string) { return this.support.ask(message); }
- * }
- * ```
- *
- * The handle arrives when the module composes the runtime, which is after NestJS has built
- * everything: an agent used before that fails saying so rather than answering half wired.
- * Extending is optional, and `AgentRegistry` stays the way to reach an agent from a class
- * that already extends something else.
+ * Override `prompt(context)` when the instruction depends on data the agent injected; it is
+ * resolved once per agent per run, and declaring `@Agent({ prompt })` as well fails at boot.
+ * A prompt that changes per run is a prompt the provider cannot cache, so keep the variable
+ * part small. The handle arrives when the module composes the runtime, and using the agent
+ * before that raises `AgentNotBoundError`.
  */
 export abstract class AdkAgent extends AgentHandle {
 	private prompts?: AgentPrompting;
 
-	/** Called once by the module, with the handle for the agent this class declared. */
 	public bindTo(handle: AgentHandle, prompting?: AgentPrompting): void {
 		this.adopt(handle);
 		this.prompts = prompting;
 	}
 
-	/** The agent this class declared, under the name the runtime knows it by. */
 	public get agentName(): AgentName {
 		return this.name;
 	}
 
-	/**
-	 * The prompt for one run, built with everything this class has injected.
-	 *
-	 * Override it when the instruction depends on data: who the customer is, which plan they
-	 * are on, what language to answer in. The agent is an ordinary NestJS provider, so the
-	 * repository that knows those things is a constructor argument like anywhere else, and the
-	 * data reaches the system prompt instead of being concatenated into the user's message.
-	 * That difference is the point: text in the system prompt is instruction, and text in the
-	 * message is something a model has already been told to treat as somebody else's words.
-	 *
-	 * ```ts
-	 * protected async prompt(context: PromptContext): Promise<string> {
-	 *   const customer = await this.customers.findByOwner(context.metadata.find(OWNER_ID));
-	 *   return this.prompting.renderFromFileOrFail("support.md", { name: customer.name });
-	 * }
-	 * ```
-	 *
-	 * A prompt built per run is a prompt the provider cannot cache. The system prompt is the
-	 * head of the prefix, so anything that changes there invalidates everything after it.
-	 * Measured on this repository's own paid suite: 3031 of 3751 prompt tokens came back
-	 * cached, worth 68% of that run's input bill. Keep the variable part small and stable
-	 * within a session: a customer name is fine, a timestamp is not. This is also why it is
-	 * resolved once per agent per run and never per turn.
-	 *
-	 * Declaring `@Agent({ prompt })` and overriding this at the same time fails at boot. Two
-	 * prompts is an ambiguity, and a precedence rule would be a silently ignored declaration.
-	 */
 	protected async prompt(_context: PromptContext): Promise<string | undefined> {
 		return undefined;
 	}
 
-	/**
-	 * Rendering and reading prompts, for use inside `prompt()`.
-	 *
-	 * It is deliberately not the same name as the method: `this.prompt` is what this agent
-	 * answers with, and `this.prompting` is what it builds that answer with.
-	 */
 	protected get prompting(): AgentPrompting {
 		const prompting = this.prompts;
 		if (prompting === undefined) throw new AgentNotBoundError(this.constructor.name);

@@ -10,19 +10,6 @@ import { ModelMessageCodec } from "../model-message/model-message.codec";
 import { StoredRow } from "../stored-row.record";
 import { CheckpointRecord } from "./checkpoint.record";
 
-/**
- * Turns a compacted prefix into a row and back.
- *
- * Nothing could write one before this existed: the in memory adapter keeps the live
- * object and the SQLite one answers `UnsupportedStorageFeatureError`, so a durable
- * storage that kept checkpoints had no way to store one.
- *
- * What has to survive the round trip is what compaction reads. A block is the smallest
- * piece that may be dropped or kept, and `closed` and `pinned` are what decide that: a
- * call read back as answered would let compaction drop a question the model is still
- * waiting on, and a skill read back unpinned would take back knowledge the model was
- * told it had.
- */
 export class CheckpointCodec {
 	public constructor(private readonly messages: ModelMessageCodec = new ModelMessageCodec()) {}
 
@@ -39,7 +26,6 @@ export class CheckpointCodec {
 		);
 	}
 
-	/** Takes the record this codec wrote, or the row a driver handed the adapter back. */
 	public decode(values: unknown): ContextCheckpoint {
 		const record = CheckpointRecord.from(values);
 		return new ContextCheckpoint(
