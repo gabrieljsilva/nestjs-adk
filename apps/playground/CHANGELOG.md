@@ -1,5 +1,51 @@
 # @workspace/playground
 
+## 0.0.5
+
+### Patch Changes
+
+- Updated dependencies [d00a048]
+- Updated dependencies [d00a048]
+- Updated dependencies [d00a048]
+- Updated dependencies [d00a048]
+- Updated dependencies [d00a048]
+- Updated dependencies [d00a048]
+- Updated dependencies [d00a048]
+- Updated dependencies [d00a048]
+- Updated dependencies [d00a048]
+- Updated dependencies [d00a048]
+- Updated dependencies [d00a048]
+- Updated dependencies [f9bd943]
+- Updated dependencies [f9bd943]
+- Updated dependencies [f9bd943]
+- Updated dependencies [f9bd943]
+- Updated dependencies [f9bd943]
+- Updated dependencies [f9bd943]
+- Updated dependencies [f9bd943]
+- Updated dependencies [9837bbb]
+- Updated dependencies [6f97cbe]
+- Updated dependencies [4591e24]
+- Updated dependencies [732ac7e]
+- Updated dependencies [b6d1bd3]
+- Updated dependencies [627334b]
+- Updated dependencies [5e1f86f]
+- Updated dependencies [ae5b34e]
+- Updated dependencies [ae5b34e]
+- Updated dependencies [ae5b34e]
+- Updated dependencies [ae5b34e]
+- Updated dependencies [ae5b34e]
+- Updated dependencies [ae5b34e]
+- Updated dependencies [ae5b34e]
+- Updated dependencies [ae5b34e]
+- Updated dependencies [ae5b34e]
+- Updated dependencies [ae5b34e]
+- Updated dependencies [ae5b34e]
+- Updated dependencies [ae5b34e]
+  - @nestjs-adk/core@2.0.0
+  - @nestjs-adk/google@2.0.0
+  - @nestjs-adk/openai@2.0.0
+  - @nestjs-adk/testing@2.0.0
+
 ## 0.0.4
 
 ### Patch Changes

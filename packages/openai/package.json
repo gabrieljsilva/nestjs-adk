@@ -1,6 +1,6 @@
 {
 	"name": "@nestjs-adk/openai",
-	"version": "1.0.0",
+	"version": "2.0.0",
 	"description": "OpenAI model adapter for nestjs-adk: the official SDK with a configurable baseURL, covering every OpenAI compatible API.",
 	"license": "MIT",
 	"sideEffects": false,
@@ -27,12 +27,12 @@
 		"openai": "^6.9.0"
 	},
 	"peerDependencies": {
-		"@nestjs-adk/core": "^1.0.0",
+		"@nestjs-adk/core": "^2.0.0",
 		"@nestjs/common": "^10.0.0 || ^11.0.0 || ^12.0.0",
 		"@nestjs/core": "^10.0.0 || ^11.0.0 || ^12.0.0"
 	},
 	"devDependencies": {
-		"@nestjs-adk/core": "^1.0.0"
+		"@nestjs-adk/core": "^2.0.0"
 	},
 	"publishConfig": {
 		"access": "public"
