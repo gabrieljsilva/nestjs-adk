@@ -9,7 +9,7 @@ const PACKAGES_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const PACKAGES = ["core", "google", "openai", "mcp", "testing"];
 
 /**
- * The categories `.knowledge/file-categories.md` declares, and the only ones a file may end with.
+ * The categories the `file-categories` guideline declares, and the only ones a file may end with.
  *
  * This list and that table are one rule written twice: a category added to the tree without a row
  * there makes the table stop being the index, so adding one here means editing the guideline in

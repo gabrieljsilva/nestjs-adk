@@ -9,7 +9,7 @@ const PACKAGES_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const PACKAGES = ["core", "google", "openai", "mcp", "testing"];
 
 /**
- * The magic values `.knowledge/comments-and-jsdoc.md` allows a comment on, by file and by a
+ * The magic values the `comments-and-jsdoc` guideline allows a comment on, by file and by a
  * fragment of the line. Each one survived the question the guideline asks first: a rename could
  * not carry it, because what it says is an external constraint rather than a name.
  *
