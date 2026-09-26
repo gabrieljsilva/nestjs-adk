@@ -22,7 +22,7 @@
 	},
 	"files": ["dist"],
 	"engines": {
-		"node": ">=20"
+		"node": ">=22.5.0"
 	},
 	"scripts": {
 		"prebuild": "rimraf -g dist",
