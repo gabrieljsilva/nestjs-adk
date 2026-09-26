@@ -2,11 +2,14 @@ import type { ArtifactId } from "../../common/identity/artifact-id.value-object"
 import type { SessionRevision } from "../../common/revision/session-revision.value-object";
 import type { AttachmentResolver } from "../../contracts/context/attachment-resolver.contract";
 import type { ArtifactStorage } from "../../contracts/storage/artifact-storage.contract";
+import { CharacterCountOffloadPolicy } from "../../domain/artifact/character-count-offload.policy";
+import type { OffloadPolicy } from "../../domain/artifact/offload.policy";
 import { AttachmentProjection } from "../../domain/model/attachment/attachment-projection.value-object";
 import type { AttachmentReference } from "../../domain/model/attachment/attachment-reference.value-object";
 import { AttachmentRequest } from "../../domain/model/attachment/attachment-request.value-object";
 import { MediaLimits } from "../../domain/model/descriptor/media-limits.value-object";
 import { MediaPart } from "../../domain/model/messages/media-part.value-object";
+import type { RunContext } from "../../domain/run/run-context.value-object";
 import type { SessionContext } from "../../domain/run/session-context.value-object";
 import { AbsentArtifactStorage } from "./absent-artifact-storage.adapter";
 import { AttachmentCache } from "./attachment-cache.service";
@@ -20,6 +23,7 @@ export class AttachmentReader {
 		private readonly storage: ArtifactStorage,
 		private readonly resolver: AttachmentResolver = new DefaultAttachmentResolver(),
 		private readonly cache: AttachmentCache = new AttachmentCache(),
+		private readonly policy: OffloadPolicy = CharacterCountOffloadPolicy.byDefault(),
 	) {}
 
 	public static none(): AttachmentReader {
@@ -31,7 +35,7 @@ export class AttachmentReader {
 	}
 
 	public async read(
-		context: SessionContext,
+		context: RunContext,
 		references: readonly AttachmentReference[],
 		revision: SessionRevision,
 		isCurrentRun: boolean,
@@ -46,17 +50,33 @@ export class AttachmentReader {
 			const projection = await this.resolveProjection(context, request);
 			const part = projection.part;
 			if (part !== undefined) media.push(part);
-			const text = projection.text;
+			const text = projection.isArtifact ? await this.describe(context, reference) : projection.text;
 			if (text !== undefined) notes.push(text);
 		}
 		return new ResolvedAttachments(media, notes);
 	}
 
-	private async resolveProjection(context: SessionContext, request: AttachmentRequest): Promise<AttachmentProjection> {
+	private async resolveProjection(context: RunContext, request: AttachmentRequest): Promise<AttachmentProjection> {
 		try {
 			return await this.resolver.resolve(context, request);
 		} catch {
 			return AttachmentProjection.fromReference(request.reference, "could not be resolved");
+		}
+	}
+
+	private async describe(context: SessionContext, reference: AttachmentReference): Promise<string> {
+		const id = reference.artifactId;
+		if (id === undefined) return AttachmentProjection.fromReference(reference, "is not a stored artifact").text ?? "";
+		const found = await this.find(context, id);
+		if (found === undefined) return AttachmentProjection.fromReference(reference, "no longer available").text ?? "";
+		return found.toString(this.policy.decide(found.characters, found.mediaType));
+	}
+
+	private async find(context: SessionContext, id: ArtifactId) {
+		try {
+			return await this.storage.find(context, id);
+		} catch {
+			return undefined;
 		}
 	}
 
@@ -88,7 +108,7 @@ export class AttachmentReader {
 			const reference = await this.storage.find(context, id);
 			if (reference === undefined) return undefined;
 			const content = await this.storage.read(context, reference);
-			return MediaPart.image(content.mediaType, content.text);
+			return MediaPart.image(content.mediaType, content.base64);
 		} catch {
 			return undefined;
 		}

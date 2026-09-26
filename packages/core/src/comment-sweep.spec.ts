@@ -40,7 +40,7 @@ const ALLOWED_MEMBER_DOCS: Record<string, number> = {
 	"core/src/contracts/context/compaction-strategy.contract.ts": 1,
 	"core/src/contracts/model/embedder.contract.ts": 1,
 	"core/src/contracts/model/prompt-source.contract.ts": 2,
-	"core/src/contracts/storage/artifact-storage.contract.ts": 1,
+	"core/src/contracts/storage/artifact-storage.contract.ts": 3,
 	"core/src/contracts/storage/session-storage.contract.ts": 2,
 	"core/src/contracts/storage/storage-capabilities.value-object.ts": 1,
 	"core/src/contracts/tool/tool-source.contract.ts": 1,

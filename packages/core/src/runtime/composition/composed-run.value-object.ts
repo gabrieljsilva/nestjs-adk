@@ -2,6 +2,7 @@ import type { ModelResolver } from "../../contracts/model/model-resolver.contrac
 import type { ToolDefinition } from "../../domain/tool/tool-definition.value-object";
 import type { ArtifactExplorer } from "../artifact/artifact-explorer.service";
 import type { ArtifactOffloader } from "../artifact/artifact-offloader.service";
+import type { AttachmentStore } from "../artifact/attachment-store.service";
 import type { EventPublisher } from "../event/event-publisher.service";
 import type { ActiveRunTracker } from "../lifecycle/active-run-tracker.service";
 import type { RuntimeLifecycle } from "../lifecycle/runtime-lifecycle.service";
@@ -25,5 +26,6 @@ export class ComposedRun {
 		public readonly readArtifact: ToolDefinition,
 		public readonly gate: ToolGate,
 		public readonly explorer: ArtifactExplorer,
+		public readonly attachments: AttachmentStore,
 	) {}
 }

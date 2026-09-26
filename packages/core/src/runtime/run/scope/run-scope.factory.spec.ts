@@ -28,6 +28,7 @@ import { SequenceIdGenerator } from "../../../support/sequence-id-generator.doub
 import { ActiveRunTracker } from "../../lifecycle/active-run-tracker.service";
 import { RuntimeLifecycle } from "../../lifecycle/runtime-lifecycle.service";
 import { ShutdownOptions } from "../../lifecycle/shutdown.options";
+import { RuntimeTools } from "../../tool/runtime-tools.value-object";
 import { AgentRunFactory } from "../agent-run.factory";
 import type { StartedRun } from "../settle/started-run.value-object";
 import { RunScopeFactory } from "./run-scope.factory";
@@ -161,14 +162,14 @@ describe("RunScopeFactory", () => {
 	it("offers the agent tools together with the ones the runtime always brings", async () => {
 		const definition = NativeStackFixture.buildDefinition(model, undefined, [toolOf("lookup_order")]);
 
-		const scope = await scopeOf(new RunScopeFactory([readArtifact]), definition);
+		const scope = await scopeOf(new RunScopeFactory(new RuntimeTools([readArtifact])), definition);
 
 		expect(scope.catalog.names).toEqual(["lookup_order", "read_artifact"]);
 	});
 
 	it("offers nothing at all to an agent that declared nothing to call", async () => {
 		const started = startedRun();
-		const scope = await new RunScopeFactory([readArtifact]).create(
+		const scope = await new RunScopeFactory(new RuntimeTools([readArtifact])).create(
 			runOf(started),
 			NativeStackFixture.buildDefinition(model),
 			model,
@@ -204,7 +205,7 @@ describe("RunScopeFactory", () => {
 
 	it("lets each level replace the one above it, and leaves untouched what a level did not declare", async () => {
 		const definition = NativeStackFixture.buildDefinition(model);
-		const factory = new RunScopeFactory([], new RunLimits(10, 5));
+		const factory = new RunScopeFactory(RuntimeTools.none(), new RunLimits(10, 5));
 
 		const started = startedRun();
 		const scope = await factory.create(runOf(started), definition, model, started, [], new RunLimits(2));
@@ -219,7 +220,7 @@ describe("RunScopeFactory", () => {
 	 * raising the module's limit for every agent it has.
 	 */
 	it("lets an agent that declared more round trips than the module have them", async () => {
-		const factory = new RunScopeFactory([], new RunLimits(8));
+		const factory = new RunScopeFactory(RuntimeTools.none(), new RunLimits(8));
 
 		const scope = await scopeOf(factory, bounded(new RunLimits(16)));
 
@@ -227,7 +228,7 @@ describe("RunScopeFactory", () => {
 	});
 
 	it("keeps an agent that declared none on the module's", async () => {
-		const factory = new RunScopeFactory([], new RunLimits(8));
+		const factory = new RunScopeFactory(RuntimeTools.none(), new RunLimits(8));
 
 		const scope = await scopeOf(factory, NativeStackFixture.buildDefinition(model));
 
@@ -235,7 +236,7 @@ describe("RunScopeFactory", () => {
 	});
 
 	it("builds the breaker on the limits it resolved, and not on the ones it was given", async () => {
-		const factory = new RunScopeFactory([], new RunLimits(undefined, 1));
+		const factory = new RunScopeFactory(RuntimeTools.none(), new RunLimits(undefined, 1));
 
 		const scope = await scopeOf(factory, NativeStackFixture.buildDefinition(model));
 
@@ -252,7 +253,7 @@ describe("RunScopeFactory", () => {
 		const declared = new NamedCompaction("agent");
 
 		it("hands the module policy to an agent that declared none", async () => {
-			const factory = new RunScopeFactory([], RunLimits.unbounded(), moduleWide);
+			const factory = new RunScopeFactory(RuntimeTools.none(), RunLimits.unbounded(), moduleWide);
 
 			const scope = await scopeOf(factory, NativeStackFixture.buildDefinition(model));
 
@@ -260,7 +261,7 @@ describe("RunScopeFactory", () => {
 		});
 
 		it("lets the agent replace it", async () => {
-			const factory = new RunScopeFactory([], RunLimits.unbounded(), moduleWide);
+			const factory = new RunScopeFactory(RuntimeTools.none(), RunLimits.unbounded(), moduleWide);
 
 			const scope = await scopeOf(factory, compacting(declared));
 
@@ -275,7 +276,7 @@ describe("RunScopeFactory", () => {
 		});
 
 		it("compacts nothing for an agent that turned it off", async () => {
-			const factory = new RunScopeFactory([], RunLimits.unbounded(), moduleWide);
+			const factory = new RunScopeFactory(RuntimeTools.none(), RunLimits.unbounded(), moduleWide);
 
 			const scope = await scopeOf(factory, compacting(false));
 
@@ -283,7 +284,7 @@ describe("RunScopeFactory", () => {
 		});
 
 		it("compacts nothing under a runtime that turned it off", async () => {
-			const factory = new RunScopeFactory([], RunLimits.unbounded(), false);
+			const factory = new RunScopeFactory(RuntimeTools.none(), RunLimits.unbounded(), false);
 
 			const scope = await scopeOf(factory, NativeStackFixture.buildDefinition(model));
 
@@ -292,7 +293,7 @@ describe("RunScopeFactory", () => {
 
 		/** The runtime saying no does not answer for an agent that said yes. */
 		it("lets an agent compact under a runtime that turned it off", async () => {
-			const factory = new RunScopeFactory([], RunLimits.unbounded(), false);
+			const factory = new RunScopeFactory(RuntimeTools.none(), RunLimits.unbounded(), false);
 
 			const scope = await scopeOf(factory, compacting(declared));
 
@@ -301,7 +302,7 @@ describe("RunScopeFactory", () => {
 
 		/** A handover runs under the rules of whoever received the session, not of whoever sent it. */
 		it("resolves again for the agent that received a handover", async () => {
-			const factory = new RunScopeFactory([], RunLimits.unbounded(), moduleWide);
+			const factory = new RunScopeFactory(RuntimeTools.none(), RunLimits.unbounded(), moduleWide);
 			const scope = await scopeOf(factory, compacting(declared));
 
 			expect((await factory.switched(scope, NativeStackFixture.buildDefinition(model), model)).compaction).toBe(
@@ -310,7 +311,7 @@ describe("RunScopeFactory", () => {
 		});
 
 		it("resolves from scratch for a delegated child", async () => {
-			const factory = new RunScopeFactory([], RunLimits.unbounded(), moduleWide);
+			const factory = new RunScopeFactory(RuntimeTools.none(), RunLimits.unbounded(), moduleWide);
 			const parent = await scopeOf(factory, NativeStackFixture.buildDefinition(model));
 
 			expect((await factory.delegated(parent, startedRun(), compacting(declared), model)).compaction).toBe(declared);

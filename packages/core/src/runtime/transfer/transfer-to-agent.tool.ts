@@ -19,7 +19,6 @@ export class TransferToAgentTool {
 			new TransferTargetSchema(policy),
 			ToolEffect.READ,
 			new TransferHandler(),
-			true,
 		);
 	}
 

@@ -22,14 +22,16 @@ describe("stdio: what a local server is allowed to see", () => {
 		vi.unstubAllGlobals();
 	});
 
+	/**
+	 * EnvAuth is how an end user's own server gets its token: inheriting everything would give that
+	 * server the LLM provider key and every other tenant's secret along with it.
+	 */
 	it("does not hand the host environment to a server carrying a credential", async () => {
 		const credential = await new EnvAuth({ GITHUB_TOKEN: "t" }).resolve();
 
 		const transport = createTransport({ type: "stdio", command: "node", args: [] }, credential);
 		const env = envOf(transport) ?? {};
 
-		// EnvAuth is how an end user's own server gets its token: inheriting everything would give that
-		// server the LLM provider key and every other tenant's secret along with it
 		expect(env.GITHUB_TOKEN).toBe("t");
 		expect(env.PRETEND_SECRET).toBeUndefined();
 	});
@@ -54,11 +56,13 @@ describe("OAuth discovery against an untrusted server", () => {
 		vi.unstubAllGlobals();
 	});
 
+	/**
+	 * Real Response objects: the guarded fetch wraps the call in a Request and reads headers to
+	 * follow redirects, so a bare `{ ok, status }` literal no longer honours the contract.
+	 */
 	function respondWith(bodies: Record<string, unknown>) {
 		vi.stubGlobal(
 			"fetch",
-			// Real Response objects: the guarded fetch wraps the call in a Request and reads headers to
-			// follow redirects, so a bare `{ ok, status }` literal no longer honours the contract.
 			vi.fn(async (input: Request | URL | string) => {
 				const key = input instanceof Request ? input.url : String(input);
 				const match = Object.keys(bodies).find((path) => key.includes(path));
@@ -71,13 +75,18 @@ describe("OAuth discovery against an untrusted server", () => {
 		);
 	}
 
+	/**
+	 * On plain http, the code and the client secret would travel in the clear.
+	 */
 	it("refuses an authorization server that is not on https", async () => {
 		respondWith({ "oauth-protected-resource": { authorization_servers: ["http://auth.example.com"] } });
 
-		// the code and the client secret would travel in the clear
 		await expect(McpOAuth.discover("https://203.0.113.10")).rejects.toBeInstanceOf(McpDiscoveryError);
 	});
 
+	/**
+	 * Confused deputy: the user consents on a real provider's screen, the token lands somewhere else.
+	 */
 	it("refuses metadata that claims to be a different issuer", async () => {
 		respondWith({
 			"oauth-protected-resource": { authorization_servers: ["https://auth.example.com"] },
@@ -88,10 +97,16 @@ describe("OAuth discovery against an untrusted server", () => {
 			},
 		});
 
-		// confused deputy: the user consents on a real provider's screen, the token lands somewhere else
 		await expect(McpOAuth.discover("https://203.0.113.10")).rejects.toBeInstanceOf(McpDiscoveryError);
 	});
 
+	/**
+	 * RFC 8707: without a `resource` parameter, a token for this server can be replayed against any
+	 * other resource trusting the same authorization server. RFC 8707 and 9728 require the whole
+	 * URL, path included — reduced to the origin it names a different resource on any server not
+	 * mounted at the root, and the authorization server compares it literally against what the
+	 * server published for itself.
+	 */
 	it("binds the token to the server it was discovered for", async () => {
 		respondWith({
 			"oauth-protected-resource": { authorization_servers: ["https://auth.example.com"] },
@@ -111,14 +126,12 @@ describe("OAuth discovery against an untrusted server", () => {
 			},
 		);
 
-		// RFC 8707: without it, a token for this server can be replayed against any other resource
-		// trusting the same authorization server.
-		// RFC 8707 and 9728: the whole URL, path included. Reduced to the origin it names a different
-		// resource on any server not mounted at the root, and the authorization server compares it
-		// literally against what the server published for itself.
 		expect(new URL(url).searchParams.get("resource")).toBe("https://203.0.113.10/mcp");
 	});
 
+	/**
+	 * A reused verifier or state would let one flow's code be redeemed by another.
+	 */
 	it("keeps PKCE and state on every authorization", async () => {
 		const discovery = {
 			issuer: "https://auth.example.com",
@@ -144,7 +157,6 @@ describe("OAuth discovery against an untrusted server", () => {
 		const params = new URL(first.url).searchParams;
 		expect(params.get("code_challenge_method")).toBe("S256");
 		expect(params.get("code_challenge")).toBeTruthy();
-		// a reused verifier or state would let one flow's code be redeemed by another
 		expect(first.verifier).not.toBe(second.verifier);
 		expect(first.state).not.toBe(second.state);
 		expect(first.url).not.toContain(first.verifier);

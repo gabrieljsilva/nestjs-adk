@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { ArtifactId } from "../../common/identity/artifact-id.value-object";
 import { SessionId } from "../../common/identity/session-id.value-object";
 import { SessionRevision } from "../../common/revision/session-revision.value-object";
 import { AttachmentReference } from "../../domain/model/attachment/attachment-reference.value-object";
 import { AttachmentRequest } from "../../domain/model/attachment/attachment-request.value-object";
 import { MediaPart } from "../../domain/model/messages/media-part.value-object";
-import { SessionContext } from "../../domain/run/session-context.value-object";
+import { RunContextFixture } from "../../support/run/run-context.fixture";
 import { SignedUrlAttachmentResolver } from "./signed-url-attachment-resolver.adapter";
 
 const PIXEL = "iVBORw0KGgo=";
@@ -21,9 +22,23 @@ function requestOf(reference: AttachmentReference, acceptsRemoteUrl: boolean, st
 	);
 }
 
-const CTX = SessionContext.fromSessionId(SessionId.from("s-1"));
+const CTX = RunContextFixture.run("s-1");
 
 describe("SignedUrlAttachmentResolver", () => {
+	it("leaves a stored text artifact to the artifact tools, minting nothing for it", async () => {
+		let signed = 0;
+		const resolver = new SignedUrlAttachmentResolver(async () => {
+			signed += 1;
+			return "https://cdn.example/never";
+		});
+		const stored = AttachmentReference.artifact(ArtifactId.from("a-1"), "text/csv");
+
+		const projection = await resolver.resolve(CTX, requestOf(stored, true));
+
+		expect(projection.isArtifact).toBe(true);
+		expect(signed).toBe(0);
+	});
+
 	it("mints a fresh address for a model that fetches URLs itself", async () => {
 		const resolver = new SignedUrlAttachmentResolver(async (externalId) => `https://cdn.example/${externalId}?sig=1`);
 

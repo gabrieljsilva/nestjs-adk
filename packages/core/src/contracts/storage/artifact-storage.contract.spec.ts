@@ -16,7 +16,7 @@ describe("ArtifactStorage", () => {
 
 	it("returns from read exactly what was given to put", async () => {
 		const storage: ArtifactStorage = new InMemoryArtifactStorage(new SequenceIdGenerator());
-		const content = new ArtifactContent("a very long report");
+		const content = ArtifactContent.fromText("a very long report");
 
 		const read = await storage.read(CTX, await storage.put(CTX, content));
 

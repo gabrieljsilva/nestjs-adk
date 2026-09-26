@@ -26,14 +26,14 @@ class SilentHandler extends ToolHandler {
 	}
 }
 
-function toolOf(name: string, effect: ToolEffect, internal = false): ToolDefinition {
-	return new ToolDefinition(name, "does something", new AnySchema(), effect, new SilentHandler(), internal);
+function toolOf(name: string, effect: ToolEffect): ToolDefinition {
+	return new ToolDefinition(name, "does something", new AnySchema(), effect, new SilentHandler());
 }
 
 const catalog = new ToolCatalog([
 	toolOf("lookup_order", ToolEffect.READ),
 	toolOf("refund_order", ToolEffect.WRITE),
-	toolOf("read_artifact", ToolEffect.READ, true),
+	toolOf("read_artifact", ToolEffect.READ),
 ]);
 
 function callTo(name: string, id: string): ToolCall {
@@ -66,10 +66,10 @@ describe("ApprovalGate", () => {
 		expect(turn[0]?.isHeld).toBe(false);
 	});
 
-	it("never holds a tool the runtime owns, whatever the policy says about its effect", () => {
+	it("holds a tool the runtime brought itself, because the policy reads its effect like any other", () => {
 		const always = new ApprovalGate(EffectApprovalPolicy.from(ToolEffect.READ));
 
-		expect(always.screen(catalog, [callTo("read_artifact", "c-1")])[0]?.isHeld).toBe(false);
+		expect(always.screen(catalog, [callTo("read_artifact", "c-1")])[0]?.isHeld).toBe(true);
 	});
 
 	it("never holds a call to something the catalog does not have, since there is no effect to hold", () => {

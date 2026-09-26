@@ -13,7 +13,7 @@ const SESSION = SessionId.from("s-1");
 const CTX = SessionContext.fromSessionId(SESSION);
 const OTHER = SessionId.from("s-2");
 const OTHER_CTX = SessionContext.fromSessionId(OTHER);
-const content = new ArtifactContent("a very long report", "text/markdown");
+const content = ArtifactContent.fromText("a very long report", "text/markdown");
 
 function storageOf(): InMemoryArtifactStorage {
 	return new InMemoryArtifactStorage(new SequenceIdGenerator("a"));
@@ -51,7 +51,7 @@ describe("InMemoryArtifactStorage", () => {
 	it("keeps two sessions apart even when the ids would have collided", async () => {
 		const storage = storageOf();
 		const mine = await storage.put(CTX, content);
-		await storage.put(OTHER_CTX, new ArtifactContent("someone else's report"));
+		await storage.put(OTHER_CTX, ArtifactContent.fromText("someone else's report"));
 
 		expect((await storage.read(CTX, mine)).text).toBe(content.text);
 	});
@@ -59,13 +59,13 @@ describe("InMemoryArtifactStorage", () => {
 	it("refuses a reference whose fingerprint does not match what is stored", async () => {
 		const storage = storageOf();
 		const reference = await storage.put(CTX, content);
-		const tampered = ArtifactReference.restore(
-			reference.id,
-			SESSION,
-			new ArtifactContent("a tampered report").digest(),
-			reference.mediaType,
-			reference.characters,
-		);
+		const tampered = ArtifactReference.restore({
+			id: reference.id,
+			sessionId: SESSION,
+			digest: ArtifactContent.fromText("a tampered report").digest(),
+			mediaType: reference.mediaType,
+			characters: reference.characters,
+		});
 
 		const error = await storage.read(CTX, tampered).catch((reason) => reason);
 

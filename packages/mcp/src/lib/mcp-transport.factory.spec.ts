@@ -27,13 +27,16 @@ describe("createTransport", () => {
 		expect(headersOf(transport)).toMatchObject({ "X-Api-Key": "k" });
 	});
 
+	/**
+	 * The renewed token is the one that just came out of the auth provider, so it must win over a
+	 * statically configured header.
+	 */
 	it("lets the credential win over a statically configured header", () => {
 		const transport = createTransport(
 			{ type: "http", url: "https://203.0.113.10", headers: { Authorization: "Bearer stale" } },
 			{ headers: { Authorization: "Bearer fresh" } },
 		);
 
-		// the renewed token is the one that just came out of the auth provider
 		expect(headersOf(transport)).toMatchObject({ Authorization: "Bearer fresh" });
 	});
 
@@ -53,11 +56,14 @@ describe("connection identity", () => {
 		expect(server.id).toBe("row-42");
 	});
 
+	/**
+	 * Same URL, different people: collapsing these would run one user's tools with another's
+	 * credential.
+	 */
 	it("keeps two accounts on the same server apart", () => {
 		const personal = new AdkMcpServer({ name: "clickup-pessoal", transport, auth: new BearerAuth("token-a") });
 		const company = new AdkMcpServer({ name: "clickup-empresa", transport, auth: new BearerAuth("token-b") });
 
-		// same URL, different people: collapsing these would run one user's tools with another's credential
 		expect(personal.id).not.toBe(company.id);
 	});
 
@@ -68,10 +74,12 @@ describe("connection identity", () => {
 		expect(first.id).toBe(second.id);
 	});
 
+	/**
+	 * The id reaches logs and metrics; a token in it would leak with them.
+	 */
 	it("never puts the credential itself in the id", () => {
 		const server = new AdkMcpServer({ name: "clickup", transport, auth: new BearerAuth("super-secret-token") });
 
-		// the id reaches logs and metrics; a token in it would leak with them
 		expect(server.id).not.toContain("super-secret-token");
 	});
 
@@ -82,6 +90,10 @@ describe("connection identity", () => {
 		expect(anonymous.id).not.toBe(authenticated.id);
 	});
 
+	/**
+	 * `#private` is invisible to `JSON.stringify`: deriving the id by serialization would have
+	 * made these identical, and one user would have run tools with the other's credential.
+	 */
 	it("keeps a custom auth's connections apart even with real private fields", () => {
 		class VaultAuth extends AdkMcpAuth {
 			readonly #token: string;
@@ -103,8 +115,6 @@ describe("connection identity", () => {
 		const mine = new AdkMcpServer({ name: "a", transport, auth: new VaultAuth("token-a") });
 		const yours = new AdkMcpServer({ name: "b", transport, auth: new VaultAuth("token-b") });
 
-		// `#private` is invisible to JSON.stringify: deriving the id by serialization would have made
-		// these identical, and one user would have run tools with the other's credential
 		expect(mine.id).not.toBe(yours.id);
 	});
 

@@ -28,9 +28,8 @@ class NamedModel extends LlmModel {
 		);
 	}
 
-	public async *generate(): AsyncIterable<ModelChunk> {
-		// nothing to answer: the policy never generates
-	}
+	/** Never invoked: this policy decides from the queue and the failure alone, without generating. */
+	public async *generate(): AsyncIterable<ModelChunk> {}
 }
 
 const primary = new NamedModel("primary");

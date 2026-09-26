@@ -8,7 +8,7 @@ import { EventSchemaVersion } from "../../event-schema-version.value-object";
 import { SessionEventCodec } from "../../session-event.codec";
 import { AttachmentReferenceCodec } from "../attachment-reference.codec";
 
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 
 export class ToolResultProducedCodec extends SessionEventCodec<ToolResultProduced> {
 	public readonly type = ToolResultProduced.TYPE;

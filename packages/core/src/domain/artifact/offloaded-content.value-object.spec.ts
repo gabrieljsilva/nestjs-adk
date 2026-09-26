@@ -8,7 +8,7 @@ import { OffloadedContent } from "./offloaded-content.value-object";
 const reference = ArtifactReference.fromContent(
 	ArtifactId.from("a-1"),
 	SessionId.from("s-1"),
-	new ArtifactContent("a very long report"),
+	ArtifactContent.fromText("a very long report"),
 );
 
 describe("OffloadedContent", () => {

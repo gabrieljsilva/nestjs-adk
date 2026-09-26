@@ -53,10 +53,46 @@ export class SqliteArtifactStorage extends ArtifactStorage {
 		return content;
 	}
 
+	public async update(
+		context: SessionContext,
+		reference: ArtifactReference,
+		content: ArtifactContent,
+	): Promise<ArtifactReference> {
+		const sessionId = context.sessionId;
+		const held = reference.belongsTo(sessionId) ? this.artifacts.find(sessionId, reference.id) : undefined;
+		if (held === undefined) throw new ArtifactNotFoundError(reference.id.value, sessionId.value);
+		if (!reference.matches(held)) {
+			throw new TamperedArtifactReferenceError(reference.id.value, reference.digest.toString(), held.digest().toString());
+		}
+		this.artifacts.replace(sessionId, reference.id, content);
+		return ArtifactReference.fromContent(reference.id, sessionId, content);
+	}
+
 	public async find(context: SessionContext, artifactId: ArtifactId): Promise<ArtifactReference | undefined> {
 		const sessionId = context.sessionId;
 		const content = this.artifacts.find(sessionId, artifactId);
 		return content === undefined ? undefined : ArtifactReference.fromContent(artifactId, sessionId, content);
+	}
+
+	public async list(context: SessionContext, limit: number): Promise<readonly ArtifactReference[]> {
+		const sessionId = context.sessionId;
+		return this.artifacts
+			.list(sessionId, limit)
+			.map(([id, content]) => ArtifactReference.fromContent(id, sessionId, content));
+	}
+
+	public override async readRange(
+		context: SessionContext,
+		reference: ArtifactReference,
+		offset: number,
+		length: number,
+	): Promise<string> {
+		const sessionId = context.sessionId;
+		const slice = reference.belongsTo(sessionId)
+			? this.artifacts.findRange(sessionId, reference.id, offset, length)
+			: undefined;
+		if (slice === undefined) throw new ArtifactNotFoundError(reference.id.value, sessionId.value);
+		return slice;
 	}
 
 	public async deleteAll(context: SessionContext): Promise<void> {

@@ -10,11 +10,11 @@ export class RegexGuard {
 	public static readonly MAX_PATTERN_CHARACTERS = MAX_PATTERN_CHARACTERS;
 	public static readonly MAX_REPETITION = MAX_REPETITION;
 
-	public build(pattern: string): RegExp | RejectedPattern {
+	public build(pattern: string, caseSensitive = true): RegExp | RejectedPattern {
 		const rejected = this.reject(pattern);
 		if (rejected !== undefined) return rejected;
 		try {
-			return new RegExp(pattern, "g");
+			return new RegExp(pattern, caseSensitive ? "g" : "gi");
 		} catch (cause) {
 			return new RejectedPattern(`the pattern does not compile: ${cause instanceof Error ? cause.message : "unknown"}.`);
 		}

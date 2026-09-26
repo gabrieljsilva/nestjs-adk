@@ -7,6 +7,8 @@ import {
 	CharacterCountOffloadPolicy,
 	type ContextNotice,
 	ContextNoticeSink,
+	DuplicateRuntimeToolNameError,
+	ListArtifactsTool,
 	LlmModel,
 	ModelCapabilities,
 	ModelCapability,
@@ -76,6 +78,16 @@ function refundTool(handler: ToolHandler): ToolDefinition {
 		ZodToolSchema.fromSchema(z.object({ orderId: z.string() })),
 		ToolEffect.DESTRUCTIVE,
 		handler,
+	);
+}
+
+function namedTool(name: string): ToolDefinition {
+	return new ToolDefinition(
+		name,
+		"Something the application wrote itself",
+		ZodToolSchema.fromSchema(z.object({ artifactId: z.string() })),
+		ToolEffect.READ,
+		new RefundHandler(),
 	);
 }
 
@@ -160,6 +172,32 @@ describe("a runtime composed without a NestJS container", () => {
 		await adk.stop();
 
 		expect(notices.notices.filter((candidate) => candidate instanceof ArtifactsNotDurable)).toEqual([]);
+	});
+
+	it("refuses to start when a hand-built agent declares a tool under a name the runtime owns", async () => {
+		const colliding = createAdkRuntime({ agents: [supportAgent([namedTool(ListArtifactsTool.NAME)])] });
+
+		await expect(colliding).rejects.toThrow(DuplicateRuntimeToolNameError);
+		await expect(colliding).rejects.toThrow(/rename yours/);
+	});
+
+	it("names the hand-built agent as its own provider, because without a container there is nothing else to name", async () => {
+		const raised = await createAdkRuntime({ agents: [supportAgent([namedTool("read_artifact")])] }).catch(
+			(error: unknown) => error,
+		);
+
+		expect(raised).toBeInstanceOf(DuplicateRuntimeToolNameError);
+		const error = raised as DuplicateRuntimeToolNameError;
+		expect([error.toolName, error.agentName, error.providerName]).toEqual(["read_artifact", "support", "support"]);
+	});
+
+	it("starts a hand-built agent that asked for a runtime tool, since a request shares its name on purpose", async () => {
+		const adk = await createAdkRuntime({ agents: [supportAgent([ListArtifactsTool.request()])] });
+
+		const answer = await adk.findAgent("support").ask("hello");
+		await adk.stop();
+
+		expect(answer.text).toBe("order 42 is refunded");
 	});
 
 	it("says nothing when nothing is ever moved out, because then there is nothing to lose", async () => {

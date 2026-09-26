@@ -31,6 +31,22 @@ describe("AttachmentReference", () => {
 		expect(reference.isLink).toBe(false);
 	});
 
+	it("tells an image, which needs a model that sees, from a text artifact, which a tool reads", () => {
+		const image = AttachmentReference.artifact(ArtifactId.from("a-1"), "image/png");
+		const text = AttachmentReference.artifact(ArtifactId.from("a-2"), "text/markdown");
+		const unknown = AttachmentReference.artifact(ArtifactId.from("a-3"));
+
+		expect(image.isImage).toBe(true);
+		expect(image.needsMediaInput).toBe(true);
+		expect(image.isReadableArtifact).toBe(false);
+		expect(text.isImage).toBe(false);
+		expect(text.needsMediaInput).toBe(false);
+		expect(text.isReadableArtifact).toBe(true);
+		expect(unknown.needsMediaInput).toBe(true);
+		expect(unknown.isReadableArtifact).toBe(false);
+		expect(AttachmentReference.external("file-7", "text/csv").isReadableArtifact).toBe(false);
+	});
+
 	it("is external only when it carries an external id", () => {
 		expect(AttachmentReference.artifact(ArtifactId.from("a-1")).isExternal).toBe(false);
 		expect(AttachmentReference.link("https://cdn.example/x.png", "image/png").isExternal).toBe(false);

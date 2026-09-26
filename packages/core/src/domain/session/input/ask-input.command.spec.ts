@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { ArtifactId } from "../../../common/identity/artifact-id.value-object";
 import { SessionId } from "../../../common/identity/session-id.value-object";
+import { ArtifactContent } from "../../artifact/artifact-content.value-object";
 import { AttachmentReference } from "../../model/attachment/attachment-reference.value-object";
 import { MediaLimits } from "../../model/descriptor/media-limits.value-object";
 import { MediaTooLargeError } from "../../model/errors/media-too-large.error";
@@ -35,6 +37,38 @@ describe("AskInput", () => {
 
 		expect(input.hasAttachments).toBe(true);
 		expect(input.attachments).toHaveLength(2);
+	});
+
+	it("carries files as attachments a tool reads, and they do not ask for a model that sees", () => {
+		const input = new AskInput({
+			message: "summarize",
+			files: [ArtifactContent.fromText("# notes", "text/markdown")],
+		});
+
+		expect(input.hasAttachments).toBe(true);
+		expect(input.hasMediaAttachments).toBe(false);
+		expect(input.files).toHaveLength(1);
+	});
+
+	it("asks for a model that sees only for an image, whichever form it arrived in", () => {
+		const image = new AskInput({ message: "look", attachments: [imageOf()] });
+		const imageReference = new AskInput({
+			message: "look",
+			references: [AttachmentReference.artifact(ArtifactId.from("a-1"), "image/png")],
+		});
+		const textReference = new AskInput({
+			message: "read",
+			references: [AttachmentReference.artifact(ArtifactId.from("a-2"), "text/csv")],
+		});
+		const unknownReference = new AskInput({
+			message: "look",
+			references: [AttachmentReference.artifact(ArtifactId.from("a-3"))],
+		});
+
+		expect(image.hasMediaAttachments).toBe(true);
+		expect(imageReference.hasMediaAttachments).toBe(true);
+		expect(textReference.hasMediaAttachments).toBe(false);
+		expect(unknownReference.hasMediaAttachments).toBe(true);
 	});
 
 	it("still requires words, because an image with nothing asked about it is a guess", () => {

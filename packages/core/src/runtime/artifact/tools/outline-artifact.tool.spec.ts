@@ -31,7 +31,7 @@ async function outlineOf(content: ArtifactContent, args: Record<string, unknown>
 	>;
 }
 
-const document = new ArtifactContent(
+const document = ArtifactContent.fromText(
 	JSON.stringify({ orders: [{ id: "A-1", total: 349 }], customer: { name: "ada", tier: "gold" } }),
 	"application/json",
 );
@@ -76,8 +76,29 @@ describe("OutlineArtifactTool", () => {
 		});
 	});
 
+	it("reads a CSV as columns with a type and a sample, and never as text", async () => {
+		const answer = await outlineOf(ArtifactContent.fromText("id,total\n1,349\n2,12", "text/csv"));
+
+		expect(answer.kind).toBe("csv");
+		expect(answer.rows).toBe(2);
+		expect((answer.columns as { name: string; type: string }[]).map((column) => [column.name, column.type])).toEqual([
+			["id", "integer"],
+			["total", "integer"],
+		]);
+	});
+
+	it("reads Markdown as its headings with their line, whatever the declared type says", async () => {
+		const answer = await outlineOf(ArtifactContent.fromText("# Report\n\ntext\n## Costs\nmore", "text/plain"));
+
+		expect(answer.kind).toBe("markdown");
+		expect(answer.headings).toEqual([
+			{ level: 1, title: "Report", line: 1 },
+			{ level: 2, title: "Costs", line: 4 },
+		]);
+	});
+
 	it("measures text instead, and shows how it starts", async () => {
-		const answer = await outlineOf(new ArtifactContent("first\nsecond\nthird", "text/plain"));
+		const answer = await outlineOf(ArtifactContent.fromText("first\nsecond\nthird", "text/plain"));
 
 		expect(answer.kind).toBe("text");
 		expect(answer.lines).toBe(3);
@@ -87,7 +108,7 @@ describe("OutlineArtifactTool", () => {
 	});
 
 	it("counts bytes and characters apart, because one is the wire and the other the window", async () => {
-		const answer = await outlineOf(new ArtifactContent("café", "text/plain"));
+		const answer = await outlineOf(ArtifactContent.fromText("café", "text/plain"));
 
 		expect(answer.characters).toBe(4);
 		expect(answer.bytes).toBe(5);
@@ -96,7 +117,7 @@ describe("OutlineArtifactTool", () => {
 	it("answers shallower rather than not at all when the outline does not fit", async () => {
 		const wide = JSON.stringify(Object.fromEntries(Array.from({ length: 300 }, (_at, at) => [`key-${at}`, { at }])));
 
-		const answer = await outlineOf(new ArtifactContent(wide, "application/json"), { depth: 6 }, 200);
+		const answer = await outlineOf(ArtifactContent.fromText(wide, "application/json"), { depth: 6 }, 200);
 
 		expect(ArtifactBudget.measure(answer)).toBeLessThanOrEqual(200);
 		expect(answer.outline).toBeDefined();

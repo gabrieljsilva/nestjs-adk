@@ -10,6 +10,7 @@ import type { ToolDefinition } from "../../../domain/tool/tool-definition.value-
 import { DelegateToAgentTool } from "../../delegation/delegate-to-agent.tool";
 import { ActivateSkillTool } from "../../skill/activate-skill.tool";
 import { SkillCatalog } from "../../skill/skill-catalog.service";
+import { RuntimeTools } from "../../tool/runtime-tools.value-object";
 import { ToolBreaker } from "../../tool/tool-breaker.service";
 import { ToolCatalog } from "../../tool/tool-catalog.service";
 import { TransferToAgentTool } from "../../transfer/transfer-to-agent.tool";
@@ -20,7 +21,7 @@ export class RunScopeFactory {
 	private readonly standardCompaction = new WindowShareCompactionPolicy();
 
 	public constructor(
-		private readonly runtimeTools: readonly ToolDefinition[] = [],
+		private readonly runtimeTools: RuntimeTools = RuntimeTools.none(),
 		private readonly limits: RunLimits = RunLimits.unbounded(),
 		private readonly compaction?: AdkCompactionPolicy | false,
 	) {}
@@ -125,6 +126,6 @@ export class RunScopeFactory {
 			...(definition.transfersToAnyone ? [TransferToAgentTool.forPolicy(definition.transfer)] : []),
 			...(definition.delegatesToAnyone ? [DelegateToAgentTool.forPolicy(definition.delegation)] : []),
 		];
-		return new ToolCatalog(declared.length === 0 ? [] : [...declared, ...this.runtimeTools]);
+		return new ToolCatalog(declared.length === 0 ? [] : [...declared, ...this.runtimeTools.bind(declared)]);
 	}
 }

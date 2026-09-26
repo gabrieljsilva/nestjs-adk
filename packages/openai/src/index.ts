@@ -1,5 +1,5 @@
 export { OpenAiModel } from "./model/openai-model.adapter";
-export type { OpenAiOptions } from "./model/openai.options";
+export type { OpenAiCapabilities, OpenAiOptions } from "./model/openai.options";
 export { OpenAiTransport } from "./transport/openai-transport.contract";
 export { OpenAiChatRequest } from "./mapping/openai-chat-request.value-object";
 export { OpenAiRequestMapper } from "./mapping/openai-request.mapper";

@@ -14,7 +14,7 @@
 			"require": "./dist/index.cjs"
 		},
 		"./matchers": {
-			"types": "./dist/matchers.d.ts",
+			"types": "./dist/matchers.support.d.ts",
 			"import": "./dist/matchers.mjs",
 			"require": "./dist/matchers.cjs"
 		},

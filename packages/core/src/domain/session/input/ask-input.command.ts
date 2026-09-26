@@ -1,4 +1,5 @@
 import type { SessionId } from "../../../common/identity/session-id.value-object";
+import type { ArtifactContent } from "../../artifact/artifact-content.value-object";
 import type { AttachmentReference } from "../../model/attachment/attachment-reference.value-object";
 import { MediaLimits } from "../../model/descriptor/media-limits.value-object";
 import { MediaTooLargeError } from "../../model/errors/media-too-large.error";
@@ -12,6 +13,7 @@ export interface AskInputParams {
 	sessionId?: SessionId;
 	attachments?: readonly MediaPart[];
 	references?: readonly AttachmentReference[];
+	files?: readonly ArtifactContent[];
 	metadata?: SessionMetadata;
 	limits?: MediaLimits;
 }
@@ -26,6 +28,7 @@ export class AskInput {
 	public readonly sessionId: SessionId | undefined;
 	public readonly attachments: readonly MediaPart[];
 	public readonly references: readonly AttachmentReference[];
+	public readonly files: readonly ArtifactContent[];
 	public readonly metadata: SessionMetadata;
 
 	public constructor(params: AskInputParams) {
@@ -41,6 +44,7 @@ export class AskInput {
 		this.sessionId = params.sessionId;
 		this.attachments = [...attachments];
 		this.references = [...(params.references ?? [])];
+		this.files = [...(params.files ?? [])];
 		this.metadata = params.metadata ?? SessionMetadata.empty();
 	}
 
@@ -49,7 +53,15 @@ export class AskInput {
 	}
 
 	public get hasAttachments(): boolean {
-		return this.attachments.length > 0 || this.references.length > 0;
+		return this.attachments.length > 0 || this.references.length > 0 || this.files.length > 0;
+	}
+
+	public get hasMediaAttachments(): boolean {
+		return (
+			this.attachments.length > 0 ||
+			this.references.some((reference) => reference.needsMediaInput) ||
+			this.files.some((file) => file.mediaType.startsWith("image/"))
+		);
 	}
 
 	public get continuesSession(): boolean {

@@ -12,10 +12,21 @@ import { ArtifactStorageContractSuite } from "./artifact-storage-contract-suite.
 
 /** A store that hands back whatever it holds, whichever session asked. */
 class UnscopedArtifactStorage extends InMemoryArtifactStorage {
+	private readonly writers: SessionContext[] = [];
+
+	public override async put(context: SessionContext, content: ArtifactContent) {
+		this.writers.push(context);
+		return super.put(context, content);
+	}
+
 	public override async find(context: SessionContext, artifactId: Parameters<InMemoryArtifactStorage["find"]>[1]) {
 		const mine = await super.find(context, artifactId);
 		if (mine !== undefined) return mine;
-		return super.find(SessionContext.fromSessionId(SessionId.from("s-1")), artifactId);
+		for (const writer of this.writers) {
+			const theirs = await super.find(writer, artifactId);
+			if (theirs !== undefined) return theirs;
+		}
+		return undefined;
 	}
 }
 
@@ -29,7 +40,7 @@ class ForgetfulArtifactStorage extends InMemoryArtifactStorage {
 	}
 
 	public override async read(): Promise<ArtifactContent> {
-		return this.latest ?? new ArtifactContent("nothing was ever written");
+		return this.latest ?? ArtifactContent.fromText("nothing was ever written");
 	}
 }
 

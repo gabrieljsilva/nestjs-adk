@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ModelResolver } from "../../contracts/model/model-resolver.contract";
 import type { AgentDefinition } from "../../domain/agent/agent-definition.value-object";
+import { ArtifactContent } from "../../domain/artifact/artifact-content.value-object";
 import { ModelCapabilities } from "../../domain/model/descriptor/model-capabilities.value-object";
 import { ModelCapability } from "../../domain/model/descriptor/model-capability.value-object";
 import { UnsupportedCapabilityError } from "../../domain/model/errors/unsupported-capability.error";
@@ -67,6 +68,16 @@ describe("ModelService", () => {
 		const seeing = modelNamed("seeing", true);
 
 		expect(serviceOf(seeing).resolve(ANY_AGENT, undefined, askingWithImage())).toBe(seeing);
+	});
+
+	it("lets a text artifact through to a model that cannot see, because a tool reads it", () => {
+		const blind = modelNamed("blind", false);
+		const reading = new AskInput({
+			message: "summarize",
+			files: [ArtifactContent.fromText("# notes", "text/markdown")],
+		});
+
+		expect(serviceOf(blind).resolve(ANY_AGENT, undefined, reading)).toBe(blind);
 	});
 
 	it("says nothing about capabilities for a question carrying no attachment", () => {

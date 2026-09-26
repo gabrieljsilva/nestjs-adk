@@ -26,15 +26,6 @@ class NoopHandler extends ToolHandler {
 
 const CALL = ToolCallId.from("c-1");
 const refund = new ToolDefinition("refund_order", "Refunds.", new AnySchema(), ToolEffect.WRITE, new NoopHandler());
-const readArtifact = new ToolDefinition(
-	"read_artifact",
-	"Reads.",
-	new AnySchema(),
-	ToolEffect.READ,
-	new NoopHandler(),
-	true,
-);
-
 describe("ToolCallNotice", () => {
 	it("carries the call as the gate screened it, with the tool beside it", () => {
 		const notice = ToolCallNotice.fromCall(new PendingCall(CALL, "refund_order", { orderId: "42" }, "write"), refund);
@@ -45,7 +36,6 @@ describe("ToolCallNotice", () => {
 		expect(notice.isHeld).toBe(true);
 		expect(notice.effect).toBe(ToolEffect.WRITE);
 		expect(notice.isKnown).toBe(true);
-		expect(notice.isInternal).toBe(false);
 	});
 
 	it("reads a call nobody held as not held", () => {
@@ -60,11 +50,6 @@ describe("ToolCallNotice", () => {
 		expect(notice.isKnown).toBe(false);
 		expect(notice.effect).toBeUndefined();
 		expect(notice.tool).toBeUndefined();
-		expect(notice.isInternal).toBe(false);
-	});
-
-	it("marks a tool the runtime owns", () => {
-		expect(ToolCallNotice.fromCall(new PendingCall(CALL, "read_artifact", {}), readArtifact).isInternal).toBe(true);
 	});
 
 	it("hands out a copy of the arguments, so an observer cannot change what will run", () => {

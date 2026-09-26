@@ -46,10 +46,37 @@ export class InMemoryArtifactStorage extends ArtifactStorage {
 		return content;
 	}
 
+	public async update(
+		context: SessionContext,
+		reference: ArtifactReference,
+		content: ArtifactContent,
+	): Promise<ArtifactReference> {
+		const sessionId = context.sessionId;
+		const owned = reference.belongsTo(sessionId) ? this.bySession.get(sessionId.value) : undefined;
+		const held = owned?.get(reference.id.value);
+		if (owned === undefined || held === undefined) {
+			throw new ArtifactNotFoundError(reference.id.value, sessionId.value);
+		}
+		if (!reference.matches(held)) {
+			throw new TamperedArtifactReferenceError(reference.id.value, reference.digest.toString(), held.digest().toString());
+		}
+		owned.set(reference.id.value, content);
+		return ArtifactReference.fromContent(reference.id, sessionId, content);
+	}
+
 	public async find(context: SessionContext, artifactId: ArtifactId): Promise<ArtifactReference | undefined> {
 		const sessionId = context.sessionId;
 		const content = this.bySession.get(sessionId.value)?.get(artifactId.value);
 		return content === undefined ? undefined : ArtifactReference.fromContent(artifactId, sessionId, content);
+	}
+
+	public async list(context: SessionContext, limit: number): Promise<readonly ArtifactReference[]> {
+		const sessionId = context.sessionId;
+		const owned = [...(this.bySession.get(sessionId.value) ?? new Map<string, ArtifactContent>())];
+		return owned
+			.reverse()
+			.slice(0, Math.max(0, Math.trunc(limit)))
+			.map(([id, content]) => ArtifactReference.fromContent(ArtifactId.from(id), sessionId, content));
 	}
 
 	public async deleteAll(context: SessionContext): Promise<void> {

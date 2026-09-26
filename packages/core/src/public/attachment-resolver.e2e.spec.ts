@@ -11,6 +11,8 @@ import { AgentDescription } from "../domain/agent/agent-description.value-object
 import { AgentExecutionPolicies } from "../domain/agent/agent-execution-policies.value-object";
 import { AgentName } from "../domain/agent/agent-name.value-object";
 import { DeclaredAgent } from "../domain/agent/declared-agent.value-object";
+import { ArtifactContent } from "../domain/artifact/artifact-content.value-object";
+import { ArtifactName } from "../domain/artifact/artifact-name.value-object";
 import { UserMessageReceived } from "../domain/event/catalog/session/user-message-received.event";
 import { AttachmentProjection } from "../domain/model/attachment/attachment-projection.value-object";
 import { AttachmentReference } from "../domain/model/attachment/attachment-reference.value-object";
@@ -29,6 +31,7 @@ import { ModelChunk } from "../domain/model/streaming/model-chunk.value-object";
 import { PromptInstructions } from "../domain/prompt/prompt-instructions.value-object";
 import { SessionContext } from "../domain/run/session-context.value-object";
 import { AskInput } from "../domain/session/input/ask-input.command";
+import { CreateSessionInput } from "../domain/session/input/create-session-input.command";
 import { RuntimeOptions } from "../runtime/composition/runtime.options";
 import { AgentRunCommand } from "../runtime/run/agent-run.command";
 import { FakeClock } from "../support/fake-clock.double";
@@ -43,7 +46,10 @@ const RECEIPT = AttachmentReference.external("upload-42", "image/png");
 class SeeingModel extends LlmModel {
 	public readonly requests: ModelRequest[] = [];
 
-	public constructor(private readonly fetchesUrls: boolean = false) {
+	public constructor(
+		private readonly fetchesUrls: boolean = false,
+		private readonly sees: boolean = true,
+	) {
 		super();
 	}
 
@@ -52,7 +58,7 @@ class SeeingModel extends LlmModel {
 			new ModelIdentity("acme", this.fetchesUrls ? "fetching" : "seeing"),
 			new ModelContextWindow(100_000, 4000),
 			ModelCapabilities.fromEntries([
-				[ModelCapability.MEDIA_INPUT, true],
+				[ModelCapability.MEDIA_INPUT, this.sees],
 				[ModelCapability.MEDIA_URL, this.fetchesUrls],
 			]),
 		);
@@ -119,6 +125,44 @@ async function startedWith(model: LlmModel, resolver?: AttachmentResolver, stora
 	});
 	return { runtime, storage };
 }
+
+describe("a file the model reads rather than looks at", () => {
+	it("reaches a model that cannot see as a placeholder the artifact tools resolve", async () => {
+		const blind = new SeeingModel(false, false);
+		const { runtime } = await startedWith(blind);
+
+		const result = await runtime.runner.ask(
+			new AgentRunCommand({
+				agent: SUPPORT,
+				input: new AskInput({
+					message: "summarize the report",
+					files: [ArtifactContent.fromText("# Q3\n\nRevenue up.", "text/markdown", ArtifactName.fromText("q3.md"))],
+				}),
+			}),
+		);
+
+		expect(result.text).toBe("answer 1");
+		expect(blind.lastUserMessage?.hasMedia).toBe(false);
+		expect(blind.lastUserMessage?.text).toContain("summarize the report");
+		expect(blind.lastUserMessage?.text).toContain('[artifact a-1 "q3.md", text/markdown');
+		expect(blind.lastUserMessage?.text).toContain("read_artifact");
+	});
+
+	it("can be attached to an open conversation first and named in a later question", async () => {
+		const model = new SeeingModel();
+		const { runtime } = await startedWith(model);
+		const session = await runtime.sessions.create(SUPPORT, CreateSessionInput.fromOptions("chat-1"));
+		const reference = await runtime.sessions.attachArtifact(
+			session.id,
+			ArtifactContent.fromText("a,b\n1,2", "text/csv", ArtifactName.fromText("sales.csv")),
+		);
+
+		await runtime.runner.ask(askWith([reference], session.id));
+
+		expect(model.lastUserMessage?.text).toContain('"sales.csv"');
+		expect(model.lastUserMessage?.hasMedia).toBe(false);
+	});
+});
 
 describe("a question naming a file the application owns", () => {
 	it("records the id in the journal and never the bytes, which stay with the application", async () => {

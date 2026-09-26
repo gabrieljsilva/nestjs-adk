@@ -38,13 +38,15 @@ describe("client authentication", () => {
 		expect(headersSent(call).get("authorization")).toBeNull();
 	});
 
+	/**
+	 * RFC 6749 §2.3.1: both halves are form-urlencoded before the colon, and a provider that decodes
+	 * them gets "c/1" and "s:2" back rather than a split on the wrong colon.
+	 */
 	it("sends the secret as Basic when the registration settled on it", async () => {
 		const call = responds(JSON.stringify({ access_token: "t" }));
 
 		await new McpTokenEndpoint({ ...CLIENT, authMethod: "client_secret_basic" }, { fetch: call }).exchange(GRANT);
 
-		// RFC 6749 §2.3.1: both halves are form-urlencoded before the colon, and a provider that decodes
-		// them gets "c/1" and "s:2" back rather than a split on the wrong colon.
 		const decoded = Buffer.from(headersSent(call).get("authorization")?.slice(6) ?? "", "base64").toString();
 		expect(decoded).toBe("c%2F1:s%3A2");
 		expect(sent(call).get("client_secret")).toBeNull();
@@ -102,9 +104,11 @@ describe("how a refusal is classified", () => {
 		await expect(new McpTokenEndpoint(CLIENT, { fetch: call }).renew("r")).rejects.toMatchObject({ rejection });
 	});
 
+	/**
+	 * A 429 revoked nothing, and a body naming an error does not change that: retrying is the whole
+	 * difference between a minute of degraded tools and a user sent through consent for nothing.
+	 */
 	it("classifies a provider rate limit ahead of the OAuth code it happens to carry", async () => {
-		// A 429 revoked nothing, and a body naming an error does not change that: retrying is the whole
-		// difference between a minute of degraded tools and a user sent through consent for nothing.
 		const call = responds(JSON.stringify({ error: "invalid_request" }), { status: 429 });
 
 		await expect(new McpTokenEndpoint(CLIENT, { fetch: call }).renew("r")).rejects.toMatchObject({

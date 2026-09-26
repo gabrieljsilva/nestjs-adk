@@ -38,10 +38,6 @@ describe("DelegateToAgentTool", () => {
 		expect(parsed.values).toEqual({ agentName: "researcher", task: "find the policy" });
 	});
 
-	it("is internal, so no approval policy stands between an agent and its own specialist", () => {
-		expect(toolFor(RESEARCHER).internal).toBe(true);
-	});
-
 	it("reads the request back only from a call that was actually a delegation", () => {
 		expect(DelegateToAgentTool.requestIn("delegate_to_agent", { agentName: "researcher", task: "go" })?.task).toBe("go");
 		expect(DelegateToAgentTool.requestIn("lookup_order", { agentName: "researcher", task: "go" })).toBeUndefined();

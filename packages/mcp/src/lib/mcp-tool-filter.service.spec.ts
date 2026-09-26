@@ -21,10 +21,12 @@ describe("McpToolFilter: which tools of a source may be used", () => {
 		expect(filter.admits("delete_repo")).toBe(false);
 	});
 
+	/**
+	 * The two lists express opposite intents, and only "off is final" fails safe.
+	 */
 	it("lets denial win when both lists name the same tool", () => {
 		const filter = new McpToolFilter(["delete_repo"], ["delete_repo"]);
 
-		// the two lists express opposite intents, and only "off is final" fails safe
 		expect(filter.admits("delete_repo")).toBe(false);
 	});
 

@@ -244,6 +244,9 @@ describe("McpServerModule, over HTTP", () => {
 		expect(result.content).toEqual([{ type: "text", text: "Unknown tool: draft_reply." }]);
 	});
 
+	/**
+	 * A refusal is not an error: a model told of a fault retries, one told of a refusal moves on.
+	 */
 	it("answers the agent's path and the client's path alike, because both go through the same gate", async () => {
 		const model = new ToolCallingModel("list_meetings", { limit: 1 });
 		const { app: booted, url } = await boot(model);
@@ -253,7 +256,6 @@ describe("McpServerModule, over HTTP", () => {
 		const overMcp = await client.callTool({ name: "list_meetings", arguments: { limit: 1 } });
 
 		expect(toolResultOf(model)?.failed).toBe(true);
-		// a refusal is not an error: a model told of a fault retries, one told of a refusal moves on
 		expect(toolResultOf(model)?.output).toEqual({ refused: true, reason: "list_meetings is for members" });
 		expect(overMcp.isError).toBe(true);
 		expect(overMcp.content).toEqual([{ type: "text", text: "list_meetings is for members" }]);

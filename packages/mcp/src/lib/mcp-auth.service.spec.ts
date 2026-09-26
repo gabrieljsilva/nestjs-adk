@@ -32,10 +32,12 @@ describe("static credentials", () => {
 		expect(await new HeaderAuth({ "X-Api-Key": "k" }).resolve()).toEqual({ headers: { "X-Api-Key": "k" } });
 	});
 
+	/**
+	 * A secret on the command line shows up in `ps`; the environment does not.
+	 */
 	it("env auth targets the process transport instead of headers", async () => {
 		const credential = await new EnvAuth({ GITHUB_TOKEN: "t" }).resolve();
 
-		// a secret on the command line shows up in `ps`; the environment does not
 		expect(credential).toEqual({ env: { GITHUB_TOKEN: "t" } });
 	});
 });
@@ -61,6 +63,10 @@ describe("OAuthAuth", () => {
 		expect(await auth.resolve()).toEqual({ headers: { Authorization: "Bearer eternal" } });
 	});
 
+	/**
+	 * Without reporting the renewal back, it dies with the run and the next one reads the stale
+	 * token again.
+	 */
 	it("renews an expired token and reports the new one back", async () => {
 		answers({ access_token: "fresh", refresh_token: "rotated", expires_in: 3600 });
 		const saved: unknown[] = [];
@@ -71,7 +77,6 @@ describe("OAuthAuth", () => {
 		});
 
 		expect(await auth.resolve()).toEqual({ headers: { Authorization: "Bearer fresh" } });
-		// without this the renewal dies with the run and the next one reads the stale token again
 		expect(saved).toHaveLength(1);
 		expect(saved[0]).toMatchObject({ accessToken: "fresh", refreshToken: "rotated" });
 	});
@@ -88,6 +93,9 @@ describe("OAuthAuth", () => {
 		expect(fetchSpy).toHaveBeenCalledTimes(1);
 	});
 
+	/**
+	 * Dropping the previous refresh token would lock the user out on the following run.
+	 */
 	it("keeps the previous refresh token when the provider does not rotate it", async () => {
 		answers({ access_token: "fresh" });
 		const saved: Array<{ refreshToken?: string }> = [];
@@ -99,7 +107,6 @@ describe("OAuthAuth", () => {
 
 		await auth.resolve();
 
-		// dropping it would lock the user out on the following run
 		expect(saved[0]?.refreshToken).toBe("keep-me");
 	});
 
@@ -116,6 +123,10 @@ describe("OAuthAuth", () => {
 		expect(fetchSpy).toHaveBeenCalledTimes(1);
 	});
 
+	/**
+	 * Two renewals would send the same refresh token twice, and a rotating provider rejects the
+	 * second.
+	 */
 	it("shares one renewal between concurrent callers", async () => {
 		const fetchSpy = answers({ access_token: "fresh", refresh_token: "rotated", expires_in: 3600 });
 		const auth = new OAuthAuth({
@@ -125,7 +136,6 @@ describe("OAuthAuth", () => {
 
 		await Promise.all([auth.resolve(), auth.resolve()]);
 
-		// two renewals would send the same refresh token twice, and a rotating provider rejects the second
 		expect(fetchSpy).toHaveBeenCalledTimes(1);
 	});
 
@@ -151,10 +161,12 @@ describe("OAuthAuth", () => {
 		await expect(auth.resolve()).rejects.toBeInstanceOf(McpReauthRequiredError);
 	});
 
+	/**
+	 * The credential is intact and the next run will very likely open. Reporting this as "sign in
+	 * again" both sends the user through consent for nothing and has the application discard a
+	 * refresh token that still works.
+	 */
 	it("does not ask for re-authorization when the provider was merely rate limited", async () => {
-		// The credential is intact and the next run will very likely open. Reporting this as "sign in
-		// again" both sends the user through consent for nothing and has the application discard a
-		// refresh token that still works.
 		answers({ error: "slow_down" }, 429);
 		const auth = new OAuthAuth({
 			tokens: { accessToken: "stale", refreshToken: "good", expiresAt: inMinutes(-1) },
@@ -174,9 +186,11 @@ describe("OAuthAuth", () => {
 		await expect(auth.resolve()).rejects.toBeInstanceOf(McpTokenGrantError);
 	});
 
+	/**
+	 * The token endpoint came out of the server's own metadata, so it is untrusted input like any
+	 * other address the flow reaches: renewal used to be the one request that skipped the guard.
+	 */
 	it("refuses to renew against a private address unless it was allowed", async () => {
-		// The token endpoint came out of the server's own metadata, so it is untrusted input like any
-		// other address the flow reaches: renewal used to be the one request that skipped the guard.
 		answers({ access_token: "fresh" });
 		const auth = new OAuthAuth({
 			tokens: { accessToken: "stale", refreshToken: "good", expiresAt: inMinutes(-1) },
@@ -197,12 +211,14 @@ describe("OAuthAuth", () => {
 		expect(await auth.resolve()).toEqual({ headers: { Authorization: "Bearer fresh" } });
 	});
 
+	/**
+	 * Silent discarding is the failure mode we cannot let a developer discover in production.
+	 */
 	it("warns when a refresh token arrives with nowhere to save the renewal", () => {
 		const warn = vi.spyOn(Logger.prototype, "warn").mockImplementation(() => undefined);
 
 		new OAuthAuth({ tokens: { accessToken: "a", refreshToken: "r" }, client: CLIENT });
 
-		// silent discarding is the failure mode we cannot let a developer discover in production
 		expect(warn).toHaveBeenCalled();
 	});
 });

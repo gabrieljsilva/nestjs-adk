@@ -26,10 +26,12 @@ describe("AdkMcpServer: how a failed connection is classified", () => {
 		vi.restoreAllMocks();
 	});
 
+	/**
+	 * Telling the user "try later" here would hide the reconnect button they actually need.
+	 */
 	it("turns a refused credential into a request to re-authorize", async () => {
 		const server = serverWith(new UnauthorizedError("token rejected"));
 
-		// telling the user "try later" here would hide the reconnect button they actually need
 		await expect(server.open(SESSION, RUN, SIGNAL)).rejects.toBeInstanceOf(ToolSourceAuthError);
 	});
 
@@ -39,24 +41,33 @@ describe("AdkMcpServer: how a failed connection is classified", () => {
 		await expect(server.open(SESSION, RUN, SIGNAL)).rejects.toBeInstanceOf(ToolSourceAuthError);
 	});
 
+	/**
+	 * The SDK's `SseError` constructor demands the `ErrorEvent` it wraps, but the code under test
+	 * only reads `code` off it, so `undefined` is a safe stand-in.
+	 */
 	it("treats an SSE 403 the same way", async () => {
-		// The SDK's constructor demands the ErrorEvent it wraps; isUnauthorized only reads `code`.
 		const server = serverWith(new SseError(403, "forbidden", undefined as never));
 
 		await expect(server.open(SESSION, RUN, SIGNAL)).rejects.toBeInstanceOf(ToolSourceAuthError);
 	});
 
+	/**
+	 * Reconnecting the account would not fix a down server, so it must not be reported as needing
+	 * re-authorization.
+	 */
 	it("keeps a server that is merely down out of the re-authorize bucket", async () => {
 		const server = serverWith(new StreamableHTTPError(503, "service unavailable"));
 
-		// reconnecting the account would not fix this, so it must not ask the user to
 		await expect(server.open(SESSION, RUN, SIGNAL)).rejects.toBeInstanceOf(ToolSourceUnavailableError);
 	});
 
+	/**
+	 * Matching on wording would break the day the SDK rephrases its message, and would silently
+	 * stop asking the user to reconnect.
+	 */
 	it("does not read the classification out of the error message", async () => {
 		const server = serverWith(new Error("request failed: 401 unauthorized"));
 
-		// matching on wording would break the day the SDK rephrases it, and silently stop asking to reconnect
 		await expect(server.open(SESSION, RUN, SIGNAL)).rejects.toBeInstanceOf(ToolSourceUnavailableError);
 	});
 
@@ -83,12 +94,19 @@ describe("AdkMcpServer: how a failed connection is classified", () => {
 		const server = serverWith(new StreamableHTTPError(503, "down"));
 
 		await expect(server.open(SESSION, RUN, SIGNAL)).rejects.toThrow();
+		/**
+		 * The handshake may already have opened a socket or spawned a process before failing, so
+		 * closing after a failed `open` must still tear it down.
+		 */
 		await server.close();
 
-		// the handshake may already have opened a socket or spawned a process before failing
 		expect(close).toHaveBeenCalledTimes(1);
 	});
 
+	/**
+	 * A shared instance across concurrent runs would have the second `open` orphan the first
+	 * client.
+	 */
 	it("refuses to open the same instance twice at once", async () => {
 		vi.spyOn(Client.prototype, "connect").mockResolvedValue(undefined);
 		vi.spyOn(Client.prototype, "listTools").mockResolvedValue({ tools: [] });
@@ -96,7 +114,6 @@ describe("AdkMcpServer: how a failed connection is classified", () => {
 
 		await server.open(SESSION, RUN, SIGNAL);
 
-		// a shared instance across concurrent runs would have the second open orphan the first client
 		await expect(server.open(SESSION, RUN, SIGNAL)).rejects.toBeInstanceOf(ToolSourceUnavailableError);
 	});
 });
@@ -129,6 +146,10 @@ describe("AdkMcpServer: which tools of the catalog reach the model and the netwo
 		expect(definitions.map((definition) => definition.name)).toEqual(["mcp__github__create_issue"]);
 	});
 
+	/**
+	 * A hidden tool is still callable by a model that invented the name or a server that
+	 * suggested it, so the allow list must be enforced at call time too, not only at declaration.
+	 */
 	it("does not run a tool it left out, even called by name", async () => {
 		const call = vi.spyOn(Client.prototype, "callTool").mockResolvedValue({ content: [] });
 		const server = connected({ tools: ["create_issue"] });
@@ -136,7 +157,6 @@ describe("AdkMcpServer: which tools of the catalog reach the model and the netwo
 
 		const result = await server.callTool("delete_repo", {});
 
-		// a hidden tool is still callable by a model that invented the name or a server that suggested it
 		expect(call).not.toHaveBeenCalled();
 		expect(result).toEqual({ error: 'MCP tool "delete_repo" is not available on server "github".' });
 	});
@@ -163,11 +183,13 @@ describe("AdkMcpServer: which tools of the catalog reach the model and the netwo
 		expect(call).not.toHaveBeenCalled();
 	});
 
+	/**
+	 * The refusal must not depend on the connection: one that only happens while open would let
+	 * the same call through on the run that reconnects.
+	 */
 	it("refuses a call before it knows whether it is connected", async () => {
 		const server = connected({ tools: ["create_issue"] });
 
-		// the answer must not depend on the connection: a refusal that only happens while open would let
-		// the same call through on the run that reconnects
 		await expect(server.callTool("delete_repo", {})).resolves.toEqual({
 			error: 'MCP tool "delete_repo" is not available on server "github".',
 		});

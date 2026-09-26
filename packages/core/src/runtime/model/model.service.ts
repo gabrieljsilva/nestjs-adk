@@ -17,7 +17,7 @@ export class ModelService {
 
 	public resolve(definition: AgentDefinition, requested?: LlmModel, input?: AskInput): LlmModel {
 		const model = requested ?? this.resolver.resolve(definition);
-		this.assertCanSee(model, input?.hasAttachments === true);
+		this.assertCanSee(model, input?.hasMediaAttachments === true);
 		return model;
 	}
 

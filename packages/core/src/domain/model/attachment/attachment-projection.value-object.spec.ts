@@ -33,6 +33,15 @@ describe("AttachmentProjection", () => {
 		expect(projection.text).toBeUndefined();
 	});
 
+	it("asks for the artifact placeholder, carrying nothing itself because the reader writes it", () => {
+		const projection = AttachmentProjection.artifact();
+
+		expect(projection.isArtifact).toBe(true);
+		expect(projection.isMedia).toBe(false);
+		expect(projection.isNote).toBe(false);
+		expect(AttachmentProjection.omit().isArtifact).toBe(false);
+	});
+
 	it("writes a note in the one vocabulary every stand-in uses", () => {
 		const reference = AttachmentReference.external("file-7", "image/png");
 

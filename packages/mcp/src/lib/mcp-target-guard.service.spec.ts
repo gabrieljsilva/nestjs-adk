@@ -49,7 +49,10 @@ describe("guardedFetch", () => {
 	let server: Server;
 	let base: string;
 
-	// A real local server: redirects are the whole point here, and mocking fetch would test the mock.
+	/**
+	 * A real local server: redirects are the whole point here, and mocking fetch would test the
+	 * mock.
+	 */
 	beforeAll(async () => {
 		server = createServer((req, res) => {
 			if (req.url === "/ok") {
@@ -85,15 +88,19 @@ describe("guardedFetch", () => {
 		expect(await response.json()).toEqual({ fine: true });
 	});
 
+	/**
+	 * "private-ok" allows the local server; the hop to public http is what must fail. This is the
+	 * bypass a first-URL-only check misses.
+	 */
 	it("a redirect that lands outside the rules is refused, even when the first URL was fine", async () => {
-		// "private-ok" allows the local server; the hop to public http is what must fail. This is the
-		// bypass a first-URL-only check misses.
 		await expect(guardedFetch("private-ok")(`${base}/to-public-http`)).rejects.toBeInstanceOf(McpBlockedTargetError);
 	});
 
+	/**
+	 * The guard re-validates the hop with the SAME trust, so this needs the initial URL to be
+	 * allowed under "user"; localhost is not. Assert on the hop check directly instead.
+	 */
 	it('a redirect to a private address is refused under trust "user"', async () => {
-		// The guard re-validates the hop with the SAME trust, so this needs the initial URL to be
-		// allowed under "user"; localhost is not. Assert on the hop check directly instead.
 		await expect(assertSafeTarget("http://169.254.169.254/latest/meta-data/", "user")).rejects.toBeInstanceOf(
 			McpBlockedTargetError,
 		);

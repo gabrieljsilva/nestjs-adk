@@ -10,3 +10,4 @@ coverage/
 TODO.md
 .idea/
 .tmp/
+dist-local/

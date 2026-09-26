@@ -23,7 +23,7 @@ function storageOf(connection = new SqliteConnection()): SqliteArtifactStorage {
 describe("SqliteArtifactStorage", () => {
 	it("survives being rebuilt over the same connection, which is what durable means here", async () => {
 		const connection = new SqliteConnection();
-		const reference = await storageOf(connection).put(ctx(), new ArtifactContent("the report", "text/markdown"));
+		const reference = await storageOf(connection).put(ctx(), ArtifactContent.fromText("the report", "text/markdown"));
 
 		const read = await storageOf(connection).read(ctx(), reference);
 
@@ -38,8 +38,8 @@ describe("SqliteArtifactStorage", () => {
 	it("keeps the sessions of two conversations in rows of their own", async () => {
 		const connection = new SqliteConnection();
 		const storage = storageOf(connection);
-		await storage.put(ctx("s-1"), new ArtifactContent("mine"));
-		await storage.put(ctx("s-2"), new ArtifactContent("theirs"));
+		await storage.put(ctx("s-1"), ArtifactContent.fromText("mine"));
+		await storage.put(ctx("s-2"), ArtifactContent.fromText("theirs"));
 
 		const rows = connection.all("SELECT session_id, artifact_id FROM session_artifacts ORDER BY session_id");
 
@@ -48,7 +48,7 @@ describe("SqliteArtifactStorage", () => {
 
 	it("stores what the content is beside the content, because a reader cannot guess it", async () => {
 		const connection = new SqliteConnection();
-		await storageOf(connection).put(ctx(), new ArtifactContent("{}", "application/json"));
+		await storageOf(connection).put(ctx(), ArtifactContent.fromText("{}", "application/json"));
 
 		const row = connection.first("SELECT media_type FROM session_artifacts") as { media_type: string };
 

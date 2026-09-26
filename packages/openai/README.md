@@ -52,6 +52,20 @@ A thinking model behind a compatible endpoint, DeepSeek among them, streams its 
 
 Nothing else changes: tools, streaming, sessions, approvals and cost all work the same, because the runtime only ever sees an `LlmModel`.
 
+## What a compatible endpoint can see
+
+`capabilities` says what the endpoint behind `baseURL` can do. Left out, the adapter assumes the official OpenAI API, which reads images and fetches them by URL. Groq, Together, OpenRouter, DeepSeek and Ollama all answer to "compatible with OpenAI", and some of them have no vision at all:
+
+```ts
+new OpenAiModel("llama-3.1-70b-versatile", {
+	baseURL: "https://api.groq.com/openai/v1",
+	apiKey: process.env.GROQ_API_KEY,
+	capabilities: { mediaInput: false },
+});
+```
+
+`{ mediaInput: false }` makes `ModelService` refuse the image before the session is opened, the same way it does for any model that never declared the capability, instead of paying for the request and having the provider refuse it. `mediaUrl` says whether the endpoint fetches an image by URL rather than needing the bytes inline.
+
 ## The context window
 
 The runtime measures compaction against the window the model declares. A gateway serving somebody else's weights cannot be asked, so tell the adapter when you know:
@@ -99,7 +113,7 @@ The mappers are exported for the same reason: `OpenAiRequestMapper` turns a core
 | Symbol | What it is for |
 | --- | --- |
 | `OpenAiModel` | The model. Construct it and hand it to the core |
-| `OpenAiOptions` | Everything it takes: key, `baseURL`, generation parameters, window, `body` |
+| `OpenAiOptions`, `OpenAiCapabilities` | Everything it takes: key, `baseURL`, generation parameters, window, `body`, `capabilities` |
 | `OpenAiTransport`, `SdkOpenAiTransport` | The one call this adapter makes, and the SDK implementation of it |
 | `OpenAiClientFactory`, `OpenAiChatClient` | How the client is built and what the adapter needs from it |
 | `OpenAiRequestMapper`, `OpenAiChatRequest` | A core request as the provider receives it |

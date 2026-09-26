@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { InMemoryArtifactStorage } from "../../adapters/storage/in-memory-artifact-storage.adapter";
 import { SessionId } from "../../common/identity/session-id.value-object";
 import { ArtifactStorage } from "../../contracts/storage/artifact-storage.contract";
-import type { ArtifactContent } from "../../domain/artifact/artifact-content.value-object";
+import { ArtifactContent } from "../../domain/artifact/artifact-content.value-object";
+import { ArtifactName } from "../../domain/artifact/artifact-name.value-object";
 import type { ArtifactReference } from "../../domain/artifact/artifact-reference.value-object";
 import { AttachmentReference } from "../../domain/model/attachment/attachment-reference.value-object";
 import { MediaPart } from "../../domain/model/messages/media-part.value-object";
@@ -16,6 +17,10 @@ const CTX = SessionContext.fromSessionId(SESSION);
 const PIXEL = "iVBORw0KGgo=";
 
 class RefusingArtifactStorage extends ArtifactStorage {
+	public async update(): Promise<never> {
+		throw new Error("no artifact storage");
+	}
+
 	public async put(): Promise<ArtifactReference> {
 		throw new Error("the bucket is unreachable");
 	}
@@ -26,6 +31,10 @@ class RefusingArtifactStorage extends ArtifactStorage {
 
 	public async find(): Promise<ArtifactReference | undefined> {
 		return undefined;
+	}
+
+	public async list(): Promise<readonly ArtifactReference[]> {
+		return [];
 	}
 
 	public async deleteAll(): Promise<void> {
@@ -60,6 +69,38 @@ describe("AttachmentStore", () => {
 		const content = await storage.read(CTX, reference);
 		expect(content.text).toBe(PIXEL);
 		expect(content.mediaType).toBe("image/png");
+	});
+
+	it("records the type beside the id, so a reader knows what it is without opening the store", async () => {
+		const stored = await new AttachmentStore(storageOf()).store(CTX, [MediaPart.image("image/png", PIXEL)]);
+
+		expect(stored[0]?.mediaType).toBe("image/png");
+		expect(stored[0]?.isImage).toBe(true);
+	});
+
+	it("stores a file as a named text artifact and answers a reference a tool can read", async () => {
+		const storage = storageOf();
+		const store = new AttachmentStore(storage);
+		const file = ArtifactContent.fromText("a,b\n1,2", "text/csv", ArtifactName.fromText("sales.csv"));
+
+		const stored = await store.store(CTX, [], [], [file]);
+		const id = stored[0]?.artifactId;
+		if (id === undefined) throw new Error("expected one id");
+		const reference = await storage.find(CTX, id);
+
+		expect(stored[0]?.isReadableArtifact).toBe(true);
+		expect(stored[0]?.mediaType).toBe("text/csv");
+		expect(reference?.name?.value).toBe("sales.csv");
+		expect(reference?.isText).toBe(true);
+	});
+
+	it("attaches one artifact on its own, for a file handed over outside a question", async () => {
+		const store = new AttachmentStore(storageOf());
+
+		const reference = await store.attach(CTX, ArtifactContent.fromText("# notes", "text/markdown"));
+
+		expect(reference.isStored).toBe(true);
+		expect(reference.mediaType).toBe("text/markdown");
 	});
 
 	it("writes nothing when there is nothing attached", async () => {

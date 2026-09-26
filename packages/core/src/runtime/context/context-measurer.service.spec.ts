@@ -51,8 +51,10 @@ describe("ContextMeasurer", () => {
 		expect(measurer.measure(new ContextProjection(blocks))).toBeGreaterThan(conversationOnly);
 	});
 
-	// A megabyte of base64 counted literally would be the whole prompt, and compaction would
-	// start dropping conversation to make room for something billed as a few hundred tokens.
+	/**
+	 * A megabyte of base64 counted literally would be the whole prompt, and compaction would
+	 * start dropping conversation to make room for something billed as a few hundred tokens.
+	 */
 	it("counts an attached image as its projected cost, so one image cannot take over the context", () => {
 		const image = MediaPart.image("image/png", "iVBORw0KGgoA".repeat(90_000));
 		const withImage = new ContextProjection([

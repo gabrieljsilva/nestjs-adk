@@ -219,12 +219,12 @@ import { AdkTool, MediaPart, Tool, ToolOutput } from "@nestjs-adk/core";
 export class ReadInvoiceTool extends AdkTool<typeof schema> {
 	public async execute(input: z.infer<typeof schema>): Promise<ToolOutput> {
 		const file = await this.files.get(input.name);
-		return ToolOutput.with({ name: file.name }, [MediaPart.image(file.mimeType, file.base64)]);
+		return new ToolOutput({ name: file.name }, [MediaPart.image(file.mimeType, file.base64)]);
 	}
 }
 ```
 
-`ToolOutput.fromData(data)` is the plain form and `with(data, media)` is this one. The data still reaches the model as the tool's result; the media arrives alongside it.
+The constructor takes the data first and the media second, and the media list is optional: `new ToolOutput(data)` is the plain form. The data still reaches the model as the tool's result; the media arrives alongside it.
 
 The attachment reaches the model in the same turn, with the question already in context, and that ordering is the point. A description written when the file was uploaded answers "what colour is the shirt?" only if somebody guessed the question in advance, and "how many buttons?" is already lost. Letting the model look when it is asked costs one call instead of two, and those tokens land in `result.cost` like every other.
 
@@ -250,7 +250,21 @@ await agent.ask("what does the receipt say?", {
 });
 ```
 
-The journal records the id and nothing else. Every time a prompt is built, including the first one, the runtime hands the reference to the `AttachmentResolver` declared in `RuntimeOptions` and asks what it becomes now. The answer is an `AttachmentProjection`: `media(part)` puts it in front of the model, `note(text)` puts a line of text where it stood (so "describe this image" still reads coherently when the image is not sent), `omit()` leaves it out. Nothing the resolver answers is cached or recorded, which is what makes a fresh address per turn possible and lets "not any more" be a policy rather than a missing feature.
+A file the model reads rather than looks at, a `.md`, a `.csv`, a JSON document, a log, goes in as an artifact and is read through the artifact tools instead of being pasted into the prompt:
+
+```ts
+await agent.ask("summarize the report", {
+	files: [ArtifactContent.fromText(markdown, "text/markdown", ArtifactName.fromText("q3.md"))],
+});
+
+// or attach first and ask later
+const reference = await agent.attachArtifact(sessionId, ArtifactContent.fromText(csv, "text/csv", name));
+await agent.ask("what is the total in column b?", { sessionId, attachments: [reference] });
+```
+
+The model is shown `[artifact a-1 "q3.md", text/markdown, 40000 characters, read with read_artifact(artifactId, offset, limit), and its shape is one the artifact exploration tools understand]` and reads it with `read_artifact`, which every agent that has tools at all is given. The tools that outline, search, query and slice it are opt in, listed on the agent that needs them: see [Artifacts](#artifacts-and-asking-questions-of-one). A text artifact does not need a model that sees, so an agent on a text-only model takes one; an image still does. `attachArtifact` refuses a conversation nobody opened, with `SessionNotFoundError`, so a mistyped id does not quietly store a file where nothing will find it. The name is an `ArtifactName`: it comes from your end user and ends up in a line the model reads, so an empty name, one over 160 characters, a control character and a square bracket are all refused with `InvalidArtifactNameError`. The library never sniffs a file's type from its bytes; that is your upload boundary's job, and what you declare is what the model is told.
+
+The journal records the id and nothing else. Every time a prompt is built, including the first one, the runtime hands the reference to the `AttachmentResolver` declared in `RuntimeOptions` and asks what it becomes now. The answer is an `AttachmentProjection`: `media(part)` puts it in front of the model, `note(text)` puts a line of text where it stood (so "describe this image" still reads coherently when the image is not sent), `omit()` leaves it out, and `artifact()` writes the placeholder above so the artifact tools take it from there. Nothing the resolver answers is cached or recorded, which is what makes a fresh address per turn possible and lets "not any more" be a policy rather than a missing feature.
 
 Two resolvers ship, one per environment:
 
@@ -265,7 +279,7 @@ attachments: new SignedUrlAttachmentResolver(async (id) => storage.presign(id));
 
 `SignedUrlAttachmentResolver` also checks what the serving model can do. Fetching a media URL is a declared capability (`MEDIA_URL`), both shipped providers declare it (OpenAI through `image_url`, Gemini through `fileUri`, which takes public HTTPS and signed addresses), and a model that never declared it is given a note rather than an address it would read as text.
 
-Declaring no resolver keeps the old behaviour for stored bytes and links, and an external reference then projects as a note saying no resolver is configured, so the wiring gap is visible in the conversation instead of silent. A resolver that throws becomes a note too; one missing file does not end a conversation that was already answered once.
+Declaring no resolver projects a stored image as media, a stored text artifact as its placeholder, a link as its address, and an external reference as a note saying no resolver is configured, so the wiring gap is visible in the conversation instead of silent. A resolver that throws becomes a note too; one missing file does not end a conversation that was already answered once.
 
 One guard closes the classic development trap: `MediaPart.link` refuses localhost, private ranges and `.local`/`.internal` names with `UnreachableMediaUrlError`, because a media URL is fetched from the provider's network, where that address is a different machine or no machine at all, and the failure arrives as an opaque provider error you paid for. A self hosted model that can actually reach the address opts out with `MediaLimits.allowingPrivateHosts()`.
 
@@ -341,7 +355,7 @@ export class SalesAgent extends AdkAgent {
 }
 ```
 
-`mode: "always"` puts the content in the instruction on every run, after the prompt, in the order the skills were declared. The default mode is on demand: the model sees only the names and descriptions, plus an `activate_skill` tool it calls when it decides it needs the content. That keeps the context small while the knowledge stays available.
+`mode: "always"` puts the content in the instruction on every run, after the prompt, in the order the skills were declared. The default mode is on demand: the model sees only the names and descriptions, plus an `activate_skill` tool it calls when it decides it needs the content. That keeps the context small while the knowledge stays available. That name is the runtime's, on every agent, so a tool of your own called `activate_skill` fails the boot: see [Artifacts](#artifacts-and-asking-questions-of-one).
 
 A skill is read once, at boot, and never per run. It is fixed text by design: the thing that varies per run is the prompt.
 
@@ -612,7 +626,7 @@ await support.createSession({ sessionId: chat.id, metadata: { customerId: user.e
 const answer = await support.ask("where is my order?", chat.id);
 ```
 
-`createSession` writes the head of the conversation, and the metadata you gave it as events under the run that opened it. Nothing else: the journal's conversation still begins with the first question, which is also when observers hear a `SessionCreated`. Leave `sessionId` out and the runtime names the conversation, which is the way to get the identifier before anything is asked.
+`createSession` writes the head of the conversation, and the metadata you gave it as events under the run that opened it. Nothing else: the journal's conversation still begins with the first question, which is also when a consumer sees a `PublishedEvent` of type `"session.created"`. Leave `sessionId` out and the runtime names the conversation, which is the way to get the identifier before anything is asked.
 
 An identifier that already names a conversation is refused with `SessionAlreadyExistsError`, and the existing conversation is untouched. Two requests opening the same chat is the ordinary case rather than the exotic one: one wins, the other reads the error as already done.
 
@@ -727,7 +741,7 @@ Replacing is not narrowing: an agent that declares `16` runs under `16` even whe
 
 Long conversations and big tool results both eat the window, and each has its own answer.
 
-A tool result above 20 thousand characters is stored as an artifact, and the model gets a placeholder naming it plus the tools that reach it. `runtime.context.offload` decides the threshold: `CharacterCountOffloadPolicy.byDefault()`, `above(n)` or `disabled()`. It is a port, so an application that decides by media type or by tool extends `OffloadPolicy` instead. The section below is what the model does with the placeholder.
+A tool result above 20 thousand characters is stored as an artifact, and the model gets a placeholder naming it and saying how to read it. `runtime.context.offload` decides the threshold: `CharacterCountOffloadPolicy.byDefault()`, `above(n)` or `disabled()`. It is a port, so an application that decides by media type or by tool extends `OffloadPolicy` instead. The section below is what the model does with the placeholder.
 
 For long histories there is compaction, and it is on without you declaring anything. Once a conversation passes nine tenths of the model's window it is shortened to seven tenths, oldest closed exchanges first, keeping the four most recent. Declare a `ContextSummarizer` and what leaves is replaced by a summary:
 
@@ -775,30 +789,87 @@ This is the meter, not the decision. What compacts is the policy above, during a
 
 ## Artifacts, and asking questions of one
 
-A result the runtime moved out of the context is an artifact, and the placeholder the model reads says how to get at it:
+An artifact is content the session owns and the model addresses without reading: a result the runtime moved out of the context, an image the user sent, or a file the application attached. The placeholder the model reads says what it is and how to get at it:
 
 ```text
-[artifact a-1, application/json, 40000 characters, read with read_artifact(artifactId, offset, limit), or explore with outline_artifact, search_artifact and query_artifact]
+[artifact a-1 "orders.json", application/json, 40000 characters, read with read_artifact(artifactId, offset, limit), and its shape is one the artifact exploration tools understand]
 ```
 
-Four tools answer it, all of them owned by the runtime. They are `internal`, so no approval policy applies to them and a policy written for your tools cannot leave a model unable to read what it was told to read, and every one of them resolves an id inside the session that asked, so knowing an id is not enough to read one.
+It names `read_artifact` and no other tool on purpose. That sentence is durable: it is written into the journal and read back on every later turn, so it cannot know which agent will read it, and naming `outline_artifact` to an agent that was never given it is an instruction the model can only waste a call on. Every agent that has tools has `read_artifact`.
+
+Seven tools answer it, all owned by the runtime, and **none of them is exempt from anything**. Your access policy is asked about `read_artifact` exactly as it is asked about your own tools, your approval policy is asked about `edit_artifact` the same way, and every one of them works inside the session that asked, so knowing an id is not enough to read one. Every one that opens an artifact refuses bytes with a reason: an image is an artifact too, and no tool reads a page of base64.
+
+Those seven names belong to the runtime, and so do the three it adds to a catalog by itself: `activate_skill`, `transfer_to_agent` and `delegate_to_agent`. An agent that declares a tool of its own under one of the ten fails the boot with `DuplicateRuntimeToolNameError`, which names the tool, the agent and the provider that declared it. The runtime binds its own after yours, so before this the model was offered the runtime's tool under your name and your tool was dropped with nothing said anywhere. The way to get the runtime's tool is to list the class; the way to keep yours is to rename it.
+
+The last three reach a catalog only when the agent has an on-demand skill, a transfer edge or a delegation edge, and they are reserved on every agent anyway. Reserving them only where the edge exists would let your own `transfer_to_agent` work until the day somebody adds a transfer target to that agent, and the boot would then break for a reason nowhere near that edit.
+
+`read_artifact` is there for every agent that has any tools at all. **The other six are opt in**, listed on the agent that needs them:
+
+```ts
+import { ArtifactExplorationTools, EditArtifactTool, OutlineArtifactTool, SliceArtifactTool } from "@nestjs-adk/core";
+
+@Agent({
+	name: "analyst",
+	description: "Reads what the customer sends.",
+	tools: [LookupOrderTool, ...ArtifactExplorationTools],
+})
+export class AnalystAgent extends AdkAgent {}
+
+@Agent({
+	name: "importer",
+	description: "Reads spreadsheets, and corrects the rows it was told to.",
+	tools: [OutlineArtifactTool, SliceArtifactTool, EditArtifactTool],
+})
+export class ImporterAgent extends AdkAgent {}
+```
+
+The class is a request and the runtime binds it to the store it composed, so nothing is wired by hand and nothing is instantiated by you. `ArtifactExplorationTools` is the five that read, for an agent that should open whatever it is handed; an agent that only ever sees CSV lists the ones it uses. `EditArtifactTool` is never in that group and is always listed on its own, because a name that says exploration must not quietly carry a write. Outside a container, where you build an `AgentDefinition` yourself, `SliceArtifactTool.request()` is the same thing.
+
+They are opt in because a tool declaration is prompt you pay for on every turn. The six cost 5 374 characters of name, description and schema in the prefix of every agent that carries them, and an agent that never sees an artifact was paying for all of it. Opting in is also what keeps them out of the way of an agent whose own tools they would crowd.
 
 | Tool | Arguments | Answers |
 | --- | --- | --- |
-| `read_artifact` | `artifactId`, `offset?`, `limit?` | a page of characters, the total length, and whether more remains |
-| `outline_artifact` | `artifactId`, `depth?` | for JSON, the keys, the types and the length of every array down to `depth` (2 by default); for text, the lines, characters, bytes and how it starts |
-| `search_artifact` | `artifactId`, `query`, `regex?`, `maxMatches?`, `context?` | where a string appears, with the line and the characters around each hit |
+| `list_artifacts` | none | the session's artifacts, newest first: id, name, type, size, and whether each one is explorable. It stops at a hundred and says `truncated` |
+| `read_artifact` | `artifactId`, `offset?`/`limit?` in characters or `fromLine?`/`lines?` in lines | a page, the total, and whether more remains |
+| `outline_artifact` | `artifactId`, `depth?` | for JSON, the keys, the types and array lengths down to `depth` (2 by default); for a CSV, the columns with a type and a sample, and the row count; for Markdown, the headings with their line; for text, the lines, characters and how it starts |
+| `search_artifact` | `artifactId`, `query`, `regex?`, `caseSensitive?`, `mode?`, `maxMatches?`, `context?` | where a string appears: `excerpts` around each hit, `lines` with the whole line, or `count` alone, plus `totalMatches`, counted up to ten thousand, with `countStopped` when it hit that |
 | `query_artifact` | `artifactId`, `pointer` | the value at an RFC 6901 JSON Pointer such as `/orders/0/total`, or an outline of it when it is too large |
+| `slice_artifact` | `artifactId`, `fromRow?`, `toRow?`, `columns?` | a rectangle of a CSV, by row range and column name |
+| `edit_artifact` | `artifactId`, `edits` | the new size, and per block where it landed and how much it removed and added |
 
-Reading is paged, and the page nobody asked for is the offload threshold itself: exactly the largest answer the runtime was willing to leave in a context. A page past the end is empty rather than an error, which is how a model finds out where the content stops.
+Reading is paged, and the page nobody asked for is the offload threshold itself: exactly the largest answer the runtime was willing to leave in a context. A page past the end is empty rather than an error, which is how a model finds out where the content stops. Reading by line exists because a search answers with a line; `fromLine` is how the model follows it up. The outline is decided by parsing, in the order JSON, CSV, Markdown, text, and never by the declared type.
 
-Which tools a placeholder offers follows the policy, not the bytes. `OffloadPolicy.decide` answers `inline`, `opaque` or `explorable`, and the shipped one calls JSON and text explorable and everything else opaque, because offering tools over content they cannot parse is a call spent being told no.
+Whether a placeholder calls the content explorable at all follows the policy, not the bytes. `OffloadPolicy.decide` answers `inline`, `opaque` or `explorable`, and the shipped one calls JSON and text explorable and everything else opaque, because telling a model a shape is worth exploring when no tool can parse it is a call spent being told no. `list_artifacts` answers on the same rule, one `explorable` boolean per entry.
 
-Every answer is budgeted at the offload threshold, so an answer about an artifact can never itself become one, and anything that was cut to fit says `truncated: true` rather than pretending it is complete.
+Every answer is budgeted at the offload threshold, which is what stops a tool written to help a model read something too large from producing something too large. The budget is `max(threshold, 1000)` and offload triggers strictly above the threshold, so at any threshold of a thousand or more a fitted answer stays inline by arithmetic rather than by an exemption. Anything cut to fit says `truncated: true` rather than pretending it is complete. `read_artifact` repaginates in a loop until the answer fits, and a line read that is still over budget after that degrades to a page addressed by character at the start of the requested line, so no answer stays over budget on either path. One corner is worth knowing: below a threshold of a thousand the floor sits above it, so a runtime answer can be offloaded once (it stops growing there, and `maxIterations` ends the run in any case).
 
-Two things these tools deliberately cannot do. `query_artifact` takes a JSON Pointer and only a pointer: JSONPath filters are an expression language, and an expression language whose source is a string the model wrote is code execution with extra steps. `search_artifact` is a literal string unless you pass `regex: true`, and a pattern then goes through a guard that refuses anything that could backtrack — a quantifier on a group that itself repeats or branches, a backreference, lookaround, a repetition over 100, or more than 200 characters. A refused pattern comes back as `{ refused: true, reason }` the model can correct, not as a failed run.
+Two things these tools deliberately cannot do. `query_artifact` takes a JSON Pointer and only a pointer, and `slice_artifact` takes rows and column names and nothing else: JSONPath filters are an expression language, and an expression language whose source is a string the model wrote is code execution with extra steps. `search_artifact` is a literal string unless you pass `regex: true`, and a pattern then goes through a guard that refuses anything that could backtrack: a quantifier on a group that itself repeats or branches, a backreference, lookaround, a repetition over 100, or more than 200 characters. A refused pattern comes back as `{ refused: true, reason }` the model can correct, not as a failed run.
+
+One ceiling: a tool that opens an artifact reads all of it, and `runtime.context.maxExplorableCharacters` (twenty million by default) is the largest one it will. Above that it refuses with a reason, before reading a byte. The one way past it is `read_artifact` by character range, which asks the store for a range instead of the whole thing and so works at any size. Reading by line does not, because line starts are not known without the whole text.
 
 Whatever comes back is still content somebody else wrote. See the note on tool results below: the library marks none of it.
+
+### Changing one in place
+
+An agent handed a file usually has to hand one back. `edit_artifact` changes a text artifact where it lives, keeping its id, so the placeholder the conversation already wrote still points at it. It takes `edits`, one string holding one or more git conflict style blocks, the format Aider and Cline use:
+
+```text
+<<<<<<< SEARCH
+	const timeout = 30;
+=======
+	const timeout = 120;
+>>>>>>> REPLACE
+```
+
+Blocks are applied in order, each against the result of the one before it. Matching is exact and never fuzzy, indentation and line endings included, and a SEARCH section has to appear exactly once. A block that matches nothing, or matches twice, is refused with a reason the model can act on, and **nothing at all is written**: a half applied edit leaves a file in a state nobody wrote, and a fuzzy match corrupts content in silence, which is worse than a call spent being told to read the part first. A malformed block is refused the same way, named by the line it broke on and shown the shape it should have had. An empty REPLACE section deletes the SEARCH text.
+
+`edit_artifact` declares `ToolEffect.WRITE`, so an approval policy that holds writes holds it and the change waits for a person:
+
+```ts
+runtime: RuntimeOptions.from({ tools: { approvals: EffectApprovalPolicy.from(ToolEffect.WRITE) } });
+```
+
+The answer carries the new character count, because a placeholder written into the journal earlier still quotes the old one and nothing rewrites a past event.
 
 ### Where the bytes live
 
@@ -830,6 +901,12 @@ class StoreNotices extends ContextNoticeSink {
 
 The fix is one line either way: a durable store, or `offload: CharacterCountOffloadPolicy.disabled()`, which keeps large results in the prompt and pays for them there.
 
+**An artifact is mutable.** `ArtifactStorage.update(context, reference, content)` replaces what one holds while keeping its id and its place in the session's list, and it is what `edit_artifact` calls. The `reference` you pass is the one you read, and its digest is the lock: the store compares it with what it holds now and throws `TamperedArtifactReferenceError` when the two disagree, instead of overwriting a write somebody else made in between. Writing is scoped like reading, so a reference from another conversation answers `ArtifactNotFoundError` and nothing is written.
+
+Mutating content a durable journal points at is safe here because the journal never persists a digest. It keeps the artifact id, and every read path looks the reference up again before reading it, so there is no stored digest anywhere that an edit could invalidate. The one thing it cannot fix is a sentence: a placeholder in a past event still quotes the character count the artifact had then, and nothing rewrites past events, which is why `edit_artifact` answers with the new size.
+
+`update` is abstract and not a default that throws, so **an `ArtifactStorage` you wrote yourself does not compile until you implement it**. That is deliberate. A default would split stores into ones that can be edited and ones that cannot, and you would find out which kind you had when a model called `edit_artifact` in production.
+
 Writing your own works like the session port, and is measured the same way:
 
 ```ts
@@ -841,7 +918,7 @@ for (const contract of suite.cases(() => new S3ArtifactStorage(client))) {
 }
 ```
 
-It demands the two guarantees the port is written about: what comes out of `read` is byte for byte what went into `put`, verified against the digest the reference carries, and a session only ever reads its own, with anything else answered as absent rather than refused, because an id is guessable and a refusal confirms it exists. Both shipped stores answer the same cases.
+It demands the guarantees the port is written about: what comes out of `read` is what went into `put`, name and encoding included, verified against the digest the reference carries; bytes come back as bytes; a session only ever reads its own, with anything else answered as absent rather than refused, because an id is guessable and a refusal confirms it exists; `list` answers the session's own, newest first, up to the bound; `readRange` answers the same characters a full read would; and `update` replaces content without moving the artifact, refuses a reference the content has moved past, and refuses one session writing another's. `readRange` has a default that reads and slices, so an adapter only overrides it to do better. Both shipped stores answer the same cases.
 
 ## Transfer and delegation
 
@@ -863,7 +940,7 @@ A **delegation** asks somebody one question and keeps the conversation where it 
 export class WarrantyAgent extends AdkAgent {}
 ```
 
-Both give the model a tool (`transfer_to_agent`, `delegate_to_agent`) restricted to the targets you declared, and both are also available from code: `agent.delegate(sessionId, to, task)` runs one through the same edges and the same events. A target nobody declared is refused, at boot when it is not an agent at all and at run time when the edge does not exist.
+Both give the model a tool (`transfer_to_agent`, `delegate_to_agent`) restricted to the targets you declared, and both are also available from code: `agent.delegate(sessionId, to, task)` runs one through the same edges and the same events. A target nobody declared is refused, at boot when it is not an agent at all and at run time when the edge does not exist. Both names are the runtime's, on every agent, so a tool of your own called `transfer_to_agent` or `delegate_to_agent` fails the boot: see [Artifacts](#artifacts-and-asking-questions-of-one).
 
 A delegated run is a run of its own: its own model, tools, context and limits, resolved from scratch for the child. It writes to the same journal, its cost joins the parent's total once with the child's model listed separately, and neither agent reads the other's conversation. A chain three deep is refused, and so is a session handed back and forth more than eight times.
 
@@ -884,6 +961,8 @@ runtime: RuntimeOptions.from({ tools: { approvals: EffectApprovalPolicy.from(Too
 ```
 
 It reads as "from this level up, pause". `EffectApprovalPolicy.destructiveOnly()` is the default, so a tool declared `destructive` waits for a person unless the application says otherwise: the cost of that being wrong is a run that waits, and the cost the other way is an effect nobody agreed to. `EffectApprovalPolicy.never()` pauses nothing, and is how an application takes the gate off. Implement `AdkApprovalPolicy` when the decision needs more than the effect: `requires(tool, invocation, actor)` also receives who is asking, when the run was given an `actor`, which is how one person's reads run on their own while another's wait for a click.
+
+The policy is asked about every tool, the runtime's own included. There is no exemption: `read_artifact`, `transfer_to_agent` and `delegate_to_agent` all declare `read`, so the default holds none of them, and `edit_artifact` declares `write`, so a policy from `write` up holds it. A rule you wrote about who may change what should not have a hole in it where the library's own tools are.
 
 When the model calls a tool at or above that level, the tool does not run. The run suspends and comes back with the call waiting:
 
@@ -933,12 +1012,10 @@ class ToolCards extends ToolCallObserver {
 	}
 
 	public async requested(context: RunContext, call: ToolCallNotice): Promise<void> {
-		if (call.isInternal) return;
 		await this.cards.draw(call.callId.value, call.toolName, call.effect?.name, call.isHeld);
 	}
 
 	public async settled(context: RunContext, result: ToolResultNotice): Promise<void> {
-		if (result.isInternal) return;
 		await this.cards.finish(result.callId.value, result.output, result.isRefused ? result.reason : undefined);
 	}
 }
@@ -949,6 +1026,8 @@ const run = support.stream("refund order 42", { sessionId, actor, toolCalls: new
 `context` is the run: the conversation, its metadata, who asked, the stop button and, for a delegation, the run that asked for it. Every port the runtime consults takes it first, so an observer, a storage and a pricing source all read the same facts. `requested` arrives once the approval gate has screened the turn and before anything of it runs. `call.tool` is the `ToolDefinition` the model named (absent for a tool nobody declared), and `call.isHeld` is the gate's own verdict, so an interface knows on the spot whether to draw a button on the card without asking the policy a second time. `settled` follows each result as it is produced; `failed` and `isRefused` tell an error from a refusal, and `reason` carries the text the model was told.
 
 A held call is requested in the run that suspended and settles in the run that released it, so `approve` and `reject` take `toolCalls` too. Nothing is stored between the two: a decision made later, on any instance, brings its own observer, and the turn it releases was in the journal all along.
+
+There is no flag marking the runtime's own calls apart. A screen that wants to hide `read_artifact` names it, by `toolName`, which says what it means.
 
 `requested` is awaited before the turn runs, which is what lets an observer write a row for the call and find it there when the result comes. An observer that throws ends the run, since it is your code inside your run. A delegated child tells the parent's observer nothing, the way its chunks reach nobody: the parent asked a question and is owed an answer, not the working out.
 
@@ -985,15 +1064,16 @@ runtime: RuntimeOptions.from({ lifecycle: { consumers: [new RunAudit()] } });
 
 A consumer gets a `SessionContext` and not a `RunContext`: publication happens after the commit, from a publisher that outlives every run, so the conversation and its metadata are the part that is still true. Events are the journal, so a consumer sees what was recorded rather than what was intended. A consumer that throws does not take the run with it, and `consumerNotices` is where those failures are reported. `contextNotices` does the same for a context whose size nobody could measure.
 
-To see what a run would send without paying for it, ask the agent to explain it:
+To see exactly what a run sent, ask the agent to explain it:
 
 ```ts
 const contexts = await support.explain("where is my order?", { sessionId });
-contexts[0]?.instruction; // the composed system prompt
-contexts[0]?.messages; // the conversation as the model would receive it
+contexts[0]?.segment(ContextSegment.INSTRUCTIONS)?.text; // the composed system prompt
+contexts[0]?.segment(ContextSegment.TOOLS)?.text; // the tool declarations as the model was told them
+contexts[0]?.segment(ContextSegment.CONVERSATION)?.text; // the conversation as the model received it
 ```
 
-`explain` runs the real assembly, stops in front of the provider call and answers a `ContextSnapshot` per call it would have made. It is a debugging tool and it holds the whole prompt, so keep it away from an endpoint end users can reach.
+`explain` answers a `ContextSnapshot` per model call, each one three `ContextSegment`s serialized deterministically, which is what makes two of them comparable. Read it as a recorder and not as a rehearsal: it runs the real run, so the provider is called, the journal is written and the tokens are billed like any other question. It also holds the whole prompt, so keep it away from an endpoint end users can reach.
 
 ## Cost
 
@@ -1182,16 +1262,18 @@ What exists, by subsystem:
 
 | Subsystem | Errors |
 | --- | --- |
-| Boot and wiring | `UnusableComponentError`, `UnregisteredToolError`, `NotAnAgentClassError`, `NotAToolClassError`, `AgentNotBoundError`, `AmbiguousAgentPromptError`, `ConflictingPromptOptionsError`, `AsyncOptionsNotDeclaredError`, `ConflictingAsyncOptionsError`, `EmbedderNotDeclaredError`, `HostNotStartedError` |
+| Boot and wiring | `UnusableComponentError`, `UnregisteredToolError`, `DuplicateRuntimeToolNameError`, `NotAnAgentClassError`, `NotAToolClassError`, `AgentNotBoundError`, `AmbiguousAgentPromptError`, `ConflictingPromptOptionsError`, `AsyncOptionsNotDeclaredError`, `ConflictingAsyncOptionsError`, `EmbedderNotDeclaredError`, `HostNotStartedError` |
 | Agents and routing | `ModelsExhaustedError`, `TransferNotDeclaredError`, `DelegationNotDeclaredError`, `UnknownTransferTargetError`, `UnknownDelegationTargetError`, `DelegationSuspendedError`, `AgentMaxTransfersError`, `AgentMaxDelegationDepthError` |
 | Runs and limits | `AgentMaxIterationsError`, `InvalidRunLimitError`, `ApprovalNotPendingError` |
+| Sessions and metadata | `SessionNotFoundError`, `SessionAlreadyExistsError`, `SessionRevisionConflictError`, `JournalCorruptedError`, `InvalidMetadataKeyError`, `InvalidMetadataValueError`, `MetadataValueTooLargeError` |
 | Models and media | `ModelCallFailedError`, `EmptyModelResponseError`, `UnsupportedCapabilityError`, `UnsupportedMediaTypeError`, `MalformedMediaError`, `MediaTooLargeError`, `UnreachableMediaUrlError`, `MalformedToolCallError`, `InvalidStructuredOutputError` |
-| Tools | `ToolNotFoundError`, `ToolInvalidArgsError`, `ToolRepeatedFailureError`, `ToolApprovalRequiredError`, `ToolSourceUnavailableError`, `ToolSourceAuthError` |
+| Tools | `ToolNotFoundError`, `ToolInvalidArgsError`, `ToolRepeatedFailureError`, `ToolApprovalRequiredError`, `ToolSourceUnavailableError`, `ToolSourceAuthError`, `DuplicateExposedToolError`, `MissingActorIdError`, `UnboundRuntimeToolError` |
 | Prompts | `PromptNotFoundError`, `MissingPromptVariablesError`, `PromptFileUnreadableError` |
-| Context and artifacts | `InvalidCompactionThresholdError`, `ArtifactNotFoundError`, `TamperedArtifactReferenceError`, `AttachmentNotStoredError` |
+| Context and artifacts | `InvalidCompactionThresholdError`, `ContextBudgetExceededError`, `ArtifactNotFoundError`, `TamperedArtifactReferenceError`, `InvalidArtifactNameError`, `AttachmentNotStoredError` |
 | Skills | `DuplicateSkillNameError` |
 | Cost and pricing | `NegativeAmountError`, `CatalogUnreachableError`, `MalformedCatalogError` |
 | Embeddings | `EmptyVectorError`, `IncompatibleVectorsError` |
+| Storage adapters | `UnreadableStoredValueError`, `InvalidStoredRowError` |
 | Diagnostics | `NotEnoughRunsError` |
 
 ## Testing
@@ -1207,11 +1289,11 @@ Everything the package exports, and nothing else: a name that is not here is not
 | Symbol | What it is for |
 | --- | --- |
 | `AdkModule` | The one module to import. `forRoot(options)`, or `forRootAsync(options)` when the options come from the container |
-| `AdkModuleOptions`, `AdkModuleOptionsInput`, `AdkModuleOptionsPatch` | What the module takes: model, storage, artifacts, clock, ids, runtime, embedder, prompts |
+| `AdkModuleOptions`, `AdkModuleOptionsInput`, `AdkModuleOptionsPatch` | What the module takes: model, storage, artifacts, clock, ids, runtime, embedder, prompts, promptSource |
 | `AdkModuleAsyncOptions`, `AdkOptionsFactory` | What `forRootAsync` takes: `imports` plus one of `useClass`, `useExisting` or `useFactory` |
 | `PromptFileOptions` | The `prompts` field: which directory the default source reads |
 | `RuntimeOptions`, `RuntimeOptionsPatch` | What the runtime takes, in five groups plus `limits`: `context`, `cost`, `tools`, `lifecycle`, `model` |
-| `ContextOptions`, `CostOptions`, `ToolingOptions`, `LifecycleOptions`, `ModelOptions` | The five groups, each its own value object with its own defaults and `with` |
+| `ContextOptions`, `CostOptions`, `ToolingOptions`, `LifecycleOptions`, `ModelOptions` | The five groups, each its own value object with its own defaults, its own `with` and its own patch type |
 | `ShutdownOptions` | How long a shutdown waits for runs in flight |
 | `SnapshotPolicy`, `RevisionBucketSnapshotPolicy` | When the journal is snapshotted, and the shipped answer |
 | `EventRedactor`, `FieldNameEventRedactor` | What is masked out of a payload before a consumer reads it, and the shipped answer |
@@ -1221,7 +1303,7 @@ Everything the package exports, and nothing else: a name that is not here is not
 
 | Symbol | What it is for |
 | --- | --- |
-| `Agent`, `AgentOptions` | The decorator that makes a class an agent: `name`, `description`, `prompt`, `tools`, `model`, `failover`, `retry`, `compaction`, `limits` |
+| `Agent`, `AgentOptions` | The decorator that makes a class an agent: `name`, `description`, `prompt`, `tools`, `model`, `failover`, `retry`, `compaction`, `limits`, `outputSchema` |
 | `AdkAgent` | Extend it to inject the agent as itself and to override `prompt()` |
 | `Tool`, `ToolOptions`, `ToolDecorator`, `ToolClass` | The decorator, on a class or on an agent method |
 | `AdkTool` | Extend it for a shared tool, typed by its Zod schema |
@@ -1235,8 +1317,8 @@ Everything the package exports, and nothing else: a name that is not here is not
 | Symbol | What it is for |
 | --- | --- |
 | `AgentRegistry` | Reaches an agent by name, for a class that extends something else |
-| `AgentHandle` | One agent as an application holds it: `ask`, `stream`, `approve`, `reject`, `delegate`, `inspect`, `explain`, `createSession`, `findSessionById`, `findSessionByIdOrFail` |
-| `AskOptions` | `sessionId`, `media`, `attachments`, `sources`, `metadata`, `actor`, `signal`, `toolCalls` |
+| `AgentHandle` | One agent as an application holds it: `ask`, `stream`, `approve`, `reject`, `delegate`, `inspect`, `contextBudget`, `explain`, `createSession`, `findSessionById`, `findSessionByIdOrFail`, `attachArtifact` |
+| `AskOptions` | `sessionId`, `media`, `files`, `attachments`, `sources`, `metadata`, `actor`, `signal`, `toolCalls` |
 | `CreateSessionOptions` | `sessionId` and `metadata`, for a conversation opened before anything is asked |
 | `DecisionOptions` | `by`, `sources` and `signal`, for an approval or a rejection |
 | `AgentResult` | What a run answered: text, ids, status, awaiting, cost |
@@ -1245,7 +1327,7 @@ Everything the package exports, and nothing else: a name that is not here is not
 | `SessionInspection` | Where a conversation stands, without running anything |
 | `ContextBudget` | How full the window is, without running anything |
 | `SessionId`, `AgentRunId`, `ToolCallId`, `AgentName` | The identities that appear in every result and event |
-| `SessionMetadata`, `MetadataKey` | What your application knows about a conversation, and the typed key it is kept under |
+| `SessionMetadata`, `MetadataKey`, `MetadataValue` | What your application knows about a conversation, the typed key it is kept under, and the JSON a value may be |
 | `SessionRevision` | Where the journal of a conversation stands |
 | `RunLimits` | Iterations, consecutive tool failures, invalid arguments |
 
@@ -1285,13 +1367,14 @@ Everything the package exports, and nothing else: a name that is not here is not
 
 | Symbol | What it is for |
 | --- | --- |
-| `AttachmentReference` | How the journal names what was attached: `artifact(id)`, `link(url, type)`, `external(id, type)` |
+| `AttachmentReference` | How the journal names what was attached: `artifact(id, type)`, `link(url, type)`, `external(id, type)` |
+| `ArtifactContent`, `ArtifactName` | A file the model reads: `fromText`, `fromBytes`, `fromBase64`, and the name the placeholder shows |
 | `AttachmentResolver` | Implement it to decide what an attachment becomes, on every projection |
 | `AttachmentRequest` | What the resolver is told: the reference, where it sits, what the wire accepts, and `load()` |
-| `AttachmentProjection` | The three answers: `media(part)`, `note(text)`, `omit()` |
-| `DefaultAttachmentResolver` | What runs when none is declared: stored bytes inline, a link as its address |
-| `InlineAttachmentResolver` | Fetches an external file server side and inlines it |
-| `SignedUrlAttachmentResolver` | Mints a fresh address per projection, for a model that fetches URLs itself |
+| `AttachmentProjection` | The four answers: `media(part)`, `note(text)`, `omit()`, `artifact()` |
+| `DefaultAttachmentResolver` | What runs when none is declared: a stored image inline, a stored text artifact as its placeholder, a link as its address |
+| `InlineAttachmentResolver`, `AttachmentContentLoader` | Fetches an external file server side and inlines it, through the loader you pass it |
+| `SignedUrlAttachmentResolver`, `AttachmentUrlSigner` | Mints a fresh address per projection, through the signer you pass it, for a model that fetches URLs itself |
 
 ### Tools
 
@@ -1301,6 +1384,7 @@ Everything the package exports, and nothing else: a name that is not here is not
 | `Actor` | Who is calling: an id and claims the runtime never reads |
 | `AdkAccessPolicy`, `OpenAccessPolicy`, `ToolAccess` | Who may call which tool, asked on every path |
 | `ToolGate`, `ToolAdmission` | The door every call goes through: parse, then policy |
+| `ToolCatalog` | The tools one run can reach, by name |
 | `McpController`, `McpControllerOptions` | What is published to MCP clients, in the shape `@Agent` uses |
 | `DuplicateExposedToolError` | A name two controllers publish |
 | `ToolOutput` | An answer that carries media alongside the data |
@@ -1321,15 +1405,20 @@ Everything the package exports, and nothing else: a name that is not here is not
 | `InMemorySessionStorage`, `SqliteSessionStorage`, `SqliteConnection` | The two the library ships, both for development and tests |
 | `ArtifactStorage`, `InMemoryArtifactStorage`, `SqliteArtifactStorage` | Where a large result or an upload lives, in this process or on disk |
 | `OffloadPolicy`, `CharacterCountOffloadPolicy`, `OffloadDecision` | When a result becomes an artifact instead of a message, whether the model can still explore it, and the shipped answer |
+| `ArtifactExplorationTools` | The five tools that read an artifact, together, to spread into an agent's `tools` |
+| `ListArtifactsTool`, `OutlineArtifactTool`, `SearchArtifactTool`, `QueryArtifactTool`, `SliceArtifactTool` | One at a time, for an agent that needs some of them |
+| `EditArtifactTool` | Changes a text artifact in place, with SEARCH/REPLACE blocks; declares `write`, and is never in the group above |
+| `RuntimeToolRequest`, `UnboundRuntimeToolError` | What listing one of those classes declares, and what it answers if no runtime bound it |
 | `SessionEventConsumer`, `PublishedEvent` | Being told what happened, after it was committed |
+| `ToolCallRequested`, `ToolResultProduced` | The two tool events of the journal, each carrying the `TYPE` a consumer matches on instead of a literal |
 | `ConsumerFailureSink` | Where a consumer's own failure is reported |
 | `ChunkSink` | Watching the pieces of a turn as they arrive |
 | `ToolCallObserver`, `ToolCallNotice`, `ToolResultNotice` | Being told, from inside one run, which tool was asked for, whether it is held, and what it answered |
 | `ToolOutcome` | What one tool call produced, as a result notice carries it |
-| `Clock`, `SystemClock`, `Instant`, `IdGenerator`, `RandomIdGenerator` | The two things a runtime cannot invent for itself |
+| `Clock`, `SystemClock`, `Instant`, `Duration`, `IdGenerator`, `RandomIdGenerator` | The two things a runtime cannot invent for itself, and the units they are read in |
 | `Secret` | A value that must not print itself in a log |
 
-Implementing `SessionStorage` or `ArtifactStorage` means naming what their methods pass around, so those types are public too: `AppendEventsCommand` and `AppendEventsResult` for an append, `StoredSessionEvent` for what comes back, `Session` and `SessionSnapshot` for the head of a conversation and its disposable summary, `ContextCheckpoint` for what compaction leaves behind, and `ArtifactId`, `ArtifactContent` and `ArtifactReference` for a stored artifact. `ConsumerFailed`, `ContextWindowUnknown` and `ArtifactsNotDurable` are what the notice sinks receive; `ContextNotice` is the union `ContextNoticeSink` takes.
+Implementing `SessionStorage` or `ArtifactStorage` means naming what their methods pass around, so those types are public too: `AppendEventsCommand` and `AppendEventsResult` for an append, `StoredSessionEvent` for what comes back, `Session` and `SessionSnapshot` for the head of a conversation and its disposable summary, `ContextCheckpoint` for what compaction leaves behind, and `ArtifactId`, `ArtifactContent`, `ArtifactEncoding`, `ArtifactName` and `ArtifactReference` for a stored artifact. `ConsumerFailed`, `ContextWindowUnknown` and `ArtifactsNotDurable` are what the notice sinks receive; `ContextNotice` is the union `ContextNoticeSink` takes, and `NoticeSink` is the base every sink extends.
 
 Writing a `SessionStorage` needs more than the names in its signatures, and the rest is published here for the same reason `PromptFileCache` is: implementing a port is something an application does.
 
@@ -1352,7 +1441,7 @@ Writing a `SessionStorage` needs more than the names in its signatures, and the 
 
 | Symbol | What it is for |
 | --- | --- |
-| `AdkCompactionPolicy`, `WindowShareCompactionPolicy` | When a conversation is shortened, and the standard policy that decides it |
+| `AdkCompactionPolicy`, `WindowShareCompactionPolicy`, `WindowShareCompactionOptions` | When a conversation is shortened, the standard policy that decides it, and the three fields it takes |
 | `ContextBudget`, `CompactionDecision` | What a policy is told, and what it answers |
 | `PromptMeasurement` | What a provider counted, over how much text, by which model |
 | `CompactionStrategy`, `ContextProjection` | How it is shortened, if you replace the default, and what it works on |

@@ -211,7 +211,7 @@ describe("RunJournal", () => {
 	});
 
 	it("records the placeholder and the artifact when a result was too large for the context", () => {
-		const content = new ArtifactContent("a very long report");
+		const content = ArtifactContent.fromText("a very long report");
 		const reference = ArtifactReference.fromContent(ArtifactId.from("a-1"), SESSION, content);
 		const outcome = ToolOutcome.succeeded(CALL, "report", { rows: 1 }, reference.toString(), reference);
 

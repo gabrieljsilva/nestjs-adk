@@ -274,6 +274,22 @@ It is the same suite that measures `InMemorySessionStorage` and `SqliteSessionSt
 
 Everything it needs from `@nestjs-adk/core` is published there: the codecs, the records and the four errors the port has to throw. See the storage section of the core README.
 
+`ArtifactStorageContractSuite` is the same idea for `ArtifactStorage`: put, read, find, list, a range read, and now update.
+
+```ts
+import { ArtifactStorageContractSuite } from "@nestjs-adk/testing";
+
+const suite = new ArtifactStorageContractSuite();
+
+for (const contract of suite.cases(() => new PrismaArtifactStorage(prisma))) {
+	it(contract.name, () => contract.run());
+}
+```
+
+It answers for what `put`, `read` and `find` give back unchanged, what `list` orders and bounds, what `readRange` slices without loading the whole artifact, and what `update` does to a reference: an update keeps the artifact's id and its place in the session's list, a stale reference is refused with the content the accepted write left in place, and one session cannot update another's even holding the right reference. It is the same suite that measures `InMemoryArtifactStorage` and `SqliteArtifactStorage`.
+
+Both suites prefix every session id they create with a token chosen once per suite instance, so two files measuring two stores against one shared database in the same run never collide on `s-1`.
+
 ## API reference
 
 Everything the package exports. A name that is not here is not part of the public surface.
@@ -310,6 +326,7 @@ Everything the package exports. A name that is not here is not part of the publi
 | `AgentStub`, `StubbedAsk`, `StubbedDecision` | Replaces a whole agent, for testing the caller rather than the agent |
 | `LlmJudge`, `JudgeRubric`, `JudgeVerdict` | Grading prose a string match cannot assert |
 | `SessionStorageContractSuite` | Every promise the `SessionStorage` port makes, as cases any runner drives |
+| `ArtifactStorageContractSuite` | Every promise the `ArtifactStorage` port makes, as cases any runner drives |
 
 ### Errors
 

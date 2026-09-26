@@ -148,6 +148,10 @@ describe("An agent that answers data", () => {
 		await expect(booted.get(AgentRegistry).open("titler").ask("name this")).rejects.toThrow(UnsupportedCapabilityError);
 	});
 
+	/**
+	 * The module is deliberately not kept: one that failed to init throws the same error again
+	 * when the teardown closes it, and the failure would be reported from there instead.
+	 */
 	it("refuses to boot an agent whose declared shape is not an object", async () => {
 		@Agent({ name: "broken", description: "...", outputSchema: "a schema" as unknown as object })
 		class BrokenAgent extends AdkAgent {}
@@ -155,8 +159,6 @@ describe("An agent that answers data", () => {
 		@Module({ providers: [BrokenAgent] })
 		class BrokenModule {}
 
-		// The module is deliberately not kept: one that failed to init throws the same error again
-		// when the teardown closes it, and the failure would be reported from there instead.
 		await expect(
 			Test.createTestingModule({
 				imports: [

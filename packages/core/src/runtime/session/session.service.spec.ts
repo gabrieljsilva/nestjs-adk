@@ -7,6 +7,8 @@ import { AgentDefinition } from "../../domain/agent/agent-definition.value-objec
 import { AgentDescription } from "../../domain/agent/agent-description.value-object";
 import { AgentName } from "../../domain/agent/agent-name.value-object";
 import { DeclaredAgent } from "../../domain/agent/declared-agent.value-object";
+import { ArtifactContent } from "../../domain/artifact/artifact-content.value-object";
+import { ArtifactName } from "../../domain/artifact/artifact-name.value-object";
 import { ModelContextWindow } from "../../domain/model/descriptor/model-context-window.value-object";
 import { SessionContext } from "../../domain/run/session-context.value-object";
 import { SessionNotFoundError } from "../../domain/session/errors/session-not-found.error";
@@ -14,7 +16,9 @@ import { CreateSessionInput } from "../../domain/session/input/create-session-in
 import { FakeClock } from "../../support/fake-clock.double";
 import { StubModel } from "../../support/model/stub-model.fixture";
 import { SequenceIdGenerator } from "../../support/sequence-id-generator.double";
+import { AttachArtifactUseCase } from "../artifact/attach-artifact.use-case";
 import { AttachmentReader } from "../artifact/attachment-reader.service";
+import { AttachmentStore } from "../artifact/attachment-store.service";
 import { AgentCatalog } from "../catalog/agent-catalog.service";
 import { ContextMeasurer } from "../context/context-measurer.service";
 import { ContextProjector } from "../context/context-projector.service";
@@ -78,6 +82,7 @@ function serviceOf(
 			new OldestFirstCompactionStrategy(new ContextMeasurer()),
 			new ContextWindowNotifier(),
 		),
+		new AttachArtifactUseCase(sessions, new AttachmentStore(artifacts)),
 	);
 }
 
@@ -97,6 +102,25 @@ class WatchingProjector extends ContextProjector {
 }
 
 describe("SessionService", () => {
+	it("attaches an artifact to a conversation that exists, answering a reference a question can carry", async () => {
+		const service = serviceOf();
+		const session = await service.create(SUPPORT, CreateSessionInput.fromOptions("chat-42"));
+
+		const reference = await service.attachArtifact(
+			session.id,
+			ArtifactContent.fromText("a,b\n1,2", "text/csv", ArtifactName.fromText("sales.csv")),
+		);
+
+		expect(reference.isReadableArtifact).toBe(true);
+		expect(reference.mediaType).toBe("text/csv");
+	});
+
+	it("refuses to attach an artifact to a conversation nobody opened", async () => {
+		await expect(serviceOf().attachArtifact(MISSING, ArtifactContent.fromText("x"))).rejects.toBeInstanceOf(
+			SessionNotFoundError,
+		);
+	});
+
 	it("opens a conversation under the identifier it was given", async () => {
 		const service = serviceOf();
 

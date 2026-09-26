@@ -20,8 +20,11 @@ function routes(handlers: Record<string, { status?: number; body?: unknown; text
 			return new Response(body, { status: handler.status ?? 200, headers: { "content-type": type } });
 		}),
 	);
-	// The guarded fetch normalizes everything into a Request before calling through, so the headers a
-	// provider actually receives are on that object, never on the init literal the caller wrote.
+	/**
+	 * The guarded fetch normalizes everything into a `Request` before calling through, so the
+	 * headers a provider actually receives are on that object, never on the init literal the
+	 * caller wrote.
+	 */
 	const lastHeaders = () => {
 		const [input, init] = vi.mocked(fetch).mock.calls.at(-1) ?? [];
 		if (input instanceof Request) return input.headers;
@@ -41,10 +44,12 @@ describe("discovery: where the well-known documents actually live", () => {
 		vi.unstubAllGlobals();
 	});
 
+	/**
+	 * RFC 9728: the path of the resource is INSERTED after the well-known segment. A server
+	 * mounted on /mcp publishes at /.well-known/oauth-protected-resource/mcp and answers 404 at
+	 * the root, which is how GitHub's MCP server looked like a server with no authorization at all.
+	 */
 	it("finds the protected resource document under the server's path", async () => {
-		// RFC 9728: the path of the resource is INSERTED after the well-known segment. A server mounted
-		// on /mcp publishes at /.well-known/oauth-protected-resource/mcp and answers 404 at the root,
-		// which is how GitHub's MCP server looked like a server with no authorization at all.
 		routes({
 			"https://api.example.com/.well-known/oauth-protected-resource/mcp": {
 				body: { authorization_servers: ["https://auth.example.com"] },
@@ -70,9 +75,11 @@ describe("discovery: where the well-known documents actually live", () => {
 		expect(discovery.tokenEndpoint).toBe("https://auth.example.com/token");
 	});
 
+	/**
+	 * RFC 8414 §3.1, the same insertion rule: an issuer of https://github.com/login/oauth
+	 * publishes at https://github.com/.well-known/oauth-authorization-server/login/oauth.
+	 */
 	it("finds the authorization server metadata under the issuer's path", async () => {
-		// RFC 8414 §3.1, the same insertion rule: an issuer of https://github.com/login/oauth publishes
-		// at https://github.com/.well-known/oauth-authorization-server/login/oauth.
 		routes({
 			"https://api.example.com/.well-known/oauth-protected-resource/mcp": {
 				body: { authorization_servers: ["https://auth.example.com/login/oauth"] },
@@ -146,9 +153,11 @@ describe("discovery: where the well-known documents actually live", () => {
 		await expect(McpOAuth.discover("https://api.example.com/mcp")).rejects.toBeInstanceOf(McpDiscoveryError);
 	});
 
+	/**
+	 * OIDC Discovery is the one dialect where the document lives at
+	 * `{issuer}/.well-known/openid-configuration`, not under the root's well-known segment.
+	 */
 	it("finds an OpenID Connect provider mounted on a path, which APPENDS instead of inserting", async () => {
-		// OIDC Discovery is the one dialect where the document lives at
-		// {issuer}/.well-known/openid-configuration, not under the root's well-known segment.
 		routes({
 			"https://api.example.com/.well-known/oauth-protected-resource": {
 				body: { authorization_servers: ["https://auth.example.com/realms/acme"] },
@@ -167,9 +176,11 @@ describe("discovery: where the well-known documents actually live", () => {
 		expect(discovery.tokenEndpoint).toBe("https://auth.example.com/realms/acme/token");
 	});
 
+	/**
+	 * A shared host separates tenants by path alone: comparing origins would accept any of them,
+	 * which is the confused-deputy the issuer check exists to stop.
+	 */
 	it("refuses an issuer that agrees on the origin but not on the path", async () => {
-		// A shared host separates tenants by path alone: comparing origins would accept any of them,
-		// which is the confused-deputy the issuer check exists to stop.
 		routes({
 			"https://api.example.com/.well-known/oauth-protected-resource/mcp": {
 				body: { authorization_servers: ["https://auth.example.com/tenant-a"] },
@@ -231,9 +242,11 @@ describe("registration: what the server said when it refused", () => {
 		registrationEndpoint: "https://auth.example.com/register",
 	};
 
+	/**
+	 * A bare "registration failed with 400" sends the operator to read our code, when the answer
+	 * was in the body all along: ClickUp, for one, replies that the integration is not allowlisted.
+	 */
 	it("carries the provider's own explanation, not just the status", async () => {
-		// A bare "registration failed with 400" sends the operator to read our code, when the answer was
-		// in the body all along: ClickUp, for one, replies that the integration is not allowlisted.
 		routes({
 			"https://auth.example.com/register": {
 				status: 400,
@@ -263,9 +276,12 @@ describe("token exchange: how providers actually answer", () => {
 	const client = { clientId: "c", tokenEndpoint: "https://auth.example.com/token" };
 	const options = { code: "abc", verifier: "v", redirectUri: "https://app.example.com/cb" };
 
+	/**
+	 * GitHub answers `application/x-www-form-urlencoded`, and `JSON.parse` on `"access_token=..."`
+	 * threw a syntax error that read like a broken server instead of a working one in another
+	 * dialect.
+	 */
 	it("reads a form-encoded token response", async () => {
-		// GitHub answers application/x-www-form-urlencoded, and JSON.parse on "access_token=..." threw
-		// a syntax error that read like a broken server instead of a working one in another dialect.
 		routes({
 			"https://auth.example.com/token": {
 				text: "access_token=gho_1&token_type=bearer&scope=repo&expires_in=28800",
@@ -300,6 +316,10 @@ describe("token exchange: how providers actually answer", () => {
 		expect(tokens.refreshToken).toBe("r");
 	});
 
+	/**
+	 * A 200 carrying an OAuth error is legal, and the operator needs the reason, not "no access
+	 * token".
+	 */
 	it("reports the provider's error instead of a parse failure", async () => {
 		routes({
 			"https://auth.example.com/token": {
@@ -308,7 +328,6 @@ describe("token exchange: how providers actually answer", () => {
 			},
 		});
 
-		// A 200 carrying an OAuth error is legal, and the operator needs the reason, not "no access token"
 		await expect(McpOAuth.exchange(client, options)).rejects.toThrow(/code expired/i);
 	});
 });

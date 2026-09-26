@@ -19,7 +19,7 @@ The invocation half is this question and nothing else: `runId`, `startedAt`, `ac
 
 The decision was between a minimal `RunContext` with invented parts and a smaller base class, and the base class won because it keeps the contracts honest. An adapter deleting a session, a consumer told about events after the commit, and a storage answering a lookup are all outside any run: there is no agent answering, no stop button and no actor. `SessionContext` says exactly that, and because `RunContext` extends it, a port declaring the smaller one accepts both.
 
-So `ArtifactStorage` and `SessionStorage` take `SessionContext`, and every port that only exists inside a turn — `CompactionStrategy`, `ContextSummarizer`, `StructuredOutputValidator`, `ToolCallObserver` — takes `RunContext`. `SessionEventConsumer` takes `SessionContext` on purpose: publication happens after the commit, from a publisher that outlives every run and batches across sessions.
+So `ArtifactStorage` and `SessionStorage` take `SessionContext`, and every port that only exists inside a turn — `CompactionStrategy`, `ContextSummarizer`, `AttachmentResolver`, `StructuredOutputValidator`, `ToolCallObserver` — takes `RunContext`. `SessionEventConsumer` takes `SessionContext` on purpose: publication happens after the commit, from a publisher that outlives every run and batches across sessions.
 
 Three ports accept an absent context, each for one named caller and no other:
 

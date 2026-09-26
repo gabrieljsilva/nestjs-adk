@@ -2,10 +2,12 @@ import { ToolEffect } from "../../../domain/tool/approval/tool-effect.value-obje
 import { ParsedArguments } from "../../../domain/tool/invocation/parsed-arguments.value-object";
 import type { ToolContext } from "../../../domain/tool/invocation/tool-context.value-object";
 import { ToolHandler } from "../../../domain/tool/invocation/tool-handler.contract";
-import { ToolDefinition } from "../../../domain/tool/tool-definition.value-object";
+import { RuntimeToolRequest } from "../../../domain/tool/runtime-tool-request.value-object";
+import type { ToolDefinition } from "../../../domain/tool/tool-definition.value-object";
 import { ToolSchema } from "../../../domain/tool/tool-schema.contract";
 import { ArtifactBudget } from "../artifact-budget.value-object";
 import type { ArtifactLoader } from "../artifact-loader.service";
+import { ArtifactRefusal } from "../artifact-refusal.value-object";
 import { JsonOutline } from "./json-outline.service";
 import { JsonPointer } from "./json-pointer.value-object";
 
@@ -18,20 +20,21 @@ const DESCRIPTION =
 
 const OUTLINE_DEPTH = 2;
 
+/**
+ * Reads one value out of a JSON artifact by JSON Pointer. List it in `@Agent({ tools })` for an
+ * agent that is given JSON documents.
+ */
 export class QueryArtifactTool {
 	public static readonly NAME = NAME;
 
 	private constructor() {}
 
+	public static request(): RuntimeToolRequest {
+		return new RuntimeToolRequest(NAME, DESCRIPTION, new PointerSchema(), ToolEffect.READ);
+	}
+
 	public static build(artifacts: ArtifactLoader, budget: ArtifactBudget): ToolDefinition {
-		return new ToolDefinition(
-			NAME,
-			DESCRIPTION,
-			new PointerSchema(),
-			ToolEffect.READ,
-			new PointerHandler(artifacts, budget),
-			true,
-		);
+		return QueryArtifactTool.request().boundTo(new PointerHandler(artifacts, budget));
 	}
 }
 
@@ -79,7 +82,8 @@ class PointerHandler extends ToolHandler {
 	}
 
 	public async invoke(args: Record<string, unknown>, context: ToolContext): Promise<unknown> {
-		const loaded = await this.artifacts.loadOrFail(context.toSessionContext(), String(args.artifactId));
+		const loaded = await this.artifacts.loadOrRefuse(context.toSessionContext(), String(args.artifactId));
+		if (loaded instanceof ArtifactRefusal) return loaded.toResult();
 		const text = String(args.pointer);
 		const pointer = JsonPointer.fromText(text);
 		if (pointer === undefined) {

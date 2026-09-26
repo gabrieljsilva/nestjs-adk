@@ -46,7 +46,7 @@ The rule is that degrading is fine and degrading silently is not.
 
 An application that declares nothing is compacted at nine tenths of the window, down to seven tenths, keeping the four most recent blocks. That is `WindowShareCompactionPolicy`, and the default exists because the alternative was worse: before it, a conversation nobody had thought about grew until the window refused the call, and the failure arrived at the customer rather than at the developer. The shares match what Cline and Cursor do, and they are shares rather than counts because two hundred thousand tokens is comfortable in a window of a million and impossible in one of a hundred and twenty eight thousand.
 
-Three levels declare it, resolved in `RunScopeFactory.compactionFor`: the agent's `@Agent({ compaction })`, then `RuntimeOptions.context.compaction`, then the standard policy. `false` at either level turns compaction off, and it is a declaration rather than an absence: an agent that refuses compaction keeps refusing it under a runtime that declared a policy, and `??` is what keeps the three readable, since it falls through on `undefined` and never on `false`.
+Three levels declare it, resolved in `RunScopeFactory.resolveCompaction`: the agent's `@Agent({ compaction })`, then `RuntimeOptions.context.compaction`, then the standard policy. `false` at either level turns compaction off, and it is a declaration rather than an absence: an agent that refuses compaction keeps refusing it under a runtime that declared a policy, and `??` is what keeps the three readable, since it falls through on `undefined` and never on `false`.
 
 An agent that turned it off and outgrows its window gets `ContextBudgetExceededError`, which is the honest end. The alternative is dropping the beginning of a conversation somebody said to keep whole.
 
@@ -57,6 +57,8 @@ An agent that turned it off and outgrows its window gets `ContextBudgetExceededE
 Given no current size it stands on the measured one, which is a budget about the call that happened rather than one about to happen. That is what `AgentHandle.contextBudget(sessionId)` answers: the window comes from the agent's own model, the measurement from the journal, and no projection is built, because building one means resolving tools, instructions and an agent's own `prompt()`, all of which belong to a run.
 
 Measured and projected are different words for different facts, and the API keeps them apart. `usedTokens` is what the provider counted for the previous call, unscaled, and it is a `TokenCount`. `projectedTokens`, `projectedFreeTokens`, `projectedUsedShare` and `projectedFreeShare` carry that measurement to the prompt as it now stands, scaled by how the character count changed, and they answer plain numbers: a `TokenCount` means somebody counted, and there nobody did.
+
+Because the scale is a ratio and not a size, **the constant part of the prompt damps it**. `ContextMeasurer` counts the runtime instructions, the agent prompt and every tool's name, description and serialised schema in the prefix, and the prefix sits in both halves of `characters / lastPrompt.characters`. So growing the prefix pulls the ratio towards 1 and makes compaction fire *later*, which is the opposite of the intuition that more prompt means less room. Two tool declarations added to every agent, about 1 300 characters, took a playground conversation calibrated at `maxShare: 0.02` from compacting within six turns to never compacting at all. Nothing about the test was wrong and nothing about the projection is either: a prefix that was always there was always there last turn too, and only what the conversation added since is growth. Anything that changes the prefix for every agent changes when every conversation compacts, and that is the reason the five artifact exploration tools and `edit_artifact` are opt in rather than always on: `read_artifact` is the only one in every prefix, and the other six are 5 374 characters an agent pays for only by asking ([[artifact-exploration]]).
 
 Every question about the call that has not happened yet is necessarily a projection, because the only thing that knows the real size of this prompt is the provider and asking it is the call. So `verify` refuses on the projection and `ContextBudgetExceededError` says `projects` rather than `needs`. What it never does is invent one: an unknown window, or a session no provider has measured, goes through untouched.
 
@@ -95,5 +97,4 @@ A skill scoped to a run stops being pinned once another run is asking, which is 
 ## Still missing
 
 - cache read accounting and cost, which build on the same usage;
-- `TestingAgent.requests`, which exposes the prepared context per run and replaces the static context diagnostics;
-- an artifact digest covering bytes, media type and length rather than text alone.
+- `TestingAgent.requests`, which exposes the prepared context per run and replaces the static context diagnostics.

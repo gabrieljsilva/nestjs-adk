@@ -47,10 +47,6 @@ describe("TransferToAgentTool", () => {
 		expect(toolFor(BILLING).schema.parse({}).isValid).toBe(false);
 	});
 
-	it("is internal, so no approval policy stands between an agent and the agent it declared", () => {
-		expect(toolFor(BILLING).internal).toBe(true);
-	});
-
 	it("confirms the handover to the model and does nothing else", async () => {
 		const answer = await toolFor(BILLING).handler.invoke({ agentName: "billing" }, contextOf());
 

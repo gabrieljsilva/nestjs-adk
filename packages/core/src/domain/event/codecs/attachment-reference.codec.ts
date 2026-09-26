@@ -7,7 +7,9 @@ export class AttachmentReferenceCodec {
 		if (url !== undefined) return { url, mediaType: reference.mediaType };
 		const externalId = reference.externalId;
 		if (externalId !== undefined) return { externalId, mediaType: reference.mediaType };
-		return { id: reference.artifactId?.value };
+		const mediaType = reference.mediaType;
+		if (mediaType === undefined) return { id: reference.artifactId?.value };
+		return { id: reference.artifactId?.value, mediaType };
 	}
 
 	public decode(value: unknown): AttachmentReference | undefined {
@@ -24,6 +26,7 @@ export class AttachmentReferenceCodec {
 		}
 
 		const id = Reflect.get(value, "id");
-		return typeof id === "string" ? AttachmentReference.artifact(ArtifactId.from(id)) : undefined;
+		if (typeof id !== "string") return undefined;
+		return AttachmentReference.artifact(ArtifactId.from(id), typeof mediaType === "string" ? mediaType : undefined);
 	}
 }

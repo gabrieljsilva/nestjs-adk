@@ -70,7 +70,7 @@ export class ToolExecutor {
 	}
 
 	private requiresApproval(tool: ToolDefinition, invocation: ToolInvocation, actor?: Actor): boolean {
-		return !tool.internal && this.approvals.requires(tool, invocation, actor);
+		return this.approvals.requires(tool, invocation, actor);
 	}
 
 	private find(command: ToolExecutionCommand): ToolDefinition | undefined {
@@ -99,7 +99,7 @@ export class ToolExecutor {
 		const produced = answered instanceof ToolOutput ? answered.data : answered;
 		const media = answered instanceof ToolOutput ? answered.media : [];
 		const text = this.formatText(produced);
-		const offloaded = tool.internal ? OffloadedContent.inline(text) : await this.offloader.offload(command.context, text);
+		const offloaded = await this.offloader.offload(command.context, text);
 		return ToolOutcome.succeeded(
 			invocation.callId,
 			tool.name,

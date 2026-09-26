@@ -13,6 +13,10 @@ const SESSION = SessionId.from("s-1");
 const CTX = SessionContext.fromSessionId(SESSION);
 
 class RefusingArtifactStorage extends ArtifactStorage {
+	public async update(): Promise<never> {
+		throw new Error("no artifact storage");
+	}
+
 	public async put(): Promise<ArtifactReference> {
 		throw new Error("the bucket is unreachable");
 	}
@@ -23,6 +27,10 @@ class RefusingArtifactStorage extends ArtifactStorage {
 
 	public async find(): Promise<ArtifactReference | undefined> {
 		return undefined;
+	}
+
+	public async list(): Promise<readonly ArtifactReference[]> {
+		return [];
 	}
 
 	public async deleteAll(): Promise<void> {

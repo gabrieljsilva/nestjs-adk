@@ -3,14 +3,20 @@ import type { AttachmentReference } from "./attachment-reference.value-object";
 
 /**
  * What one attachment becomes in the context being built: `media` puts it in front of the
- * model, `note` puts a line of text where it stood, `omit` leaves it out.
- * The answer is never recorded; only the reference in the journal is.
+ * model, `note` puts a line of text where it stood, `omit` leaves it out, and `artifact`
+ * writes the placeholder an offloaded result gets, so the model reads it through the artifact
+ * tools. The answer is never recorded; only the reference in the journal is.
  */
 export class AttachmentProjection {
 	private constructor(
 		public readonly part?: MediaPart,
 		public readonly text?: string,
+		public readonly isArtifact: boolean = false,
 	) {}
+
+	public static artifact(): AttachmentProjection {
+		return new AttachmentProjection(undefined, undefined, true);
+	}
 
 	public static media(part: MediaPart): AttachmentProjection {
 		return new AttachmentProjection(part);

@@ -244,6 +244,7 @@ export { ArtifactsNotDurable } from "./domain/artifact/artifacts-not-durable.not
 export { CharacterCountOffloadPolicy } from "./domain/artifact/character-count-offload.policy";
 export { ArtifactNotFoundError } from "./domain/artifact/errors/artifact-not-found.error";
 export { TamperedArtifactReferenceError } from "./domain/artifact/errors/tampered-artifact-reference.error";
+export { InvalidArtifactNameError } from "./domain/artifact/errors/invalid-artifact-name.error";
 export { InMemoryArtifactStorage } from "./adapters/storage/in-memory-artifact-storage.adapter";
 
 export { AttachmentReference } from "./domain/model/attachment/attachment-reference.value-object";
@@ -251,6 +252,15 @@ export { AttachmentResolver } from "./contracts/context/attachment-resolver.cont
 export { AttachmentRequest } from "./domain/model/attachment/attachment-request.value-object";
 export { AttachmentProjection } from "./domain/model/attachment/attachment-projection.value-object";
 export { DefaultAttachmentResolver } from "./runtime/artifact/default-attachment-resolver.adapter";
+export { ArtifactExplorationTools } from "./runtime/artifact/artifact-explorer.service";
+export { ListArtifactsTool } from "./runtime/artifact/tools/list-artifacts.tool";
+export { OutlineArtifactTool } from "./runtime/artifact/tools/outline-artifact.tool";
+export { SearchArtifactTool } from "./runtime/artifact/tools/search-artifact.tool";
+export { QueryArtifactTool } from "./runtime/artifact/tools/query-artifact.tool";
+export { SliceArtifactTool } from "./runtime/artifact/tools/slice-artifact.tool";
+export { EditArtifactTool } from "./runtime/artifact/tools/edit-artifact.tool";
+export { RuntimeToolRequest } from "./domain/tool/runtime-tool-request.value-object";
+export { DuplicateRuntimeToolNameError } from "./runtime/catalog/errors/duplicate-runtime-tool-name.error";
 export {
 	InlineAttachmentResolver,
 	type AttachmentContentLoader,
@@ -262,6 +272,7 @@ export {
 
 export { Embedder } from "./contracts/model/embedder.contract";
 export { PricedEmbedder } from "./runtime/cost/priced-embedder.service";
+export { PricedEmbedding } from "./domain/embedding/priced-embedding.value-object";
 export { UndeclaredEmbedder } from "./public/nest/undeclared-embedder.adapter";
 export { EmbedderNotDeclaredError } from "./public/nest/errors/embedder-not-declared.error";
 export { EmbeddingVector } from "./domain/embedding/embedding-vector.value-object";
@@ -285,6 +296,7 @@ export { WindowShareCompactionPolicy } from "./domain/context/window-share-compa
 export type { WindowShareCompactionOptions } from "./domain/context/window-share-compaction.policy";
 export { ContextBlock } from "./domain/context/context-block.value-object";
 export { InvalidCompactionThresholdError } from "./domain/context/errors/invalid-compaction-threshold.error";
+export { ContextBudgetExceededError } from "./domain/context/errors/context-budget-exceeded.error";
 export { ContextSummarizer } from "./contracts/context/context-summarizer.contract";
 export { CompactionStrategy } from "./contracts/context/compaction-strategy.contract";
 export { OldestFirstCompactionStrategy } from "./runtime/context/oldest-first-compaction.strategy";
@@ -306,6 +318,7 @@ export { MalformedMediaError } from "./domain/model/errors/malformed-media.error
 export { MediaTooLargeError } from "./domain/model/errors/media-too-large.error";
 export { UnreachableMediaUrlError } from "./domain/model/errors/unreachable-media-url.error";
 export { AttachmentNotStoredError } from "./runtime/artifact/errors/attachment-not-stored.error";
+export { UnboundRuntimeToolError } from "./domain/tool/errors/unbound-runtime-tool.error";
 export { MalformedToolCallError } from "./domain/model/errors/malformed-tool-call.error";
 export { InvalidStructuredOutputError } from "./domain/model/errors/invalid-structured-output.error";
 export { EmptyModelResponseError } from "./domain/model/errors/empty-model-response.error";
@@ -346,6 +359,8 @@ export { SessionSnapshot } from "./domain/session/state/session-snapshot.value-o
 export { StoredSessionEvent } from "./domain/event/stored-session-event.record";
 export { ContextCheckpoint } from "./domain/context/context-checkpoint.value-object";
 export { ArtifactContent } from "./domain/artifact/artifact-content.value-object";
+export { ArtifactName } from "./domain/artifact/artifact-name.value-object";
+export { ArtifactEncoding } from "./domain/artifact/artifact-encoding.value-object";
 export { ArtifactReference } from "./domain/artifact/artifact-reference.value-object";
 export { ArtifactId } from "./common/identity/artifact-id.value-object";
 export { ToolInvocation } from "./domain/tool/invocation/tool-invocation.value-object";

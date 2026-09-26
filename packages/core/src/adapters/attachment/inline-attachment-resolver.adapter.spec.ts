@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { ArtifactId } from "../../common/identity/artifact-id.value-object";
 import { SessionId } from "../../common/identity/session-id.value-object";
 import { SessionRevision } from "../../common/revision/session-revision.value-object";
 import { AttachmentReference } from "../../domain/model/attachment/attachment-reference.value-object";
 import { AttachmentRequest } from "../../domain/model/attachment/attachment-request.value-object";
 import { MediaPart } from "../../domain/model/messages/media-part.value-object";
-import { SessionContext } from "../../domain/run/session-context.value-object";
+import { RunContextFixture } from "../../support/run/run-context.fixture";
 import { InlineAttachmentResolver } from "./inline-attachment-resolver.adapter";
 
 const PIXEL = "iVBORw0KGgo=";
@@ -20,9 +21,23 @@ function requestOf(reference: AttachmentReference, stored?: MediaPart): Attachme
 	);
 }
 
-const CTX = SessionContext.fromSessionId(SessionId.from("s-1"));
+const CTX = RunContextFixture.run("s-1");
 
 describe("InlineAttachmentResolver", () => {
+	it("leaves a stored text artifact to the artifact tools, so the loader is never asked about it", async () => {
+		let asked = 0;
+		const resolver = new InlineAttachmentResolver(async () => {
+			asked += 1;
+			return undefined;
+		});
+		const stored = AttachmentReference.artifact(ArtifactId.from("a-1"), "text/markdown");
+
+		const projection = await resolver.resolve(CTX, requestOf(stored));
+
+		expect(projection.isArtifact).toBe(true);
+		expect(asked).toBe(0);
+	});
+
 	it("fetches an external file server side and inlines it, so no address ever travels", async () => {
 		const part = MediaPart.image("image/png", PIXEL);
 		const resolver = new InlineAttachmentResolver(async (externalId) => (externalId === "file-7" ? part : undefined));

@@ -47,9 +47,17 @@ A decision on a call that is not awaiting raises `ApprovalNotPendingError`. That
 
 The run does not rely on catching it. It asks first, with `allHeld`, and the throw is the invariant behind the asking.
 
-## Tools the runtime owns answer to no policy
+## No tool is exempt, including the ones the runtime owns
 
-`ToolDefinition.internal` marks a tool the runtime offers on its own behalf, like `read_artifact` and `activate_skill`. No approval policy applies to it, so a policy written for an application's tools cannot leave a model unable to read what it was told to read. Their results are never offloaded either: taking back out what was just fetched back in is a loop, not a saving.
+`ToolDefinition.internal` is gone. It used to mark a tool the runtime offers on its own behalf, like `read_artifact`, and it exempted that tool from the access policy, from the approval policy and from offload. The rule now has no exception: every policy is asked about every tool, and every result is offloaded by the same measure.
+
+The exemption was written to stop one thing, and it stopped three. A policy written for an application's tools was never meant to leave a model unable to read what it was told to read, so `read_artifact` was waved through. `transfer_to_agent` and `delegate_to_agent` inherited the same flag and were waved through with it, which is the opposite of what an application asking "who may hand this conversation to the billing agent" wants; `activate_skill` never carried it. And offload was skipped because taking back out what was just fetched back in is a loop rather than a saving, which was true but bought with a flag that also disabled two security decisions.
+
+What replaces the offload half is arithmetic rather than a flag: every runtime tool fits its answer under the offload threshold, so `decide` answers inline on its own. [[artifact-exploration]] has the invariant and the one corner where it does not hold.
+
+Two things follow for an application. `EffectApprovalPolicy.destructiveOnly()`, the default, still holds none of them, because all of the read tools declare `read` and so do transfer and delegation. A policy that holds `write` and up now holds `edit_artifact`, which is the point of that tool declaring `ToolEffect.WRITE`: an agent that may change a file it was given can be made to ask first, with no code beyond the policy the application already wrote.
+
+`ToolCallNotice.isInternal` and `ToolResultNotice.isInternal` are gone with the flag. An observer that used them to keep runtime calls off a screen filters by `toolName` instead, which is the honest way to say what it means.
 
 ## The caller hears the verdict, and never recomputes it
 

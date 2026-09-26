@@ -20,6 +20,7 @@ import { ToolDeclaration } from "../../domain/model/messages/tool-declaration.va
 import { ModelUsage } from "../../domain/model/usage/model-usage.value-object";
 import { PromptMeasurement } from "../../domain/model/usage/prompt-measurement.value-object";
 import { PromptInstructions } from "../../domain/prompt/prompt-instructions.value-object";
+import type { RunContext } from "../../domain/run/run-context.value-object";
 import { SessionContext } from "../../domain/run/session-context.value-object";
 import { Session } from "../../domain/session/session.entity";
 import { JournalFixture } from "../../support/context/journal.fixture";
@@ -36,8 +37,8 @@ import { StablePrefixDigest } from "./stable-prefix-digest.service";
 const NOW = Instant.fromIso("2026-01-01T00:00:00.000Z");
 const measurer = new ContextMeasurer();
 
-function ctxOf(journal: JournalFixture): SessionContext {
-	return SessionContext.fromSessionId(journal.sessionId);
+function ctxOf(journal: JournalFixture): RunContext {
+	return RunContextFixture.run(journal.sessionId);
 }
 
 function runOf(journal: JournalFixture) {

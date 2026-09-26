@@ -14,7 +14,7 @@ export class ContextComposer {
 		const measurer = new ContextMeasurer();
 		return new ContextService(
 			storage,
-			new ContextProjector(new AttachmentReader(artifacts, options.attachments)),
+			new ContextProjector(new AttachmentReader(artifacts, options.attachments, undefined, options.offload)),
 			measurer,
 			new StablePrefixDigest(),
 			options.compactionStrategy ?? new OldestFirstCompactionStrategy(measurer, options.summarizer),

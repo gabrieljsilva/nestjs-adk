@@ -1,4 +1,5 @@
 import { strict as assert } from "node:assert";
+import { randomUUID } from "node:crypto";
 import {
 	AgentName,
 	AppendEventsCommand,
@@ -38,6 +39,7 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 	public readonly port = "SessionStorage";
 
 	private readonly codecs = StorageCodecs.standard();
+	private readonly prefix = randomUUID().slice(0, 8);
 
 	public cases(create: () => SessionStorage): ContractCase[] {
 		const capabilities = create().capabilities();
@@ -154,7 +156,7 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 				await storage.append(
 					this.buildContext("s-1"),
 					new AppendEventsCommand(
-						SessionId.from("s-1"),
+						this.buildSessionId("s-1"),
 						new SessionRevision(0),
 						new SessionEventBatch([this.buildMetadataEvent("e-1"), this.buildMetadataDeletion("e-2")]),
 					),
@@ -329,7 +331,7 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 					storage.append(
 						this.buildContext("s-1"),
 						new AppendEventsCommand(
-							SessionId.from("s-1"),
+							this.buildSessionId("s-1"),
 							new SessionRevision(1),
 							new SessionEventBatch([this.buildDifferentEvent("e-1")]),
 						),
@@ -362,12 +364,16 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 		];
 	}
 
+	private buildSessionId(sessionId: string): SessionId {
+		return SessionId.from(`${this.prefix}-${sessionId}`);
+	}
+
 	private buildSession(sessionId: string): Session {
-		return Session.start(SessionId.from(sessionId), AGENT, NOW);
+		return Session.start(this.buildSessionId(sessionId), AGENT, NOW);
 	}
 
 	private buildContext(sessionId: string): SessionContext {
-		return SessionContext.fromSessionId(SessionId.from(sessionId));
+		return SessionContext.fromSessionId(this.buildSessionId(sessionId));
 	}
 
 	private buildEvent(eventId: string, rootAgent: string = AGENT.value): SessionEvent {
@@ -418,7 +424,7 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 
 	private buildCommand(sessionId: string, expectedRevision: number, ...eventIds: string[]): AppendEventsCommand {
 		return new AppendEventsCommand(
-			SessionId.from(sessionId),
+			this.buildSessionId(sessionId),
 			new SessionRevision(expectedRevision),
 			new SessionEventBatch(eventIds.map((eventId) => this.buildEvent(eventId))),
 		);
@@ -426,7 +432,7 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 
 	private buildSnapshot(sessionId: string, revision: number): SessionSnapshot {
 		return this.codecs.snapshot.decode({
-			sessionId,
+			sessionId: this.buildSessionId(sessionId).value,
 			revision,
 			projectorVersion: PROJECTOR_VERSION,
 			checksumAlgorithm: "sha-256",
@@ -437,7 +443,7 @@ export class SessionStorageContractSuite extends ContractSuite<SessionStorage> {
 
 	private buildCheckpoint(sessionId: string, coveredRevision: number, strategyVersion: number): ContextCheckpoint {
 		return this.codecs.checkpoint.decode({
-			sessionId,
+			sessionId: this.buildSessionId(sessionId).value,
 			coveredRevision,
 			strategy: "contract-suite",
 			strategyVersion,

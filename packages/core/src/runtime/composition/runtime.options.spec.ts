@@ -76,6 +76,13 @@ describe("RuntimeOptions", () => {
 		expect(options.cost.pricing).toBeUndefined();
 	});
 
+	it("explores an artifact whole up to twenty million characters unless the application says otherwise", () => {
+		expect(new RuntimeOptions().context.maxExplorableCharacters).toBe(20_000_000);
+		expect(RuntimeOptions.from({ context: { maxExplorableCharacters: 5_000 } }).context.maxExplorableCharacters).toBe(
+			5_000,
+		);
+	});
+
 	it("retries a model twice before failover is consulted, without anybody asking for it", () => {
 		expect(new RuntimeOptions().model.retry).toBeInstanceOf(BackoffRetryPolicy);
 	});

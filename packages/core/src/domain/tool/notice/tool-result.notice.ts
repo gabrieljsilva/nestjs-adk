@@ -32,8 +32,4 @@ export class ToolResultNotice {
 	public get reason(): string | undefined {
 		return this.outcome.failed ? this.outcome.contextOutput : undefined;
 	}
-
-	public get isInternal(): boolean {
-		return this.tool?.internal === true;
-	}
 }

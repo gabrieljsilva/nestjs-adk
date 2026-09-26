@@ -10,6 +10,13 @@ describe("AttachmentReferenceCodec", () => {
 		expect(codec.encode(AttachmentReference.artifact(ArtifactId.from("a-1")))).toEqual({ id: "a-1" });
 	});
 
+	it("writes the type beside the id when it is known, so a reader never has to open the store", () => {
+		const encoded = codec.encode(AttachmentReference.artifact(ArtifactId.from("a-1"), "text/csv"));
+
+		expect(encoded).toEqual({ id: "a-1", mediaType: "text/csv" });
+		expect(codec.decode(encoded)?.mediaType).toBe("text/csv");
+	});
+
 	it("writes a link as the address and the type nothing else knows", () => {
 		const encoded = codec.encode(AttachmentReference.link("https://cdn.example/x.png", "image/png"));
 

@@ -22,7 +22,7 @@ const TOOL_CONTEXT = new ToolContext(
 	ToolCallId.from("c-1"),
 );
 
-const document = new ArtifactContent(
+const document = ArtifactContent.fromText(
 	JSON.stringify({ orders: [{ id: "A-1", total: 349 }], customer: { name: "ada" } }),
 	"application/json",
 );
@@ -69,7 +69,7 @@ describe("QueryArtifactTool", () => {
 	});
 
 	it("outlines a value that would not fit, so the next call is a deeper pointer", async () => {
-		const wide = new ArtifactContent(
+		const wide = ArtifactContent.fromText(
 			JSON.stringify({ rows: Array.from({ length: 200 }, (_at, at) => ({ at, note: "something" })) }),
 			"application/json",
 		);
@@ -82,7 +82,7 @@ describe("QueryArtifactTool", () => {
 	});
 
 	it("refuses a pointer into an artifact that is not a JSON document", async () => {
-		await expect(queryIn(new ArtifactContent("ERROR: a log line", "text/plain"), "/orders")).rejects.toBeInstanceOf(
+		await expect(queryIn(ArtifactContent.fromText("ERROR: a log line", "text/plain"), "/orders")).rejects.toBeInstanceOf(
 			ArtifactNotExplorableError,
 		);
 	});

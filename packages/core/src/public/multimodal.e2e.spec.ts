@@ -90,9 +90,11 @@ class FailingModel extends LlmModel {
 		);
 	}
 
+	/**
+	 * The chunk never arrives: the failure has to reach the runner before anything is emitted,
+	 * which is the only point where a reroute is still allowed.
+	 */
 	public async *generate(): AsyncIterable<ModelChunk> {
-		// The chunk never arrives: the failure has to reach the runner before anything is emitted,
-		// which is the only point where a reroute is still allowed.
 		yield await Promise.reject(new ModelCallFailedError(new UnavailableFailure("the provider is down"), "acme/failing"));
 	}
 }
@@ -171,6 +173,10 @@ async function messagesOf(storage: InMemorySessionStorage, sessionId: SessionId)
 
 /** Refuses every write, which is a bucket that is unreachable rather than one that is full. */
 class RefusingArtifactStorage extends ArtifactStorage {
+	public async update(): Promise<never> {
+		throw new Error("no artifact storage");
+	}
+
 	public async put(): Promise<ArtifactReference> {
 		throw new Error("the bucket is unreachable");
 	}
@@ -181,6 +187,10 @@ class RefusingArtifactStorage extends ArtifactStorage {
 
 	public async find(): Promise<ArtifactReference | undefined> {
 		return undefined;
+	}
+
+	public async list(): Promise<readonly ArtifactReference[]> {
+		return [];
 	}
 
 	public async deleteAll(): Promise<void> {
@@ -372,7 +382,7 @@ describe("a question with an image in it", () => {
 		expect(blind.lastUserMessage?.text).toContain("cannot see images");
 		expect(blind.lastUserMessage?.text).toContain("what is this?");
 
-		// The session was not rewritten, so a model that can see would be shown the image again.
+		/** The session was not rewritten, so a model that can see would be shown the image again. */
 		const [message] = await messagesOf(storage, result.sessionId);
 		const id = message?.attachments[0];
 		if (id === undefined) throw new Error("expected the attachment to still be recorded");
@@ -406,6 +416,7 @@ describe("a question with an image in it", () => {
 });
 
 describe("a tool that answers with an image", () => {
+	/** The base64 must not have been stringified into the result the model reads. */
 	it("shows the model the data and the picture, in that order", async () => {
 		const model = new ChartingModel();
 		const runtime = await host.start({
@@ -430,7 +441,6 @@ describe("a tool that answers with an image", () => {
 
 		expect(result instanceof ToolResultMessage ? result.hasMedia : true).toBe(false);
 		expect(result?.text).toContain("render_chart");
-		// The base64 must not have been stringified into the result the model reads.
 		expect(result?.text).not.toContain(PIXEL);
 		expect(carrier instanceof UserMessage && carrier.media[0]?.base64).toBe(PIXEL);
 	});

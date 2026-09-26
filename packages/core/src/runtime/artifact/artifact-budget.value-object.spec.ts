@@ -4,12 +4,23 @@ import { ArtifactBudget } from "./artifact-budget.value-object";
 
 describe("ArtifactBudget", () => {
 	it("is the offload threshold, because an answer under it is one nothing would move out", () => {
-		expect(ArtifactBudget.fromPolicy(CharacterCountOffloadPolicy.above(500)).characters).toBe(500);
+		expect(ArtifactBudget.fromPolicy(CharacterCountOffloadPolicy.above(5_000)).characters).toBe(5_000);
+	});
+
+	it("never goes under a thousand characters, because a budget one excerpt cannot fit answers nothing", () => {
+		expect(ArtifactBudget.fromPolicy(CharacterCountOffloadPolicy.above(300)).characters).toBe(1_000);
 	});
 
 	it("still means something when the policy moves nothing out", () => {
 		expect(ArtifactBudget.fromPolicy(CharacterCountOffloadPolicy.disabled()).characters).toBe(20_000);
 		expect(ArtifactBudget.fromPolicy(CharacterCountOffloadPolicy.above(0)).characters).toBe(20_000);
+	});
+
+	it("carries the ceiling the exploration tools load whole, with a default nobody has to state", () => {
+		expect(ArtifactBudget.fromPolicy(CharacterCountOffloadPolicy.above(500)).maxExplorableCharacters).toBe(
+			ArtifactBudget.DEFAULT_MAX_EXPLORABLE_CHARACTERS,
+		);
+		expect(ArtifactBudget.fromPolicy(CharacterCountOffloadPolicy.above(500), 1_000).maxExplorableCharacters).toBe(1_000);
 	});
 
 	it("measures an answer by what it costs on the wire", () => {

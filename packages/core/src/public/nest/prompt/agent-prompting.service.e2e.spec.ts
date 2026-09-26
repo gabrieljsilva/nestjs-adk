@@ -126,6 +126,10 @@ describe("an agent that builds its prompt per run", () => {
 		await app?.close();
 	});
 
+	/**
+	 * Kept only once it is up: closing a module whose init failed runs the init hook again,
+	 * so the boot failure would arrive a second time from the teardown.
+	 */
 	async function bootWith(model: LlmModel, options?: Partial<AdkModuleOptions>): Promise<TestingModule> {
 		const declared = AdkModuleOptions.from({
 			defaultModel: model,
@@ -134,8 +138,6 @@ describe("an agent that builds its prompt per run", () => {
 			prompts: { dir: PROMPTS },
 			...options,
 		});
-		// Kept only once it is up: closing a module whose init failed runs the init hook again,
-		// so the boot failure would arrive a second time from the teardown.
 		const built = await Test.createTestingModule({
 			imports: [AdkModule.forRoot(declared), PromptingModule],
 		}).compile();

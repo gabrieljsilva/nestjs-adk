@@ -17,6 +17,32 @@ export abstract class ArtifactStorage {
 
 	public abstract find(context: SessionContext, artifactId: ArtifactId): Promise<ArtifactReference | undefined>;
 
+	/**
+	 * Replaces what one artifact holds, keeping its id and its place in the session's list.
+	 *
+	 * `reference` is the one the caller read, and it has to still match what is stored, or this
+	 * raises `TamperedArtifactReferenceError` rather than overwriting somebody else's write. What
+	 * it answers is the only reference that matches afterwards.
+	 */
+	public abstract update(
+		context: SessionContext,
+		reference: ArtifactReference,
+		content: ArtifactContent,
+	): Promise<ArtifactReference>;
+
+	/** The session's artifacts, newest first, never more than `limit`; a session that owns nothing answers an empty list. */
+	public abstract list(context: SessionContext, limit: number): Promise<readonly ArtifactReference[]>;
+
 	/** Removes everything a session owns; a session that owns nothing is not an error. */
 	public abstract deleteAll(context: SessionContext): Promise<void>;
+
+	public async readRange(
+		context: SessionContext,
+		reference: ArtifactReference,
+		offset: number,
+		length: number,
+	): Promise<string> {
+		const content = await this.read(context, reference);
+		return content.text.slice(offset, offset + length);
+	}
 }

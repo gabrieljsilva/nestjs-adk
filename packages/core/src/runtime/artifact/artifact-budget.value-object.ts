@@ -1,13 +1,23 @@
 import type { OffloadPolicy } from "../../domain/artifact/offload.policy";
 
 const FALLBACK_BUDGET = 20_000;
+const MIN_BUDGET = 1_000;
+const DEFAULT_MAX_EXPLORABLE_CHARACTERS = 20_000_000;
 
 export class ArtifactBudget {
-	public constructor(public readonly characters: number) {}
+	public static readonly DEFAULT_MAX_EXPLORABLE_CHARACTERS = DEFAULT_MAX_EXPLORABLE_CHARACTERS;
 
-	public static fromPolicy(policy: OffloadPolicy): ArtifactBudget {
+	public constructor(
+		public readonly characters: number,
+		public readonly maxExplorableCharacters: number = DEFAULT_MAX_EXPLORABLE_CHARACTERS,
+	) {}
+
+	public static fromPolicy(policy: OffloadPolicy, maxExplorableCharacters?: number): ArtifactBudget {
 		const threshold = policy.thresholdCharacters;
-		return new ArtifactBudget(threshold === undefined || threshold <= 0 ? FALLBACK_BUDGET : threshold);
+		return new ArtifactBudget(
+			threshold === undefined || threshold <= 0 ? FALLBACK_BUDGET : Math.max(threshold, MIN_BUDGET),
+			maxExplorableCharacters ?? DEFAULT_MAX_EXPLORABLE_CHARACTERS,
+		);
 	}
 
 	public static measure(answer: Record<string, unknown>): number {

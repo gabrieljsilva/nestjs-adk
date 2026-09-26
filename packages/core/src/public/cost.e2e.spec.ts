@@ -103,8 +103,8 @@ class DownModel extends LlmModel {
 		return new ModelDescriptor(PRIMARY, new ModelContextWindow(100_000, 4000), ModelCapabilities.none());
 	}
 
+	/** Rejected before the first chunk, which is the only point a reroute is still allowed. */
 	public async *generate(): AsyncIterable<ModelChunk> {
-		// Rejected before the first chunk, which is the only point a reroute is still allowed.
 		yield await Promise.reject(new ModelCallFailedError(new UnavailableFailure("acme is down"), PRIMARY.toString()));
 	}
 }
@@ -227,7 +227,12 @@ describe("what a run costs", () => {
 		expect(fallback.turns).toBe(1);
 	});
 
-	/** AC-08: what a child spent is the parent's bill, once, and readable apart from the parent's. */
+	/**
+	 * AC-08: what a child spent is the parent's bill, once, and readable apart from the parent's.
+	 *
+	 * The expected total is two parent turns at 8.8 microdollars each, plus a child turn of 30 in
+	 * and 3 out.
+	 */
 	it("adds a delegation's cost to the parent and keeps the two models apart", async () => {
 		const runtime = await start(
 			[
@@ -248,7 +253,6 @@ describe("what a run costs", () => {
 		expect([...byModel.keys()].sort()).toEqual([CHILD.toString(), PRIMARY.toString()].sort());
 		expect(byModel.get(PRIMARY.toString())?.calls).toBe(2);
 		expect(byModel.get(CHILD.toString())?.calls).toBe(1);
-		// Two parent turns at 8.8 microdollars each, plus a child turn of 30 in and 3 out.
 		expect(result.cost.total.toString()).toBe("0.000026");
 		expect(result.cost.calls).toBe(3);
 	});

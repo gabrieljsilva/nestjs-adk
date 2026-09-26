@@ -25,9 +25,11 @@ const DISCOVERY = {
 };
 
 describe("registration", () => {
+	/**
+	 * Without these, a registration this package created can never be deleted, and the secret lapses
+	 * with the first sign being every renewal failing at once months later.
+	 */
 	it("keeps what RFC 7592 returns to manage the registration with", async () => {
-		// Without these, a registration this package created can never be deleted, and the secret
-		// lapses with the first sign being every renewal failing at once months later.
 		const { call } = routes({
 			"https://auth.example.com/register": {
 				body: {
@@ -50,8 +52,10 @@ describe("registration", () => {
 		expect(client.secretExpiresAt).toEqual(new Date(1800000000 * 1000));
 	});
 
+	/**
+	 * RFC 7591 §3.2.1 spells "never" as zero, and a date built from it is 1970.
+	 */
 	it("reads a secret that never expires as no expiry at all", async () => {
-		// RFC 7591 §3.2.1 spells "never" as zero, and a date built from it is 1970.
 		const { call } = routes({
 			"https://auth.example.com/register": { body: { client_id: "c", client_secret: "s", client_secret_expires_at: 0 } },
 		});
@@ -64,6 +68,10 @@ describe("registration", () => {
 		expect(client.secretExpiresAt).toBeUndefined();
 	});
 
+	/**
+	 * The auth method is carried on the client, because it is the token endpoint that has to use the
+	 * same one.
+	 */
 	it("asks for an authentication method the server announced", async () => {
 		const { call, bodyOf } = routes({
 			"https://auth.example.com/register": { body: { client_id: "c", client_secret: "s" } },
@@ -75,7 +83,6 @@ describe("registration", () => {
 		);
 
 		expect(bodyOf("https://auth.example.com/register").token_endpoint_auth_method).toBe("client_secret_basic");
-		// Carried on the client, because it is the token endpoint that has to use the same one.
 		expect(client.authMethod).toBe("client_secret_basic");
 	});
 
@@ -105,8 +112,10 @@ describe("registration", () => {
 		).rejects.toThrow(/private_key_jwt/);
 	});
 
+	/**
+	 * Asking for refresh_token where it is not offered is how a whole registration gets refused.
+	 */
 	it("does not ask for a grant the server does not support", async () => {
-		// Asking for refresh_token where it is not offered is how a whole registration gets refused.
 		const { call, bodyOf } = routes({
 			"https://auth.example.com/register": { body: { client_id: "c" } },
 		});
@@ -223,9 +232,11 @@ describe("discovery over a network the operator owns", () => {
 		);
 	});
 
+	/**
+	 * The guard is what decides, and it only allows cleartext for an address that really is private.
+	 * Refusing here as well made a local server unreachable that the transport connects to happily.
+	 */
 	it("allows it when private addresses were allowed, as the transport already does", async () => {
-		// The guard is what decides, and it only allows cleartext for an address that really is private.
-		// Refusing here as well made a local server unreachable that the transport connects to happily.
 		const { call } = routes(LOCAL);
 
 		const discovery = await new McpOAuthClient({ fetch: call, allowPrivateNetwork: true }).discover(

@@ -3,7 +3,7 @@ import { AttachmentProjection } from "../../domain/model/attachment/attachment-p
 import type { AttachmentRequest } from "../../domain/model/attachment/attachment-request.value-object";
 import { MediaLimits } from "../../domain/model/descriptor/media-limits.value-object";
 import { MediaPart } from "../../domain/model/messages/media-part.value-object";
-import type { SessionContext } from "../../domain/run/session-context.value-object";
+import type { RunContext } from "../../domain/run/run-context.value-object";
 
 /** Mints a fresh address for one external attachment, or nothing when the file is gone. */
 export type AttachmentUrlSigner = (externalId: string, request: AttachmentRequest) => Promise<string | undefined>;
@@ -25,9 +25,10 @@ export class SignedUrlAttachmentResolver extends AttachmentResolver {
 		super();
 	}
 
-	public async resolve(_context: SessionContext, request: AttachmentRequest): Promise<AttachmentProjection> {
+	public async resolve(_context: RunContext, request: AttachmentRequest): Promise<AttachmentProjection> {
 		const externalId = request.reference.externalId;
 		if (externalId === undefined) {
+			if (request.reference.isReadableArtifact) return AttachmentProjection.artifact();
 			const stored = await request.load();
 			return stored === undefined ? AttachmentProjection.omit() : AttachmentProjection.media(stored);
 		}

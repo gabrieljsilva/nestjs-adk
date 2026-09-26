@@ -3,6 +3,7 @@ import type { ToolCallId } from "../../common/identity/tool-call-id.value-object
 import type { ToolCallObserver } from "../../contracts/tool/tool-call-observer.contract";
 import type { ToolSource } from "../../contracts/tool/tool-source.contract";
 import type { AgentName } from "../../domain/agent/agent-name.value-object";
+import type { ArtifactContent } from "../../domain/artifact/artifact-content.value-object";
 import type { ContextBudget } from "../../domain/context/context-budget.value-object";
 import type { AttachmentReference } from "../../domain/model/attachment/attachment-reference.value-object";
 import type { MediaPart } from "../../domain/model/messages/media-part.value-object";
@@ -28,9 +29,13 @@ interface AgentBinding {
 }
 
 /**
- * Everything a question can carry besides the words: a session to continue, media,
+ * Everything a question can carry besides the words: a session to continue, media, files,
  * attachments, tool sources for this run alone, metadata, an abort signal, the actor and a
  * tool call observer.
+ *
+ * `media` is an image the model looks at. `files` is content the model reads through the
+ * artifact tools: a `.md`, a `.csv`, a JSON document, stored under the session and named in
+ * the journal. `attachments` is a reference to something already stored or owned elsewhere.
  *
  * `metadata` is journaled with the question and read back as `context.metadata`; values are
  * JSON and anything over sixteen kibibytes serialized is refused. Aborting `signal` is the
@@ -40,6 +45,7 @@ interface AgentBinding {
 export interface AskOptions {
 	sessionId?: SessionId | string;
 	media?: readonly MediaPart[];
+	files?: readonly ArtifactContent[];
 	attachments?: readonly AttachmentReference[];
 	sources?: readonly ToolSource[];
 	metadata?: Readonly<Record<string, MetadataValue>>;
@@ -127,6 +133,10 @@ export class AgentHandle {
 		return this.runtime.sessions.inspect(AgentHandle.resolveSession(sessionId));
 	}
 
+	public async attachArtifact(sessionId: SessionId | string, content: ArtifactContent): Promise<AttachmentReference> {
+		return this.runtime.sessions.attachArtifact(AgentHandle.resolveSession(sessionId), content);
+	}
+
 	public async contextBudget(sessionId: SessionId | string): Promise<ContextBudget> {
 		return this.runtime.sessions.budget(this.name, AgentHandle.resolveSession(sessionId));
 	}
@@ -189,6 +199,7 @@ export class AgentHandle {
 				attachments: asked.media ?? [],
 				sessionId: sessionId,
 				references: asked.attachments ?? [],
+				files: asked.files ?? [],
 				metadata: SessionMetadata.fromRecord(asked.metadata ?? {}),
 			}),
 			sources: asked.sources ?? [],

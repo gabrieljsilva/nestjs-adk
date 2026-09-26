@@ -1,4 +1,5 @@
 import { DatabaseSync } from "node:sqlite";
+import { StoredRow } from "../codec/stored-row.record";
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS sessions (
@@ -28,7 +29,10 @@ CREATE TABLE IF NOT EXISTS session_artifacts (
 	session_id TEXT NOT NULL,
 	artifact_id TEXT NOT NULL,
 	media_type TEXT NOT NULL,
+	encoding TEXT NOT NULL DEFAULT 'utf-8',
+	name TEXT,
 	content TEXT NOT NULL,
+	sequence INTEGER NOT NULL DEFAULT 0,
 	PRIMARY KEY (session_id, artifact_id)
 );
 CREATE TABLE IF NOT EXISTS session_snapshots (
@@ -40,6 +44,15 @@ CREATE TABLE IF NOT EXISTS session_snapshots (
 	state TEXT NOT NULL
 );
 `;
+
+const ARTIFACT_COLUMNS_ADDED_LATER: Readonly<Record<string, readonly string[]>> = {
+	encoding: [
+		"ALTER TABLE session_artifacts ADD COLUMN encoding TEXT NOT NULL DEFAULT 'utf-8'",
+		"UPDATE session_artifacts SET encoding = 'base64' WHERE media_type LIKE 'image/%'",
+	],
+	name: ["ALTER TABLE session_artifacts ADD COLUMN name TEXT"],
+	sequence: ["ALTER TABLE session_artifacts ADD COLUMN sequence INTEGER NOT NULL DEFAULT 0"],
+};
 
 /**
  * The open SQLite database the storage adapters write through. Built once and handed to both,
@@ -53,6 +66,17 @@ export class SqliteConnection {
 		this.database.exec("PRAGMA journal_mode = WAL");
 		this.database.exec("PRAGMA foreign_keys = ON");
 		this.database.exec(SCHEMA);
+		this.migrateArtifactColumns();
+	}
+
+	private migrateArtifactColumns(): void {
+		const columns = new Set(
+			this.all("PRAGMA table_info(session_artifacts)").map((row) => new StoredRow(row).text("name")),
+		);
+		for (const [column, statements] of Object.entries(ARTIFACT_COLUMNS_ADDED_LATER)) {
+			if (columns.has(column)) continue;
+			for (const statement of statements) this.database.exec(statement);
+		}
 	}
 
 	public run(sql: string, ...parameters: readonly SqliteValue[]): void {

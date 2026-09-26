@@ -6,11 +6,14 @@ describe("McpToolName: the name a tool is offered under", () => {
 		expect(McpToolName.forSource("github").qualify("create_issue")).toBe("mcp__github__create_issue");
 	});
 
+	/**
+	 * The same server connected under two accounts: without distinct prefixes the model cannot
+	 * say which one it means.
+	 */
 	it("gives two installations of one integration two distinct prefixes", () => {
 		const first = McpToolName.forSource("github-7");
 		const second = McpToolName.forSource("github-9");
 
-		// the same server connected under two accounts: without this the model cannot say which it means
 		expect(first.qualify("create_issue")).not.toBe(second.qualify("create_issue"));
 	});
 
@@ -27,10 +30,13 @@ describe("McpToolName: the name a tool is offered under", () => {
 		expect(qualified).toMatch(/^[A-Za-z0-9_-]+$/);
 	});
 
+	/**
+	 * Truncation alone would collapse both onto the same prefix and the model could reach either
+	 * tool by mistake.
+	 */
 	it("keeps two long tools of one server apart after shortening", () => {
 		const naming = McpToolName.forSource("a".repeat(40));
 
-		// truncation alone would collapse both onto the same prefix and the model could reach either
 		expect(naming.qualify(`${"b".repeat(40)}_one`)).not.toBe(naming.qualify(`${"b".repeat(40)}_two`));
 	});
 

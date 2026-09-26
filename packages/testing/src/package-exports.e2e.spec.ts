@@ -29,7 +29,7 @@ describe("@nestjs-adk/testing subpaths", () => {
 		const matchers = exportsMap()["./matchers"];
 
 		expect(matchers).toEqual({
-			types: "./dist/matchers.d.ts",
+			types: "./dist/matchers.support.d.ts",
 			import: "./dist/matchers.mjs",
 			require: "./dist/matchers.cjs",
 		});

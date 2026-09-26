@@ -20,7 +20,6 @@ export class DelegateToAgentTool {
 			new DelegationTargetSchema(policy),
 			ToolEffect.READ,
 			new UnreachableHandler(),
-			true,
 		);
 	}
 

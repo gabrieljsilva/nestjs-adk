@@ -2,10 +2,12 @@ import type { IdGenerator } from "../../common/identity/id-generator.contract";
 import type { Clock } from "../../common/time/clock.contract";
 import type { ArtifactStorage } from "../../contracts/storage/artifact-storage.contract";
 import type { SessionStorage } from "../../contracts/storage/session-storage.contract";
+import { ArtifactBudget } from "../artifact/artifact-budget.value-object";
 import { ArtifactExplorer } from "../artifact/artifact-explorer.service";
 import { ArtifactOffloader } from "../artifact/artifact-offloader.service";
 import { AttachmentStore } from "../artifact/attachment-store.service";
 import { ReadArtifactTool } from "../artifact/read-artifact.tool";
+import { EditArtifactTool } from "../artifact/tools/edit-artifact.tool";
 import type { AgentCatalog } from "../catalog/agent-catalog.service";
 import type { ContextService } from "../context/context.service";
 import { CostCalculator } from "../cost/cost-calculator.service";
@@ -34,6 +36,7 @@ import { DelegateAgentUseCase } from "../run/use-cases/delegate-agent.use-case";
 import { ExplainAgentUseCase } from "../run/use-cases/explain-agent.use-case";
 import { StreamAgentUseCase } from "../run/use-cases/stream-agent.use-case";
 import { SessionRepository } from "../session/session-repository.service";
+import { RuntimeTools } from "../tool/runtime-tools.value-object";
 import { ToolExecutor } from "../tool/tool-executor.service";
 import { ToolGate } from "../tool/tool-gate.service";
 import { ToolService } from "../tool/tool.service";
@@ -56,9 +59,13 @@ export class RunComposer {
 		const lifecycle = new RuntimeLifecycle(tracker, options.lifecycle.shutdown, clock);
 		const offloader = new ArtifactOffloader(artifacts, options.context.offload);
 		const attachments = new AttachmentStore(artifacts);
-		const readArtifact = ReadArtifactTool.forStorage(artifacts, options.context.offload);
-		const explorer = new ArtifactExplorer(artifacts, options.context.offload);
-		const artifactTools = [readArtifact, ...explorer.getTools()];
+		const budget = ArtifactBudget.fromPolicy(options.context.offload, options.context.maxExplorableCharacters);
+		const readArtifact = ReadArtifactTool.forStorage(artifacts, options.context.offload, budget);
+		const explorer = new ArtifactExplorer(artifacts, options.context.offload, budget);
+		const artifactTools = new RuntimeTools(
+			[readArtifact],
+			[...explorer.getTools(), EditArtifactTool.build(artifacts, budget)],
+		);
 		const models = new ModelService(
 			options.model.resolver ?? new CatalogModelResolver(),
 			new ModelRunner(clock, options.model.retry),
@@ -129,6 +136,7 @@ export class RunComposer {
 			readArtifact,
 			gate,
 			explorer,
+			attachments,
 		);
 	}
 }

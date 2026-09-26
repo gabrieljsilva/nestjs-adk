@@ -22,7 +22,6 @@ export class ApprovalGate {
 	private findRequiredEffect(catalog: ToolCatalog, call: ToolCall, actor?: Actor): string | undefined {
 		if (!catalog.has(call.toolName)) return undefined;
 		const tool = catalog.findOrFail(call.toolName);
-		if (tool.internal) return undefined;
 		const invocation = new ToolInvocation(call.callId, call.toolName, call.args);
 		return this.policy.requires(tool, invocation, actor) ? tool.effect.name : undefined;
 	}

@@ -5,6 +5,7 @@ import type { ContextSummarizer } from "../../contracts/context/context-summariz
 import { CharacterCountOffloadPolicy } from "../../domain/artifact/character-count-offload.policy";
 import type { OffloadPolicy } from "../../domain/artifact/offload.policy";
 import type { AdkCompactionPolicy } from "../../domain/context/adk-compaction.policy";
+import { ArtifactBudget } from "../artifact/artifact-budget.value-object";
 
 /** The fields a caller may name; one left out keeps whatever the options already hold. */
 export interface ContextOptionsPatch {
@@ -14,6 +15,7 @@ export interface ContextOptionsPatch {
 	attachments?: AttachmentResolver;
 	offload?: OffloadPolicy;
 	contextNotices?: ContextNoticeSink;
+	maxExplorableCharacters?: number;
 }
 
 /**
@@ -21,7 +23,9 @@ export interface ContextOptionsPatch {
  * much, and what an attachment becomes on the way.
  *
  * Without a summarizer, compaction drops instead of summarizing. `compaction: false` means
- * no conversation under this runtime is ever shortened.
+ * no conversation under this runtime is ever shortened. `maxExplorableCharacters` is the
+ * largest artifact the exploration tools load whole; above it they refuse with a reason and
+ * `read_artifact` still reads by range.
  */
 export class ContextOptions {
 	public constructor(
@@ -31,6 +35,7 @@ export class ContextOptions {
 		public readonly summarizer?: ContextSummarizer,
 		public readonly attachments?: AttachmentResolver,
 		public readonly contextNotices?: ContextNoticeSink,
+		public readonly maxExplorableCharacters: number = ArtifactBudget.DEFAULT_MAX_EXPLORABLE_CHARACTERS,
 	) {}
 
 	public static from(patch: ContextOptionsPatch): ContextOptions {
@@ -45,6 +50,7 @@ export class ContextOptions {
 			patch.summarizer ?? this.summarizer,
 			patch.attachments ?? this.attachments,
 			patch.contextNotices ?? this.contextNotices,
+			patch.maxExplorableCharacters ?? this.maxExplorableCharacters,
 		);
 	}
 }

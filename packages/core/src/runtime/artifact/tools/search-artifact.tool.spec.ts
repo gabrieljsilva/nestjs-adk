@@ -21,7 +21,7 @@ const TOOL_CONTEXT = new ToolContext(
 	ToolCallId.from("c-1"),
 );
 
-const log = new ArtifactContent(
+const log = ArtifactContent.fromText(
 	["INFO start", "ERROR order A-1 failed", "INFO middle", "ERROR order A-2 failed", "INFO end"].join("\n"),
 	"text/plain",
 );
@@ -61,7 +61,7 @@ describe("SearchArtifactTool", () => {
 	});
 
 	it("treats the query literally unless it was told otherwise, so a dot is a dot", async () => {
-		const found = await searchIn(new ArtifactContent("a.b and axb", "text/plain"), { query: "a.b" });
+		const found = await searchIn(ArtifactContent.fromText("a.b and axb", "text/plain"), { query: "a.b" });
 
 		expect(found.totalMatches).toBe(1);
 		expect(found.isRegex).toBe(false);
@@ -83,7 +83,7 @@ describe("SearchArtifactTool", () => {
 	});
 
 	it("brings back the number of matches it was asked for, and counts the rest", async () => {
-		const found = await searchIn(new ArtifactContent("x".repeat(50), "text/plain"), { query: "x", maxMatches: 3 });
+		const found = await searchIn(ArtifactContent.fromText("x".repeat(50), "text/plain"), { query: "x", maxMatches: 3 });
 
 		expect((found.matches as unknown[]).length).toBe(3);
 		expect(found.totalMatches).toBe(50);
@@ -96,7 +96,7 @@ describe("SearchArtifactTool", () => {
 	});
 
 	it("keeps the answer inside the budget by dropping matches, and says it did", async () => {
-		const found = await searchIn(new ArtifactContent("x".repeat(400), "text/plain"), { query: "x" }, 200);
+		const found = await searchIn(ArtifactContent.fromText("x".repeat(400), "text/plain"), { query: "x" }, 200);
 
 		expect(found.truncated).toBe(true);
 		expect(ArtifactBudget.measure(found)).toBeLessThanOrEqual(200);
@@ -108,12 +108,55 @@ describe("SearchArtifactTool", () => {
 		expect(schema.parse({ artifactId: "a-1" }).isValid).toBe(false);
 		expect(schema.parse({ artifactId: "a-1", query: "" }).isValid).toBe(false);
 		expect(schema.parse({ artifactId: "a-1", query: "x", regex: "yes" }).isValid).toBe(false);
+		expect(schema.parse({ artifactId: "a-1", query: "x", mode: "everything" }).isValid).toBe(false);
 		expect(schema.parse({ artifactId: "a-1", query: "x" }).values).toEqual({
 			artifactId: "a-1",
 			query: "x",
 			regex: false,
+			caseSensitive: true,
+			mode: "excerpts",
 			maxMatches: 20,
 			context: 80,
 		});
+	});
+
+	it("matches letters exactly unless told not to, and never lets the model pick the flags", async () => {
+		const exact = await searchIn(log, { query: "error" });
+		const loose = await searchIn(log, { query: "error", caseSensitive: false });
+		const pattern = await searchIn(log, { query: "error order", regex: true, caseSensitive: false });
+
+		expect(exact.totalMatches).toBe(0);
+		expect(loose.totalMatches).toBe(2);
+		expect(pattern.totalMatches).toBe(2);
+	});
+
+	it("answers the whole line of each match in lines mode, which is what a grep shows", async () => {
+		const found = await searchIn(log, { query: "A-2", mode: "lines" });
+
+		expect(found.matches).toEqual([{ offset: 58, line: 4, text: "ERROR order A-2 failed" }]);
+	});
+
+	it("answers only how many in count mode, spending nothing on excerpts", async () => {
+		const found = await searchIn(log, { query: "INFO", mode: "count" });
+
+		expect(found.totalMatches).toBe(3);
+		expect(found.matches).toBeUndefined();
+		expect(found.countStopped).toBe(false);
+	});
+
+	it("counts past the matches it returns, instead of reporting the page as the total", async () => {
+		const found = await searchIn(ArtifactContent.fromText("x".repeat(2_500), "text/plain"), { query: "x" });
+
+		expect((found.matches as unknown[]).length).toBe(20);
+		expect(found.totalMatches).toBe(2_500);
+	});
+
+	it("says when it stopped counting, so a ceiling never reads as an exact total", async () => {
+		const many = ArtifactContent.fromText("x".repeat(SearchArtifactTool.MAX_COUNTED_MATCHES + 5), "text/plain");
+
+		const found = await searchIn(many, { query: "x", mode: "count" });
+
+		expect(found.totalMatches).toBe(SearchArtifactTool.MAX_COUNTED_MATCHES);
+		expect(found.countStopped).toBe(true);
 	});
 });

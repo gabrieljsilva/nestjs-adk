@@ -287,45 +287,31 @@ describe("ToolExecutor", () => {
 		await expect(executorOf().execute(missing("tool_b"), breaker)).rejects.toBeInstanceOf(ToolRepeatedFailureError);
 	});
 
-	it("never asks approval for a tool the runtime owns, whatever the policy says", async () => {
+	it("holds a tool the runtime brought itself, because a policy that holds reads holds every read", async () => {
 		const handler = new RecordingHandler("the whole content");
-		const internal = new ToolDefinition(
-			"read_artifact",
-			"Reads",
-			refundOf(handler).schema,
-			ToolEffect.READ,
-			handler,
-			true,
-		);
+		const reading = new ToolDefinition("read_artifact", "Reads", refundOf(handler).schema, ToolEffect.READ, handler);
 
-		const outcome = await executorOf(EffectApprovalPolicy.from(ToolEffect.READ)).execute(
-			buildCommand(internal, { orderId: "42" }),
-			new ToolBreaker(RunLimits.unbounded()),
-		);
-
-		expect(outcome.failed).toBe(false);
-		expect(handler.calls).toBe(1);
+		await expect(
+			executorOf(EffectApprovalPolicy.from(ToolEffect.READ)).execute(
+				buildCommand(reading, { orderId: "42" }),
+				new ToolBreaker(RunLimits.unbounded()),
+			),
+		).rejects.toBeInstanceOf(ToolApprovalRequiredError);
+		expect(handler.calls).toBe(0);
 	});
 
-	it("never offloads what a runtime tool answered, since that is the content it was fetching back", async () => {
+	it("offloads what any tool answered over the threshold, with no tool exempt from it", async () => {
 		const long = "x".repeat(200);
 		const handler = new RecordingHandler(long);
-		const internal = new ToolDefinition(
-			"read_artifact",
-			"Reads",
-			refundOf(handler).schema,
-			ToolEffect.READ,
-			handler,
-			true,
-		);
+		const reading = new ToolDefinition("read_artifact", "Reads", refundOf(handler).schema, ToolEffect.READ, handler);
 
 		const outcome = await executorOf(EffectApprovalPolicy.never(), CharacterCountOffloadPolicy.above(10)).execute(
-			buildCommand(internal, { orderId: "42" }),
+			buildCommand(reading, { orderId: "42" }),
 			new ToolBreaker(RunLimits.unbounded()),
 		);
 
-		expect(outcome.wasOffloaded).toBe(false);
-		expect(outcome.contextOutput).toBe(long);
+		expect(outcome.wasOffloaded).toBe(true);
+		expect(outcome.contextOutput).not.toBe(long);
 	});
 
 	it("hands the tool who the call runs on behalf of", async () => {

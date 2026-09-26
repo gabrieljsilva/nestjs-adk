@@ -5,18 +5,22 @@ import { SessionId } from "../../common/identity/session-id.value-object";
 import { SessionRevision } from "../../common/revision/session-revision.value-object";
 import { AttachmentResolver } from "../../contracts/context/attachment-resolver.contract";
 import { ArtifactContent } from "../../domain/artifact/artifact-content.value-object";
+import { ArtifactName } from "../../domain/artifact/artifact-name.value-object";
 import type { ArtifactReference } from "../../domain/artifact/artifact-reference.value-object";
+import { CharacterCountOffloadPolicy } from "../../domain/artifact/character-count-offload.policy";
 import { AttachmentProjection } from "../../domain/model/attachment/attachment-projection.value-object";
 import { AttachmentReference } from "../../domain/model/attachment/attachment-reference.value-object";
 import type { AttachmentRequest } from "../../domain/model/attachment/attachment-request.value-object";
-import { SessionContext } from "../../domain/run/session-context.value-object";
+import type { RunContext } from "../../domain/run/run-context.value-object";
+import type { SessionContext } from "../../domain/run/session-context.value-object";
+import { RunContextFixture } from "../../support/run/run-context.fixture";
 import { SequenceIdGenerator } from "../../support/sequence-id-generator.double";
 import { AttachmentReader } from "./attachment-reader.service";
 
 const SESSION = SessionId.from("s-1");
-const CTX = SessionContext.fromSessionId(SESSION);
+const CTX = RunContextFixture.run(SESSION);
 const OTHER = SessionId.from("s-2");
-const OTHER_CTX = SessionContext.fromSessionId(OTHER);
+const OTHER_CTX = RunContextFixture.run(OTHER);
 const PIXEL = "iVBORw0KGgo=";
 const REVISION = SessionRevision.initial();
 
@@ -38,7 +42,7 @@ class RecordingResolver extends AttachmentResolver {
 		super();
 	}
 
-	public async resolve(_context: SessionContext, request: AttachmentRequest): Promise<AttachmentProjection> {
+	public async resolve(_context: RunContext, request: AttachmentRequest): Promise<AttachmentProjection> {
 		this.requests.push(request);
 		return this.answer(request);
 	}
@@ -49,10 +53,10 @@ function storageOf(): CountingArtifactStorage {
 }
 
 async function put(storage: InMemoryArtifactStorage, context: SessionContext = CTX): Promise<AttachmentReference> {
-	return AttachmentReference.artifact((await storage.put(context, new ArtifactContent(PIXEL, "image/png"))).id);
+	return AttachmentReference.artifact((await storage.put(context, ArtifactContent.fromBase64(PIXEL, "image/png"))).id);
 }
 
-function read(reader: AttachmentReader, references: readonly AttachmentReference[], context: SessionContext = CTX) {
+function read(reader: AttachmentReader, references: readonly AttachmentReference[], context: RunContext = CTX) {
 	return reader.read(context, references, REVISION, true, false);
 }
 
@@ -124,6 +128,41 @@ describe("AttachmentReader", () => {
 		expect(resolved.notes).toEqual([]);
 	});
 
+	it("writes the artifact placeholder, name included, when the resolver answers artifact", async () => {
+		const storage = storageOf();
+		const reader = new AttachmentReader(storage);
+		const stored = await storage.put(
+			CTX,
+			ArtifactContent.fromText("# Report\n\nhello", "text/markdown", ArtifactName.fromText("report.md")),
+		);
+
+		const resolved = await read(reader, [AttachmentReference.artifact(stored.id, "text/markdown")]);
+
+		expect(resolved.media).toEqual([]);
+		expect(resolved.notes).toHaveLength(1);
+		expect(resolved.notes[0]).toContain('[artifact a-1 "report.md", text/markdown, 15 characters');
+		expect(resolved.notes[0]).toContain("read_artifact");
+		expect(storage.reads).toBe(0);
+	});
+
+	it("says the shape is explorable only when the policy would, so the placeholder and the offload agree", async () => {
+		const storage = storageOf();
+		const explorable = new AttachmentReader(storage, undefined, undefined, CharacterCountOffloadPolicy.above(0));
+		const stored = await storage.put(CTX, ArtifactContent.fromText("a,b\n1,2", "text/csv"));
+
+		const resolved = await read(explorable, [AttachmentReference.artifact(stored.id, "text/csv")]);
+
+		expect(resolved.notes[0]).toContain("its shape is one the artifact exploration tools understand");
+	});
+
+	it("says the artifact is gone when the store no longer has it, instead of saying nothing", async () => {
+		const reader = new AttachmentReader(storageOf());
+
+		const resolved = await read(reader, [AttachmentReference.artifact(ArtifactId.from("a-404"), "text/markdown")]);
+
+		expect(resolved.notes).toEqual(["[attachment text/markdown: no longer available]"]);
+	});
+
 	it("reads nothing when a message had nothing attached", async () => {
 		const storage = storageOf();
 
@@ -154,7 +193,9 @@ describe("AttachmentReader", () => {
 		const storage = storageOf();
 		const reader = new AttachmentReader(storage);
 		const first = await put(storage);
-		const second = AttachmentReference.artifact((await storage.put(CTX, new ArtifactContent("aGk=", "image/jpeg"))).id);
+		const second = AttachmentReference.artifact(
+			(await storage.put(CTX, ArtifactContent.fromBase64("aGk=", "image/jpeg"))).id,
+		);
 
 		const resolved = await read(reader, [second, first]);
 

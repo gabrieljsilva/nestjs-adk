@@ -59,8 +59,8 @@ export class OpenAiModel extends ModelSpec {
 			[ModelCapability.TOOLS, true],
 			[ModelCapability.STREAMING, true],
 			[ModelCapability.STRUCTURED_OUTPUT, true],
-			[ModelCapability.MEDIA_INPUT, true],
-			[ModelCapability.MEDIA_URL, true],
+			[ModelCapability.MEDIA_INPUT, this.options.capabilities?.mediaInput ?? true],
+			[ModelCapability.MEDIA_URL, this.options.capabilities?.mediaUrl ?? true],
 		]);
 	}
 }

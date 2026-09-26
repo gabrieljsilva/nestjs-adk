@@ -11,7 +11,6 @@ export class ToolDefinition {
 		public readonly schema: ToolSchema,
 		public readonly effect: ToolEffect,
 		public readonly handler: ToolHandler,
-		public readonly internal: boolean = false,
 	) {}
 
 	public toDeclaration(): ToolDeclaration {

@@ -13,7 +13,7 @@ export class ArtifactOffloader {
 	) {}
 
 	public async offload(context: SessionContext, text: string, mediaType?: string): Promise<OffloadedContent> {
-		const content = new ArtifactContent(text, mediaType);
+		const content = ArtifactContent.fromText(text, mediaType);
 		const decision = this.policy.decide(content.characters, content.mediaType);
 		if (decision.isInline) return OffloadedContent.inline(text);
 		try {

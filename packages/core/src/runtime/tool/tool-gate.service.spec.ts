@@ -28,8 +28,8 @@ class OwnersOnly extends AdkAccessPolicy {
 
 const schema = ZodToolSchema.fromSchema(z.object({ orderId: z.string() }));
 
-function refund(internal = false): ToolDefinition {
-	return new ToolDefinition("refund", "Refunds.", schema, ToolEffect.DESTRUCTIVE, new NoopHandler(), internal);
+function refund(): ToolDefinition {
+	return new ToolDefinition("refund", "Refunds.", schema, ToolEffect.DESTRUCTIVE, new NoopHandler());
 }
 
 function call(args: unknown): ToolInvocation {
@@ -88,11 +88,11 @@ describe("ToolGate", () => {
 		expect(admission.isAdmitted).toBe(true);
 	});
 
-	it("never asks the policy about a tool the runtime owns", async () => {
+	it("asks the policy about every tool, including the ones the runtime brought itself", async () => {
 		const policy = new OwnersOnly();
-		const admission = await new ToolGate(policy).admit(refund(true), call({ orderId: "A-1" }), undefined);
+		const admission = await new ToolGate(policy).admit(refund(), call({ orderId: "A-1" }), undefined);
 
-		expect(admission.isAdmitted).toBe(true);
-		expect(policy.asked).toHaveLength(0);
+		expect(admission.isAdmitted).toBe(false);
+		expect(policy.asked).toHaveLength(1);
 	});
 });

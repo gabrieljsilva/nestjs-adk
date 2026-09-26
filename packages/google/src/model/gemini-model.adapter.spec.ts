@@ -84,6 +84,9 @@ describe("GeminiModel", () => {
 		expect(window.inputCapacity).toBe(992_000);
 	});
 
+	/**
+	 * The Gemini API fetches public HTTPS and signed URLs through `fileUri` since January 2026.
+	 */
 	it("declares tools, streaming, structured output, media and prompt cache", () => {
 		const capabilities = new GeminiModel("gemini-2.5-flash", {}, new RecordingTransport()).descriptor().capabilities;
 
@@ -91,7 +94,6 @@ describe("GeminiModel", () => {
 		expect(capabilities.supports(ModelCapability.STREAMING)).toBe(true);
 		expect(capabilities.supports(ModelCapability.STRUCTURED_OUTPUT)).toBe(true);
 		expect(capabilities.supports(ModelCapability.MEDIA_INPUT)).toBe(true);
-		// The API fetches public HTTPS and signed URLs through fileUri since January 2026.
 		expect(capabilities.supports(ModelCapability.MEDIA_URL)).toBe(true);
 		expect(capabilities.supports(ModelCapability.PROMPT_CACHE)).toBe(true);
 	});

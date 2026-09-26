@@ -15,7 +15,6 @@ export class ToolGate {
 	): Promise<ToolAdmission> {
 		const parsed = tool.schema.parse(invocation.args);
 		if (!parsed.isValid) return ToolAdmission.invalid(parsed.reason);
-		if (tool.internal) return ToolAdmission.admitted(parsed.values);
 
 		const access = await this.access.decide(tool, invocation, actor);
 		return access.isGranted ? ToolAdmission.admitted(parsed.values) : ToolAdmission.denied(access.reason);

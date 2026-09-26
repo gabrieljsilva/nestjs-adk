@@ -86,6 +86,14 @@ describe("OpenAiModel", () => {
 		expect(capabilities.supports(ModelCapability.MEDIA_INPUT)).toBe(true);
 	});
 
+	it("takes the caller's word on what a compatible endpoint can see, because it cannot ask", () => {
+		const blind = new OpenAiModel("llama-text", { capabilities: { mediaInput: false } }, new RecordingTransport());
+		const capabilities = blind.descriptor().capabilities;
+
+		expect(capabilities.supports(ModelCapability.MEDIA_INPUT)).toBe(false);
+		expect(capabilities.supports(ModelCapability.MEDIA_URL)).toBe(true);
+	});
+
 	it("maps the request before handing it to the transport", async () => {
 		const transport = new RecordingTransport();
 		const model = new OpenAiModel("gpt-5", { temperature: 0.2 }, transport);

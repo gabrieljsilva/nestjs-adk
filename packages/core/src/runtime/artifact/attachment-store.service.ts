@@ -18,24 +18,30 @@ export class AttachmentStore {
 		context: SessionContext,
 		attachments: readonly MediaPart[],
 		references: readonly AttachmentReference[] = [],
+		files: readonly ArtifactContent[] = [],
 	): Promise<readonly AttachmentReference[]> {
 		const stored: AttachmentReference[] = [];
 		for (const part of attachments) stored.push(await this.storeReference(context, part));
+		for (const file of files) stored.push(await this.attach(context, file));
 		return [...stored, ...references];
+	}
+
+	public async attach(context: SessionContext, content: ArtifactContent): Promise<AttachmentReference> {
+		const reference = await this.putOne(context, content);
+		return AttachmentReference.artifact(reference.id, reference.mediaType);
 	}
 
 	private async storeReference(context: SessionContext, part: MediaPart): Promise<AttachmentReference> {
 		const url = part.url;
 		if (url !== undefined) return AttachmentReference.link(url, part.mediaType);
-		return AttachmentReference.artifact(await this.putOne(context, part));
+		return this.attach(context, ArtifactContent.fromBase64(part.base64, part.mediaType));
 	}
 
-	private async putOne(context: SessionContext, part: MediaPart) {
+	private async putOne(context: SessionContext, content: ArtifactContent): Promise<ArtifactReference> {
 		try {
-			const reference = await this.storage.put(context, new ArtifactContent(part.base64, part.mediaType));
-			return reference.id;
+			return await this.storage.put(context, content);
 		} catch (error) {
-			throw new AttachmentNotStoredError(part.mediaType, error);
+			throw new AttachmentNotStoredError(content.mediaType, error);
 		}
 	}
 }

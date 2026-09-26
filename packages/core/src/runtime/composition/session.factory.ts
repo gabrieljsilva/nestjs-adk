@@ -1,6 +1,7 @@
 import type { IdGenerator } from "../../common/identity/id-generator.contract";
 import type { Clock } from "../../common/time/clock.contract";
 import type { ArtifactStorage } from "../../contracts/storage/artifact-storage.contract";
+import { AttachArtifactUseCase } from "../artifact/attach-artifact.use-case";
 import type { AgentCatalog } from "../catalog/agent-catalog.service";
 import type { ContextService } from "../context/context.service";
 import { InspectContextBudgetUseCase } from "../context/inspect-context-budget.use-case";
@@ -26,6 +27,7 @@ export class SessionComposer {
 			new InspectContextBudgetUseCase(inspecting, catalog),
 			artifacts,
 			context,
+			new AttachArtifactUseCase(run.sessions, run.attachments),
 		);
 	}
 }

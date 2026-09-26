@@ -27,8 +27,4 @@ export class ToolCallNotice {
 	public get isKnown(): boolean {
 		return this.tool !== undefined;
 	}
-
-	public get isInternal(): boolean {
-		return this.tool?.internal === true;
-	}
 }

@@ -25,8 +25,8 @@ function artifact(id: string): AttachmentReference {
 }
 
 describe("UserMessageReceivedCodec", () => {
-	it("is the version that names the actor the question was asked with", () => {
-		expect(codec.schemaVersion.value).toBe(5);
+	it("is the version that carries the media type of a stored attachment", () => {
+		expect(codec.schemaVersion.value).toBe(6);
 	});
 
 	it("names the actor, and only the id, because claims are read at the call", () => {

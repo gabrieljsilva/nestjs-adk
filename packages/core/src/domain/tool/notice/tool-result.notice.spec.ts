@@ -29,15 +29,6 @@ class NoopHandler extends ToolHandler {
 }
 
 const CALL = ToolCallId.from("c-1");
-const internal = new ToolDefinition(
-	"read_artifact",
-	"Reads.",
-	new AnySchema(),
-	ToolEffect.READ,
-	new NoopHandler(),
-	true,
-);
-
 describe("ToolResultNotice", () => {
 	it("hands over what the journal records for a result", () => {
 		const notice = new ToolResultNotice(ToolOutcome.succeeded(CALL, "lookup", { status: "shipped" }, "shipped"));
@@ -70,7 +61,7 @@ describe("ToolResultNotice", () => {
 		const reference = ArtifactReference.fromContent(
 			ArtifactId.from("a-1"),
 			SessionId.from("s-1"),
-			new ArtifactContent("a very long report"),
+			ArtifactContent.fromText("a very long report"),
 		);
 		const notice = new ToolResultNotice(
 			ToolOutcome.succeeded(CALL, "report", { rows: 10_000 }, reference.toString(), reference),
@@ -78,12 +69,5 @@ describe("ToolResultNotice", () => {
 
 		expect(notice.output.artifactId).toBe("a-1");
 		expect(notice.output.rows).toBeUndefined();
-	});
-
-	it("marks a result of a tool the runtime owns", () => {
-		const outcome = ToolOutcome.succeeded(CALL, "read_artifact", {}, "");
-
-		expect(new ToolResultNotice(outcome, internal).isInternal).toBe(true);
-		expect(new ToolResultNotice(outcome).isInternal).toBe(false);
 	});
 });

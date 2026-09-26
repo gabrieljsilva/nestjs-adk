@@ -65,8 +65,10 @@ class LookupOrderTool extends AdkTool<typeof lookupSchema> {
 	prompt: "Be brief.",
 	tools: [LookupOrderTool],
 })
-// `BillingAgent` is defined below, so naming it directly here reads `undefined`: the
-// function is what defers the read to the scan, and this fixture is the proof it works.
+/**
+ * `BillingAgent` is defined below, so naming it directly here reads `undefined`: the
+ * function is what defers the read to the scan, and this fixture is the proof it works.
+ */
 @TransfersTo(() => BillingAgent)
 class SupportAgent extends AdkAgent {
 	public constructor(private readonly orders: OrdersService) {
@@ -405,10 +407,12 @@ describe("AdkModule over the native runtime", () => {
 		const booted = await bootWith(model);
 
 		const result = await booted.get(AgentRegistry).open("support").ask("who handles refunds?");
-		const answering = model.requests.at(-1);
 
-		// Billing declares no tools and no prompt, so the turn after the handover proves who
-		// built it: support's tools and support's always skill are both gone.
+		/**
+		 * Billing declares no tools and no prompt, so the turn after the handover proves who
+		 * built it: support's tools and support's always skill are both gone.
+		 */
+		const answering = model.requests.at(-1);
 		expect(result.status.name).toBe("completed");
 		expect(answering?.tools.map((tool: { name: string }) => tool.name)).not.toContain("lookup_order");
 		expect(answering?.instructions?.text ?? "").not.toContain("Answer in a friendly tone.");
@@ -637,9 +641,8 @@ describe("AdkModule over the native runtime", () => {
 			builder.overrideProvider(ADK_RUNTIME_PATCH).useValue({ cost: { pricing: new KnowsThePrimary() } }),
 		);
 
+		/** The recording model reports 50 in and 5 out on every turn. */
 		const result = await booted.get(AgentRegistry).open("support").ask("hi");
-
-		// The recording model reports 50 in and 5 out on every turn.
 		expect(result.cost.total.toString()).toBe("0.000007");
 		expect(result.cost.isComplete).toBe(true);
 	});

@@ -2,7 +2,7 @@ import { AttachmentResolver } from "../../contracts/context/attachment-resolver.
 import { AttachmentProjection } from "../../domain/model/attachment/attachment-projection.value-object";
 import type { AttachmentRequest } from "../../domain/model/attachment/attachment-request.value-object";
 import type { MediaPart } from "../../domain/model/messages/media-part.value-object";
-import type { SessionContext } from "../../domain/run/session-context.value-object";
+import type { RunContext } from "../../domain/run/run-context.value-object";
 
 /** Brings the bytes of one external attachment, or nothing when they are gone. */
 export type AttachmentContentLoader = (
@@ -22,9 +22,10 @@ export class InlineAttachmentResolver extends AttachmentResolver {
 		super();
 	}
 
-	public async resolve(_context: SessionContext, request: AttachmentRequest): Promise<AttachmentProjection> {
+	public async resolve(_context: RunContext, request: AttachmentRequest): Promise<AttachmentProjection> {
 		const externalId = request.reference.externalId;
 		if (externalId === undefined) {
+			if (request.reference.isReadableArtifact) return AttachmentProjection.artifact();
 			const stored = await request.load();
 			return stored === undefined ? AttachmentProjection.omit() : AttachmentProjection.media(stored);
 		}

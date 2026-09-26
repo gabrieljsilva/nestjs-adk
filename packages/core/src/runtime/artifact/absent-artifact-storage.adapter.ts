@@ -15,8 +15,16 @@ export class AbsentArtifactStorage extends ArtifactStorage {
 		throw new Error(this.reason);
 	}
 
+	public async update(): Promise<ArtifactReference> {
+		throw new Error(this.reason);
+	}
+
 	public async find(): Promise<ArtifactReference | undefined> {
 		return undefined;
+	}
+
+	public async list(): Promise<readonly ArtifactReference[]> {
+		return [];
 	}
 
 	public async deleteAll(): Promise<void> {

@@ -63,7 +63,12 @@ export class AskAgentUseCase {
 			signal: started.cancellation.signal,
 			actor: command.actor,
 		}).withActiveAgent(handover.definition.name);
-		const attached = await this.attachments.store(context, command.input.attachments, command.input.references);
+		const attached = await this.attachments.store(
+			context,
+			command.input.attachments,
+			command.input.references,
+			command.input.files,
+		);
 		const progress = new RunProgress(
 			await this.sessions.commit(
 				context,

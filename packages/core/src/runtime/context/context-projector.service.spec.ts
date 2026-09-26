@@ -11,8 +11,9 @@ import { AttachmentReference } from "../../domain/model/attachment/attachment-re
 import type { AttachmentRequest } from "../../domain/model/attachment/attachment-request.value-object";
 import { ToolCallMessage } from "../../domain/model/messages/tool-call-message.value-object";
 import { ToolResultMessage } from "../../domain/model/messages/tool-result-message.value-object";
-import { SessionContext } from "../../domain/run/session-context.value-object";
+import type { RunContext } from "../../domain/run/run-context.value-object";
 import { JournalFixture } from "../../support/context/journal.fixture";
+import { RunContextFixture } from "../../support/run/run-context.fixture";
 import { SequenceIdGenerator } from "../../support/sequence-id-generator.double";
 import { AttachmentReader } from "../artifact/attachment-reader.service";
 import { ContextProjector } from "./context-projector.service";
@@ -21,7 +22,7 @@ const projector = new ContextProjector();
 
 /** Stands every attachment down to a note, which is the observable half of resolving. */
 class NotingResolver extends AttachmentResolver {
-	public async resolve(_context: SessionContext, request: AttachmentRequest): Promise<AttachmentProjection> {
+	public async resolve(_context: RunContext, request: AttachmentRequest): Promise<AttachmentProjection> {
 		return AttachmentProjection.fromReference(request.reference, "kept away");
 	}
 }
@@ -30,7 +31,7 @@ function storageOf(): InMemoryArtifactStorage {
 	return new InMemoryArtifactStorage(new SequenceIdGenerator("a"));
 }
 
-const CTX = SessionContext.fromSessionId(SessionId.from("s-1"));
+const CTX = RunContextFixture.run("s-1");
 
 describe("ContextProjector", () => {
 	it("projects a conversation in journal order", async () => {
@@ -214,7 +215,7 @@ describe("ContextProjector", () => {
 	it("tells the resolver whether the attachment belongs to the run being served", async () => {
 		const seen: boolean[] = [];
 		const witness = new (class extends AttachmentResolver {
-			public async resolve(_context: SessionContext, request: AttachmentRequest): Promise<AttachmentProjection> {
+			public async resolve(_context: RunContext, request: AttachmentRequest): Promise<AttachmentProjection> {
 				seen.push(request.isCurrentRun);
 				return AttachmentProjection.omit();
 			}

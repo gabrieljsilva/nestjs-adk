@@ -57,10 +57,10 @@ class CountingModel extends LlmModel {
 		);
 	}
 
+	/** A provider reporting a large prompt is the only thing that makes a budget real. */
 	public async *generate(request: ModelRequest): AsyncIterable<ModelChunk> {
 		this.requests.push(request);
 		yield ModelChunk.text(`answer ${this.requests.length} ${"detail ".repeat(40)}`);
-		// A provider reporting a large prompt is the only thing that makes a budget real.
 		yield ModelChunk.usage(ModelUsage.fromReport(900 * this.requests.length, 5));
 		yield ModelChunk.finish("stop");
 	}

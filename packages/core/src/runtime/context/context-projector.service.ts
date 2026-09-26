@@ -12,6 +12,7 @@ import { AssistantMessage } from "../../domain/model/messages/assistant-message.
 import { ToolCallMessage } from "../../domain/model/messages/tool-call-message.value-object";
 import { ToolResultMessage } from "../../domain/model/messages/tool-result-message.value-object";
 import { UserMessage } from "../../domain/model/messages/user-message.value-object";
+import type { RunContext } from "../../domain/run/run-context.value-object";
 import type { SessionContext } from "../../domain/run/session-context.value-object";
 import { AttachmentReader } from "../artifact/attachment-reader.service";
 import { ResolvedAttachments } from "../artifact/resolved-attachments.value-object";
@@ -24,7 +25,7 @@ export class ContextProjector {
 	}
 
 	public async project(
-		context: SessionContext,
+		context: RunContext,
 		events: AsyncIterable<StoredSessionEvent>,
 		currentRun?: AgentRunId,
 		acceptsRemoteUrl = false,
@@ -85,7 +86,7 @@ export class ContextProjector {
 	}
 
 	private async said(
-		context: SessionContext,
+		context: RunContext,
 		stored: StoredSessionEvent,
 		event: UserMessageReceived,
 		currentRun?: AgentRunId,
@@ -122,7 +123,7 @@ export class ContextProjector {
 	}
 
 	private async close(
-		context: SessionContext,
+		context: RunContext,
 		blocks: ContextBlock[],
 		pending: Map<string, number>,
 		event: ToolResultProduced,
