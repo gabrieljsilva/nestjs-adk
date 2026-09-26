@@ -129,8 +129,9 @@ describe("AI: billing, and the human in front of the money", () => {
 		const run = await bed.agent(BillingAgent).ask("Use the refund_limit tool to report the gold plan refund limit.");
 
 		expect(run).toHaveRunTool("refund_limit");
-		// The thousands separator is the model's choice, and it makes both spellings correct.
-		expect(run.text).toMatch(/1[.,]?437/);
+
+		const answerText = run.text;
+		expect(answerText).toMatch(/1[.,]?437/);
 	});
 
 	/** The wording moves every run, so the judge grades what the answer had to say. */

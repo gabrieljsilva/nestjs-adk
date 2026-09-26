@@ -2,13 +2,6 @@ import { AdkAgent, Agent, TransfersTo } from "@nestjs-adk/core";
 import { SalesAgent } from "../sales/sales.agent";
 import { WarrantyAgent } from "../warranty/warranty.agent";
 
-/**
- * The front door of the store's support.
- *
- * It carries no tool on purpose: everything it could answer belongs to a sector that
- * already answers it, and an agent that can both route and answer routes less. What it
- * decides is which sector owns the conversation from here on.
- */
 @Agent({
 	name: "concierge",
 	description: "Customer service triage: identifies the subject and hands the conversation to the right department.",

@@ -5,7 +5,6 @@ import { UploadsVault } from "./uploads-vault";
 
 export const storeConnection = new SqliteConnection(process.env.PLAYGROUND_DB ?? ":memory:");
 
-/** Built here, not in a provider: the module options need it before the container exists. */
 export const uploadsVault = new UploadsVault();
 
 @Module({

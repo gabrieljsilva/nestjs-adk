@@ -1,6 +1,5 @@
 import { Clock, Instant } from "@nestjs-adk/core";
 
-/** A clock frozen at one instant. It extends `Clock` so it still knows how to sleep. */
 export class FixedClock extends Clock {
 	public constructor(private readonly at: Instant) {
 		super();

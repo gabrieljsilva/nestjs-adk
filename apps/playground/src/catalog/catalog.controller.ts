@@ -4,13 +4,6 @@ import type { Quote } from "./quote";
 import { QuoteGameUseCase } from "./quote-game.use-case";
 import { SearchGamesUseCase } from "./search-games.use-case";
 
-/**
- * The catalog over HTTP, for the part of the store that is not a conversation.
- *
- * It holds no rule of its own: every method reads the request, hands it to a use case and
- * answers what came back. The same use cases are what the agent's tools call, so the price
- * a customer reads on the site and the price the agent quotes cannot drift.
- */
 @Controller("catalog")
 export class CatalogController {
 	public constructor(

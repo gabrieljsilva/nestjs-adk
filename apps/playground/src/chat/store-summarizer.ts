@@ -15,21 +15,8 @@ const INSTRUCTIONS = [
 	"Write at most four sentences in English, without a greeting or an offer to help.",
 ].join(" ");
 
-/** What a dropped turn looks like when it is handed to the model as text. */
 const SEPARATOR = "\n";
 
-/**
- * Turns the turns compaction is about to drop into a few sentences the model keeps.
- *
- * Without one, compaction simply forgets: the oldest exchanges leave and nothing marks
- * that they happened. With one, a customer who said their order number twenty turns ago
- * does not have to say it again, which is the difference between a conversation that was
- * shortened and one that was reset.
- *
- * It costs a call, and the call is the point: the alternative is a mechanical excerpt,
- * and a truncated tool result is not a memory of anything. A summarizer that fails never
- * fails the run, so the worst case here is the behaviour of having none.
- */
 export class StoreSummarizer extends ContextSummarizer {
 	public constructor(
 		private readonly model: LlmModel,
@@ -54,7 +41,6 @@ export class StoreSummarizer extends ContextSummarizer {
 		);
 	}
 
-	/** Every message of every block, labelled by who said it, which is all a summary needs. */
 	private transcriptOf(blocks: readonly ContextBlock[]): string {
 		const lines: string[] = [];
 		for (const block of blocks) {

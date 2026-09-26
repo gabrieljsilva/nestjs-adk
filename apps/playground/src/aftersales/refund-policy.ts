@@ -13,16 +13,8 @@ const LIMITS: ReadonlyMap<string, number> = new Map([
 	["bronze", 9_900],
 ]);
 
-/** A customer on no known plan gets the smallest ceiling rather than none. */
 const DEFAULT_LIMIT_CENTS = 9_900;
 
-/**
- * The store's refund rules, in one place.
- *
- * They are here and not in the service because they are the part a business changes: the
- * window, the ceilings and the order they are checked in. The service decides what to do
- * with the answer, and this decides the answer.
- */
 @Injectable()
 export class RefundPolicy {
 	public limitCentsFor(plan: string): number {

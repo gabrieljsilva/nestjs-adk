@@ -11,13 +11,6 @@ const schema = z.object({
 	amountBrl: z.number().positive().describe("How much to give back, in reais."),
 });
 
-/**
- * The tool that gives money back.
- *
- * It is declared destructive, which is what makes the approval policy hold the run in
- * front of a human before it ever runs. Reais in, centavos inside: the conversation speaks
- * in reais and the store keeps money in centavos, and this is the boundary between them.
- */
 @Tool({
 	name: "issue_refund",
 	description: "Refunds an order. Money leaves the store, so it waits for a human decision.",

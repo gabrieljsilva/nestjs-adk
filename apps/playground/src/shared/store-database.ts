@@ -1,14 +1,6 @@
 import { SqliteConnection } from "@nestjs-adk/core";
 import { Injectable } from "@nestjs/common";
 
-/**
- * The tables this application owns.
- *
- * The sessions of the runtime live in the same file, created by `SqliteSessionStorage`
- * over the same connection: an application that keeps its conversations and its data in
- * two databases has to answer what happens when one of them is restored and the other
- * is not.
- */
 const SCHEMA = [
 	`CREATE TABLE IF NOT EXISTS games (
 		slug TEXT PRIMARY KEY,
@@ -37,20 +29,12 @@ const SCHEMA = [
 	)`,
 ];
 
-/**
- * The application's database, shaped before anybody reads from it.
- *
- * It is a provider so repositories can be injected with it, and it holds the connection
- * rather than extending it: the connection belongs to whoever opened the file, which for
- * a durable run is the module and not this.
- */
 @Injectable()
 export class StoreDatabase {
 	public constructor(public readonly connection: SqliteConnection = new SqliteConnection()) {
 		for (const statement of SCHEMA) connection.run(statement);
 	}
 
-	/** A database on disk, which is what surviving a restart requires. */
 	public static at(location: string): StoreDatabase {
 		return new StoreDatabase(new SqliteConnection(location));
 	}

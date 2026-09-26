@@ -11,14 +11,6 @@ import { ConciergeAgent } from "../agents/concierge/concierge.agent";
 
 const SESSION = "session-1";
 
-/**
- * The concierge, with the runtime taken out from under it.
- *
- * The use cases above it have one job, which is handing what a request said to the agent
- * without changing it. Recording what arrived is the whole assertion, so the answer is a
- * constant and `inspect` refuses on purpose: building a real inspection would mean
- * building a journal, and that is what the integration suite is for.
- */
 export class RecordingConcierge extends ConciergeAgent {
 	public readonly asked: string[] = [];
 	public readonly options: (AskOptions | SessionId | undefined)[] = [];
@@ -55,7 +47,6 @@ export class RecordingConcierge extends ConciergeAgent {
 		throw new Error("no runtime behind this agent");
 	}
 
-	/** The single option object of the last question, for a spec that asserts what was attached. */
 	public get lastOptions(): AskOptions {
 		const last = this.options.at(-1);
 		return last === undefined || last instanceof SessionId ? {} : last;

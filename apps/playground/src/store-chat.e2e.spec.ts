@@ -371,8 +371,9 @@ describe("the store, end to end", () => {
 
 			await expect(asking).rejects.toThrow();
 			expect(model.answeredEverything).toBe(false);
-			// The strings a consumer reads off a published event, which is all an application has.
-			expect(bed.events.countByType("run.cancelled")).toBe(1);
+
+			const cancelledCount = bed.events.countByType("run.cancelled");
+			expect(cancelledCount).toBe(1);
 			expect(bed.events.countByType("run.completed")).toBe(0);
 			expect(bed.events.countByType("run.failed")).toBe(0);
 		});

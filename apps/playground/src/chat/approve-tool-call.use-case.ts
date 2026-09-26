@@ -2,12 +2,6 @@ import { type AgentResult, ToolCallId } from "@nestjs-adk/core";
 import { Injectable } from "@nestjs/common";
 import { ConciergeAgent } from "../agents/concierge/concierge.agent";
 
-/**
- * The human saying yes to a tool that was waiting for one.
- *
- * The decision is taken on the session and the call, never on the agent, so the answer
- * reaches the run whichever sector was holding the conversation when it stopped.
- */
 @Injectable()
 export class ApproveToolCallUseCase {
 	public constructor(private readonly concierge: ConciergeAgent) {}

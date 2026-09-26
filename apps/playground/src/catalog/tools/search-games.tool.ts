@@ -8,13 +8,6 @@ const schema = z.object({
 		.describe("Part of the title, platform (ps5, xbox, switch, pc), or genre. Empty lists the entire store."),
 });
 
-/**
- * The shelf, without prices.
- *
- * Prices are deliberately absent: what a customer pays depends on how many copies they
- * want, so the shelf answers what exists and `quote_game` answers what it costs. That also
- * means comparing four titles is four quotes, which is the shape of the question anyway.
- */
 @Tool({
 	name: "search_games",
 	description: "Lists store games matching a term, including platform and genre.",

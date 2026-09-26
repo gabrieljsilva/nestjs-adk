@@ -10,11 +10,8 @@ const openTicketSchema = z.object({
 });
 
 /**
- * The sector that receives a broken product.
- *
- * It both transfers to billing and delegates to it, which are different things: the limit
- * of a plan is one question it asks and carries on from, and a refund is the moment the
- * conversation stops being about the defect and starts being about money.
+ * The sector that receives a broken product. It transfers to billing for a refund and
+ * delegates to it for a plan limit, since only one of those ends the conversation.
  */
 @Agent({
 	name: "warranty",
@@ -37,13 +34,6 @@ export class WarrantyAgent extends AdkAgent {
 		return "Warranty: 90 days against manufacturing defects in accessories and physical media. A product that arrives broken is exchanged or refunded, and one photo is enough.";
 	}
 
-	/**
-	 * A write, not a destruction: a ticket opened by mistake is closed, money is not.
-	 *
-	 * The photo is not an argument. The model looked at it, and where it is kept is the
-	 * session, which the runtime hands every tool: asking the model to copy an address back
-	 * would be asking it to transcribe a URL correctly, which is a thing models get wrong.
-	 */
 	@Tool({
 		name: "open_ticket",
 		description: "Opens a warranty ticket for an order with a description of the defect.",

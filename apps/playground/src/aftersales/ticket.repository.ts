@@ -5,7 +5,6 @@ import { Ticket } from "./ticket";
 
 const COLUMNS = "id, order_id, reason, session_id, opened_at";
 
-/** Rows in, `Ticket` out. */
 @Injectable()
 export class TicketRepository {
 	public constructor(private readonly database: StoreDatabase) {}

@@ -6,12 +6,6 @@ import { TicketRepository } from "./ticket.repository";
 
 const PREFIX = "T-";
 
-/**
- * Opening a complaint about an order.
- *
- * The order is read first, so a ticket can never point at a number the store never sold,
- * and the customer hears about the wrong number instead of being told everything is fine.
- */
 @Injectable()
 export class TicketService {
 	public constructor(

@@ -1,12 +1,5 @@
 const CENTS_PER_REAL = 100;
 
-/**
- * Whether a refund may be issued, and what to tell the customer when it may not.
- *
- * The reason is part of the answer rather than a log line: it is what the agent reads
- * back to whoever asked, so a refusal that cannot explain itself is a refusal nobody
- * can act on.
- */
 export class RefundDecision {
 	private constructor(
 		public readonly allowed: boolean,

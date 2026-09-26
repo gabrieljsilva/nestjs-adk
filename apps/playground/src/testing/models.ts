@@ -24,11 +24,6 @@ export const openAILuna = new OpenAiModel("gpt-5.6-luna", {
 	body: { reasoning_effort: "none" },
 });
 
-/**
- * A model that thinks before it calls, behind a compatible endpoint: the one shape the
- * OpenAI adapter has to carry back on the next request of the turn. Optional, so a machine
- * without the key skips those cases instead of refusing every paid suite.
- */
 export const deepseekFlash =
 	deepseekApiKey === undefined
 		? undefined

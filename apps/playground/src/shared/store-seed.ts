@@ -7,18 +7,9 @@ import { GameRepository } from "../catalog/game.repository";
 
 const MILLIS_PER_DAY = 24 * 60 * 60 * 1000;
 
-/** Inside the seven day window, and well outside it: one order for each side of the rule. */
 const RECENT_DAYS = 2;
 const OLD_DAYS = 40;
 
-/**
- * The shelf.
- *
- * Six titles is enough to search through, to quote from and to compare, and small enough
- * that a test can assert an exact number. The prices are not round on purpose: a total
- * only the catalog knows is what tells an answer that used the tool from an answer the
- * model made up.
- */
 const SHELF: readonly Game[] = [
 	Game.of("elden-ring-nightreign", "Elden Ring Nightreign", "ps5", "action", 27_990, true),
 	Game.of("hollow-knight-silksong", "Hollow Knight Silksong", "switch", "metroidvania", 8_490, true),
@@ -28,14 +19,6 @@ const SHELF: readonly Game[] = [
 	Game.of("ea-fc-27", "EA FC 27", "ps5", "sports", 29_990, false),
 ];
 
-/**
- * What the store already had when it opened.
- *
- * It runs at boot and writes nothing that is already there, so an application that opens
- * the same database file again keeps the orders and the tickets it accumulated. Delivery
- * dates are relative to the clock rather than fixed, because a refund window measured
- * against a date written in 2026 stops meaning anything in 2027.
- */
 @Injectable()
 export class StoreSeed implements OnModuleInit {
 	public constructor(

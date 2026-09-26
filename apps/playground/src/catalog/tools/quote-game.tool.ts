@@ -8,14 +8,6 @@ const schema = z.object({
 	quantity: z.number().int().min(1).default(1).describe("How many copies the customer wants."),
 });
 
-/**
- * What a number of copies of one title costs.
- *
- * A title the catalog does not have comes back as an answer rather than as a failure: the
- * run can recover from being told the name is wrong, and cannot recover from a tool that
- * throws. Anything else is left to fail, because a broken database is not something a
- * model should be inventing an answer around.
- */
 @Tool({
 	name: "quote_game",
 	description: "Quotes a game in Brazilian reais with the discount for three or more copies already applied.",

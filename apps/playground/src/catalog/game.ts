@@ -1,12 +1,5 @@
 const CENTS_PER_REAL = 100;
 
-/**
- * One title the store sells, as the catalog holds it.
- *
- * Money is in cents because a total compared in floating point is a total that is off by
- * a centavo on the day somebody notices. Reais exist for reading, and for the one place a
- * customer sees a number.
- */
 export class Game {
 	private constructor(
 		public readonly slug: string,

@@ -6,13 +6,6 @@ import type { Order } from "./order";
 import { RefundLimitUseCase } from "./refund-limit.use-case";
 import type { Ticket } from "./ticket";
 
-/**
- * After sales over HTTP, for the customer who is not talking to the agent.
- *
- * Every route here has a tool behind the same use case, which is the point: the store
- * has one way to open a ticket and one way to refund an order, and a conversation is a
- * second entrance to it rather than a second implementation of it.
- */
 @Controller("aftersales")
 export class AftersalesController {
 	public constructor(
@@ -32,7 +25,6 @@ export class AftersalesController {
 		return this.refundLimitUseCase.execute(plan);
 	}
 
-	/** Opened on the site, so there is no conversation behind it. */
 	@Post("tickets")
 	public open(@Body("orderId") orderId: string, @Body("reason") reason: string): Ticket {
 		return this.openTicketUseCase.execute(orderId, reason);

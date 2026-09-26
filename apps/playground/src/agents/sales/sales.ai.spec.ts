@@ -71,10 +71,10 @@ describe("AI: sales, tools and the answer they produce", () => {
 		expect(run.cost.unpriced).toEqual([]);
 		expect(run.cost.byModel.map((model) => model.model.toString())).toEqual(["openai/gpt-5.6-luna"]);
 		expect(run.cost.total.pico).toBeGreaterThan(0n);
-		// The precision promise on a real amount: an exact decimal, never `8.8e-6`.
-		expect(run.cost.total.toString()).toMatch(/^\d+(\.\d+)?$/);
 
-		// A tool call is two turns at least, and both belong to the same entry.
+		const totalAsDecimal = run.cost.total.toString();
+		expect(totalAsDecimal).toMatch(/^\d+(\.\d+)?$/);
+
 		const priced = run.cost.byModel[0];
 		expect(priced?.calls).toBeGreaterThan(1);
 		expect(priced?.usage.inputTokens).toBeGreaterThan(0);
@@ -106,7 +106,6 @@ describe("AI: sales, tools and the answer they produce", () => {
 			.withConsumers(new RunTranscript())
 			.boot();
 
-		// The bed keeps the conversation, so the second question replays the first as its prefix.
 		const preamble = "For context, our procurement policy reads as follows. ".repeat(60);
 		const sales = bed.agent(SalesAgent);
 		await sales.ask(`${preamble} How much does one copy of Stardew Valley cost?`);
@@ -128,8 +127,8 @@ describe("AI: sales, tools and the answer they produce", () => {
 			priced.breakdown.input.pico + priced.breakdown.output.pico + priced.breakdown.cached.pico,
 		);
 
-		// A prompt this size is far from the band the catalog declares, so the base rates applied.
-		expect(price.resolveRates(inputTokens).input.picoPerToken).toBe(price.input.picoPerToken);
+		const resolvedRates = price.resolveRates(inputTokens);
+		expect(resolvedRates.input.picoPerToken).toBe(price.input.picoPerToken);
 
 		/**
 		 * Whether the cache engaged is the provider's call and not something to fail a run over.

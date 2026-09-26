@@ -11,13 +11,6 @@ const CENTS_PER_REAL = 100;
 const findOrderSchema = z.object({ orderId: z.string().describe("Order number, for example A-1042.") });
 const refundLimitSchema = z.object({ plan: z.string().describe("Customer plan: gold, silver, or bronze.") });
 
-/**
- * The sector money leaves from.
- *
- * Reading an order and reading a plan limit are methods here, because nothing outside a
- * conversation asks them that way. Refunding is a class, because the site refunds through
- * the same tool, and because a destructive tool is easier to find when it has its own file.
- */
 @Agent({
 	name: "billing",
 	description: "Billing department: orders, refund limits by plan, and refunds.",

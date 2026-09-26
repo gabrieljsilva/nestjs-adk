@@ -12,14 +12,6 @@ import {
 
 const WORDS = 40;
 
-/**
- * A model that answers slowly and stops when the run is aborted.
- *
- * A scripted model answers in one go, so nothing can be cancelled halfway through it. This
- * is the shape of a real provider adapter instead: it checks the signal between chunks and
- * throws when it is aborted, which is what the SDKs behind OpenAI and Gemini do with the
- * `signal` they are handed.
- */
 export class SlowAnswer extends LlmModel {
 	public words = 0;
 

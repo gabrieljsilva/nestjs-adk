@@ -5,12 +5,10 @@ import { Order } from "./order";
 
 const COLUMNS = "id, customer, product, total_cents, plan, delivered_on, status, refunded_cents";
 
-/** Rows in, `Order` out. Nothing here decides whether a refund may happen. */
 @Injectable()
 export class OrderRepository {
 	public constructor(private readonly database: StoreDatabase) {}
 
-	/** Ignores an order the store already has, so seeding twice is not an error. */
 	public save(order: Order): void {
 		this.database.connection.run(
 			`INSERT OR IGNORE INTO orders (${COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -30,7 +28,6 @@ export class OrderRepository {
 		return row === undefined ? undefined : this.orderOf(row);
 	}
 
-	/** The write a refund is: the money is recorded against the order that was refunded. */
 	public markRefunded(order: Order, cents: number): Order {
 		const refunded = order.refunded(cents);
 		this.database.connection.run(

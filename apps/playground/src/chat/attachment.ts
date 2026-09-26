@@ -1,24 +1,10 @@
 import { MediaPart } from "@nestjs-adk/core";
 import { InvalidAttachmentError } from "./errors/invalid-attachment.error";
 
-/** An address the provider can fetch for itself, which is what an upload leaves behind. */
 const ADDRESS_PREFIXES = ["http://", "https://"];
 
-/** `type/subtype`, which is all a media type has to look like for the runtime to route it. */
 const MEDIA_TYPE = /^[a-z]+\/[a-z0-9.+-]+$/i;
 
-/**
- * One file a customer attached to a message, as an address or as bytes.
- *
- * Both shapes exist because both happen. A chat that uploads first sends where the file
- * is, which costs nothing to store and nothing to send. A client that has the bytes in
- * hand, a mobile camera being the usual one, sends them base64 encoded and never uploads
- * anywhere. What the runtime does with each is different, and deciding which is which is
- * the one thing this class is for.
- *
- * The type travels either way, because nothing can be inferred from an address and the
- * model has to be told what it is about to look at.
- */
 export class Attachment {
 	private constructor(
 		public readonly mediaType: string,
@@ -26,7 +12,6 @@ export class Attachment {
 		private readonly encoded?: string,
 	) {}
 
-	/** A file somebody already uploaded, named by URL. */
 	public static of(url: string, mediaType: string): Attachment {
 		if (!ADDRESS_PREFIXES.some((prefix) => url.startsWith(prefix))) {
 			throw new InvalidAttachmentError(url, "an http address");
@@ -35,14 +20,12 @@ export class Attachment {
 		return new Attachment(mediaType, url);
 	}
 
-	/** The bytes themselves, base64 encoded, for a client that never uploaded anything. */
 	public static bytes(base64: string, mediaType: string): Attachment {
 		if (base64 === "") throw new InvalidAttachmentError(base64, "base64 content");
 		Attachment.assertMediaType("the attached bytes", mediaType);
 		return new Attachment(mediaType, undefined, base64);
 	}
 
-	/** What a request body carries: a list of attachments, or nothing, and unknown until read. */
 	public static listFrom(value: unknown): readonly Attachment[] {
 		if (value === undefined || value === null) return [];
 		if (!Array.isArray(value)) throw new InvalidAttachmentError(String(value), "a list of attachments");
@@ -57,12 +40,10 @@ export class Attachment {
 		return this.address !== undefined;
 	}
 
-	/** Where the file is, for a caller that records the attachment rather than sends it. */
 	public get url(): string | undefined {
 		return this.address;
 	}
 
-	/** The shape the runtime takes, which is the only reason this class knows about media. */
 	public toMediaPart(): MediaPart {
 		const address = this.address;
 		if (address !== undefined) return MediaPart.link(address, this.mediaType);

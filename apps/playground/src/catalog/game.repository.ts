@@ -5,15 +5,12 @@ import { Game } from "./game";
 
 const COLUMNS = "slug, title, platform, genre, price_cents, is_digital";
 
-/** Enough for a customer to choose from, and short enough to fit in one answer. */
 const SEARCH_LIMIT = 8;
 
-/** Rows in, `Game` out. Nothing here decides anything about a price. */
 @Injectable()
 export class GameRepository {
 	public constructor(private readonly database: StoreDatabase) {}
 
-	/** Ignores a title the catalog already has, so seeding twice is not an error. */
 	public save(game: Game): void {
 		this.database.connection.run(
 			`INSERT OR IGNORE INTO games (${COLUMNS}) VALUES (?, ?, ?, ?, ?, ?)`,

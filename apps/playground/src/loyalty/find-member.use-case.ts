@@ -3,7 +3,6 @@ import type { ClubMember } from "./club-member";
 import { MemberNotFoundError } from "./errors/member-not-found.error";
 import { MemberRepository } from "./member.repository";
 
-/** Who the club is talking to, for a prompt that is written around knowing. */
 @Injectable()
 export class FindMemberUseCase {
 	public constructor(private readonly members: MemberRepository) {}

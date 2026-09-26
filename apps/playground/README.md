@@ -13,7 +13,7 @@ Customer support has four sectors, which is what makes transfer and delegation a
 | Sector | Agent | Tools |
 | --- | --- | --- |
 | Front desk | `concierge` | none, it only decides which sector owns the question |
-| Sales | `sales` | `search_games`, `quote_game` |
+| Sales | `sales` | `search_games`, `quote_game`, `get_warehouse_report`, the artifact exploration tools, and `edit_artifact` |
 | Warranty | `warranty` | `open_ticket`, and delegates the refund ceiling to billing |
 | Billing | `billing` | `find_order`, `refund_limit`, `issue_refund` |
 
@@ -45,7 +45,7 @@ Every level is driven from the repository root.
 npm run test:playground
 ```
 
-54 files, 228 cases, no key and no network. Each layer is tested alone: repository against an in memory database, service and use case against fakes, controller against a fake use case.
+58 files, 246 cases, no key and no network. Each layer is tested alone: repository against an in memory database, service and use case against fakes, controller against a fake use case.
 
 `store-chat.e2e.spec.ts` is the one that boots the whole application with `Test.createTestingModule` and answers a conversation with `ScriptedModel` in place of a provider. It is where the paths that would be expensive to prove with a real model live: an approval refused, a tool that fails, an iteration limit, and compaction replacing turns with a summary.
 
@@ -55,7 +55,7 @@ npm run test:playground
 npm run test:playground:agents
 ```
 
-42 cases in 5 files, one file per sector plus one for the testing API itself. Only what a fake cannot answer: whether a real model picks the right sector, calls the tool with the arguments the catalog expects, stops in front of a human before money leaves, and looks at a photo.
+50 cases in 6 files, one file per sector, one for the artifact tools sales can now reach, and one for the testing API itself. Only what a fake cannot answer: whether a real model picks the right sector, calls the tool with the arguments the catalog expects, stops in front of a human before money leaves, looks at a photo, and reads or edits a file it was handed.
 
 Requires both keys in a `.env` at the repository root:
 
@@ -70,7 +70,7 @@ GEMINI_API_KEY=...
 
 Three models, and no others: `gpt-5.6-luna` runs the store, `gemini-3.5-flash-lite` is the second provider, and `gemini-embedding-2` backs the similarity case. Every scenario is the smallest question with a right answer, `temperature: 0` where the provider accepts it, and a 256 token output ceiling.
 
-Measured over the full run: 42 cases in 5 files, all green, 96 seconds of wall clock. The files run one at a time, because four suites against one key spend the per minute quota on rate limit errors instead of on answers. Prompts are a few thousand characters, so the run sits in the cents.
+The full run is 50 cases in 6 files, all green. The files run one at a time, because six suites against one key spend the per minute quota on rate limit errors instead of on answers. Prompts are a few thousand characters, so the run sits in the cents.
 
 The agreed ceiling for the whole suite is two dollars. What the run cost in money is not reported here, and that is a gap rather than an omission: token usage is journalled per assistant message along with the model that served it, but turning tokens into currency is native pricing, which is not in this release. Until it is, read the figure off the provider's own dashboard.
 

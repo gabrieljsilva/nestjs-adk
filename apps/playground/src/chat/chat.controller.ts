@@ -6,17 +6,6 @@ import { InspectSessionUseCase } from "./inspect-session.use-case";
 import { RejectToolCallUseCase } from "./reject-tool-call.use-case";
 import { SendMessageUseCase } from "./send-message.use-case";
 
-/**
- * The conversation over HTTP.
- *
- * Four routes, and every one of them is one line: say something, decide on a call that is
- * waiting, and read where the conversation stands. The session id comes back from the
- * first answer and is sent on every message after it, which is how a stateless request
- * continues a stateful conversation.
- *
- * The attachments are the one thing read rather than passed on: a body says whatever the
- * caller typed, so it becomes `Attachment` here or the request fails here.
- */
 @Controller("chat")
 export class ChatController {
 	public constructor(

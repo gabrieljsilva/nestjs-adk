@@ -4,12 +4,6 @@ import type { Game } from "./game";
 import { GameRepository } from "./game.repository";
 import { Quote } from "./quote";
 
-/**
- * What the store knows about what it sells.
- *
- * Searching and quoting are separate on purpose: the shelf is public and cheap, and the
- * quote needs a title that exists, which is the one rule here.
- */
 @Injectable()
 export class CatalogService {
 	public constructor(private readonly games: GameRepository) {}
