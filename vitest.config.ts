@@ -1,8 +1,10 @@
+import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import swc from "unplugin-swc";
 import { defineConfig } from "vitest/config";
 
-process.loadEnvFile(resolve(__dirname, ".env"));
+const envFile = resolve(__dirname, ".env");
+if (existsSync(envFile)) process.loadEnvFile(envFile);
 
 export default defineConfig({
 	resolve: {

@@ -25,8 +25,7 @@ import { SharedModule, storeConnection, uploadsVault } from "./shared/shared.mod
 import { StoreSeed } from "./shared/store-seed";
 
 const MODEL = process.env.PLAYGROUND_MODEL ?? "gemini-3.5-flash-lite";
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-if (GEMINI_API_KEY === undefined) throw new Error("GEMINI_API_KEY is required");
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? "";
 
 export const geminiFlashLite = new GeminiModel(MODEL, {
 	apiKey: new Secret(GEMINI_API_KEY),
